@@ -30,6 +30,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import unicodedata
 
 FEED_DOMAIN = b"Linux VST Bridge update feed v1\0"
 PACKAGE_DOMAIN = b"Linux VST Bridge user package v1\0"
@@ -38,6 +39,11 @@ SIGNATURE_FILE = "latest.json.sig"
 CHANNEL = "beta"
 NOTES_MAX = 16 * 1024
 SPKI_PREFIX = bytes.fromhex("302a300506032b6570032100")
+# The installer's own bounds (portable_package.rs).
+MANIFEST_MAX = 4 * 1024 * 1024
+PAYLOAD_MAX = 2_000_000_000
+LAUNCHER_MAX = 256 * 1024 * 1024
+PUBLISHED = re.compile(r"[!-~]{1,64}")
 VERSION = re.compile(r"[0-9][A-Za-z0-9.]{0,79}")
 SYSTEM = re.compile(r"[a-z0-9._-]{1,32}")
 FILE = re.compile(r"[A-Za-z0-9_][A-Za-z0-9._-]{0,150}\.install")
@@ -82,40 +88,50 @@ def openssl_verify(public_key, message, signature):
         return result.returncode == 0
 
 
+def hash_range(source, length, name):
+    digest = hashlib.sha256()
+    while length:
+        block = source.read(min(length, 1 << 20))
+        require(block, f"{name}: installer layout")
+        digest.update(block)
+        length -= len(block)
+    return digest
+
+
 def installer_release(path, public_key, key_class):
-    """The installer's signed release manifest, after verifying its signature
-    the same way the installer itself does."""
+    """The installer's signed release manifest, after the checks the manager
+    makes before staging it: ELF launcher, footer and layout bounds, the
+    manifest signature over the launcher hash, and the payload hash."""
     size = path.stat().st_size
-    require(size > 40, f"{path.name}: not a signed installer")
+    require(40 < size <= PAYLOAD_MAX + LAUNCHER_MAX, f"{path.name}: not a signed installer")
     with open(path, "rb") as source:
+        require(source.read(4) == b"\x7fELF", f"{path.name}: not an ELF installer")
         source.seek(size - 40)
         footer = source.read(40)
         require(footer[:8] == b"LVBUSER1", f"{path.name}: not a signed installer")
         offset, manifest_size, signature_size, payload_size = struct.unpack("<QQQQ", footer[8:])
-        require(signature_size == 64 and manifest_size <= 4 * 1024 * 1024
+        require(4 <= offset <= LAUNCHER_MAX and manifest_size <= MANIFEST_MAX and signature_size == 64
+                and payload_size <= PAYLOAD_MAX
                 and offset + manifest_size + 64 + payload_size + 40 == size, f"{path.name}: installer layout")
-        base = hashlib.sha256()
         source.seek(0)
-        remaining = offset
-        while remaining:
-            block = source.read(min(remaining, 1 << 20))
-            require(block, f"{path.name}: installer layout")
-            base.update(block)
-            remaining -= len(block)
+        base = hash_range(source, offset, path.name)
         manifest = source.read(manifest_size)
         signature = source.read(64)
+        payload = hash_range(source, payload_size, path.name).hexdigest()
     require(openssl_verify(public_key, PACKAGE_DOMAIN + key_class.encode() + b"\0" + base.digest() + manifest,
                            signature), f"{path.name}: installer signature does not verify with this public key and key class")
     release = json.loads(manifest)
     require(release.get("package") == "linux-vst-bridge-beta" and VERSION.fullmatch(release.get("version", "")),
             f"{path.name}: release manifest")
+    require(release.get("payload_sha256") == payload, f"{path.name}: payload differs from its signed manifest")
     return release
 
 
 def read_notes(path):
     text = Path(path).read_text(encoding="utf-8").strip("\n") + "\n"
     require(len(text.encode()) <= NOTES_MAX, "notes are longer than 16 KiB")
-    require(all(c in "\n\r\t" or (ord(c) >= 32 and ord(c) != 127) for c in text), "notes contain control characters")
+    # The manager refuses every Unicode control character but these three (C0, DEL and C1).
+    require(all(c in "\n\r\t" or unicodedata.category(c) != "Cc" for c in text), "notes contain control characters")
     return text
 
 
@@ -140,9 +156,11 @@ def feed_from_ready(ready, notes, min_version, public_key, key_class, published=
         require(SYSTEM.fullmatch(name) and name not in packages and target in packages,
                 f"alias {alias}: use NAME=SYSTEM with an existing system")
         packages[name] = dict(packages[target])
+    require(1 <= len(packages) <= 16, "a feed lists 1 to 16 packages")
     require(VERSION.fullmatch(min_version) and version_key(min_version) <= version_key(version),
             "min version must be a version no newer than the build")
     published = published or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    require(PUBLISHED.fullmatch(published), "published must be 1 to 64 printable ASCII characters without spaces")
     return {"schema": 1, "channel": CHANNEL, "version": version, "published": published,
             "min_version": min_version, "notes": read_notes(notes), "packages": packages}
 
@@ -212,12 +230,19 @@ class Destination:
         host, sep, path = spec.partition(":")
         self.host = host if sep and "/" not in host else None
         self.path = path if self.host else spec
+        require(not (self.host or "").startswith("-"), "the beta host must not start with '-'")
 
-    def run(self, command, data=None):
-        if self.host:
-            return subprocess.run(["ssh", "-o", "BatchMode=yes", self.host, command], input=data,
-                                  capture_output=True, timeout=1800)
-        return subprocess.run(["sh", "-c", command], input=data, capture_output=True, timeout=1800)
+    def run(self, command, data=None, stdin=None):
+        """`data` is sent as bytes; `stdin` streams an open file."""
+        argv = ["ssh", "-o", "BatchMode=yes", "--", self.host, command] if self.host else ["sh", "-c", command]
+        if stdin is not None:
+            return subprocess.run(argv, stdin=stdin, capture_output=True, timeout=1800)
+        return subprocess.run(argv, input=data, capture_output=True, timeout=1800)
+
+    def read(self, name):
+        result = self.run(f"if [ -f {self.target(name)} ]; then cat {self.target(name)}; fi")
+        require(result.returncode == 0, f"could not read the beta folder: {result.stderr.decode(errors='replace').strip()}")
+        return result.stdout
 
     def target(self, name):
         return shlex.quote(str(Path(self.path) / name))
@@ -230,12 +255,11 @@ class Destination:
 
     def put(self, source, name, mode, replace=False):
         temporary = f".{name}.uploading"
-        with open(source, "rb") as data:
-            payload = data.read()
         rename = "mv -f" if replace else "mv -n"
         command = (f"test -d {shlex.quote(self.path)} && cat > {self.target(temporary)} && chmod {mode} {self.target(temporary)}"
                    f" && {rename} {self.target(temporary)} {self.target(name)} && test ! -e {self.target(temporary)}")
-        result = self.run(command, payload)
+        with open(source, "rb") as data:
+            result = self.run(command, stdin=data)
         require(result.returncode == 0, f"copying {name} failed: {result.stderr.decode(errors='replace').strip()}")
 
 
@@ -243,6 +267,14 @@ def upload(args):
     public_key = public_key_hex(args.public_key)
     feed, data, signature, files = verified_feed(args.feed_dir, args.ready, public_key, args.key_class)
     destination = Destination(args.dest)
+    published = destination.read(FEED_FILE)
+    if published:
+        try:
+            current = json.loads(published).get("version", "")
+        except ValueError:
+            current = ""
+        require(args.force_older or not VERSION.fullmatch(current) or version_key(current) <= version_key(feed["version"]),
+                f"the beta folder already offers {current}, newer than {feed['version']}; use --force-older to replace it")
     copied, kept = [], []
     for name, (path, digest) in sorted(files.items()):
         existing = destination.existing_sha256(name)
@@ -284,6 +316,8 @@ def main(argv=None):
     sender.add_argument("--dest", required=True, help="beta folder: PATH or HOST:PATH")
     sender.add_argument("--public-key", required=True)
     sender.add_argument("--key-class", choices=("internal_test", "release"), required=True)
+    sender.add_argument("--force-older", action="store_true",
+                        help="replace a newer published feed with this older one")
     args = parser.parse_args(argv)
     try:
         result = build(args) if args.command == "build" else upload(args)

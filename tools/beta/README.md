@@ -275,7 +275,8 @@ writes both from a verified build's `ready/` folder; nothing is edited by hand.
      --key-class internal_test --output /out/testNNN/feed
    ```
 
-   Each installer's own signature is verified with the public key first. The
+   Each installer is first checked as the manager will check it: ELF launcher,
+   layout bounds, its signature with the public key and its payload hash. The
    feed lists one package per system, named from the file names (`cachyos`,
    `steamos`, …), with real sizes and SHA-256; `--alias arch=cachyos` adds a
    family entry. `--min-version` is the oldest installed build that may update
@@ -293,9 +294,11 @@ writes both from a verified build's `ready/` folder; nothing is edited by hand.
 
    The feed signature and every listed installer are verified again. Installers
    are copied first (an identical file is kept, a different file with the same
-   name is refused), then the feed replaces the previous one. Older builds and
-   other files in the folder are never deleted, and the beta server's own
-   configuration is not touched.
+   name is refused, and installers are streamed, not held in memory), then the
+   feed replaces the previous one. A published feed for a newer build is not
+   replaced unless `--force-older` is given. Older builds and other files in the
+   folder are never deleted, and the beta server's own configuration is not
+   touched.
 
 The feed signature is Ed25519 over `"Linux VST Bridge update feed v1\0"` + key
 class + `"\0"` + `latest.json`, by the same key and key class as the

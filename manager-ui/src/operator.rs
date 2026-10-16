@@ -587,6 +587,8 @@ pub struct Operator {
     operation_live: bool,
     prompt_pulse: bool,
     last_pulse: Option<crate::model::Pulse>,
+    /// When the last pulse arrived.
+    last_pulse_at: Option<Instant>,
     // An unavailable readback cannot clear a positively observed cleanup fault.
     cleanup_failure_observed: bool,
     readback_failures: u32,
@@ -637,6 +639,7 @@ impl Operator {
             operation_live: false,
             prompt_pulse: false,
             last_pulse: None,
+            last_pulse_at: None,
             cleanup_failure_observed: false,
             readback_failures: 0,
             retry_after: None,
@@ -686,6 +689,7 @@ impl Operator {
             operation_live: false,
             prompt_pulse: false,
             last_pulse: None,
+            last_pulse_at: None,
             cleanup_failure_observed: false,
             readback_failures: 0,
             retry_after: None,
@@ -988,14 +992,14 @@ impl Operator {
         if !self.overview_fresh && !self.overview_renewing { return None; }
         self.retained_health_system()
     }
-    /// Whether a DAW is using bridged plug-ins now; None while unobserved.
-    fn plugins_in_use(&self) -> Option<bool> {
-        if let Some(dsp) = self.last_pulse.as_ref()
-            .filter(|_| self.last_poll.elapsed() < Duration::from_secs(15))
-            .and_then(|pulse| pulse.dsp) {
-            return Some(dsp > 0);
-        }
-        self.current_health_system().map(|system| system.dsp > 0)
+    /// Whether a DAW is using bridged plug-ins, and when that was read; None
+    /// while unobserved.
+    fn plugins_in_use(&self) -> Option<(bool, Instant)> {
+        let pulse = self.last_pulse.as_ref().zip(self.last_pulse_at)
+            .filter(|(_, at)| at.elapsed() < Duration::from_secs(15))
+            .and_then(|(pulse, at)| pulse.dsp.map(|dsp| (dsp > 0, at)));
+        if pulse.is_some() || !self.overview_fresh { return pulse; }
+        self.current_health_system().map(|system| (system.dsp > 0, self.last_overview))
     }
     fn current_owned_pause(&self) -> bool {
         if self.cleanup_failure_observed { return false; }
@@ -1233,6 +1237,7 @@ impl Operator {
                     snapshot.operation = p.operation.clone();
                 }
                 self.last_pulse = Some(p);
+                self.last_pulse_at = Some(Instant::now());
                 if self.overview.is_none() || !self.overview_fresh {
                     self.refresh_after = true;
                 }
@@ -4500,6 +4505,7 @@ mod tests {
             operation_live: false,
             prompt_pulse: false,
             last_pulse: None,
+            last_pulse_at: None,
             cleanup_failure_observed: false,
             readback_failures: 0,
             retry_after: None,

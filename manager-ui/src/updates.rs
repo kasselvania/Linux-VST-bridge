@@ -1,19 +1,20 @@
 //! Setup's beta updates: paste the beta link once, check the signed update
 //! feed, download and stage a newer package, then hand over to that package's
 //! own Setup, which runs the existing Update Bridge step with all its checks.
-//! The beta key is never shown; only the site name is.
+//! The beta link and its key are never shown.
 use eframe::egui;
 use linux_vst_bridge::update_feed::{self as feed, BetaLink, Check, Offer, UpdateError};
 use std::{
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::{Child, Command, Stdio},
     sync::mpsc,
     time::{Duration, Instant},
 };
 
 const DAILY: Duration = Duration::from_secs(24 * 60 * 60);
-/// How long an unknown DAW state is waited on before Setup's own check decides.
-const DAW_UNKNOWN_WAIT: Duration = Duration::from_secs(20);
+/// A Setup still running this long after it was opened has taken over.
+const HANDOVER_SETTLE: Duration = Duration::from_millis(1500);
+const SETUP_DID_NOT_OPEN: &str = "Setup for the new version could not open. Open Linux VST Bridge Setup and Updates from your applications menu and choose Update Bridge.";
 
 enum Event {
     Checked(Result<Check, UpdateError>),
@@ -21,22 +22,58 @@ enum Event {
     Staged(Result<PathBuf, UpdateError>),
 }
 
+/// A plain line, with the manager's exact refusal kept for technical details.
+#[derive(Clone, Debug, PartialEq)]
+struct Notice { text: String, technical: Option<String> }
+impl From<UpdateError> for Notice {
+    fn from(error: UpdateError) -> Self {
+        Self { technical: error.technical().map(str::to_owned), text: error.to_string() }
+    }
+}
+impl From<&str> for Notice {
+    fn from(text: &str) -> Self { Self { text: text.into(), technical: None } }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 enum Status {
     Idle,
     Checking,
-    /// The last check failed; the text is one plain line.
-    Failed(String),
+    /// The last check failed.
+    Failed(Notice),
+    /// The installed version; nothing newer is published.
     UpToDate(String),
     NoPackage(String),
-    Manual(String),
+    /// None: a feed only a newer manager can read.
+    Manual(Option<String>),
     Available(Offer),
     Downloading { offer: Offer, done: u64, total: u64 },
-    /// Staged; waiting for the DAW to release bridged plug-ins.
+    /// Staged; waiting for a reading, taken after staging, that no DAW is
+    /// using bridged plug-ins.
     WaitingForDaw { offer: Offer, frontend: PathBuf, since: Instant },
-    /// Setup for the new version was opened.
+    /// Setup for the new version is opening.
+    HandingOver(Offer),
+    /// Setup for the new version has taken over.
     HandedOver,
 }
+
+/// What to do with a Setup that was just opened.
+#[derive(Debug, PartialEq, Eq)]
+enum HandoverStep { Wait, Close, RetryPlain, Fail }
+/// `exit`: None while Setup runs, else its exit code (None if killed).
+fn handover_step(exit: Option<Option<i32>>, elapsed: Duration, retried: bool) -> HandoverStep {
+    match exit {
+        None if elapsed >= HANDOVER_SETTLE => HandoverStep::Close,
+        None => HandoverStep::Wait,
+        // Setup finished on its own, e.g. it found this version already selected.
+        Some(Some(0)) => HandoverStep::Close,
+        // A Setup that predates --continue-update refuses it at once.
+        Some(Some(64)) if !retried => HandoverStep::RetryPlain,
+        // systemd-run could not make the scope, or Setup failed by itself:
+        // nothing is relaunched; this window stays open with a plain line.
+        Some(_) => HandoverStep::Fail,
+    }
+}
+struct Handover { child: Child, started: Instant, frontend: PathBuf, retried: bool }
 
 pub struct Updates {
     home: Option<PathBuf>,
@@ -47,9 +84,9 @@ pub struct Updates {
     status: Status,
     receiver: Option<mpsc::Receiver<Event>>,
     next_check: Option<Instant>,
-    show_notes: bool,
-    /// Why the last download stopped; the offer stays so it can be retried.
-    notice: Option<String>,
+    /// Why the last download or hand-over stopped; the offer stays.
+    notice: Option<Notice>,
+    handover: Option<Handover>,
 }
 
 fn version(text: &str) -> String { feed::display_version(text) }
@@ -64,18 +101,20 @@ impl Updates {
         };
         let next_check = link.is_some().then(Instant::now);
         Self { home, link, draft: String::new(), editing: false, link_message,
-            status: Status::Idle, receiver: None, next_check, show_notes: false, notice: None }
+            status: Status::Idle, receiver: None, next_check, notice: None, handover: None }
     }
     /// Previews and tests: no link, no checks, no files.
     #[allow(dead_code)]
     pub fn disabled() -> Self {
         Self { home: None, link: None, draft: String::new(), editing: false, link_message: None,
-            status: Status::Idle, receiver: None, next_check: None, show_notes: false, notice: None }
+            status: Status::Idle, receiver: None, next_check: None, notice: None, handover: None }
     }
+    /// Work is running that a new check or link must not interrupt.
     fn busy(&self) -> bool {
         matches!(self.status, Status::Checking | Status::Downloading { .. }
-            | Status::WaitingForDaw { .. } | Status::HandedOver)
+            | Status::HandingOver(_) | Status::HandedOver)
     }
+    fn waiting(&self) -> bool { matches!(self.status, Status::WaitingForDaw { .. }) }
     /// An update is available or under way; Home shows one line for it.
     pub fn headline(&self) -> Option<String> {
         match &self.status {
@@ -87,9 +126,11 @@ impl Updates {
     }
 
     /// Runs every frame: collects results, starts the start-up and daily
-    /// checks, and hands over once the DAW is closed. Returns true when this
-    /// window should close because the new version's Setup has opened.
-    pub fn poll(&mut self, ctx: &egui::Context, plugins_in_use: Option<bool>) -> bool {
+    /// checks, and hands over once a fresh reading shows no DAW is using
+    /// bridged plug-ins. `plugins_in_use` is that reading and when it was
+    /// taken. Returns true when this window should close because the new
+    /// version's Setup has taken over.
+    pub fn poll(&mut self, ctx: &egui::Context, plugins_in_use: Option<(bool, Instant)>) -> bool {
         while let Some(event) = self.receiver.as_ref().and_then(|r| r.try_recv().ok()) {
             match event {
                 Event::Checked(result) => {
@@ -97,10 +138,10 @@ impl Updates {
                     self.next_check = Some(Instant::now() + DAILY);
                     self.status = match result {
                         Ok(Check::Available(offer)) => Status::Available(offer),
-                        Ok(Check::UpToDate { latest }) => Status::UpToDate(latest),
+                        Ok(Check::UpToDate { installed }) => Status::UpToDate(installed),
                         Ok(Check::NoPackage { latest, .. }) => Status::NoPackage(latest),
                         Ok(Check::ManualUpdate { latest }) => Status::Manual(latest),
-                        Err(error) => Status::Failed(error.to_string()),
+                        Err(error) => Status::Failed(error.into()),
                     };
                 }
                 Event::Progress(done, total) => {
@@ -114,35 +155,81 @@ impl Updates {
                     self.status = match result {
                         Ok(frontend) => Status::WaitingForDaw { offer: offer.clone(), frontend, since: Instant::now() },
                         Err(error) => {
-                            self.notice = Some(error.to_string());
+                            self.notice = Some(error.into());
                             Status::Available(offer.clone())
                         }
                     };
                 }
             }
         }
-        if !self.busy() && self.link.is_some()
+        if !self.busy() && !self.waiting() && self.link.is_some()
             && self.next_check.is_some_and(|due| Instant::now() >= due) {
             self.start_check(ctx);
         }
-        let mut close = false;
-        if let Status::WaitingForDaw { frontend, since, .. } = &self.status {
-            let ready = match plugins_in_use {
-                Some(in_use) => !in_use,
-                None => since.elapsed() >= DAW_UNKNOWN_WAIT,
-            };
-            if ready {
-                match hand_over(frontend) {
-                    Ok(()) => { self.status = Status::HandedOver; close = true; }
-                    Err(error) => self.status = Status::Failed(error),
-                }
+        if let Status::WaitingForDaw { offer, frontend, since } = &self.status {
+            if plugins_in_use.is_some_and(|(in_use, at)| !in_use && at > *since) {
+                let (offer, frontend) = (offer.clone(), frontend.clone());
+                self.start_handover(offer, frontend);
             }
         }
-        if self.busy() && !close { ctx.request_repaint_after(Duration::from_millis(250)); }
+        let close = self.poll_handover();
+        if (self.busy() || self.waiting()) && !close {
+            ctx.request_repaint_after(Duration::from_millis(250));
+        }
         if let Some(due) = self.next_check.filter(|_| !self.busy()) {
             ctx.request_repaint_after(due.saturating_duration_since(Instant::now()).max(Duration::from_secs(1)));
         }
         close
+    }
+
+    fn start_handover(&mut self, offer: Offer, frontend: PathBuf) {
+        match open_setup(&frontend, true) {
+            Ok(child) => {
+                self.handover = Some(Handover { child, started: Instant::now(), frontend, retried: false });
+                self.status = Status::HandingOver(offer);
+            }
+            Err(()) => {
+                self.notice = Some(SETUP_DID_NOT_OPEN.into());
+                self.status = Status::Available(offer);
+            }
+        }
+    }
+
+    /// Never waits on the UI thread: Setup's early exit is read once a frame.
+    fn poll_handover(&mut self) -> bool {
+        let Some(handover) = self.handover.as_mut() else { return false };
+        let exit = match handover.child.try_wait() {
+            Ok(None) => None,
+            Ok(Some(status)) => Some(status.code()),
+            Err(_) => Some(None),
+        };
+        match handover_step(exit, handover.started.elapsed(), handover.retried) {
+            HandoverStep::Wait => false,
+            HandoverStep::Close => {
+                self.handover = None;
+                self.status = Status::HandedOver;
+                true
+            }
+            HandoverStep::RetryPlain => {
+                match open_setup(&handover.frontend, false) {
+                    Ok(child) => {
+                        handover.child = child;
+                        handover.started = Instant::now();
+                        handover.retried = true;
+                    }
+                    Err(()) => self.fail_handover(),
+                }
+                false
+            }
+            HandoverStep::Fail => { self.fail_handover(); false }
+        }
+    }
+    fn fail_handover(&mut self) {
+        self.handover = None;
+        if let Status::HandingOver(offer) = &self.status {
+            self.status = Status::Available(offer.clone());
+        }
+        self.notice = Some(SETUP_DID_NOT_OPEN.into());
     }
 
     fn start_check(&mut self, ctx: &egui::Context) {
@@ -213,7 +300,7 @@ impl Updates {
             ui.set_min_width((ui.available_width() - 1.0).max(0.0));
             ui.label(egui::RichText::new("Beta updates").size(18.0).strong());
             if self.link.is_none() || self.editing {
-                ui.label("Paste the beta link you were sent once. The manager then checks for new test builds by itself.");
+                ui.label("Paste the beta link from your invitation. You only need to do this once.");
                 ui.horizontal_wrapped(|ui| {
                     let field = ui.add(egui::TextEdit::singleline(&mut self.draft)
                         .password(true).hint_text("Paste your beta link").desired_width(360.0));
@@ -229,10 +316,10 @@ impl Updates {
                     }
                 });
                 ui.small("The link's key is stored privately on this computer and is never shown or sent anywhere else.");
-            } else if let Some(site) = self.link.as_ref().map(|link| link.site().to_owned()) {
+            } else {
                 let busy = self.busy();
                 ui.horizontal_wrapped(|ui| {
-                    ui.label(format!("Checking {site} for new builds."));
+                    ui.label("The manager checks your beta link for new builds.");
                     if !busy && ui.button("Paste a new link").clicked() {
                         self.editing = true;
                         self.link_message = None;
@@ -246,24 +333,28 @@ impl Updates {
             ui.add_space(4.0);
             let ctx = ui.ctx().clone();
             let mut download = None;
+            let mut cancel = false;
             match &self.status {
                 Status::Idle => {}
                 Status::Checking => { ui.horizontal(|ui| { ui.spinner(); ui.label("Checking for updates…"); }); }
-                Status::Failed(text) => { ui.label(text); }
-                Status::UpToDate(latest) => { ui.label(format!("You have the latest version ({}).", version(latest))); }
+                Status::Failed(notice) => notice_line(ui, notice, false),
+                Status::UpToDate(installed) => { ui.label(format!("You have the latest version ({}).", version(installed))); }
                 Status::NoPackage(latest) => {
                     ui.label(format!("{} is published, but not for this system. Tell the maintainer which Linux you use.", version(latest)));
                 }
                 Status::Manual(latest) => {
-                    ui.label(format!("{} can't be applied from this version inside the app. Download its installer from your beta link and run it once; later updates then work from here.", version(latest)));
+                    ui.label(match latest {
+                        Some(latest) => format!("{} can't be applied from this version inside the app. Download its installer from your beta link and run it once; later updates then work from here.", version(latest)),
+                        None => "A newer build is published that this version can't apply inside the app. Download its installer from your beta link and run it once; later updates then work from here.".into(),
+                    });
                 }
                 Status::Available(offer) => {
                     ui.label(egui::RichText::new(format!("Update available: {}", version(&offer.version))).strong());
                     if !offer.notes.trim().is_empty() {
-                        egui::CollapsingHeader::new("What's new").default_open(self.show_notes)
+                        egui::CollapsingHeader::new("What's new").default_open(false)
                             .show(ui, |ui| { ui.label(plain_notes(&offer.notes)); });
                     }
-                    if let Some(notice) = &self.notice { ui.colored_label(warning(ui), notice); }
+                    if let Some(notice) = &self.notice { notice_line(ui, notice, true); }
                     ui.label("Close your DAW before updating. Your plug-ins, projects and settings are kept, and Restore previous setup can bring back this version.");
                     if ui.add(crate::presentation::primary_button("Download and update", ui)).clicked() {
                         download = Some(offer.clone());
@@ -278,16 +369,35 @@ impl Updates {
                 }
                 Status::WaitingForDaw { offer, .. } => {
                     ui.label(egui::RichText::new(format!("{} is downloaded and checked.", version(&offer.version))).strong());
-                    ui.colored_label(warning(ui), "Your DAW is using bridged plug-ins. Save your project and close your DAW; the update continues by itself when it's closed.");
+                    ui.colored_label(warning(ui), "The update continues by itself once no DAW is using bridged plug-ins. If your DAW is open, save your project and close it.");
+                    if ui.button("Cancel").clicked() { cancel = true; }
                 }
-                Status::HandedOver => { ui.label("Opening Setup to finish the update…"); }
+                Status::HandingOver(_) => { ui.horizontal(|ui| { ui.spinner(); ui.label("Opening Setup to finish the update…"); }); }
+                Status::HandedOver => { ui.label("Setup is finishing the update."); }
             }
             if !self.busy() && ui.add_enabled(self.link.is_some(),
                 egui::Button::new("Check for updates").min_size(egui::vec2(0.0, 44.0))).clicked() {
                 self.start_check(&ctx);
             }
+            if cancel { self.cancel_wait(); }
             if let Some(offer) = download { self.start_download(&ctx, offer); }
         });
+    }
+
+    /// Stop waiting for the DAW. The verified download stays, so choosing
+    /// Download and update again does not download it again.
+    fn cancel_wait(&mut self) {
+        if let Status::WaitingForDaw { offer, .. } = &self.status {
+            self.status = Status::Available(offer.clone());
+            self.notice = Some("The update is downloaded and kept. Choose Download and update when you're ready.".into());
+        }
+    }
+}
+
+fn notice_line(ui: &mut egui::Ui, notice: &Notice, warn: bool) {
+    if warn { ui.colored_label(warning(ui), &notice.text); } else { ui.label(&notice.text); }
+    if let Some(technical) = &notice.technical {
+        egui::CollapsingHeader::new("Technical details").show(ui, |ui| { ui.small(technical); });
     }
 }
 
@@ -305,46 +415,33 @@ fn context(home: &Path) -> Result<(linux_vst_bridge::portable_package::Trust, St
     let trust = linux_vst_bridge::portable_package::Trust::compiled()
         .map_err(|_| UpdateError::Local("This build has no release key, so it cannot check for updates.".into()))?;
     let current = feed::installed_version(home)
-        .map_err(|_| UpdateError::Local("The current version could not be read. Use Check again in Setup.".into()))?
+        .map_err(|_| UpdateError::Local("The current version could not be read. Choose Check for updates to try again.".into()))?
         .unwrap_or_else(|| "0".into());
     Ok((trust, current))
 }
 
-/// Open the staged version's Setup and ask it to continue with Update Bridge.
-/// Setup gets its own user scope, as a launch from Applications would, so
-/// this window closing (or the unit it runs in stopping) cannot end the
-/// update Setup starts. Without systemd-run it is started directly. A Setup
-/// that predates the option refuses it at once; it is then opened plainly.
-fn hand_over(frontend: &Path) -> Result<(), String> {
-    let unavailable = || "Setup for the new version could not open. Open Linux VST Bridge Setup and Updates from Applications and choose Update Bridge.".to_owned();
-    if !frontend.is_file() { return Err(unavailable()); }
+/// Open the staged version's Setup, asking it to continue with Update Bridge
+/// unless `continue_update` is false. Setup gets its own user scope, as a
+/// launch from the applications menu would, so this window closing (or the
+/// unit it runs in stopping) cannot end the update Setup starts. Only when
+/// systemd-run is missing is Setup started directly.
+fn open_setup(frontend: &Path, continue_update: bool) -> Result<Child, ()> {
+    if !frontend.is_file() { return Err(()); }
+    let flag: &[&str] = if continue_update { &["--continue-update"] } else { &[] };
     let quiet = |command: &mut Command| { command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()); };
-    let scoped = |extra: &[&str]| {
-        let mut command = Command::new("systemd-run");
-        command.args(["--user", "--scope", "--collect", "--quiet", "--"]).arg(frontend).args(extra);
-        quiet(&mut command);
-        command.spawn()
-    };
-    let direct = |extra: &[&str]| {
-        let mut command = Command::new(frontend);
-        command.args(extra);
-        quiet(&mut command);
-        command.spawn()
-    };
-    let mut child = scoped(&["--continue-update"]).or_else(|_| direct(&["--continue-update"]))
-        .map_err(|_| unavailable())?;
-    std::thread::sleep(Duration::from_millis(800));
-    match child.try_wait() {
-        Ok(Some(status)) if status.code() == Some(64) => {
-            scoped(&[]).or_else(|_| direct(&[])).map_err(|_| unavailable())?;
+    let mut scoped = Command::new("systemd-run");
+    scoped.args(["--user", "--scope", "--collect", "--quiet", "--"]).arg(frontend).args(flag);
+    quiet(&mut scoped);
+    match scoped.spawn() {
+        Ok(child) => Ok(child),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            let mut direct = Command::new(frontend);
+            direct.args(flag);
+            quiet(&mut direct);
+            direct.spawn().map_err(|_| ())
         }
-        // systemd-run could not create the scope.
-        Ok(Some(status)) if !status.success() => {
-            direct(&["--continue-update"]).map_err(|_| unavailable())?;
-        }
-        _ => {}
+        Err(_) => Err(()),
     }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -358,18 +455,50 @@ mod tests {
     }
 
     #[test]
-    fn waiting_update_hands_over_only_when_the_daw_is_closed() {
+    fn waiting_update_hands_over_only_on_a_fresh_reading_without_plug_ins() {
         let ctx = egui::Context::default();
         let mut updates = Updates::disabled();
-        // A frontend that does not exist cannot open; the failure is shown plainly.
-        updates.status = Status::WaitingForDaw { offer: offer(), frontend: "/nonexistent/setup".into(), since: Instant::now() };
-        assert!(!updates.poll(&ctx, Some(true)));
-        assert!(matches!(updates.status, Status::WaitingForDaw { .. }));
+        let staged = Instant::now();
+        updates.status = Status::WaitingForDaw { offer: offer(), frontend: "/nonexistent/setup".into(), since: staged };
         assert!(updates.headline().unwrap().starts_with("Close your DAW"));
-        assert!(!updates.poll(&ctx, None), "an unknown DAW state waits first");
-        assert!(matches!(updates.status, Status::WaitingForDaw { .. }));
-        assert!(!updates.poll(&ctx, Some(false)));
-        assert!(matches!(&updates.status, Status::Failed(text) if text.contains("Update Bridge")));
+        // Plug-ins in use, no reading, or a reading from before staging: keep waiting.
+        for reading in [Some((true, Instant::now())), None, Some((false, staged - Duration::from_secs(1)))] {
+            assert!(!updates.poll(&ctx, reading));
+            assert!(matches!(updates.status, Status::WaitingForDaw { .. }), "{reading:?}");
+        }
+        // A fresh "none in use" reading hands over; a Setup that cannot open
+        // leaves this window open with a plain line and the offer kept.
+        assert!(!updates.poll(&ctx, Some((false, Instant::now()))));
+        assert_eq!(updates.status, Status::Available(offer()));
+        assert_eq!(updates.notice.as_ref().unwrap().text, SETUP_DID_NOT_OPEN);
+    }
+
+    #[test]
+    fn cancel_keeps_the_offer_and_check_stays_reachable_while_waiting() {
+        let mut updates = updates_with_link(Updates::disabled());
+        updates.status = Status::WaitingForDaw { offer: offer(), frontend: "/nonexistent/setup".into(), since: Instant::now() };
+        let labels = rendered(&mut updates);
+        for label in ["Cancel", "Check for updates", "Paste a new link"] {
+            assert!(labels.iter().any(|l| l == label), "{label}: {labels:?}");
+        }
+        updates.cancel_wait();
+        assert_eq!(updates.status, Status::Available(offer()));
+        assert!(updates.notice.as_ref().unwrap().text.contains("downloaded and kept"));
+    }
+
+    #[test]
+    fn handover_decisions() {
+        let soon = Duration::from_millis(100);
+        let later = HANDOVER_SETTLE;
+        assert_eq!(handover_step(None, soon, false), HandoverStep::Wait);
+        assert_eq!(handover_step(None, later, false), HandoverStep::Close);
+        assert_eq!(handover_step(Some(Some(0)), soon, false), HandoverStep::Close);
+        assert_eq!(handover_step(Some(Some(64)), soon, false), HandoverStep::RetryPlain);
+        assert_eq!(handover_step(Some(Some(64)), soon, true), HandoverStep::Fail);
+        // systemd-run failing, or Setup failing by itself, is never relaunched.
+        for code in [Some(1), Some(101), None] {
+            assert_eq!(handover_step(Some(code), soon, false), HandoverStep::Fail);
+        }
     }
 
     #[test]
@@ -377,16 +506,17 @@ mod tests {
         let ctx = egui::Context::default();
         let mut updates = Updates::disabled();
         for (result, expected) in [
-            (Err(UpdateError::Offline), Status::Failed("Couldn't check for updates right now.".into())),
-            (Err(UpdateError::LinkRejected), Status::Failed("Your beta link no longer works; paste the new link.".into())),
-            (Ok(Check::UpToDate { latest: "0.12.0test146".into() }), Status::UpToDate("0.12.0test146".into())),
+            (Err(UpdateError::Offline), Status::Failed(Notice::from("Couldn't check for updates right now."))),
+            (Err(UpdateError::LinkRejected), Status::Failed(Notice::from("Your beta link no longer works; paste the new link."))),
+            (Ok(Check::UpToDate { installed: "0.12.0test146".into() }), Status::UpToDate("0.12.0test146".into())),
+            (Ok(Check::ManualUpdate { latest: None }), Status::Manual(None)),
             (Ok(Check::Available(offer())), Status::Available(offer())),
         ] {
             let (sender, receiver) = mpsc::channel();
             updates.receiver = Some(receiver);
             updates.status = Status::Checking;
             sender.send(Event::Checked(result)).unwrap();
-            assert!(!updates.poll(&ctx, Some(false)));
+            assert!(!updates.poll(&ctx, Some((false, Instant::now()))));
             assert_eq!(updates.status, expected);
             let due = updates.next_check.unwrap().saturating_duration_since(Instant::now());
             assert!(due > DAILY - Duration::from_secs(5) && due <= DAILY);
@@ -397,12 +527,20 @@ mod tests {
         updates.receiver = Some(receiver);
         updates.status = Status::Downloading { offer: offer(), done: 5, total: 10 };
         sender.send(Event::Staged(Err(UpdateError::DownloadStopped))).unwrap();
-        assert!(!updates.poll(&ctx, Some(false)));
+        assert!(!updates.poll(&ctx, Some((false, Instant::now()))));
         assert_eq!(updates.status, Status::Available(offer()));
-        assert!(updates.notice.as_deref().unwrap().contains("continue where it left off"));
+        assert!(updates.notice.as_ref().unwrap().text.contains("continue where it left off"));
         let labels = rendered(&mut updates_with_link(updates));
         assert!(labels.iter().any(|l| l.contains("continue where it left off")));
         assert!(labels.iter().any(|l| l == "Download and update"));
+        // An install refusal shows plain words; its code only under Technical details.
+        let mut updates = updates_with_link(Updates::disabled());
+        updates.status = Status::Available(offer());
+        updates.notice = Some(UpdateError::Install("user_package_intake_busy".into()).into());
+        let labels = rendered(&mut updates);
+        assert!(labels.iter().any(|l| l == "Setup is already installing something; try again when it finishes."));
+        assert!(labels.iter().any(|l| l == "Technical details"));
+        assert!(labels.iter().all(|l| !l.contains("user_package")), "{labels:?}");
     }
 
     fn updates_with_link(mut updates: Updates) -> Updates {
@@ -427,22 +565,25 @@ mod tests {
     }
 
     #[test]
-    fn setup_shows_the_site_and_the_offer_but_never_the_key() {
+    fn setup_shows_the_offer_but_never_the_link_or_its_key() {
         let mut updates = Updates::disabled();
         let labels = rendered(&mut updates);
         assert!(labels.iter().any(|l| l == "Save beta link"), "{labels:?}");
-        updates.link = Some(BetaLink::parse("https://beta.example.ts.net:8443/private-beta/?pw=s3cret").unwrap());
+        assert!(labels.iter().any(|l| l == "Paste the beta link from your invitation. You only need to do this once."));
+        let mut updates = updates_with_link(updates);
         updates.status = Status::Available(offer());
         let labels = rendered(&mut updates);
-        assert!(labels.iter().any(|l| l == "Checking beta.example.ts.net for new builds."), "{labels:?}");
+        assert!(labels.iter().any(|l| l == "The manager checks your beta link for new builds."), "{labels:?}");
         assert!(labels.iter().any(|l| l == "Update available: Test148"));
         assert!(labels.iter().any(|l| l == "Download and update"));
         assert!(labels.iter().any(|l| l == "What's new"));
-        assert!(labels.iter().all(|l| !l.contains("s3cret") && !l.contains("pw=")));
-        updates.status = Status::Failed(UpdateError::Offline.to_string());
+        assert!(labels.iter().all(|l| !l.contains("s3cret") && !l.contains("pw=") && !l.contains("ts.net")));
+        updates.status = Status::Failed(UpdateError::Offline.into());
         let labels = rendered(&mut updates);
         assert!(labels.iter().any(|l| l == "Couldn't check for updates right now."));
         assert!(labels.iter().any(|l| l == "Check for updates"));
+        updates.status = Status::UpToDate("0.12.0test146".into());
+        assert!(rendered(&mut updates).iter().any(|l| l == "You have the latest version (Test146)."));
         assert_eq!(plain_notes("Setup → Beta updates\r\n"), "Setup -> Beta updates\n");
     }
 }

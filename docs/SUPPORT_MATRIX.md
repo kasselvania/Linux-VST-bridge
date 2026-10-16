@@ -11,14 +11,8 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
-In-app beta update (#400), **unqualified**: on the CachyOS VM, Test146's Setup →
-Beta updates found Test148 in a feed signed with the internal-test key, and
-Download and update verified, staged and handed over to Test148's Setup, which
-ran Update Bridge by itself; Test148 was selected with the service active and its
-manager reopened showing "You have the latest version (Test148)". Restore
-previous setup from Setup and Updates then brought back Test146 with the service
-active, and Test148 was offered again. The feed came from a loopback test server,
-not the real beta share; the DAW-open wait is unit-tested only.
+In-app beta update (#400), **unqualified**: CachyOS VM Test146 → Test148 via Download and update, then
+Restore previous setup back to Test146, from a loopback test feed; the final hand-over code awaits a VM pass.
 
 Test60/61 are installed on SteamOS 3.8.16 Deck through ordinary Update Bridge.
 The actual retained app-only hub bootstrap now opens normally, installs two

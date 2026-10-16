@@ -60,8 +60,32 @@ pub enum UpdateError {
     Downgrade,
     /// This system lacks the curl command updates are fetched with.
     NoCurl,
-    /// A local step (disk, staging) refused; the text is the manager's.
+    /// Not enough free space in the home folder; bytes the update needs.
+    NoSpace(u64),
+    /// A local step outside installing refused (a plain sentence or a code).
     Local(String),
+    /// Installing the verified package refused (a plain sentence or a code).
+    Install(String),
+}
+/// The manager's own sentence, or None for an internal code.
+fn sentence(reason: &str) -> Option<&str> {
+    (reason.contains(' ') && !reason.contains('_') && !reason.contains("(os error")
+        && reason.starts_with(|c: char| c.is_ascii_uppercase())).then_some(reason)
+}
+/// Codes that can reach the update panel, in words a musician can act on.
+fn plain_code(code: &str) -> Option<&'static str> {
+    Some(match code {
+        "user_package_intake_busy" => "Setup is already installing something; try again when it finishes.",
+        "user_package_payload_changed" | "user_package_entry_changed" | "user_package_bundle_changed"
+            | "user_package_entry_identity" | "user_package_undeclared_entry" =>
+            "The downloaded update was damaged, so it was deleted and nothing was installed. Choose Download and update to try again.",
+        "directory must be private" | "directory ownership/type differs" | "user_package_directory_custody"
+            | "user_package_directory_identity" | "user_package_home_identity" | "file ownership/type differs" =>
+            "A bridge folder in your home folder has unexpected owner or permissions, so nothing was changed. Tell the maintainer.",
+        "Existing Setup entry is not owned by this installer; it was retained" =>
+            "Another program owns the Setup entry in your applications menu, so the update was not installed. Tell the maintainer.",
+        _ => return None,
+    })
 }
 impl fmt::Display for UpdateError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -76,19 +100,40 @@ impl fmt::Display for UpdateError {
             Self::PackageUnverified => f.write_str("The downloaded update's signature did not verify, so nothing was installed. Tell the maintainer."),
             Self::Downgrade => f.write_str("This update is not newer than your current version, so it was not installed. To go back to an earlier version, use Restore previous setup."),
             Self::NoCurl => f.write_str("Updates need the curl command, which this system does not have."),
-            Self::Local(reason) => {
-                if reason.contains(' ') && reason.starts_with(|c: char| c.is_ascii_uppercase()) {
-                    write!(f, "The update could not be installed: {reason}{}",
-                        if reason.ends_with('.') { "" } else { "." })
-                } else {
-                    write!(f, "The update could not be installed ({reason}). Your current setup is unchanged.")
+            Self::NoSpace(bytes) => write!(f, "There isn't enough free disk space for the update. Free about {} MB in your home folder, then choose Download and update again.",
+                bytes.div_ceil(1_000_000).max(1)),
+            Self::Local(reason) => match plain_code(reason).or_else(|| sentence(reason)) {
+                Some(text) => f.write_str(text),
+                None => f.write_str("Something on this computer stopped the update check. Try again; if this stays, tell the maintainer."),
+            },
+            Self::Install(reason) => {
+                if reason.starts_with("Not enough disk space") {
+                    return f.write_str("There isn't enough free disk space to install the update. Free some space in your home folder, then choose Download and update again.");
+                }
+                match plain_code(reason) {
+                    Some(text) => f.write_str(text),
+                    None => match sentence(reason) {
+                        Some(text) => write!(f, "The update could not be installed: {text}{}",
+                            if text.ends_with('.') { "" } else { "." }),
+                        None => f.write_str("The update could not be installed, and your current setup is unchanged. If this stays, tell the maintainer."),
+                    },
                 }
             }
         }
     }
 }
+impl UpdateError {
+    /// The manager's exact refusal, for technical details only.
+    pub fn technical(&self) -> Option<&str> {
+        match self {
+            Self::Local(reason) | Self::Install(reason) if sentence(reason).is_none() => Some(reason),
+            _ => None,
+        }
+    }
+}
 impl std::error::Error for UpdateError {}
 fn local(error: impl fmt::Display) -> UpdateError { UpdateError::Local(error.to_string()) }
+fn install(error: impl fmt::Display) -> UpdateError { UpdateError::Install(error.to_string()) }
 
 /// The tester's beta folder and its key. The key is never shown, logged or
 /// placed in a URL; `Debug` hides it.
@@ -178,8 +223,12 @@ impl BetaLink {
         let (before_fragment, fragment) = rest.split_once('#').unwrap_or((rest, ""));
         let (path, query) = before_fragment.split_once('?').unwrap_or((before_fragment, ""));
         let path = if path.is_empty() { "/" } else { path };
-        let folder = &path[..=path.rfind('/').ok_or(NOT_A_LINK)?];
-        if !valid_path(folder) { return Err(NOT_A_LINK); }
+        // A last segment with a dot names a file in the folder; without one
+        // it is the folder itself, even when the link has no trailing slash.
+        let last = &path[path.rfind('/').ok_or(NOT_A_LINK)? + 1..];
+        let folder = if last.contains('.') { path[..path.len() - last.len()].to_owned() }
+            else if last.is_empty() { path.to_owned() } else { format!("{path}/") };
+        if !valid_path(&folder) { return Err(NOT_A_LINK); }
         let mut key = None;
         for pair in query.split('&').chain(fragment.split('&')) {
             let (name, value) = pair.split_once('=').unwrap_or((pair, ""));
@@ -189,18 +238,13 @@ impl BetaLink {
                 key = Some(value);
             }
         }
-        Ok(Self { schema: 1, origin: format!("{scheme}://{host}:{port}"), path: folder.into(), key })
+        Ok(Self { schema: 1, origin: format!("{scheme}://{host}:{port}"), path: folder, key })
     }
     fn validate(&self) -> Result<()> {
         let reparsed = Self::parse(&format!("{}{}", self.origin, self.path))
             .map_err(|_| "update_link_record")?;
         require(self.schema == 1 && reparsed.origin == self.origin && reparsed.path == self.path
             && self.key.as_deref().is_none_or(valid_key), "update_link_record")
-    }
-    /// The host name shown to the tester; never the key.
-    pub fn site(&self) -> &str {
-        let host = self.origin.split_once("://").map(|(_, rest)| rest).unwrap_or(&self.origin);
-        host.rsplit_once(':').map(|(host, _)| host).unwrap_or(host)
     }
     pub fn has_key(&self) -> bool { self.key.is_some() }
     fn plain_loopback(&self) -> bool { self.origin.starts_with("http://") }
@@ -253,9 +297,13 @@ pub struct Feed {
     pub notes: String,
     pub packages: BTreeMap<String, FeedPackage>,
 }
+/// Fields a later feed adds are ignored (the signature still covers them).
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
 pub struct FeedPackage { pub file: String, pub size: u64, pub sha256: String }
+/// A verified feed this manager can apply, or one in a later format that
+/// only a newer manager reads.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Verified { Current(Feed), LaterFormat { version: Option<String> } }
 
 /// The same version rule as a signed package release.
 pub fn valid_version(version: &str) -> bool {
@@ -275,10 +323,16 @@ fn valid_sha256(value: &str) -> bool {
 }
 /// The feed's signature, by the compiled release key, comes before any field
 /// of it is used.
-pub fn verify_feed(bytes: &[u8], signature: &[u8], trust: &Trust) -> Result<Feed> {
+pub fn verify_feed(bytes: &[u8], signature: &[u8], trust: &Trust) -> Result<Verified> {
     require(bytes.len() as u64 <= FEED_MAX, "update_feed_extent")?;
     trust.verify_detached(FEED_DOMAIN, bytes, signature)?;
-    let feed: Feed = serde_json::from_slice(bytes)?;
+    let header: serde_json::Value = serde_json::from_slice(bytes)?;
+    let schema = header.get("schema").and_then(serde_json::Value::as_u64).ok_or("update_feed_format")?;
+    if schema > 1 {
+        return Ok(Verified::LaterFormat { version: header.get("version")
+            .and_then(serde_json::Value::as_str).filter(|v| valid_version(v)).map(str::to_owned) });
+    }
+    let feed: Feed = serde_json::from_value(header)?;
     require(feed.schema == 1 && feed.channel == CHANNEL
         && valid_version(&feed.version) && valid_version(&feed.min_version)
         && compare_versions(&feed.min_version, &feed.version) != Ordering::Greater
@@ -291,7 +345,7 @@ pub fn verify_feed(bytes: &[u8], signature: &[u8], trust: &Trust) -> Result<Feed
         require(valid_system(system) && valid_file(&package.file) && package.size > 0
             && package.size <= PACKAGE_MAX && valid_sha256(&package.sha256), "update_feed_format")?;
     }
-    Ok(feed)
+    Ok(Verified::Current(feed))
 }
 
 /// Dotted versions with numeric parts compared as numbers:
@@ -378,8 +432,17 @@ pub fn installed_version(home: &Path) -> Result<Option<String>> {
     Ok(Some(version.to_owned()))
 }
 
+/// What one GET produced. A body is kept only from a 200 or 206 response.
 #[derive(Debug, PartialEq, Eq)]
-enum Fetched { Complete, NotFound, Rejected, RangeRefused }
+enum Fetched {
+    /// `partial`: a 206 for the requested range. `complete`: curl finished.
+    Body { partial: bool, complete: bool },
+    NotFound,
+    Rejected,
+    RangeRefused,
+    /// curl could not write its output (usually a full disk).
+    WriteFailed,
+}
 fn quoted(text: &str) -> String { text.replace('\\', "\\\\").replace('"', "\\\"") }
 /// Read by curl from standard input: the only place the key is written.
 fn curl_config(link: &BetaLink, file: &str) -> String {
@@ -387,8 +450,14 @@ fn curl_config(link: &BetaLink, file: &str) -> String {
     if let Some(key) = &link.key { config.push_str(&format!("header = \"PW: {}\"\n", quoted(key))); }
     config
 }
-fn curl_command(link: &BetaLink, output: &Path, limit: u64, resume: bool, max_time: Duration) -> Command {
-    let mut command = Command::new("curl");
+/// The only environment curl gets: no SSLKEYLOGFILE, CURL_HOME or other
+/// variable can change what it does or where secrets go. HTTPS proxies stay
+/// usable; the key travels inside TLS to the beta host.
+const CURL_ENVIRONMENT: &[&str] = &["HOME", "LANG", "LC_ALL", "SSL_CERT_FILE", "SSL_CERT_DIR",
+    "CURL_CA_BUNDLE", "https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY", "no_proxy", "NO_PROXY"];
+fn curl_command(link: &BetaLink, output: &Path, limit: u64, resume_from: Option<u64>,
+    max_time: Duration) -> Command {
+    let mut command = Command::new("/usr/bin/curl");
     // `--disable` must come first: no curlrc can add options or redirect output.
     command.arg("--disable")
         .args(["--config", "-", "--silent", "--fail", "--max-redirs", "0", "--proto"])
@@ -398,51 +467,65 @@ fn curl_command(link: &BetaLink, output: &Path, limit: u64, resume: bool, max_ti
         .arg(max_time.as_secs().max(1).to_string())
         .arg("--max-filesize").arg(limit.to_string())
         .arg("--output").arg(output);
-    if resume { command.args(["--continue-at", "-"]); }
-    command.env("PATH", "/usr/bin:/bin")
-        .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
+    if link.plain_loopback() { command.args(["--noproxy", "*"]); }
+    if let Some(offset) = resume_from { command.arg("--continue-at").arg(offset.to_string()); }
+    command.env_clear().env("PATH", "/usr/bin:/bin");
+    for name in CURL_ENVIRONMENT {
+        if let Some(value) = std::env::var_os(name) { command.env(name, value); }
+    }
+    command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
+    // curl ends with this manager: a closed window leaves no transfer behind.
+    #[cfg(target_os = "linux")]
+    unsafe {
+        use std::os::unix::process::CommandExt;
+        command.pre_exec(|| {
+            if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL) != 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
+        });
+    }
     command
 }
-/// One bounded GET into `output`. Errors carry no server text.
-fn transfer(link: &BetaLink, file: &str, output: &Path, limit: u64, resume: bool,
+/// Kills and reaps curl however the transfer ends.
+struct Curl(std::process::Child);
+impl Drop for Curl {
+    fn drop(&mut self) { let _ = self.0.kill(); let _ = self.0.wait(); }
+}
+/// One bounded GET into a new file `output`. Errors carry no server text.
+fn transfer(link: &BetaLink, file: &str, output: &Path, limit: u64, resume_from: Option<u64>,
     max_time: Duration, progress: &mut dyn FnMut(u64)) -> std::result::Result<Fetched, UpdateError> {
-    let mut child = curl_command(link, output, limit, resume, max_time).spawn()
-        .map_err(|_| UpdateError::NoCurl)?;
-    let written = child.stdin.take().map(|mut input| input.write_all(curl_config(link, file).as_bytes()));
-    if !matches!(written, Some(Ok(()))) {
-        let _ = child.kill(); let _ = child.wait();
-        return Err(UpdateError::Offline);
-    }
+    let mut curl = Curl(curl_command(link, output, limit, resume_from, max_time).spawn()
+        .map_err(|_| UpdateError::NoCurl)?);
+    let written = curl.0.stdin.take().map(|mut input| input.write_all(curl_config(link, file).as_bytes()));
+    if !matches!(written, Some(Ok(()))) { return Err(UpdateError::Offline); }
     let deadline = Instant::now() + max_time + Duration::from_secs(20);
     let status = loop {
-        match child.try_wait() {
+        match curl.0.try_wait() {
             Ok(Some(status)) => break status,
             Ok(None) => {}
-            Err(_) => { let _ = child.kill(); let _ = child.wait(); return Err(UpdateError::Offline); }
+            Err(_) => return Err(UpdateError::Offline),
         }
         let size = fs::metadata(output).map(|m| m.len()).unwrap_or(0);
-        if size > limit {
-            let _ = child.kill(); let _ = child.wait();
-            return Err(UpdateError::Damaged);
-        }
+        if size > limit { return Err(UpdateError::Damaged); }
         progress(size);
-        if Instant::now() >= deadline {
-            let _ = child.kill(); let _ = child.wait();
-            return Err(UpdateError::Offline);
-        }
+        if Instant::now() >= deadline { return Err(UpdateError::Offline); }
         std::thread::sleep(Duration::from_millis(100));
     };
     let mut code = String::new();
-    if let Some(stdout) = child.stdout.take() { let _ = stdout.take(8).read_to_string(&mut code); }
+    if let Some(stdout) = curl.0.stdout.take() { let _ = stdout.take(8).read_to_string(&mut code); }
     let code = code.trim().parse::<u16>().unwrap_or(0);
-    match (status.code(), code) {
-        (Some(0), 200 | 206) => Ok(Fetched::Complete),
-        (Some(0 | 22), 401 | 403) => Ok(Fetched::Rejected),
-        (Some(0 | 22), 404 | 410) => Ok(Fetched::NotFound),
-        (Some(0 | 22), 416) | (Some(33), _) => Ok(Fetched::RangeRefused),
-        (Some(63), _) => Err(UpdateError::Damaged),
-        _ => Err(UpdateError::Offline),
-    }
+    Ok(match (status.code(), code) {
+        (Some(23), _) => Fetched::WriteFailed,
+        (Some(63), _) => return Err(UpdateError::Damaged),
+        (Some(0 | 22), 401 | 403) => Fetched::Rejected,
+        (Some(0 | 22), 404 | 410) => Fetched::NotFound,
+        (Some(0 | 22), 416) | (Some(33), _) => Fetched::RangeRefused,
+        // A transfer cut short still delivered real bytes of this response.
+        (Some(exit), 200 | 206) if exit != 22 => Fetched::Body { partial: code == 206, complete: exit == 0 },
+        // Offline, a server error, a redirect: nothing it wrote is kept.
+        _ => return Err(UpdateError::Offline),
+    })
 }
 fn read_bounded(path: &Path, limit: u64) -> Result<Vec<u8>> {
     let file = crate::file(path)?;
@@ -455,11 +538,14 @@ fn read_bounded(path: &Path, limit: u64) -> Result<Vec<u8>> {
 fn fetch_small(link: &BetaLink, file: &str, scratch: &Path, limit: u64)
     -> std::result::Result<Vec<u8>, UpdateError> {
     let path = scratch.join(format!("{}.download", random_id().map_err(local)?));
-    let fetched = transfer(link, file, &path, limit, false, Duration::from_secs(30), &mut |_| {});
+    let fetched = transfer(link, file, &path, limit, None, Duration::from_secs(30), &mut |_| {});
     let bytes = match fetched {
-        Ok(Fetched::Complete) => read_bounded(&path, limit).map_err(|_| UpdateError::FeedUnverified),
+        Ok(Fetched::Body { partial: false, complete: true }) =>
+            read_bounded(&path, limit).map_err(|_| UpdateError::FeedUnverified),
+        Ok(Fetched::Body { .. }) => Err(UpdateError::Offline),
         Ok(Fetched::Rejected) => Err(UpdateError::LinkRejected),
         Ok(Fetched::NotFound) => Err(UpdateError::NoFeed),
+        Ok(Fetched::WriteFailed) => Err(UpdateError::NoSpace(1_000_000)),
         Ok(Fetched::RangeRefused) | Err(UpdateError::Damaged) => Err(UpdateError::FeedUnverified),
         Err(error) => Err(error),
     };
@@ -468,7 +554,7 @@ fn fetch_small(link: &BetaLink, file: &str, scratch: &Path, limit: u64)
 }
 /// Fetch and verify the feed. A feed and signature replaced between the two
 /// requests are retried once.
-pub fn fetch_feed(home: &Path, link: &BetaLink, trust: &Trust) -> std::result::Result<Feed, UpdateError> {
+pub fn fetch_feed(home: &Path, link: &BetaLink, trust: &Trust) -> std::result::Result<Verified, UpdateError> {
     let scratch = updates_dir(home).join("check");
     private_directory(&scratch).map_err(local)?;
     for attempt in 0..2 {
@@ -495,20 +581,28 @@ pub struct Offer {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Check {
     Available(Offer),
-    /// The published version is not newer. Never offers a downgrade.
-    UpToDate { latest: String },
+    /// Nothing newer is published. Never offers a downgrade.
+    UpToDate { installed: String },
     /// No package in the feed for this system.
     NoPackage { latest: String, systems: Vec<String> },
-    /// The published build cannot be applied from this version in the app.
-    ManualUpdate { latest: String },
+    /// The published build cannot be applied from this version in the app;
+    /// None when only a newer manager can read the feed.
+    ManualUpdate { latest: Option<String> },
 }
 /// The decision after a verified feed: newer, applicable, for this system.
-pub fn decide(feed: Feed, current: &str, systems: &[String]) -> Check {
+pub fn decide(feed: Verified, current: &str, systems: &[String]) -> Check {
+    let feed = match feed {
+        Verified::Current(feed) => feed,
+        Verified::LaterFormat { version: Some(version) }
+            if compare_versions(&version, current) != Ordering::Greater =>
+            return Check::UpToDate { installed: current.into() },
+        Verified::LaterFormat { version } => return Check::ManualUpdate { latest: version },
+    };
     if compare_versions(&feed.version, current) != Ordering::Greater {
-        return Check::UpToDate { latest: feed.version };
+        return Check::UpToDate { installed: current.into() };
     }
     if compare_versions(current, &feed.min_version) == Ordering::Less {
-        return Check::ManualUpdate { latest: feed.version };
+        return Check::ManualUpdate { latest: Some(feed.version) };
     }
     let Some((system, package)) = systems.iter()
         .find_map(|name| feed.packages.get(name).map(|package| (name.clone(), package.clone()))) else {
@@ -518,23 +612,59 @@ pub fn decide(feed: Feed, current: &str, systems: &[String]) -> Check {
 }
 pub fn check(home: &Path, link: &BetaLink, trust: &Trust, current: &str, systems: &[String])
     -> std::result::Result<Check, UpdateError> {
-    Ok(decide(fetch_feed(home, link, trust)?, current, systems))
+    let result = decide(fetch_feed(home, link, trust)?, current, systems);
+    if matches!(result, Check::UpToDate { .. }) { clear_downloads(home); }
+    Ok(result)
+}
+/// A kept download is not needed once nothing newer is published. A
+/// download running in another window is left alone.
+fn clear_downloads(home: &Path) {
+    let Ok(lock) = fs::OpenOptions::new().read(true).write(true).create(true).truncate(false)
+        .mode(0o600).open(updates_dir(home).join("download.lock")) else { return };
+    if unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 { return; }
+    if let Ok(entries) = fs::read_dir(updates_dir(home).join("downloads")) {
+        for entry in entries.flatten() { let _ = fs::remove_file(entry.path()); }
+    }
 }
 
 /// Download the offered installer (resuming a partial download), verify its
-/// size and SHA-256 against the signed feed and its own signature exactly as
-/// the installer does, refuse anything not newer, then stage it and point the
-/// Setup entry at it. Returns the staged Setup frontend; nothing is executed.
+/// size and SHA-256 against the signed feed, then its own signature and
+/// payload through the installer's own `Bundle`, refuse anything not newer,
+/// then stage it and point the Setup entry at it, as Install application
+/// files does. Returns the staged Setup frontend; nothing is executed. The
+/// verified installer is kept until a check finds nothing newer, so a
+/// cancelled hand-over or a closed window never needs a second download.
 pub fn download_and_stage(home: &Path, link: &BetaLink, trust: &Trust, current: &str,
     offer: &Offer, progress: &mut dyn FnMut(u64, u64)) -> std::result::Result<PathBuf, UpdateError> {
     download_and_stage_with(home, link, trust, current, offer, progress,
-        crate::portable_package::expose_setup)
+        &free_bytes, crate::portable_package::expose_setup)
 }
 fn download_time(size: u64) -> Duration {
     Duration::from_secs((300 + size / 50_000).min(4 * 3600))
 }
+/// Room kept free beyond the download and the staged copy.
+const SPACE_MARGIN: u64 = 64 * 1024 * 1024;
+fn free_bytes(path: &Path) -> Option<u64> {
+    use std::os::unix::ffi::OsStrExt;
+    let path = std::ffi::CString::new(path.as_os_str().as_bytes()).ok()?;
+    let mut space: libc::statvfs = unsafe { std::mem::zeroed() };
+    (unsafe { libc::statvfs(path.as_ptr(), &mut space) } == 0).then(|| {
+        let free = (space.f_bavail as u128) * (space.f_frsize as u128);
+        free.min(u64::MAX as u128) as u64
+    })
+}
+/// Append a ranged response to the partial download, or make a whole
+/// response the partial download.
+fn keep_body(received: &Path, part: &Path, partial: bool) -> std::io::Result<()> {
+    if !partial { return fs::rename(received, part); }
+    let mut output = fs::OpenOptions::new().append(true).open(part)?;
+    std::io::copy(&mut fs::File::open(received)?, &mut output)?;
+    output.sync_all()?;
+    fs::remove_file(received)
+}
+#[allow(clippy::too_many_arguments)]
 fn download_and_stage_with(home: &Path, link: &BetaLink, trust: &Trust, current: &str,
-    offer: &Offer, progress: &mut dyn FnMut(u64, u64),
+    offer: &Offer, progress: &mut dyn FnMut(u64, u64), available: &dyn Fn(&Path) -> Option<u64>,
     expose: impl FnOnce(&Path, &Path) -> Result<()>) -> std::result::Result<PathBuf, UpdateError> {
     let package = &offer.package;
     if !valid_file(&package.file) || !valid_sha256(&package.sha256) || package.size == 0
@@ -546,7 +676,8 @@ fn download_and_stage_with(home: &Path, link: &BetaLink, trust: &Trust, current:
     }
     let downloads = updates_dir(home).join("downloads");
     private_directory(&downloads).map_err(local)?;
-    // One download at a time, even with two manager windows open.
+    // One download at a time, even with two manager windows open: the lock
+    // covers the partial download, the received range and staging.
     let lock = fs::OpenOptions::new().read(true).write(true).create(true).truncate(false)
         .mode(0o600).open(updates_dir(home).join("download.lock")).map_err(local)?;
     if unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
@@ -554,7 +685,8 @@ fn download_and_stage_with(home: &Path, link: &BetaLink, trust: &Trust, current:
     }
     let part = downloads.join(format!("{}.part", package.sha256));
     let done = downloads.join(format!("{}.install", package.sha256));
-    // Only the offered download is kept; an older partial one is removed.
+    let received = downloads.join(format!("{}.receiving", package.sha256));
+    // Only the offered download is kept; an older or unfinished one is removed.
     for entry in fs::read_dir(&downloads).map_err(local)? {
         let path = entry.map_err(local)?.path();
         if path != part && path != done { let _ = fs::remove_file(&path); }
@@ -562,34 +694,57 @@ fn download_and_stage_with(home: &Path, link: &BetaLink, trust: &Trust, current:
     let size_of = |path: &Path| fs::symlink_metadata(path).map(|m| m.len()).ok();
     if size_of(&done).is_none() {
         let mut restarted = false;
+        let mut finished = false;
         loop {
             let have = size_of(&part).unwrap_or(0);
             if have > package.size {
                 let _ = fs::remove_file(&part);
                 return Err(UpdateError::Damaged);
             }
-            if have == package.size { break; }
-            let fetched = transfer(link, &package.file, &part, package.size, have > 0,
-                download_time(package.size), &mut |n| progress(n, package.size));
-            if size_of(&part) == Some(0) { let _ = fs::remove_file(&part); }
-            match fetched {
-                Ok(Fetched::Complete) => break,
-                Ok(Fetched::Rejected) => return Err(UpdateError::LinkRejected),
-                Ok(Fetched::NotFound) => return Err(UpdateError::PackageMissing),
-                Ok(Fetched::RangeRefused) if !restarted => {
+            if have == package.size || finished { break; }
+            // The rest of the download, the staged copy and a margin.
+            let needed = (package.size - have) + package.size + SPACE_MARGIN;
+            if available(&downloads).is_some_and(|free| free < needed) {
+                return Err(UpdateError::NoSpace(needed));
+            }
+            let fetched = transfer(link, &package.file, &received, package.size - have,
+                (have > 0).then_some(have), download_time(package.size),
+                &mut |n| progress(have + n, package.size));
+            let body = match fetched {
+                Ok(Fetched::Body { partial, complete }) if partial == (have > 0) => Some((partial, complete)),
+                // A whole file in answer to a range request replaces the partial one.
+                Ok(Fetched::Body { partial: false, complete }) => Some((false, complete)),
+                _ => None,
+            };
+            let kept = match body {
+                Some((partial, complete)) if size_of(&received).unwrap_or(0) > 0 =>
+                    keep_body(&received, &part, partial).map(|()| complete),
+                Some((_, complete)) => Ok(complete),
+                None => Ok(false),
+            };
+            let _ = fs::remove_file(&received);
+            match (fetched, kept) {
+                (Ok(Fetched::Body { .. }), Ok(true)) => finished = true,
+                (Ok(Fetched::Body { .. }), Ok(false)) => return Err(UpdateError::DownloadStopped),
+                (Ok(Fetched::Body { .. }), Err(_)) | (Ok(Fetched::WriteFailed), _) =>
+                    return Err(UpdateError::NoSpace(needed)),
+                (Ok(Fetched::Rejected), _) => return Err(UpdateError::LinkRejected),
+                (Ok(Fetched::NotFound), _) => return Err(UpdateError::PackageMissing),
+                (Ok(Fetched::RangeRefused), _) if !restarted => {
                     let _ = fs::remove_file(&part);
                     restarted = true;
                 }
-                Ok(Fetched::RangeRefused) => return Err(UpdateError::DownloadStopped),
-                Err(UpdateError::Offline) => return Err(UpdateError::DownloadStopped),
-                Err(error) => {
+                (Ok(Fetched::RangeRefused), _) | (Err(UpdateError::Offline), _) =>
+                    return Err(UpdateError::DownloadStopped),
+                (Err(error), _) => {
                     if error == UpdateError::Damaged { let _ = fs::remove_file(&part); }
                     return Err(error);
                 }
             }
         }
+        // A finished download shorter than published, or any hash mismatch,
+        // is damaged: it is deleted rather than resumed again.
         let have = size_of(&part).unwrap_or(0);
-        if have < package.size { return Err(UpdateError::DownloadStopped); }
         if have != package.size || digest(&part).ok().as_deref() != Some(package.sha256.as_str()) {
             let _ = fs::remove_file(&part);
             return Err(UpdateError::Damaged);
@@ -609,9 +764,12 @@ fn download_and_stage_with(home: &Path, link: &BetaLink, trust: &Trust, current:
     if compare_versions(&bundle.release().version, current) != Ordering::Greater {
         return Err(refused(UpdateError::Downgrade));
     }
-    let frontend = bundle.stage(home).map_err(local)?;
-    expose(&frontend, home).map_err(local)?;
-    let _ = fs::remove_file(&done);
+    // The payload hash is checked before staging so a mismatch deletes the
+    // download instead of leaving it to fail again.
+    bundle.verify_payload().map_err(|_| refused(UpdateError::Damaged))?;
+    let frontend = bundle.stage(home).map_err(install)?;
+    expose(&frontend, home).map_err(install)?;
+    drop(lock);
     Ok(frontend)
 }
 
@@ -636,6 +794,8 @@ mod tests {
         key: Option<String>,
         /// Send only this many body bytes of the next response, then close.
         cut: Option<usize>,
+        /// Answer the next request with a redirect that has a body.
+        redirect: bool,
         log: Vec<String>,
     }
     /// A small HTTP/1.1 file server for the beta folder, on loopback only.
@@ -681,6 +841,9 @@ mod tests {
             if shared.key.is_some() && header("PW") != shared.key {
                 return out.write_all(b"HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
             }
+            if std::mem::take(&mut shared.redirect) {
+                return out.write_all(b"HTTP/1.1 302 Found\r\nLocation: http://elsewhere.invalid/\r\nContent-Length: 13\r\nConnection: close\r\n\r\n<html></html>");
+            }
             let Some(data) = target.strip_prefix("/private-beta/").and_then(|n| shared.files.get(n)).cloned() else {
                 return out.write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
             };
@@ -703,7 +866,9 @@ mod tests {
         }
     }
     fn signed_feed(f: &Fixture, feed: &Feed, domain: &[u8]) -> (Vec<u8>, Vec<u8>) {
-        let bytes = serde_json::to_vec(feed).unwrap();
+        signed_bytes(f, serde_json::to_vec(feed).unwrap(), domain)
+    }
+    fn signed_bytes(f: &Fixture, bytes: Vec<u8>, domain: &[u8]) -> (Vec<u8>, Vec<u8>) {
         let message = [domain, b"internal_test", b"\0", bytes.as_slice()].concat();
         (bytes.clone(), f.key.sign(&message).to_bytes().to_vec())
     }
@@ -727,9 +892,17 @@ mod tests {
     }
     fn stage(f: &Fixture, link: &BetaLink, offer: &Offer, current: &str)
         -> std::result::Result<PathBuf, UpdateError> {
+        stage_with_space(f, link, offer, current, None)
+    }
+    fn stage_with_space(f: &Fixture, link: &BetaLink, offer: &Offer, current: &str, free: Option<u64>)
+        -> std::result::Result<PathBuf, UpdateError> {
         let trust = f.trust();
-        download_and_stage_with(&f.home, link, &f.trust(), current, offer, &mut |_, _| {},
+        download_and_stage_with(&f.home, link, &f.trust(), current, offer, &mut |_, _| {}, &|_| free,
             |frontend, home| crate::portable_package::expose_setup_with_trust(frontend, home, &trust))
+    }
+    fn part_size(f: &Fixture, offer: &Offer) -> Option<u64> {
+        fs::metadata(updates_dir(&f.home).join("downloads").join(format!("{}.part", offer.package.sha256)))
+            .ok().map(|m| m.len())
     }
     fn staged_packages(f: &Fixture) -> usize {
         fs::read_dir(f.home.join(".local/share/linux-vst-bridge/packages")).map(|entries| entries
@@ -743,7 +916,6 @@ mod tests {
     fn pasted_links_keep_the_key_out_of_urls_and_debug_output() {
         let link = BetaLink::parse("  https://Beta.Example.ts.net:8443/private-beta/?pw=s3cret%2BKey%2F42  ").unwrap();
         assert_eq!(link.url(FEED_FILE), "https://beta.example.ts.net:8443/private-beta/latest.json");
-        assert_eq!(link.site(), "beta.example.ts.net");
         assert_eq!(link.key.as_deref(), Some(KEY));
         assert!(!format!("{link:?}").contains("s3cret"));
         // A link to one file of the folder means the folder.
@@ -751,6 +923,12 @@ mod tests {
         assert_eq!(file.url(FEED_FILE), "https://beta.example.ts.net:8443/private-beta/latest.json");
         assert_eq!(BetaLink::parse("https://h.example/b/#pw=k").unwrap().key.as_deref(), Some("k"));
         assert_eq!(BetaLink::parse("https://h.example").unwrap().url("a.install"), "https://h.example:443/a.install");
+        // A folder link without its trailing slash is still that folder.
+        for folder in ["https://h.example/Private-Beta?pw=k", "https://h.example/Private-Beta/?pw=k",
+            "https://h.example/Private-Beta/START.txt?pw=k"] {
+            assert_eq!(BetaLink::parse(folder).unwrap().url(FEED_FILE),
+                "https://h.example:443/Private-Beta/latest.json", "{folder}");
+        }
         for bad in ["", "beta link", "ftp://h/x/", "https://user:pw@h/x/", "https://h:0/x/",
             "https://h/x/?pw=a%0Db", "https://h/../x/", "https://h/x/%2e%2e/", "https://h/x\"/",
             "https://-h/x/", "https://h/x/ y"] {
@@ -784,11 +962,18 @@ mod tests {
     #[test]
     fn curl_command_line_never_carries_the_key_or_the_url() {
         let link = BetaLink::parse("https://h.example:8443/private-beta/?pw=s3cret%22quote").unwrap();
-        let command = curl_command(&link, Path::new("/tmp/out"), 100, true, Duration::from_secs(30));
+        std::env::set_var("SSLKEYLOGFILE", "/tmp/lvb-must-not-reach-curl");
+        let command = curl_command(&link, Path::new("/tmp/out"), 100, Some(5), Duration::from_secs(30));
         let args: Vec<_> = command.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
         assert_eq!(args[0], "--disable");
         assert!(args.iter().all(|a| !a.contains("s3cret") && !a.contains("h.example")), "{args:?}");
         assert!(args.windows(2).any(|w| w == ["--proto", "=https"]));
+        assert!(args.windows(2).any(|w| w == ["--continue-at", "5"]));
+        // Only the listed variables reach curl; SSLKEYLOGFILE and CURL_HOME never do.
+        let names: Vec<_> = command.get_envs().filter(|(_, v)| v.is_some())
+            .map(|(k, _)| k.to_string_lossy().into_owned()).collect();
+        assert!(names.contains(&"PATH".to_string()));
+        assert!(names.iter().all(|n| n == "PATH" || CURL_ENVIRONMENT.contains(&n.as_str())), "{names:?}");
         let config = curl_config(&link, FEED_FILE);
         assert_eq!(config, "url = \"https://h.example:8443/private-beta/latest.json\"\nheader = \"PW: s3cret\\\"quote\"\n");
         assert!(!config.lines().next().unwrap().contains("s3cret"));
@@ -800,7 +985,7 @@ mod tests {
         let installer = f.bundle("0.12.0test148");
         let feed = feed_for("0.12.0test148", &[("cachyos", &installer)]);
         let (bytes, signature) = signed_feed(&f, &feed, FEED_DOMAIN);
-        assert_eq!(verify_feed(&bytes, &signature, &f.trust()).unwrap(), feed);
+        assert_eq!(verify_feed(&bytes, &signature, &f.trust()).unwrap(), Verified::Current(feed.clone()));
         let mut changed = bytes.clone();
         let at = changed.iter().position(|b| *b == b'4').unwrap();
         changed[at] = b'9';
@@ -817,6 +1002,27 @@ mod tests {
         unsafe_name.packages.get_mut("cachyos").unwrap().file = "../evil.install".into();
         let (bytes, signature) = signed_feed(&f, &unsafe_name, FEED_DOMAIN);
         assert!(verify_feed(&bytes, &signature, &f.trust()).is_err());
+        // A later feed may add fields; this manager ignores them after the signature.
+        let mut extended = serde_json::to_value(&feed).unwrap();
+        extended["mirrors"] = serde_json::json!(["https://elsewhere.example/"]);
+        extended["packages"]["cachyos"]["delta_from"] = serde_json::json!("0.12.0test146");
+        let (bytes, signature) = signed_bytes(&f, serde_json::to_vec(&extended).unwrap(), FEED_DOMAIN);
+        assert_eq!(verify_feed(&bytes, &signature, &f.trust()).unwrap(), Verified::Current(feed.clone()));
+        // A later format is verified, then left to a newer manager.
+        extended["schema"] = serde_json::json!(2);
+        extended["packages"] = serde_json::json!({"cachyos": {"parts": []}});
+        let (bytes, signature) = signed_bytes(&f, serde_json::to_vec(&extended).unwrap(), FEED_DOMAIN);
+        let later = verify_feed(&bytes, &signature, &f.trust()).unwrap();
+        assert_eq!(later, Verified::LaterFormat { version: Some("0.12.0test148".into()) });
+        assert_eq!(decide(later.clone(), "0.12.0test146", &["cachyos".into()]),
+            Check::ManualUpdate { latest: Some("0.12.0test148".into()) });
+        assert_eq!(decide(later, "0.12.0test148", &["cachyos".into()]),
+            Check::UpToDate { installed: "0.12.0test148".into() });
+        assert_eq!(decide(Verified::LaterFormat { version: None }, "0.12.0test148", &[]),
+            Check::ManualUpdate { latest: None });
+        let mut tampered = bytes.clone();
+        tampered[0] = b' ';
+        assert!(verify_feed(&tampered, &signature, &f.trust()).is_err());
     }
 
     #[test]
@@ -833,16 +1039,18 @@ mod tests {
             packages: [("cachyos".to_string(), package.clone())].into() };
         let systems = system_names("NAME=\"CachyOS Linux\"\nID=cachyos\nID_LIKE=\"arch\"\n");
         assert_eq!(systems, ["cachyos", "arch"]);
-        assert!(matches!(decide(feed("0.12.0test148"), "0.12.0test146", &systems), Check::Available(o) if o.system == "cachyos"));
-        assert_eq!(decide(feed("0.12.0test146"), "0.12.0test146", &systems), Check::UpToDate { latest: "0.12.0test146".into() });
-        assert_eq!(decide(feed("0.12.0test140"), "0.12.0test146", &systems), Check::UpToDate { latest: "0.12.0test140".into() });
-        assert_eq!(decide(feed("0.12.0test148"), "0.12.0test144", &systems), Check::ManualUpdate { latest: "0.12.0test148".into() });
+        let current = |version: &str| Verified::Current(feed(version));
+        assert!(matches!(decide(current("0.12.0test148"), "0.12.0test146", &systems), Check::Available(o) if o.system == "cachyos"));
+        // "Latest" names the installed version, never an older published one.
+        assert_eq!(decide(current("0.12.0test146"), "0.12.0test146", &systems), Check::UpToDate { installed: "0.12.0test146".into() });
+        assert_eq!(decide(current("0.12.0test140"), "0.12.0test146", &systems), Check::UpToDate { installed: "0.12.0test146".into() });
+        assert_eq!(decide(current("0.12.0test148"), "0.12.0test144", &systems), Check::ManualUpdate { latest: Some("0.12.0test148".into()) });
         let steamos = system_names("ID=steamos\nID_LIKE=arch\n");
-        assert!(matches!(decide(feed("0.12.0test148"), "0.12.0test146", &steamos), Check::NoPackage { .. }));
+        assert!(matches!(decide(current("0.12.0test148"), "0.12.0test146", &steamos), Check::NoPackage { .. }));
         // A feed may name a family: an Arch-like system takes its "arch" entry.
         let mut family = feed("0.12.0test148");
         family.packages = [("arch".to_string(), package.clone())].into();
-        assert!(matches!(decide(family, "0.12.0test146", &steamos), Check::Available(o) if o.system == "arch"));
+        assert!(matches!(decide(Verified::Current(family), "0.12.0test146", &steamos), Check::Available(o) if o.system == "arch"));
     }
 
     #[test]
@@ -867,7 +1075,7 @@ mod tests {
             assert!(request.lines().any(|h| h == format!("PW: {KEY}")), "{request}");
         }
         assert_eq!(check(&f.home, &server.link(), &f.trust(), "0.12.0test148", &systems).unwrap(),
-            Check::UpToDate { latest: "0.12.0test148".into() });
+            Check::UpToDate { installed: "0.12.0test148".into() });
         // A changed feed with the old signature is refused after one retry.
         server.put(FEED_FILE, serde_json::to_vec(&Feed { version: "0.12.0test150".into(), ..feed.clone() }).unwrap());
         assert_eq!(check(&f.home, &server.link(), &f.trust(), "0.12.0test146", &systems),
@@ -901,6 +1109,31 @@ mod tests {
     }
 
     #[test]
+    fn manager_codes_become_plain_sentences_and_stay_in_technical_details() {
+        let busy = UpdateError::Install("user_package_intake_busy".into());
+        assert_eq!(busy.to_string(), "Setup is already installing something; try again when it finishes.");
+        assert_eq!(busy.technical(), Some("user_package_intake_busy"));
+        for code in ["user_package_payload_changed", "directory must be private", "user_package_python_header",
+            "update_link_record", "No such file or directory (os error 2)"] {
+            for error in [UpdateError::Install(code.into()), UpdateError::Local(code.into())] {
+                let shown = error.to_string();
+                assert!(!shown.contains('_') && !shown.contains("directory must") && !shown.contains("os error")
+                    && shown.ends_with('.'), "{shown}");
+                assert_eq!(error.technical(), Some(code));
+            }
+        }
+        // A sentence the manager wrote is shown as it is; a check failure is
+        // never called an installation failure.
+        let check = UpdateError::Local("The current version could not be read. Choose Check for updates to try again.".into());
+        assert_eq!(check.to_string(), "The current version could not be read. Choose Check for updates to try again.");
+        assert_eq!(check.technical(), None);
+        assert!(UpdateError::Install("Not enough disk space. Existing application and projects were retained".into())
+            .to_string().starts_with("There isn't enough free disk space"));
+        assert_eq!(UpdateError::NoSpace(130_500_000).to_string(),
+            "There isn't enough free disk space for the update. Free about 131 MB in your home folder, then choose Download and update again.");
+    }
+
+    #[test]
     fn download_verifies_then_stages_like_the_installer() {
         if !curl_available() { return; }
         let f = Fixture::new();
@@ -913,15 +1146,45 @@ mod tests {
         let mut seen = Vec::new();
         let trust = f.trust();
         let frontend = download_and_stage_with(&f.home, &server.link(), &f.trust(), "0.12.0test146",
-            &offer, &mut |done, total| seen.push((done, total)),
+            &offer, &mut |done, total| seen.push((done, total)), &|_| None,
             |frontend, home| crate::portable_package::expose_setup_with_trust(frontend, home, &trust)).unwrap();
         assert!(frontend.ends_with("usr/bin/linux-audio-compatibility-manager") && frontend.exists());
         assert_eq!(seen.last(), Some(&(offer.package.size, offer.package.size)));
         let setup = fs::read_to_string(f.home.join(".local/share/applications/linux-vst-bridge-setup.desktop")).unwrap();
         assert!(setup.contains(&format!("Exec=\"{}\"", frontend.display())));
-        assert_eq!(downloads(&f), 0, "the verified installer is removed once staged");
-        // The downloaded installer was never made executable or run: only staged files exist.
+        // The downloaded installer was never made executable or run.
+        let kept = updates_dir(&f.home).join("downloads").join(format!("{}.install", offer.package.sha256));
+        assert_eq!(fs::metadata(&kept).unwrap().mode() & 0o777, 0o400);
         assert_eq!(staged_packages(&f), 1);
+        // A cancelled hand-over or a closed window does not download again.
+        let requests = server.log().len();
+        assert_eq!(stage(&f, &server.link(), &offer, "0.12.0test146").unwrap(), frontend);
+        assert_eq!(server.log().len(), requests);
+        // Once nothing newer is published, the kept installer is removed.
+        assert_eq!(check(&f.home, &server.link(), &f.trust(), "0.12.0test148", &["cachyos".into()]).unwrap(),
+            Check::UpToDate { installed: "0.12.0test148".into() });
+        assert_eq!(downloads(&f), 0);
+    }
+
+    #[test]
+    fn full_disk_is_named_as_such_before_and_during_a_download() {
+        if !curl_available() { return; }
+        let f = Fixture::new();
+        let server = Server::start(Some(KEY));
+        let installer = f.bundle("0.12.0test148");
+        let feed = feed_for("0.12.0test148", &[("cachyos", &installer)]);
+        publish(&server, &f, &feed, &installer);
+        let offer = Offer { version: feed.version.clone(), notes: String::new(), system: "cachyos".into(),
+            package: feed.packages["cachyos"].clone() };
+        let requests = server.log().len();
+        let Err(UpdateError::NoSpace(needed)) = stage_with_space(&f, &server.link(), &offer, "0.12.0test146", Some(1000))
+            else { panic!("free space is checked first") };
+        assert!(needed >= 2 * offer.package.size);
+        assert_eq!((server.log().len(), downloads(&f)), (requests, 0), "nothing was fetched");
+        // curl's own write failure (exit 23) is a storage problem, not a network stop.
+        let unwritable = f.home.join("no-such-folder").join("out");
+        assert_eq!(transfer(&server.link(), &offer.package.file, &unwritable, offer.package.size, None,
+            Duration::from_secs(30), &mut |_| {}), Ok(Fetched::WriteFailed));
     }
 
     #[test]
@@ -934,12 +1197,30 @@ mod tests {
         publish(&server, &f, &feed, &installer);
         let offer = Offer { version: feed.version.clone(), notes: String::new(), system: "cachyos".into(),
             package: feed.packages["cachyos"].clone() };
-        server.shared.lock().unwrap().cut = Some(offer.package.size as usize / 2);
+        // A redirect's body is never written into the download.
+        server.shared.lock().unwrap().redirect = true;
         assert_eq!(stage(&f, &server.link(), &offer, "0.12.0test146"), Err(UpdateError::DownloadStopped));
+        assert_eq!((part_size(&f, &offer), downloads(&f)), (None, 0));
+        let half = offer.package.size / 2;
+        server.shared.lock().unwrap().cut = Some(half as usize);
+        assert_eq!(stage(&f, &server.link(), &offer, "0.12.0test146"), Err(UpdateError::DownloadStopped));
+        assert_eq!(part_size(&f, &offer), Some(half));
         assert_eq!(staged_packages(&f), 0);
         stage(&f, &server.link(), &offer, "0.12.0test146").unwrap();
-        assert!(server.log().iter().any(|r| r.lines().any(|h| h.starts_with("Range: bytes="))));
+        assert!(server.log().last().unwrap().lines().any(|h| h == format!("Range: bytes={half}-")));
         assert_eq!(staged_packages(&f), 1);
+        // A redirect in answer to a resume is not the requested range: the
+        // partial download starts over and never gains the redirect's body.
+        let g = Fixture::new();
+        server.shared.lock().unwrap().cut = Some(half as usize);
+        assert_eq!(stage(&g, &server.link(), &offer, "0.12.0test146"), Err(UpdateError::DownloadStopped));
+        server.shared.lock().unwrap().redirect = true;
+        let requests = server.log().len();
+        stage(&g, &server.link(), &offer, "0.12.0test146").unwrap();
+        let log = server.log();
+        assert!(log[requests].lines().any(|h| h.starts_with("Range: bytes=")), "the resume");
+        assert!(!log.last().unwrap().contains("Range:"), "then a fresh whole download");
+        assert_eq!(staged_packages(&g), 1);
     }
 
     #[test]
@@ -961,6 +1242,24 @@ mod tests {
         let mut smaller = good.clone();
         smaller.package.size -= 100;
         assert_eq!(stage(&f, &link, &smaller, "0.12.0test146"), Err(UpdateError::Damaged));
+        assert_eq!((staged_packages(&f), downloads(&f)), (0, 0));
+        // A published file shorter than the feed says finishes, is damaged and
+        // is deleted: the next click does not resume it into a loop.
+        let full = fs::read(&installer).unwrap();
+        server.put(&good.package.file, full[..full.len() - 100].to_vec());
+        for _ in 0..2 {
+            assert_eq!(stage(&f, &link, &good, "0.12.0test146"), Err(UpdateError::Damaged));
+            assert_eq!(part_size(&f, &good), None);
+        }
+        // Payload bytes changed after signing: the hash check at staging
+        // deletes the download.
+        let mut payload_changed = full.clone();
+        let at = payload_changed.len() - 40 - 10;
+        payload_changed[at] ^= 1;
+        let mut changed_offer = good.clone();
+        changed_offer.package.sha256 = crate::hex(&sha2::Sha256::digest(&payload_changed));
+        server.put(&good.package.file, payload_changed);
+        assert_eq!(stage(&f, &link, &changed_offer, "0.12.0test146"), Err(UpdateError::Damaged));
         assert_eq!((staged_packages(&f), downloads(&f)), (0, 0));
         // Published bytes whose own signature fails: the feed hash matches, the package does not verify.
         let mut tampered = fs::read(&installer).unwrap();

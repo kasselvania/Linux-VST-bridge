@@ -45,21 +45,23 @@ class PublishUpdate(unittest.TestCase):
         self.notes = self.root / "notes.txt"
         self.notes.write_text("Test148\n- In-app updates.\n")
 
-    def installer(self, version, system, key=None, folder=None):
+    def installer(self, version, system, key=None, folder=None, payload_suffix=b""):
         base = b"\x7fELF synthetic installer launcher"
-        manifest = json.dumps({"schema": 1, "package": "linux-vst-bridge-beta", "version": version}).encode()
+        payload = f"payload {system}".encode()
+        manifest = json.dumps({"schema": 1, "package": "linux-vst-bridge-beta", "version": version,
+                               "payload_sha256": hashlib.sha256(payload).hexdigest()}).encode()
         signature = openssl_sign(key or self.key, publish_update.PACKAGE_DOMAIN + b"internal_test\0"
                                  + hashlib.sha256(base).digest() + manifest, self.root)
-        payload = f"payload {system}".encode()
+        payload += payload_suffix
         path = (folder or self.ready) / f"Linux-VST-Bridge-{version}-{system}-internal.install"
         path.write_bytes(base + manifest + signature + payload + b"LVBUSER1"
                          + struct.pack("<QQQQ", len(base), len(manifest), 64, len(payload)))
         return path
 
-    def build(self, output="feed", minimum="0.12.0test146", **extra):
+    def build(self, output="feed", minimum="0.12.0test146", published="2026-10-16T12:00:00Z", **extra):
         args = ["build", "--ready", str(self.ready), "--notes", str(self.notes), "--min-version", minimum,
                 "--private-key", str(self.key), "--public-key", self.public, "--key-class", "internal_test",
-                "--output", str(self.root / output), "--published", "2026-10-16T12:00:00Z"]
+                "--output", str(self.root / output), "--published", published]
         for alias in extra.get("aliases", []):
             args += ["--alias", alias]
         stderr = io.StringIO()
@@ -67,12 +69,12 @@ class PublishUpdate(unittest.TestCase):
             code = publish_update.main(args)
         return code, stderr.getvalue()
 
-    def upload(self, dest, feed="feed"):
+    def upload(self, dest, feed="feed", *extra):
         stderr = io.StringIO()
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
             code = publish_update.main(["upload", "--feed-dir", str(self.root / feed), "--ready", str(self.ready),
                                         "--dest", str(dest), "--public-key", self.public,
-                                        "--key-class", "internal_test"])
+                                        "--key-class", "internal_test", *extra])
         return code, stderr.getvalue()
 
     def test_feed_lists_real_installers_and_is_signed_over_the_feed_domain(self):
@@ -126,6 +128,10 @@ class PublishUpdate(unittest.TestCase):
         self.notes.write_text("x" * (17 * 1024))
         code, error = self.build()
         self.assertIn("16 KiB", error)
+        # The manager refuses C1 control characters too, so the feed never carries them.
+        self.notes.write_text("ok \u0085 hidden\n")
+        code, error = self.build()
+        self.assertIn("control characters", error)
         self.key.chmod(0o644)
         self.notes.write_text("ok\n")
         code, error = self.build()
@@ -160,6 +166,42 @@ class PublishUpdate(unittest.TestCase):
         feed.write_bytes(feed.read_bytes().replace(b"test146", b"test140"))
         code, error = self.upload(self.root / "unused")
         self.assertIn("feed signature does not verify", error)
+
+    def test_build_checks_what_the_manager_checks(self):
+        # Payload bytes changed after signing: the manager would refuse to stage it.
+        self.installer("0.12.0test148", "cachyos", payload_suffix=b"!")
+        code, error = self.build()
+        self.assertEqual(code, 1)
+        self.assertIn("payload differs", error)
+        for path in self.ready.iterdir():
+            path.unlink()
+        path = self.installer("0.12.0test148", "cachyos")
+        data = bytearray(path.read_bytes())
+        data[-40 - 3] ^= 1
+        path.write_bytes(bytes(data))
+        code, error = self.build()
+        self.assertIn("payload differs", error)
+        path.write_bytes(b"MZ" + bytes(data[2:]))
+        code, error = self.build()
+        self.assertIn("not an ELF installer", error)
+        self.installer("0.12.0test148", "cachyos")
+        code, error = self.build(published="2026-10-16 12:00")
+        self.assertIn("published", error)
+
+    def test_upload_never_replaces_a_newer_feed_unless_forced(self):
+        beta = self.root / "beta"
+        beta.mkdir()
+        self.installer("0.12.0test148", "cachyos")
+        self.assertEqual(self.build(), (0, ""))
+        (beta / "latest.json").write_text(json.dumps({"schema": 1, "version": "0.12.0test150"}))
+        code, error = self.upload(beta)
+        self.assertEqual(code, 1)
+        self.assertIn("already offers 0.12.0test150", error)
+        self.assertEqual(json.loads((beta / "latest.json").read_text())["version"], "0.12.0test150")
+        self.assertEqual(self.upload(beta, "feed", "--force-older"), (0, ""))
+        self.assertEqual(json.loads((beta / "latest.json").read_text())["version"], "0.12.0test148")
+        with self.assertRaisesRegex(ValueError, "must not start"):
+            publish_update.Destination("-oProxyCommand=evil:/beta")
 
     def test_versions_order_like_the_manager(self):
         key = publish_update.version_key
