@@ -97,8 +97,29 @@ fn plain(name: &str, error: Box<dyn std::error::Error + Send + Sync>)
             format!("{name}'s entry in your DAW's plug-in folder is not the one the manager made. Nothing was changed.").into(),
         _ if text.starts_with("bridge_update_required") =>
             format!("{name} was prepared by an older version of the manager. Use Check compatibility to prepare it again; that adds it back.").into(),
-        _ if text.contains("artifact missing or changed") || text.contains("No such file") =>
-            format!("{name}'s files changed since it was removed. Use Check compatibility to prepare it again.").into(),
+        _ => error,
+    }
+}
+/// Add back verifies the retained files again; a missing or changed one means
+/// it has to be prepared again.
+fn plain_add_back(name: &str, error: Box<dyn std::error::Error + Send + Sync>)
+    -> Box<dyn std::error::Error + Send + Sync> {
+    let text = error.to_string();
+    if text.contains("artifact missing or changed") || text.contains("No such file") {
+        format!("{name}'s files changed since it was removed. Use Check compatibility to prepare it again.").into()
+    } else { plain(name, error) }
+}
+/// Deletion refusals that are not already plain sentences.
+fn plain_deletion(error: Box<dyn std::error::Error + Send + Sync>) -> Box<dyn std::error::Error + Send + Sync> {
+    match error.to_string().as_str() {
+        "deleted_setup_inventory_conflict" =>
+            "This setup's scan history was already recorded for a deleted setup, so the manager stopped. Send Setup details.".into(),
+        "setup_deletion_bound" =>
+            "This setup has more files than the manager deletes in one go. Use Finish deleting this setup to continue.".into(),
+        "setup_environment_lock" =>
+            "The manager couldn't hold every part of this setup at once. Try again; if it stays, send Setup details.".into(),
+        "deleted_setup_registration_changed" =>
+            "A plug-in of this setup changed while it was being deleted, so the manager stopped. Refresh and try again; if it stays, send Setup details.".into(),
         _ => error,
     }
 }
@@ -265,7 +286,7 @@ pub(super) fn add_back(m: &Manager, class: &str, expected: &ui::PublicationIdent
     // this check and republishing the old bridge.
     let package = retry_busy(|| m.lock("package.lock"))
         .map_err(|_| "The manager is updating. Try again when the update finishes.")?;
-    if package_authority::add_back_needs_refresh(m, &key, &expected_ref).map_err(|error| plain(&name, error))? {
+    if package_authority::add_back_needs_refresh(m, &key, &expected_ref).map_err(|error| plain_add_back(&name, error))? {
         // The refresh owner takes package.lock itself and prepares against
         // whatever bridge is current then.
         drop(package);
@@ -273,7 +294,7 @@ pub(super) fn add_back(m: &Manager, class: &str, expected: &ui::PublicationIdent
             let text = error.to_string();
             if matches!(text.as_str(), "active_device_lease" | "active_maintenance_lease" | "operator_vendor_active") {
                 recheck_first(&name).into()
-            } else { plain(&name, error) }
+            } else { plain_add_back(&name, error) }
         })?;
         clear_removed(m, &key);
         return Ok(json!({"class_id":key,"name":name,"added_back_to_daw":true,"already_available":false,
@@ -284,7 +305,7 @@ pub(super) fn add_back(m: &Manager, class: &str, expected: &ui::PublicationIdent
     // The exact retained revision only: its runner, Windows module, host and
     // native bytes are verified again by the publication owner.
     retry_busy(|| m.rollback_managed_expected(&key, &expected_ref.id, &expected_ref))
-        .map_err(|error| plain(&name, error))?;
+        .map_err(|error| plain_add_back(&name, error))?;
     drop(package);
     clear_removed(m, &key);
     Ok(outcome(false))
@@ -558,6 +579,21 @@ fn checked_root(m: &Manager, environment: &Environment) -> Result<PathBuf> {
         SETUP_MOVED)?;
     Ok(environment.root.canonicalize()?)
 }
+/// The setup's folder was deleted outside the manager, so its files are already
+/// gone. Only when the environments folder is on the manager's own drive: a
+/// folder on a disconnected drive is never taken for a deleted one.
+fn already_gone(m: &Manager, environment: &Environment) -> Result<bool> {
+    require(linux_vst_bridge::environment_revision::valid_environment_id(&environment.id)
+        && environment.root == m.root.join("environments").join(&environment.id), SETUP_MOVED)?;
+    match fs::symlink_metadata(&environment.root) {
+        Ok(_) => Ok(false),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            let environments = fs::symlink_metadata(m.root.join("environments"))?;
+            Ok(environments.is_dir() && environments.dev() == fs::metadata(&m.root)?.dev())
+        }
+        Err(error) => Err(error.into()),
+    }
+}
 /// The supervisor, installers, vendor apps, keepers and plug-in sessions take
 /// this lock while they start work in the environment. Holding it exclusively
 /// keeps new work out; the owner and process checks cover what already runs.
@@ -575,14 +611,23 @@ fn hold(m: &Manager, environment: &Environment) -> Result<File> {
 fn lease_owners(m: &Manager, environment: &Environment) -> Result<(usize, usize)> {
     let leases = m.root.join("runtime/leases");
     if !leases.try_exists()? { return Ok((0, 0)); }
-    let entries = fs::read_dir(&leases)?.take(65).collect::<std::io::Result<Vec<_>>>()?;
+    // Read without registry.lock: owners write through temporary files, and a
+    // lease that disappears while it is read was released.
+    let mut entries = vec![];
+    for entry in fs::read_dir(&leases)?.take(4096) {
+        let lease = entry?.path();
+        if lease.extension().and_then(|e| e.to_str()) == Some("json") { entries.push(lease); }
+    }
     require(entries.len() <= 64, TOO_MANY_SESSIONS)?;
     let (mut keepers, mut others) = (0, 0);
-    for entry in entries {
-        let lease = entry.path();
+    for lease in entries {
         let Some(sid) = lease.file_stem().and_then(|s| s.to_str()) else { continue };
-        let report: PathBuf = read_json(&lease)?;
-        let (owner, path) = m.lease_owner(sid, &report)?;
+        let owner = read_json::<PathBuf>(&lease).and_then(|report| m.lease_owner(sid, &report));
+        let (owner, path) = match owner {
+            Ok(owner) => owner,
+            Err(_) if !lease.try_exists()? => continue,
+            Err(error) => return Err(error),
+        };
         if owner["registration"]["environment"]["id"].as_str() != Some(environment.id.as_str())
             && !path.starts_with(&environment.root) { continue; }
         if owner["keeper"] == true { keepers += 1; } else { others += 1; }
@@ -682,7 +727,7 @@ fn require_no_mounts(raw: &Path, root: &Path) -> Result<()> {
 /// Hold every environment of the setup and show nothing uses it. An idle
 /// bridge host retires by itself shortly after its last plug-in closed, so
 /// that alone is waited for (bounded) rather than refused.
-fn claim(m: &Manager, environments: &[Environment], wait: Duration) -> Result<Vec<File>> {
+fn claim(m: &Manager, environments: &[Environment], wait: Duration) -> Result<Vec<Option<File>>> {
     let deadline = Instant::now() + wait;
     loop {
         match claim_once(m, environments) {
@@ -692,9 +737,15 @@ fn claim(m: &Manager, environments: &[Environment], wait: Duration) -> Result<Ve
         }
     }
 }
-fn claim_once(m: &Manager, environments: &[Environment]) -> Result<Vec<File>> {
-    let held = environments.iter().map(|e| hold(m, e)).collect::<Result<Vec<_>>>()?;
-    for e in environments { require_unused(m, e)?; }
+/// One lock per environment; None where its folder is already gone.
+fn claim_once(m: &Manager, environments: &[Environment]) -> Result<Vec<Option<File>>> {
+    let mut held = vec![];
+    for e in environments {
+        held.push(if already_gone(m, e)? { None } else { Some(hold(m, e)?) });
+    }
+    for (e, lock) in environments.iter().zip(&held) {
+        if lock.is_some() { require_unused(m, e)?; }
+    }
     Ok(held)
 }
 fn require_unused(m: &Manager, environment: &Environment) -> Result<()> {
@@ -723,7 +774,17 @@ fn unlink_at(parent: &OwnedFd, name: &CStr, flags: i32) -> std::io::Result<()> {
 fn proc_path(fd: &OwnedFd) -> PathBuf {
     PathBuf::from(format!("/proc/self/fd/{}", fd.as_raw_fd()))
 }
-struct Walk { device: u64, owner: u32, visited: usize }
+struct Walk { device: u64, mount: Option<u64>, owner: u32, visited: usize }
+/// The mount an open file is on, and whether it is that mount's root, where
+/// the kernel reports them (Linux 5.8+). Catches same-device bind mounts.
+fn mount_of(fd: &OwnedFd) -> (Option<u64>, bool) {
+    let mut stx: libc::statx = unsafe { std::mem::zeroed() };
+    if unsafe { libc::statx(fd.as_raw_fd(), c"".as_ptr(), libc::AT_EMPTY_PATH | libc::AT_SYMLINK_NOFOLLOW,
+        libc::STATX_MNT_ID, &mut stx) } != 0 { return (None, false); }
+    let root = libc::STATX_ATTR_MOUNT_ROOT as u64;
+    ((stx.stx_mask & libc::STATX_MNT_ID != 0).then_some(stx.stx_mnt_id),
+        stx.stx_attributes_mask & root != 0 && stx.stx_attributes & root != 0)
+}
 const CURRENT: &CStr = c".";
 /// Delete every entry of an open directory except `keep`.
 fn clear(dir: &OwnedFd, walk: &mut Walk, depth: usize, keep: &[&[u8]]) -> Result<()> {
@@ -753,7 +814,8 @@ fn remove_entry(parent: &OwnedFd, name: &CStr, walk: &mut Walk, depth: usize) ->
         drop(child);
         return Ok(unlink_at(parent, name, 0)?);
     }
-    if st.st_dev != walk.device {
+    let (mount, mount_root) = mount_of(&child);
+    if st.st_dev != walk.device || mount_root || walk.mount.zip(mount).is_some_and(|(walk, child)| walk != child) {
         return Err(format!("Another drive or folder is attached inside this setup ({}). The manager stopped before crossing into it. Detach it, then use Finish deleting this setup.",
             name.to_string_lossy()).into());
     }
@@ -781,7 +843,7 @@ fn remove_windows_files(m: &Manager, environment: &Environment) -> Result<()> {
     let dir = unsafe { OwnedFd::from_raw_fd(fd) };
     let st = stat_fd(&dir)?;
     require(st.st_dev == expected.dev() && st.st_ino == expected.ino(), SETUP_MOVED)?;
-    let mut walk = Walk { device: expected.dev(), owner: unsafe { libc::getuid() }, visited: 0 };
+    let mut walk = Walk { device: expected.dev(), mount: mount_of(&dir).0, owner: unsafe { libc::getuid() }, visited: 0 };
     clear(&dir, &mut walk, 0, &[b"environment.json".as_slice(), b"operation.lock".as_slice()]).map_err(|error|
         if let Some(io) = error.downcast_ref::<std::io::Error>() {
             format!("Some of this setup's files couldn't be deleted ({io}). Use Finish deleting this setup to try again; if it stays, send Setup details.").into()
@@ -809,6 +871,7 @@ fn summary(record: &Tombstone, already: bool) -> Value {
 
 pub(super) fn delete_setup(m: &Manager, installer: &str, environment: &str, operation: &str) -> Result<Value> {
     delete_setup_with(m, installer, environment, operation, &mut |op| onboarding::live(op), KEEPER_WAIT)
+        .map_err(plain_deletion)
 }
 fn delete_setup_with(m: &Manager, installer: &str, environment: &str, operation: &str,
     is_live: &mut dyn FnMut(&str) -> Result<bool>, keeper_wait: Duration) -> Result<Value> {
@@ -829,13 +892,16 @@ fn delete_setup_with(m: &Manager, installer: &str, environment: &str, operation:
     require(!protected.contains(environment), MANAGED)?;
     let mut planned = plan(m, installer, environment, &records, &m.registry()?, is_live)?;
     require(planned.environments.iter().all(|e| !protected.contains(&e.id)), MANAGED)?;
-    if !planned.missing_link.is_empty() {
-        record_missing_links(m, &planned)?;
-        planned = plan(m, installer, environment, &records, &m.registry()?, is_live)?;
-    }
     if let Some(reason) = delete_reason(&planned, None) { return Err(reason.into()); }
     // Exclusive environment locks, then live owners, mounts and a process census.
     let held = claim(m, &planned.environments, keeper_wait)?;
+    // Only now, with nothing refusing: DAW entries deleted by hand are
+    // recorded as removed, and the plan is read again.
+    if !planned.missing_link.is_empty() {
+        record_missing_links(m, &planned)?;
+        planned = plan(m, installer, environment, &records, &m.registry()?, is_live)?;
+        if let Some(reason) = delete_reason(&planned, None) { return Err(reason.into()); }
+    }
     let record = Tombstone { schema: 1, environment: environment.into(), installer: installer.into(),
         name: planned.name.clone(), environments: planned.environments.clone(), registrations: planned.removed.clone(),
         plugins: planned.plugins.clone(), operation: operation.into(), requested_at: now()?,
@@ -862,16 +928,18 @@ fn plan_registry(m: &Manager, plan: &SetupPlan) -> Result<bool> {
             && publication::physical(&m.link(&retired.class_id)).is_ok_and(|p| p.is_none())))
 }
 /// Continue from the retained tombstone while holding every environment lock.
-fn finish(m: &Manager, mut record: Tombstone, held: Vec<File>) -> Result<Value> {
+fn finish(m: &Manager, mut record: Tombstone, held: Vec<Option<File>>) -> Result<Value> {
     require(held.len() == record.environments.len(), "setup_environment_lock")?;
     {
         let registry = retry_busy(|| m.lock("registry.lock"))?;
         m.retire_removed_registrations(&registry, &record.registrations)?;
     }
-    for environment in record.environments.clone() {
-        require_unused(m, &environment)?;
+    for (environment, lock) in record.environments.clone().iter().zip(&held) {
         retain_inventory(m, &record.environment, &environment.id)?;
-        remove_windows_files(m, &environment)?;
+        // A folder already deleted outside the manager has nothing left to delete.
+        if lock.is_none() { continue; }
+        require_unused(m, environment)?;
+        remove_windows_files(m, environment)?;
     }
     record.state = Deletion::Deleted;
     record.deleted_at = Some(now()?);

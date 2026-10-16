@@ -147,6 +147,8 @@ impl Manager {
     /// Caller holds registry.lock. Retire exactly the listed registrations,
     /// which must still be removed from the DAW with no pending transaction.
     /// Their full entries are first retained in the tombstone by the caller.
+    /// A class registered from another environment since (the same plug-in
+    /// set up again) belongs to that setup and is left alone.
     pub fn retire_removed_registrations(&self, lock: &Lock,
         retained: &[RetiredRegistration]) -> Result<()> {
         lock.require_registry(self)?;
@@ -154,6 +156,7 @@ impl Manager {
         let mut changed = false;
         for retired in retained {
             let Some(entry) = db.classes.get(&retired.class_id) else { continue };
+            if entry.registration.environment.id != retired.entry.registration.environment.id { continue; }
             require(*entry == retired.entry && entry.publication == Publication::Removed
                 && !self.publication_pending(&retired.class_id)?
                 && publication::physical(&self.link(&retired.class_id))?.is_none(),
@@ -235,5 +238,13 @@ mod tests {
         let lock = f.m.lock("registry.lock").unwrap();
         f.m.retire_removed_registrations(&lock, std::slice::from_ref(&retired)).unwrap();
         assert!(!f.m.registry().unwrap().classes.contains_key(&key));
+        // The same class registered again from another setup is never retired by this one.
+        let mut db = f.m.registry().unwrap();
+        let mut again = retired.entry.clone();
+        again.registration.environment.id = "6c".repeat(16);
+        db.classes.insert(key.clone(), again.clone());
+        f.m.save(&mut db).unwrap();
+        f.m.retire_removed_registrations(&lock, std::slice::from_ref(&retired)).unwrap();
+        assert_eq!(f.m.registry().unwrap().classes.get(&key), Some(&again));
     }
 }

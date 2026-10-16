@@ -675,3 +675,113 @@ fn owner_refusals_read_as_plain_words() {
     assert_eq!(class_reason(Some("Previous instance cleanup is unconfirmed"), "Freq Echo").as_deref(),
         Some("Previous instance cleanup is unconfirmed"));
 }
+
+/// Prepare and publish the class of `c` again from `fresh`, a new setup's own
+/// copy of the same plug-in files.
+fn publish_from(f: &test_fixture::Fixture, c: &prep::Candidate, fresh: &Environment) -> RevisionRef {
+    let old = &c.selection.environment;
+    let mut selection = c.selection.clone();
+    selection.environment = fresh.clone();
+    selection.module.path = fresh.root.join(c.selection.module.path.strip_prefix(&old.root).unwrap());
+    let scan = inventory::Scan {schema:1,id:random_id().unwrap(),environment:fresh.clone(),
+        host:selection.scanner.clone(),host_source_sha256:selection.scanner_source.clone(),
+        completed_at:1,changes:Default::default(),
+        modules:vec![inventory::Module {artifact:selection.module.clone(),classes:vec![selection.class.clone()],
+            report:selection.factory_report.clone(),inspection_error:None,quarantine_reason:None}]};
+    atomic_json(&f.m.root.join("inventory").join(format!("{}.json", fresh.id)), &scan).unwrap();
+    let inspection = prep::inspect_record_with_layout(selection.clone(), c.inspection.report.clone(),
+        prep::Origin::ManagedPreparation, c.host.clone(), c.source_manifest.clone(),
+        c.inspection.audio_layout.clone()).unwrap();
+    let next = prep::prepared(selection, inspection, c.native.clone(), c.host.clone(),
+        c.source_manifest.clone(), c.recipe_sha256.clone()).unwrap();
+    prep::record_candidate(&f.m, &next).unwrap();
+    prep::enable(&f.m, &next, false).unwrap()
+}
+
+#[test]
+fn finishing_a_deletion_leaves_the_same_plugin_set_up_again_alone() {
+    let (f, c, current) = published();
+    let class = c.selection.class.id.clone();
+    let old = c.selection.environment.clone();
+    let mut fresh = old.clone();
+    fresh.id = "15".repeat(16);
+    fresh.root = f.m.root.join("environments").join(&fresh.id);
+    copy_tree(&old.root, &fresh.root);
+    atomic_json(&fresh.root.join("environment.json"), &fresh).unwrap();
+    remove_from_daw(&f.m, &class, &identity(&current)).unwrap();
+    let entry = f.m.registry().unwrap().classes[&class].clone();
+    let record = Tombstone {schema:1,environment:old.id.clone(),installer:"ab".repeat(32),
+        name:"Old setup".into(),environments:vec![old.clone()],
+        registrations:vec![RetiredRegistration {class_id:class.clone(),name:"Fixture".into(),entry}],
+        plugins:vec![],operation:"cd".repeat(16),requested_at:1,deleted_at:None,state:Deletion::Deleting};
+    // The deletion stopped after its records were marked, before its files were gone.
+    deleted_setup::write(&f.m, &record).unwrap();
+    {
+        let registry = f.m.lock("registry.lock").unwrap();
+        f.m.retire_removed_registrations(&registry, &record.registrations).unwrap();
+    }
+    let leftover = old.root.join("compatdata/pfx/drive_c/leftover.dll");
+    private_dir(leftover.parent().unwrap()).unwrap();
+    fs::write(&leftover, b"MZ").unwrap();
+    // The musician sets the same installer up again and the plug-in is published again.
+    let republished = publish_from(&f, &c, &fresh);
+    let held = claim(&f.m, &record.environments, Duration::ZERO).unwrap();
+    let finished = finish(&f.m, record, held).unwrap();
+    assert_eq!(finished["setup_deleted"], true);
+    assert!(!leftover.exists(), "the rest of the old setup's files are deleted");
+    let entry = f.m.registry().unwrap().classes[&class].clone();
+    assert_eq!(entry.registration.environment.id, fresh.id, "the new setup's plug-in is untouched");
+    assert_eq!(entry.managed_revision.as_ref(), Some(&republished));
+    assert!(publication::physical(&f.m.link(&class)).unwrap().is_some());
+    assert!(fresh.root.join("compatdata").exists());
+}
+
+#[test]
+fn a_setup_folder_deleted_by_hand_is_already_gone() {
+    let (f, environment, installer) = created_setup();
+    let root = f.m.root.join("environments").join(&environment);
+    let environments = vec![onboarding::history_records(&f.m).unwrap().into_iter()
+        .find(|r| r.id == environment).unwrap().environment];
+    deleted_setup::write(&f.m, &Tombstone {schema:1,environment:environment.clone(),installer:installer.clone(),
+        name:"Fixture".into(),environments,registrations:vec![],plugins:vec![],operation:"ab".repeat(16),
+        requested_at:1,deleted_at:None,state:Deletion::Deleting}).unwrap();
+    fs::remove_dir_all(&root).unwrap();
+    let finished = delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false),
+        Duration::ZERO).unwrap();
+    assert_eq!(finished["setup_deleted"], true);
+    assert_eq!(deleted_setup::load(&f.m, &environment).unwrap().unwrap().state, Deletion::Deleted);
+    assert!(!root.exists(), "nothing is recreated");
+}
+
+#[test]
+fn deletion_stops_at_another_mount_where_the_kernel_reports_it() {
+    let (f, environment, _) = created_setup();
+    let open = |path: &Path| {
+        let path = CString::new(path.as_os_str().as_bytes()).unwrap();
+        let fd = unsafe { libc::open(path.as_ptr(), libc::O_PATH | libc::O_DIRECTORY | libc::O_CLOEXEC) };
+        assert!(fd >= 0);
+        unsafe { OwnedFd::from_raw_fd(fd) }
+    };
+    let setup = open(&f.m.root.join("environments").join(&environment));
+    let (id, root) = mount_of(&setup);
+    assert!(!root, "an ordinary folder is not a mount root");
+    if let Some(id) = id {
+        // /proc is always its own mount.
+        let (proc_id, proc_root) = mount_of(&open(Path::new("/proc")));
+        assert!(proc_root && proc_id.is_some_and(|other| other != id));
+    }
+}
+
+#[test]
+fn deletion_refusals_read_as_plain_words() {
+    for code in ["deleted_setup_inventory_conflict", "setup_deletion_bound", "setup_environment_lock",
+        "deleted_setup_registration_changed"] {
+        let text = plain_deletion(code.into()).to_string();
+        assert!(text.ends_with('.') && !text.contains('_'), "{code}: {text}");
+    }
+    // Remove keeps an unknown file error exact; only Add back reads it as changed files.
+    let missing: Box<dyn std::error::Error + Send + Sync> = "No such file or directory (os error 2)".into();
+    assert_eq!(plain("Freq Echo", missing).to_string(), "No such file or directory (os error 2)");
+    assert!(plain_add_back("Freq Echo", "No such file or directory (os error 2)".into()).to_string()
+        .contains("files changed since it was removed"));
+}

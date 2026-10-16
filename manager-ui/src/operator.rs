@@ -3060,7 +3060,11 @@ fn removal_confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirm
             }
             let setup = snapshot.installer_setups.iter().find(|s| s.installer == *installer);
             let name = setup.map_or_else(|| "this setup".into(), |s| setup_display_name(s, snapshot));
-            let names: Vec<_> = snapshot.products.iter().filter(|p| p.environment == *environment)
+            // Every attempt of the setup, not only the current one.
+            let attempts: std::collections::BTreeSet<&str> = std::iter::once(environment.as_str())
+                .chain(setup.into_iter().flat_map(|s| s.history.iter().filter_map(|h| h.environment.as_deref())))
+                .collect();
+            let names: Vec<_> = snapshot.products.iter().filter(|p| attempts.contains(p.environment.as_str()))
                 .map(|p| p.name.as_str()).collect();
             let (plugins, them) = match names.len() {
                 0 => ("its plug-ins".into(), "them"),
@@ -6362,6 +6366,18 @@ mod tests {
         assert!(!needs_confirmation(&Action::PluginAddBackToDaw {class_id:product.class_id.clone(),
             expected_removed:PublicationIdentity {id:"ab".repeat(16),sha256:"cd".repeat(32)}}));
 
+        // A plug-in of an earlier attempt of the same setup is named too.
+        let mut earlier = product.clone();
+        earlier.name = "Earlier attempt plug-in".into();
+        earlier.environment = "ee".repeat(16);
+        overview.current.products.push(earlier);
+        overview.current.installer_setups[0].history = vec![crate::model::SetupHistoryRef {
+            environment: Some("ee".repeat(16)), state: "installed".into() }];
+        let asked = removal_confirmation(Some(&overview.current), &delete.action);
+        assert!(asked.body.iter().any(|line| line.contains(&product.name) && line.contains("Earlier attempt plug-in")),
+            "{:?}", asked.body);
+        overview.current.products.pop();
+        overview.current.installer_setups[0].history.clear();
         let asked = removal_confirmation(Some(&overview.current), &delete.action);
         assert_eq!(asked.title, "Delete this setup?");
         assert_eq!(asked.body[0], "This deletes the Windows setup for Freq Echo installer: everything installed in it, and any licences or sign-ins stored there.");
