@@ -379,6 +379,41 @@ fn code_suffix(code: &str) -> String {
     if plain { format!(" (code: {code})") } else { String::new() }
 }
 
+// What saving does while a plug-in is not loaded; every refused-load card says it.
+const SAVING_NOT_LOADED: &str = "Saving while it is not loaded drops its settings from the project.";
+const NOT_LOADED: &str = "The last time your DAW loaded this plug-in, the bridge did not load it, so it stayed empty and silent.";
+
+/// The last DAW load of a plug-in did not succeed (`runtime/native-startup`
+/// outcome `refused` or `delivery_failed`, ending at `phase`, with the
+/// admission `refusal` code sent to the DAW). Every such record explains
+/// itself; known phases and refusals say more. Other outcomes explain nothing.
+pub fn from_load_record(outcome: &str, phase: Option<&str>, refusal: Option<&str>)
+    -> Option<Explanation> {
+    if !matches!(outcome, "refused" | "delivery_failed") { return None; }
+    Some(match (phase, refusal) {
+        (Some("keeper_failed"), _) => Explanation::new("windows_side_stopped",
+            "The last time your DAW loaded this plug-in, its Windows side had stopped, so the plug-in stayed empty and silent.",
+            "The Windows programs behind this plug-in's setup ended unexpectedly (for example when the desktop's display server restarted) or failed while starting.",
+            format!("Load the plug-in again: reopen the project or restart your DAW. Removing and adding the plug-in starts it with default settings. {SAVING_NOT_LOADED} The bridge starts its Windows side again on that load. If it is refused again, wait a minute before loading it again. If it keeps failing, create a problem report.")),
+        (Some("bridge_update_required"), _) => Explanation::new("bridge_updated_daw_old", NOT_LOADED,
+            "The bridge was updated while your DAW still had the older bridge plug-in loaded; reopening a project keeps that older one.",
+            "Quit and restart your DAW, then open the project. Saving before that drops this plug-in's settings from the project."),
+        (_, Some("admission_global_capacity" | "admission_class_capacity" | "admission_native_image_capacity")) =>
+            Explanation::new("bridge_plugin_limit", NOT_LOADED,
+            "The bridge was already running as many plug-ins as it allows at once, in total or of this plug-in.",
+            format!("Remove a bridged plug-in you do not need, then reopen the project or restart your DAW. {SAVING_NOT_LOADED}")),
+        (_, Some("admission_maintenance_active")) => Explanation::new("manager_busy_with_plugin", NOT_LOADED,
+            "The manager was checking a plug-in, or had a vendor application such as an installer or sign-in window open.",
+            format!("Close the vendor application or wait for the manager's check to finish, then reopen the project or restart your DAW. {SAVING_NOT_LOADED}")),
+        (_, Some("admission_cleanup_unconfirmed")) => Explanation::new("earlier_session_not_closed", NOT_LOADED,
+            "The bridge could not confirm that this plug-in's earlier Windows side had closed, so it did not start another.",
+            format!("Restart your DAW. {SAVING_NOT_LOADED} If it keeps happening, create a problem report.")),
+        _ => Explanation::new("load_refused", NOT_LOADED,
+            "The bridge could not prepare it in time: the plug-in's setup may have changed during the load, the bridge may have been busy, or the DAW stopped waiting.",
+            format!("Load the plug-in again: reopen the project or restart your DAW. Removing and adding the plug-in starts it with default settings. {SAVING_NOT_LOADED} If it keeps happening, create a problem report.")),
+    })
+}
+
 /// Enumerated manager and installer outcome codes.
 pub fn from_code(code: &str) -> Option<Explanation> {
     Some(match code {

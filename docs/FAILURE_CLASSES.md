@@ -82,6 +82,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-GFX-001](#fc-gfx-001--directcomposition-presentation-capability) | DirectComposition presentation capability | Proton/Wine graphics runner | causal | accepted | Blackhole / Steam Deck | supported | Preserve exact runner; close stale issue #132 disposition separately |
 | [FC-LIFE-001](#fc-life-001--graphical-session-and-keeper-authority) | Graphical-session/keeper authority | Manager/supervisor lifecycle | causal | accepted | Blackhole, Kontakt / Steam Deck; FRAGMENTS / Ubuntu | supported | Gaming Mode transition coverage |
 | [FC-LIFE-002](#fc-life-002--failed-launch-cleanup-and-truthful-recovery-state) | Failed launch cleanup and truthful recovery | Manager ownership/leases/results | causal | deployed | Steam Deck and Ubuntu fixtures | supported-with-workaround | Manager recovery UX |
+| [FC-LIFE-003](#fc-life-003--a-stopped-windows-side-stays-refused-until-the-service-restarts) | A stopped Windows side stays refused until the service restarts | Manager keeper ownership / native admission | causal | source-fixed | Kontakt 8 / Deck Test88 report; CachyOS Test90 reproduction | open | Installed comparison |
 | [FC-MIDI-001](#fc-midi-001--recognized-expression-rejected-an-entire-native-input-callback) | Recognized expression rejected an entire native input callback | Native VST3 proxy input admission | causal in source; physical attribution open | source-fixed | Pinned SDK fixture; Push / Deck operator report only | unqualified for Push expression | Build and publish exact proxy successor; physical Push/Bitwig release check |
 | [FC-MIDI-002](#fc-midi-002--late-note-off-permanently-fails-processing) | Late note-off permanently fails processing | Native SDK signed timestamp conversion | causal in source and matched comparison | deployed | Pinned SDK regression; recovery1 Pure LoFi physical Deck comparison | qualified for this late-release recovery only | Residual timing and broader host/event qualification remain open |
 | [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | preemption/burst loss attributed; refresh4 retains main N64, N13 tail and final N0 failures with remaining service/scheduler attribution gaps | recovery6 focused repair passes; refresh4 physical SDK matrix fails 16/24 full lifetimes | Pure LoFi Deck burst repair; Ubuntu coexistence failure; physical Completion instrument/effect matrix | usable on the Deck fixture: Pure LoFi, Buffered 512, 48 kHz, 30 minutes with interaction and export, zero misses; same-callback with a heavy effect stays unqualified | editor-open thirty-minute confirmation without screen streaming; instrument class at 512/256; delivery mode chosen from measured call cost |
@@ -3615,6 +3616,34 @@ mode keeps the owner path): opening the editor as playback starts went from 0/4
 to 4/4 chords (Test99, waits ≤0.26 s, none dropped). Open: save-then-play still
 waits for REAPER's state request (owner thread, native capture rule) and lost the
 chord once in four (0.26 s > limit).
+
+## FC-LIFE-003 — A stopped Windows side stays refused until the service restarts
+
+Deck, Test88, Kontakt 8 / REAPER: after its Windows side exited (Xwayland had
+aborted, FC-UI-014), every later load in the same desktop was refused at once
+(`keeper_failed`) without starting a new one, the editor's 10 ms timer asked
+the service again on every tick (207 refusals in 75 s) and REAPER became
+sluggish; the manager showed nothing. Only restarting the service cleared it.
+Reproduced on CachyOS (Test90) by killing the Windows side: the reload was
+refused in 830 ms, 48 refusals followed in 45 s, and REAPER's UI stalled up to
+2.2 s (23 stalls over 100 ms in 40 s). The service kept a failed generation for
+its lifetime by design, to avoid a restart per retry. Now the next load
+replaces a cleanly retired failed generation at once if it had stayed ready
+for a minute; otherwise the replacement starts no sooner than 10 s, then 60 s,
+after the failed generation started (start to start, so a slow start that
+timed out after its load gave up does not refuse the next load). A refused
+instance asks once, stops, and its editor says why the bridge refused it; the
+plug-in's manager card explains the last refused load (stopped Windows side,
+DAW still holding an older bridge, plug-in limit, manager busy, earlier
+session not closed, or in general terms), with when, until a later load is
+accepted. The refusal record never re-hashes the runtime or plug-in. Saving the project while an instance is
+refused drops that plug-in's settings (Kontakt: 173 KB of state became 23 KB);
+the view and card say so, and [#380](https://github.com/kasselvania/Linux-VST-bridge/issues/380)
+tracks keeping the project's own bytes.
+Test92 on CachyOS: after killing the Windows side, the reload started a fresh
+one (ready in 3.9 s, loaded in 9.5 s) with no refusals, and Kontakt played at
+−9.4 dBFS. The cold start still holds REAPER's UI while it runs (23 s for the
+offline/online toggle).
 
 ## Beta reports under investigation
 
