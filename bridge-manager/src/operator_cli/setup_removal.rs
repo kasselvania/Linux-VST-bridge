@@ -141,8 +141,13 @@ pub(super) fn present_removed(m: &Manager, product: &mut ui::Product, entry: &En
         || !m.publication_pending(&product.class_id).is_ok_and(|pending| !pending) {
         return;
     }
-    let plain_removal = product.compatibility.as_ref().is_none_or(|workflow|
-        workflow.phase == ui::CompatibilityPhase::ReadyForTest);
+    // A failed test that removed it, or an unfinished result or check, keeps
+    // its own presentation. A removal followed by a bridge update leaves the
+    // inventory historical; that is still a plain removal Add back restores.
+    let plain_removal = product.compatibility.as_ref().is_none_or(|workflow| !matches!(workflow.phase,
+        ui::CompatibilityPhase::NeedsWork | ui::CompatibilityPhase::TestResultIncomplete
+        | ui::CompatibilityPhase::AwaitingRetirement | ui::CompatibilityPhase::PublicationNeedsAttention
+        | ui::CompatibilityPhase::Checking));
     if !plain_removal {
         product.actions.retain(|offer| !matches!(offer.action, ui::Action::PluginAddBackToDaw { .. }));
         return;

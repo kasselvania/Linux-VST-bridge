@@ -361,6 +361,29 @@ fn a_finished_setup_states_what_is_in_the_daw_now() {
 }
 
 #[test]
+fn add_back_stays_offered_when_a_bridge_update_made_the_scan_historical() {
+    let (f, c, current) = published();
+    let class = c.selection.class.id.clone();
+    remove_from_daw(&f.m, &class, &identity(&current)).unwrap();
+    let entry = f.m.registry().unwrap().classes[&class].clone();
+    let snapshot = snapshot_idle_test(&f.m).unwrap();
+    let base = product(&snapshot, &class).clone();
+    let add = offer(&base.actions, |a| matches!(a, ui::Action::PluginAddBackToDaw { .. })).unwrap();
+    for (phase, kept) in [(ui::CompatibilityPhase::HistoricalOnly, true), (ui::CompatibilityPhase::CheckFailed, true),
+        (ui::CompatibilityPhase::NeedsWork, false), (ui::CompatibilityPhase::TestResultIncomplete, false)] {
+        let mut p = base.clone();
+        let workflow = p.compatibility.as_mut().unwrap();
+        workflow.phase = phase;
+        workflow.primary = None;
+        p.disposition = "needs_attention".into();
+        present_removed(&f.m, &mut p, &entry);
+        assert_eq!(offer(&p.actions, |a| matches!(a, ui::Action::PluginAddBackToDaw { .. })).is_some(), kept, "{phase:?}");
+        assert_eq!(p.disposition == "removed_from_daw", kept, "{phase:?}");
+        if kept { assert_eq!(p.compatibility.unwrap().primary.map(|o| o.action), Some(add.action.clone())); }
+    }
+}
+
+#[test]
 fn owner_refusals_read_as_plain_words() {
     assert_eq!(plain("Freq Echo", "active_device_lease".into()).to_string(), loaded("Freq Echo"));
     assert!(plain("Freq Echo", "bridge_update_required: use Update Bridge".into()).to_string()
