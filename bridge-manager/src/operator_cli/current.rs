@@ -832,7 +832,8 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
             action("Create sanitized support export",ui::Action::SupportExport {},None),
             action("Reconcile interrupted transaction",ui::Action::TransactionReconcile {},
                 inactive_reason(cap.as_ref(),retired,pending,true))],
-        operation,deleted_setups,uninstallers};
+        operation,deleted_setups,uninstallers,
+        bridge:crate::package_authority::bridge_build(m,&sw)};
     Ok(CurrentOverviewContext {snapshot,busy,profiles,revisions,owners,watched,current_generation,
         software:sw,registry:db,preparation,bindings:managed_bindings,
         installer_live,vendor_progress,vendor_retired:vendor,all_vendor_retired:retired,cleanup_seen,
@@ -1224,7 +1225,8 @@ pub(super) mod tests {
                 system:system_from_capacity(None,pending,0),onboarding:vec![],
                 installer_setups:vec![],environment_installers:vec![],environments:vec![],vendor_applications:vec![],
                 products:vec![],workspaces,active_sessions:vec![],capture:Value::Null,
-                recent_incidents:vec![],actions:vec![],operation:None,deleted_setups:vec![],uninstallers:vec![]},
+                recent_incidents:vec![],actions:vec![],operation:None,deleted_setups:vec![],uninstallers:vec![],
+                bridge:Default::default()},
             busy:None,profiles:vec![],revisions:BTreeMap::new(),
             current_generation:pulse_generation(m).unwrap(),
             software,registry:m.registry().unwrap(),preparation:preparation::RecordReadback::capture(m).unwrap(),
@@ -1739,7 +1741,8 @@ pub(super) mod tests {
             system:system_from_capacity(None,0,0),onboarding:vec![],
             installer_setups:vec![],environment_installers:vec![],environments:vec![],vendor_applications:vec![],
             products:vec![],workspaces:vec![],active_sessions:vec![],
-            capture:Value::Null,recent_incidents:vec![],actions:vec![],operation:None,deleted_setups:vec![],uninstallers:vec![]};
+            capture:Value::Null,recent_incidents:vec![],actions:vec![],operation:None,deleted_setups:vec![],uninstallers:vec![],
+            bridge:Default::default()};
         let mut context = context_for_watched(&fixture.m, watched);
         context.snapshot = snapshot;
         context.recheck(&fixture.m).unwrap();

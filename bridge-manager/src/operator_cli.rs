@@ -1623,6 +1623,7 @@ fn snapshot_readonly_depth(
         operation,
         deleted_setups,
         uninstallers,
+        bridge: crate::package_authority::bridge_build(m, &sw),
     })
 }
 fn project_onboarding_failure(
@@ -4699,6 +4700,7 @@ pub(crate) mod tests {
             operation: None,
             deleted_setups: vec![],
             uninstallers: vec![],
+            bridge: Default::default(),
         }
     }
     #[cfg(feature = "cpi2-test-contract")]
