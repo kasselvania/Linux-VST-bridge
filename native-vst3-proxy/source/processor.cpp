@@ -1,3 +1,4 @@
+#include "admission_refusal.h"
 #include "processor.h"
 #ifdef AP8_PREVIEW
 #include "ap18_bus_support.h"
@@ -222,6 +223,10 @@ bool Processor::stateSession() {
     return false;
   if (handle_)
     return true;
+  // Admission already failed for this instance. Asking again cannot revive
+  // it (phase_ is Failed), and each attempt blocks the caller's thread.
+  if (session_refused_.load(std::memory_order_acquire))
+    return false;
   queued_ = true;
   if (
 #ifdef AP8_PREVIEW
@@ -234,6 +239,11 @@ bool Processor::stateSession() {
       ap9_open(nullptr,&handle_)
 #endif
   ) {
+    // The backend retained why on this thread; keep only its bounded kind.
+    uint8_t detail[385]{};
+    ap2_error(detail, sizeof(detail));
+    refusal_kind_ = LVBAdmission::classify(reinterpret_cast<const char *>(detail));
+    session_refused_.store(true, std::memory_order_release);
     phase_ = Failed;
     report();
     return false;
@@ -332,9 +342,37 @@ tresult PLUGIN_API Processor::connect(IConnectionPoint *peer) {
 #endif
   return result;
 }
+void Processor::holdState(std::vector<uint8_t> &&blob) {
+  if(lvbTrace())std::fprintf(stderr,"LVBDIAG hold bytes=%zu\n",blob.size());
+  held_state_ = std::move(blob);
+  state_held_ = true;
+  announceHeldState();
+}
+// Tell the controller the project's state is held unchanged. Bounded,
+// owner-thread notification; an older controller ignores it. Sent when the
+// state is held and again on every refused bind, because a host may restore
+// state before the pair is connected.
+void Processor::announceHeldState() {
+  if (!state_held_) return;
+  if (auto *m = allocateMessage()) {
+    m->setMessageID("AP10.state_held");
+    m->getAttributes()->setInt("bytes", int64(held_state_.size()));
+    sendMessage(m);
+    m->release();
+  }
+}
+namespace { bool lvbTrace(){static const bool on=std::getenv("LVB_STATE_TRACE")!=nullptr;return on;}
+bool lvbProbeEmpty(){static const bool on=std::getenv("LVB_STATE_PROBE_EMPTY")!=nullptr;return on;} }
 tresult PLUGIN_API Processor::getState(IBStream *stream) {
+  if(lvbTrace())std::fprintf(stderr,"LVBDIAG getState phase=%d handle=%llu owner=%d held=%d size=%zu\n",int(phase_.load()),(unsigned long long)handle_,int(owner_==std::this_thread::get_id()),int(state_held_),held_state_.size());
+  if(lvbProbeEmpty()&&!state_held_&&!handle_&&phase_==Failed&&stream){if(lvbTrace())std::fprintf(stderr,"LVBDIAG getState empty-probe ok\n");return kResultOk;}
   if (!preview_)
     return kNotImplemented;
+  // This instance never applied the host's state: return those exact bytes.
+  // Nothing is fabricated; without held bytes the refusal below stands.
+  if (state_held_ && stream && owner_ == std::this_thread::get_id())
+    return LVBState::transfer(stream, held_state_.data(), held_state_.size(), true)
+               ? kResultOk : kResultFalse;
   if (phase_ == Failed || terminal())
     stateFailure("get", "failed_instance");
   if (!stream || owner_ != std::this_thread::get_id() || phase_ == New ||
@@ -385,8 +423,20 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
   }
 }
 tresult PLUGIN_API Processor::setState(IBStream *stream) {
+  if(lvbTrace())std::fprintf(stderr,"LVBDIAG setState phase=%d handle=%llu owner=%d held=%d\n",int(phase_.load()),(unsigned long long)handle_,int(owner_==std::this_thread::get_id()),int(state_held_));
   if (!preview_)
     return kNotImplemented;
+  // No bridge session was ever admitted, so this state cannot be applied.
+  // Keep the host's exact bytes for a later save; the restore still fails.
+  if (stream && owner_ == std::this_thread::get_id() && phase_ == Failed &&
+      !handle_ && !terminal()) {
+    try {
+      std::vector<uint8_t> blob;
+      if (LVBState::readEnvelope(stream, blob))
+        holdState(std::move(blob));
+    } catch (...) {
+    }
+  }
   if (phase_ == Failed || terminal())
     stateFailure("set", "failed_instance");
   if (!stream || owner_ != std::this_thread::get_id() || phase_ == New ||
@@ -408,16 +458,21 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
 #ifndef AP8_PREVIEW
     double restored = 0.;
 #endif
+    const bool envelope = LVBState::readEnvelope(stream, blob);
 #ifdef AP8_PREVIEW
-    if (!LVBState::readEnvelope(stream, blob) ||
+    if (!envelope ||
         ap8_validate_restore(AP8::identity, blob.data(), static_cast<uint32_t>(blob.size())))
 #else
-    if (!LVBState::readEnvelope(stream, blob) ||
+    if (!envelope ||
         ap4_validate(blob.data(), static_cast<uint32_t>(blob.size()), &restored))
 #endif
-      {phase_=Failed;return kResultFalse;}
-    if (!stateSession())
+      {if(envelope&&!handle_)holdState(std::move(blob));phase_=Failed;return kResultFalse;}
+    // Restore before admission: if this admission fails, keep the bytes.
+    if (!stateSession()) {
+      if (!handle_)
+        holdState(std::move(blob));
       return kResultFalse;
+    }
     if (resume) {
 #ifdef AP8_PREVIEW
       returned_.release_requested = true;
@@ -471,6 +526,9 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
       // unchanged across this private pause of the same Windows instance.
       phase_ = Running;
     }
+    // A session applied this state; it, not held bytes, now answers getState.
+    std::vector<uint8_t>().swap(held_state_);
+    state_held_ = false;
     return kResultOk;
   } catch (...) {
     phase_ = Failed;
@@ -555,7 +613,15 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
   }
   if(terminal())return kResultFalse;
   if(!std::strcmp(id,"AP11.bind")){
-    if(!stateSession())return kResultFalse;
+    // kNotInitialized tells the controller this instance's admission was
+    // refused for good; it stops asking and explains instead of a blank view.
+    // AP10.refused first carries why, as one bounded code.
+    if(!stateSession()){
+      if(!session_refused_.load(std::memory_order_acquire))return kResultFalse;
+      if(auto*m=allocateMessage()){m->setMessageID("AP10.refused");m->getAttributes()->setInt("kind",refusal_kind_);sendMessage(m);m->release();}
+      announceHeldState();
+      return kNotInitialized;
+    }
     uint64_t generation=0;if(ap11_gui_generation(handle_,&generation))return kResultFalse;
     auto*m=allocateMessage();if(!m)return kResultFalse;m->setMessageID("AP11.identity");m->getAttributes()->setInt("generation",int64(generation));auto r=sendMessage(m);m->release();return r;
   }
