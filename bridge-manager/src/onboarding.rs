@@ -613,7 +613,7 @@ pub fn all_retired(m: &Manager) -> Result<bool> {
             return Ok(false);
         }
     }
-    operator_cli::environment_install::all_retired(m)
+    Ok(operator_cli::environment_install::all_retired(m)? && operator_cli::uninstall::all_retired(m)?)
 }
 pub fn unit(op: &str) -> Result<String> {
     require(valid_hex(op, 32), "installer_operation_identity")?;
@@ -2030,6 +2030,7 @@ pub(crate) mod tests {
             actions: vec![],
             operation: None,
             deleted_setups: vec![],
+            uninstallers: vec![],
         };
         let refresh: Vec<_> = crate::operator_cli::available(&snapshot)
             .into_iter()

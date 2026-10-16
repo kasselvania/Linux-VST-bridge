@@ -12,8 +12,10 @@ fn published() -> (test_fixture::Fixture, prep::Candidate, RevisionRef) {
 /// The musician's answer to the Delete confirmation.
 fn confirmed(action: &ui::Action) -> ui::Action {
     match action.clone() {
-        ui::Action::SetupDelete { installer, environment, .. } =>
-            ui::Action::SetupDelete { installer, environment, confirmed: true },
+        ui::Action::SetupDelete { installer, environment, forget_installer, .. } =>
+            ui::Action::SetupDelete { installer, environment, confirmed: true, forget_installer },
+        ui::Action::ProductUninstall { environment, registration, command_sha256, .. } =>
+            ui::Action::ProductUninstall { environment, registration, command_sha256, confirmed: true },
         other => other,
     }
 }
@@ -192,7 +194,7 @@ fn deleting_a_setup_removes_its_windows_files_and_keeps_its_history() {
     let snapshot = snapshot_idle_test(&f.m).unwrap();
     let delete = delete_offer(&snapshot, &installer).unwrap();
     assert!(delete.disabled_reason.is_none(), "{delete:?}");
-    assert_eq!(test_submit_offered(&f.m, &delete.action).unwrap_err().to_string(), DELETE_UNCONFIRMED,
+    assert_eq!(test_submit_offered(&f.m, &delete.action).unwrap_err().to_string(), UNCONFIRMED,
         "the offer alone never deletes");
     let operation = test_submit_offered(&f.m, &confirmed(&delete.action)).unwrap();
     let deleted = test_run_offered_worker(&f.m, &operation).unwrap();
@@ -222,7 +224,7 @@ fn deleting_a_setup_removes_its_windows_files_and_keeps_its_history() {
     assert!(snapshot.deleted_setups[0].actions.is_empty());
     assert_eq!(test_submit_offered(&f.m, &confirmed(&delete.action)).unwrap_err().to_string(), "operator_action_not_available");
     // A replay of the same accepted request is a no-op.
-    assert_eq!(delete_setup(&f.m, &installer, &environment, &operation).unwrap()["already_deleted"], true);
+    assert_eq!(delete_setup(&f.m, &installer, &environment, false, &operation).unwrap()["already_deleted"], true);
 }
 
 #[test]
@@ -242,7 +244,7 @@ fn a_setup_in_use_or_with_uncertain_records_is_refused_and_unchanged() {
             .open(root.join("operation.lock")).unwrap();
         use std::os::fd::AsRawFd;
         assert_eq!(unsafe { libc::flock(held.as_raw_fd(), libc::LOCK_SH) }, 0);
-        assert_eq!(delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false), Duration::ZERO)
+        assert_eq!(delete_setup_with(&f.m, &installer, &environment, false, &"aa".repeat(16), &mut |_| Ok(false), Duration::ZERO)
             .unwrap_err().to_string(), IN_USE);
         unchanged(&f);
     }
@@ -252,7 +254,7 @@ fn a_setup_in_use_or_with_uncertain_records_is_refused_and_unchanged() {
     let lease = f.m.root.join("runtime/leases").join(format!("{}.json", "ab".repeat(16)));
     private_dir(lease.parent().unwrap()).unwrap();
     atomic_json(&lease, &f.m.root.join("runtime/results/windows-unknown.json")).unwrap();
-    assert_eq!(delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false), Duration::ZERO)
+    assert_eq!(delete_setup_with(&f.m, &installer, &environment, false, &"aa".repeat(16), &mut |_| Ok(false), Duration::ZERO)
         .unwrap_err().to_string(), UNCHECKED_SESSION);
     unchanged(&f);
     fs::remove_file(&lease).unwrap();
@@ -268,7 +270,7 @@ fn a_setup_in_use_or_with_uncertain_records_is_refused_and_unchanged() {
     assert!(retired.blockers[0].contains("can't confirm"), "{:?}", retired.blockers);
     let live = plan(&f.m, &installer, &environment, &records, &f.m.registry().unwrap(), &mut |_| Ok(true)).unwrap();
     assert!(live.blockers[0].contains("still running"));
-    assert_eq!(delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false), Duration::ZERO)
+    assert_eq!(delete_setup_with(&f.m, &installer, &environment, false, &"aa".repeat(16), &mut |_| Ok(false), Duration::ZERO)
         .unwrap_err().to_string(), retired.blockers[0]);
     unchanged(&f);
     assert!(onboarding::retained_environment_record(&f.m, &reserved.id).unwrap().is_some());
@@ -384,7 +386,7 @@ fn deleting_a_setup_deletes_every_attempt_of_it() {
     let planned = plan(&f.m, &installer, &environment, &records, &f.m.registry().unwrap(), &mut |_| Ok(false)).unwrap();
     assert_eq!(planned.environments.len(), 2);
     assert_eq!(delete_reason(&planned, None), None);
-    let deleted = delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false),
+    let deleted = delete_setup_with(&f.m, &installer, &environment, false, &"aa".repeat(16), &mut |_| Ok(false),
         Duration::ZERO).unwrap();
     assert_eq!(deleted["setup_deleted"], true, "{deleted}");
     assert_eq!(deleted["environments"], 2);
@@ -406,7 +408,7 @@ fn a_setup_with_a_product_managed_environment_is_never_deleted() {
     add_attempt(&f, &first, renderer::ENVIRONMENT);
     let snapshot = snapshot_idle_test(&f.m).unwrap();
     assert!(delete_offer(&snapshot, &installer).is_none());
-    assert_eq!(delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false),
+    assert_eq!(delete_setup_with(&f.m, &installer, &environment, false, &"aa".repeat(16), &mut |_| Ok(false),
         Duration::ZERO).unwrap_err().to_string(), MANAGED);
     assert!(deleted_setup::load(&f.m, &environment).unwrap().is_none());
     assert!(f.m.root.join("environments").join(renderer::ENVIRONMENT).join("compatdata/pfx/drive_c/earlier-attempt.txt").exists());
@@ -442,7 +444,7 @@ fn a_program_running_from_the_setup_is_found_by_its_recorded_or_resolved_path() 
     let mut direct = std::process::Command::new("sleep").arg("30")
         .env("WINEPREFIX", root.join("compatdata/pfx")).spawn().unwrap();
     exec_finished(&direct);
-    let refused = delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false), Duration::ZERO);
+    let refused = delete_setup_with(&f.m, &installer, &environment, false, &"aa".repeat(16), &mut |_| Ok(false), Duration::ZERO);
     direct.kill().unwrap();
     direct.wait().unwrap();
     assert_eq!(refused.unwrap_err().to_string(), "sleep is still running from this setup. Close it and try again.");
@@ -476,7 +478,7 @@ fn an_idle_bridge_host_is_explained_and_waited_for() {
     let mut value: Value = read_json(&owner).unwrap();
     value["keeper"] = true.into();
     atomic_json(&owner, &value).unwrap();
-    assert_eq!(delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false),
+    assert_eq!(delete_setup_with(&f.m, &installer, &environment, false, &"aa".repeat(16), &mut |_| Ok(false),
         Duration::ZERO).unwrap_err().to_string(), KEEPER_CLOSING);
     // It retires while the deletion waits; the deletion then proceeds.
     let retire = std::thread::spawn(move || {
@@ -484,7 +486,7 @@ fn an_idle_bridge_host_is_explained_and_waited_for() {
         fs::remove_file(&lease).unwrap();
         fs::remove_dir_all(owner.parent().unwrap()).unwrap();
     });
-    let deleted = delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false),
+    let deleted = delete_setup_with(&f.m, &installer, &environment, false, &"aa".repeat(16), &mut |_| Ok(false),
         Duration::from_secs(10)).unwrap();
     retire.join().unwrap();
     assert_eq!(deleted["setup_deleted"], true);
@@ -508,7 +510,7 @@ fn setting_up_again_after_delete_publishes_the_same_plugin_and_keeps_the_old_his
     let record = Tombstone {schema:1,environment:old.id.clone(),installer:"ab".repeat(32),
         name:"Old setup".into(),environments:vec![old.clone()],
         registrations:vec![RetiredRegistration {class_id:class.clone(),name:"Fixture".into(),entry}],
-        plugins:vec![],operation:"cd".repeat(16),requested_at:1,deleted_at:None,state:Deletion::Deleting,environments_folder:None};
+        plugins:vec![],operation:"cd".repeat(16),requested_at:1,deleted_at:None,state:Deletion::Deleting,environments_folder:None,forget_installer:false};
     deleted_setup::write(&f.m, &record).unwrap();
     let held = claim(&f.m, &record.environments, Duration::ZERO, None).unwrap();
     finish(&f.m, record, held).unwrap();
@@ -555,7 +557,7 @@ fn an_interrupted_deletion_finishes_from_its_retained_record() {
         .find(|r| r.id == environment).unwrap().environment];
     deleted_setup::write(&f.m, &Tombstone {schema:1,environment:environment.clone(),installer:installer.clone(),
         name:"Fixture".into(),environments,registrations:vec![],plugins:vec![],operation:"ab".repeat(16),
-        requested_at:1,deleted_at:None,state:Deletion::Deleting,environments_folder:None}).unwrap();
+        requested_at:1,deleted_at:None,state:Deletion::Deleting,environments_folder:None,forget_installer:false}).unwrap();
     let snapshot = snapshot_idle_test(&f.m).unwrap();
     assert_eq!(snapshot.deleted_setups[0].state, "deleting");
     let finish = snapshot.deleted_setups[0].actions[0].clone();
@@ -577,7 +579,7 @@ fn readers_skip_a_deleted_setup_with_prepared_and_removed_history() {
     let record = Tombstone {schema:1,environment:environment.id.clone(),installer:"ab".repeat(32),
         name:"Fixture".into(),environments:vec![environment.clone()],
         registrations:vec![RetiredRegistration {class_id:class.clone(),name:"Fixture".into(),entry}],
-        plugins:vec![],operation:"cd".repeat(16),requested_at:1,deleted_at:None,state:Deletion::Deleting,environments_folder:None};
+        plugins:vec![],operation:"cd".repeat(16),requested_at:1,deleted_at:None,state:Deletion::Deleting,environments_folder:None,forget_installer:false};
     deleted_setup::write(&f.m, &record).unwrap();
     let held = claim(&f.m, &record.environments, Duration::ZERO, None).unwrap();
     finish(&f.m, record, held).unwrap();
@@ -722,7 +724,7 @@ fn finishing_a_deletion_leaves_the_same_plugin_set_up_again_alone() {
     let record = Tombstone {schema:1,environment:old.id.clone(),installer:"ab".repeat(32),
         name:"Old setup".into(),environments:vec![old.clone()],
         registrations:vec![RetiredRegistration {class_id:class.clone(),name:"Fixture".into(),entry}],
-        plugins:vec![],operation:"cd".repeat(16),requested_at:1,deleted_at:None,state:Deletion::Deleting,environments_folder:None};
+        plugins:vec![],operation:"cd".repeat(16),requested_at:1,deleted_at:None,state:Deletion::Deleting,environments_folder:None,forget_installer:false};
     // The deletion stopped after its records were marked, before its files were gone.
     deleted_setup::write(&f.m, &record).unwrap();
     {
@@ -754,17 +756,17 @@ fn a_setup_folder_deleted_by_hand_is_already_gone() {
     let folder = deleted_setup::folder_identity(&f.m.root.join("environments")).unwrap();
     let record = Tombstone {schema:1,environment:environment.clone(),installer:installer.clone(),
         name:"Fixture".into(),environments,registrations:vec![],plugins:vec![],operation:"ab".repeat(16),
-        requested_at:1,deleted_at:None,state:Deletion::Deleting,environments_folder:Some(folder)};
+        requested_at:1,deleted_at:None,state:Deletion::Deleting,environments_folder:Some(folder),forget_installer:false};
     fs::remove_dir_all(&root).unwrap();
     // A different environments folder (an empty mount point of an unplugged
     // drive) is never taken for deleted files.
     deleted_setup::write(&f.m, &Tombstone {environments_folder:Some(deleted_setup::FolderIdentity {
         device:folder.device,inode:folder.inode + 1}),..record.clone()}).unwrap();
-    assert_eq!(delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false),
+    assert_eq!(delete_setup_with(&f.m, &installer, &environment, false, &"aa".repeat(16), &mut |_| Ok(false),
         Duration::ZERO).unwrap_err().to_string(), RECONNECT);
     assert_eq!(deleted_setup::load(&f.m, &environment).unwrap().unwrap().state, Deletion::Deleting);
     deleted_setup::write(&f.m, &record).unwrap();
-    let finished = delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false),
+    let finished = delete_setup_with(&f.m, &installer, &environment, false, &"aa".repeat(16), &mut |_| Ok(false),
         Duration::ZERO).unwrap();
     assert_eq!(finished["setup_deleted"], true);
     assert_eq!(deleted_setup::load(&f.m, &environment).unwrap().unwrap().state, Deletion::Deleted);
@@ -814,4 +816,56 @@ fn deletion_refusals_read_as_plain_words() {
     assert_eq!(plain("Freq Echo", missing).to_string(), "No such file or directory (os error 2)");
     assert!(plain_add_back("Freq Echo", "No such file or directory (os error 2)".into()).to_string()
         .contains("files changed since it was removed"));
+}
+
+#[test]
+fn uninstalling_takes_its_plugins_out_of_the_daw_and_reads_as_uninstalled() {
+    let (f, c, current) = published();
+    let class = c.selection.class.id.clone();
+    let name = f.m.registry().unwrap().classes[&class].registration.metadata.name.clone();
+    assert_eq!(remove_classes_from_daw(&f.m, std::slice::from_ref(&class)).unwrap(), vec![name]);
+    assert!(publication::physical(&f.m.link(&class)).unwrap().is_none());
+    assert!(removed_by_musician(&f.m, &class, &current), "the musician chose to uninstall it");
+    // The vendor's uninstaller removed its files.
+    fs::remove_file(&c.selection.module.path).unwrap();
+    let entry = f.m.registry().unwrap().classes[&class].clone();
+    assert!(plugin_offers(&f.m, &class, &entry, None, None).is_empty(), "nothing to add back");
+    let overview = current::capture(&f.m).unwrap();
+    let p = product(&overview.snapshot, &class);
+    assert_eq!(p.disposition, "uninstalled");
+    assert_eq!(p.availability.as_ref().unwrap().reason.as_deref(), Some(UNINSTALLED));
+    assert_eq!(entry.managed_revision.as_ref(), Some(&current), "its history is kept");
+    // The setup card doesn't suggest adding back what was uninstalled.
+    let records = vec![setup_record(&c.selection.environment)];
+    let planned = plan(&f.m, &records[0].installer, &records[0].id, &records, &f.m.registry().unwrap(),
+        &mut |_| Ok(false)).unwrap();
+    let mut setup = ui::InstallerSetup {installer:"ab".repeat(32),name:"Space".into(),label_source:"user".into(),
+        byte_size:1,format:"pe_executable".into(),imported_at:1,phase:ui::SetupPhase::DiscoveryComplete,
+        status:String::new(),journey:Some(ui::InstallationJourney {daw:ui::DawChoice::Reaper,
+            phase:ui::InstallationPhase::Available,plugins:vec![ui::InstallationPlugin {selection:"s".into(),
+                class_id:class.clone(),name:"Space".into(),stage:ui::InstallationPluginStage::Available,failure:None}],
+            failure:None}),
+        environment:None,compatibility:None,discovered:vec![],primary:None,secondary:vec![],
+        rename:action("Rename",ui::Action::InstallerRename {installer:"ab".repeat(32),label:String::new()},None),
+        history:vec![]};
+    describe_daw_state(&mut setup, &planned);
+    assert_eq!(setup.status, "This setup's plug-ins were uninstalled. Delete the setup to remove the rest of its Windows files.");
+}
+
+#[test]
+fn deleting_can_also_forget_the_installer_file() {
+    let (f, environment, installer) = created_setup();
+    let artifact = installer_import::load(&f.m, &installer).unwrap().artifact.path;
+    assert!(artifact.starts_with(f.m.root.join("installers")));
+    let deleted = delete_setup_with(&f.m, &installer, &environment, true, &"aa".repeat(16), &mut |_| Ok(false),
+        Duration::ZERO).unwrap();
+    assert_eq!(deleted["installer_forgotten"], true);
+    assert_eq!(deleted["installer_kept"], false);
+    assert!(!artifact.exists(), "the manager's own copy is deleted");
+    assert!(installer_import::list_identity_records(&f.m).unwrap().iter().all(|r| r.id != installer));
+    assert!(deleted_setup::history_directory(&f.m, &environment).unwrap().join("installer.json").exists(),
+        "its import record is kept as history");
+    let snapshot = snapshot_idle_test(&f.m).unwrap();
+    assert!(snapshot.installer_setups.iter().all(|s| s.installer != installer));
+    assert_eq!(snapshot.deleted_setups.len(), 1);
 }

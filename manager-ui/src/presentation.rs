@@ -153,6 +153,7 @@ pub fn action_consequence(action: &Action) -> Option<&'static str> {
         Action::PluginAddBackToDaw { .. } => Some("Puts it back in your DAW with the setup it had before; if the bridge was updated since, it is checked again first. Rescan VST3 plug-ins in your DAW if it doesn't appear."),
         Action::SetupRemoveFromDaw { .. } => Some("Projects that use them open with them missing until you add them back. If you then delete this setup, they can't be added back."),
         Action::SetupDelete { .. } => Some("Deletes the Windows setup: everything installed in it, files saved inside it such as presets, and any licences or sign-ins stored there. Projects that use its plug-ins open with them missing until you set it up again. Your project files are not changed."),
+        Action::ProductUninstall { .. } => Some("Takes its plug-ins out of your DAW, then runs the vendor's own uninstaller in this setup. Follow its window to finish."),
         _ => None,
     }
 }

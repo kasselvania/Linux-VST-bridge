@@ -329,6 +329,35 @@ fn load_identity_record(m: &Manager, id: &str) -> Result<Installer> {
     });
     Ok(r)
 }
+/// The musician chose to forget an installer with its deleted setup: its
+/// record moves into that setup's history and its file is deleted. Repeating
+/// after an interruption finishes the same work.
+pub(super) fn forget(m: &Manager, id: &str, history: &Path) -> Result<()> {
+    require(valid_hex(id, 64), "installer_identity")?;
+    let d = m.root.join("installers");
+    private_dir(history)?;
+    let record = d.join(format!("{id}.json"));
+    let retained = history.join("installer.json");
+    if record.try_exists()? {
+        load_identity_record(m, id)?;
+        require(!retained.try_exists()?, "installer_history_conflict")?;
+        fs::rename(&record, &retained)?;
+    }
+    let kept: Installer = read_json(&retained)?;
+    // Only the manager's own imported copy is ever deleted, never a source file.
+    require(kept.id == id && kept.artifact.path.parent() == Some(d.as_path())
+        && kept.artifact.path.file_stem().and_then(|s| s.to_str()) == Some(id), "installer_history_conflict")?;
+    let presentation = presentation_path(m, id);
+    if presentation.try_exists()? {
+        fs::rename(&presentation, history.join("installer-presentation.json"))?;
+    }
+    if fs::symlink_metadata(&kept.artifact.path).is_ok() {
+        fs::remove_file(&kept.artifact.path)?;
+    }
+    fs::File::open(&d)?.sync_all()?;
+    fs::File::open(history)?.sync_all()?;
+    Ok(())
+}
 pub(super) fn list_identity_records(m: &Manager) -> Result<Vec<Installer>> {
     list_with(m,load_identity_record)
 }

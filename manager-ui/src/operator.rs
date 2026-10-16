@@ -219,7 +219,7 @@ impl RequestFeedback {
                 self.release_after_snapshot = true;
                 if let Some(message) = op["result"]["message"].as_str().filter(|_| matches!(self.action,
                     Action::PluginRemoveFromDaw { .. } | Action::PluginAddBackToDaw { .. }
-                    | Action::SetupRemoveFromDaw { .. })) {
+                    | Action::SetupRemoveFromDaw { .. } | Action::ProductUninstall { .. })) {
                     message.into()
                 } else if self.journey.as_ref().is_some_and(|journey|
                     journey.phase == InstallationPhase::NeedsAttention) {
@@ -232,6 +232,10 @@ impl RequestFeedback {
             Some("submission_uncertain") => {
                 self.release_after_snapshot = true;
                 "Launch acknowledgment is uncertain. Use the exact Stop / reconcile control; no launch was resubmitted.".into()
+            }
+            Some("vendor_running") if matches!(self.action, Action::ProductUninstall { .. }) => {
+                self.release_after_snapshot = true;
+                "The vendor's uninstaller is running. Follow its window to finish.".into()
             }
             Some("vendor_running") => {
                 if self.blocking {
@@ -265,6 +269,7 @@ impl RequestFeedback {
                 Action::PluginAddBackToDaw { .. } => "Adding this plug-in back to your DAW.".into(),
                 Action::SetupRemoveFromDaw { .. } => "Removing this setup's plug-ins from your DAW.".into(),
                 Action::SetupDelete { .. } => "Deleting this setup's Windows files. A large setup can take a minute.".into(),
+                Action::ProductUninstall { .. } => "The vendor's uninstaller is running. Follow its window to finish.".into(),
                 _ => "This operation is in progress. Do not click again.".into(),
             },
             _ => return,
@@ -871,8 +876,8 @@ impl Operator {
                 *form = None;
             }
         }
-        // The confirmed request differs from its offer only by the musician's answer.
-        if self.removal_form.as_ref().is_some_and(|form| confirmed(form.clone()) == request.action) {
+        // The confirmed request differs from its offer only by the musician's answers.
+        if self.removal_form.as_ref().is_some_and(|form| offer_identity(form) == offer_identity(&request.action)) {
             self.removal_form = None;
         }
         self.feedback = Some(RequestFeedback::captured(request.action.clone()));
@@ -1720,7 +1725,8 @@ impl Operator {
             .min_by_key(|setup| setup_attention_priority(setup));
         // A plug-in the musician removed from the DAW is not unfinished setup.
         let needs_setup = overview.current.products.iter().find(|product|
-            crate::library::status(product).1 != "published" && product.disposition != "removed_from_daw");
+            crate::library::status(product).1 != "published"
+                && !matches!(product.disposition.as_str(), "removed_from_daw" | "uninstalled"));
         let recovery = overview.current.products.iter().find(|product|
             crate::library::recovery_pending(product));
         let owned_pause = presentation::owned_service_pause(overview.current.operation.as_ref())
@@ -2039,8 +2045,17 @@ impl Operator {
                     });
                     let removal: Vec<_> = setup.secondary.iter().filter(|offer| removal_offer(&offer.action))
                         .cloned().collect();
-                    if !removal.is_empty() {
-                        egui::CollapsingHeader::new("Remove or delete this setup").show(ui, |ui| {
+                    let uninstallers: Vec<_> = overview.current.uninstallers.iter().filter(|u|
+                        setup.environment.as_deref() == Some(u.environment.as_str())).collect();
+                    if !removal.is_empty() || !uninstallers.is_empty() {
+                        egui::CollapsingHeader::new("Uninstall, remove or delete").show(ui, |ui| {
+                            for uninstaller in &uninstallers {
+                                ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, std::slice::from_ref(&uninstaller.action),
+                                    overview.current.system.inactive_reason(), pending, chosen));
+                                if !uninstaller.affected.is_empty() {
+                                    ui.small(format!("Plug-ins it removes: {}", uninstaller.affected.join(", ")));
+                                }
+                            }
                             ui.label("Remove its plug-ins from your DAW, or delete the whole Windows setup. Deleting also deletes everything installed in it, files saved inside it such as presets, and any licences or sign-ins stored there. Your project files are not changed.");
                             ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &removal,
                                 overview.current.system.inactive_reason(), pending, chosen));
@@ -2850,8 +2865,17 @@ impl eframe::App for Operator {
             let confirmation = removal_confirmation(snapshot, &form);
             let mut submit = false;
             let mut cancel = false;
+            // Optional, default off: also forget the imported installer file.
+            let finishing = matches!(&form, Action::SetupDelete { environment, .. } if snapshot.is_some_and(|s|
+                s.deleted_setups.iter().any(|d| &d.environment == environment)));
+            let forget_id = egui::Id::new(("forget-installer", format!("{form:?}")));
+            let mut forget = ui.ctx().data(|d| d.get_temp::<bool>(forget_id)).unwrap_or(false);
             egui::Window::new(confirmation.title).collapsible(false).resizable(false).show(ui.ctx(), |ui| {
                 for line in &confirmation.body { ui.label(line); }
+                if matches!(form, Action::SetupDelete { .. }) && !finishing {
+                    ui.checkbox(&mut forget, "Also forget the installer file");
+                    ui.small("You would need to add the installer again to set this up later.");
+                }
                 if let Err(reason) = &confirmation.offer { ui.colored_label(warning_color(ui), reason); }
                 ui.horizontal_wrapped(|ui| {
                     submit = ui.add_enabled(confirmation.offer.is_ok() && !action_controls_pending,
@@ -2860,7 +2884,14 @@ impl eframe::App for Operator {
                     cancel = ui.add_sized([120.0, 44.0], egui::Button::new(confirmation.cancel)).clicked();
                 });
             });
-            if submit { chosen = Some(confirmed(form)); }
+            ui.ctx().data_mut(|d| d.insert_temp(forget_id, forget));
+            if submit {
+                chosen = Some(match confirmed(form) {
+                    Action::SetupDelete { installer, environment, confirmed, .. } if !finishing =>
+                        Action::SetupDelete { installer, environment, confirmed, forget_installer: forget },
+                    other => other,
+                });
+            }
             else if cancel { self.removal_form = None; }
         }
         let result_offer = self.product_form.as_ref().and_then(|form| {
@@ -2995,17 +3026,29 @@ fn installation_form_offer(snapshot: Option<&Snapshot>, action: &Action)
 /// Removing from the DAW or deleting a setup always asks first.
 fn needs_confirmation(action: &Action) -> bool {
     matches!(action, Action::PluginRemoveFromDaw { .. } | Action::SetupRemoveFromDaw { .. }
-        | Action::SetupDelete { .. })
+        | Action::SetupDelete { .. } | Action::ProductUninstall { .. })
 }
 /// Setup-level removal offers live in their own section of the setup card.
 fn removal_offer(action: &Action) -> bool {
     matches!(action, Action::SetupRemoveFromDaw { .. } | Action::SetupDelete { .. })
 }
-/// The musician's answer to the confirmation. Only Delete carries it.
+/// The musician's answer to the confirmation. Delete and Uninstall carry it.
 fn confirmed(action: Action) -> Action {
     match action {
+        Action::SetupDelete { installer, environment, forget_installer, .. } =>
+            Action::SetupDelete { installer, environment, confirmed: true, forget_installer },
+        Action::ProductUninstall { environment, registration, command_sha256, .. } =>
+            Action::ProductUninstall { environment, registration, command_sha256, confirmed: true },
+        other => other,
+    }
+}
+/// The offer a confirmed request answers: without the musician's own choices.
+fn offer_identity(action: &Action) -> Action {
+    match action.clone() {
         Action::SetupDelete { installer, environment, .. } =>
-            Action::SetupDelete { installer, environment, confirmed: true },
+            Action::SetupDelete { installer, environment, confirmed: false, forget_installer: false },
+        Action::ProductUninstall { environment, registration, command_sha256, .. } =>
+            Action::ProductUninstall { environment, registration, command_sha256, confirmed: false },
         other => other,
     }
 }
@@ -3019,8 +3062,10 @@ struct Confirmation {
 }
 fn removal_confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirmation {
     const CHANGED: &str = "This choice is no longer offered. Close this and check the current status.";
+    // The musician's own answers are not part of the offer.
+    let offered = offer_identity(action);
     let current = |offers: Vec<&AvailableAction>| -> Result<AvailableAction, String> {
-        let offer = offers.into_iter().find(|offer| offer.action == *action).cloned().ok_or(CHANGED)?;
+        let offer = offers.into_iter().find(|offer| offer.action == offered).cloned().ok_or(CHANGED)?;
         match &offer.disabled_reason { Some(reason) => Err(reason.clone()), None => Ok(offer) }
     };
     let Some(snapshot) = snapshot else {
@@ -3076,9 +3121,22 @@ fn removal_confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirm
                     "Files you saved from inside its plug-ins or apps and kept in this setup, such as presets or downloaded content, are deleted too.".into(),
                     "If the vendor limits how many computers can be activated, deactivate the licence in the vendor's app first. Deleting the files doesn't give the activation back.".into(),
                     format!("Projects that use {plugins} will open with {them} missing until you set this setup up again. Add back won't be possible."),
-                    "The installer you added stays in the manager, so you can set it up again later. A record of this setup is kept in its history. Your project files are not changed.".into()],
+                    "The installer you added stays in the manager, so you can set it up again later, unless you choose to forget it below. A record of this setup is kept in its history. Your project files are not changed.".into()],
                 confirm: "Delete setup", cancel: "Cancel",
                 offer: current(setup.into_iter().flat_map(|s| s.secondary.iter()).collect()) }
+        }
+        Action::ProductUninstall { .. } => {
+            let uninstaller = snapshot.uninstallers.iter().find(|u| u.action.action == offered);
+            let name = uninstaller.map_or("this software", |u| u.name.as_str());
+            let mut body = vec![format!("This runs {name}'s own uninstaller in its setup. Follow its window to finish.")];
+            if let Some(u) = uninstaller.filter(|u| !u.affected.is_empty()) {
+                body.push(format!("First, {} will be removed from your DAW. Projects that use {} will open with {} missing.",
+                    u.affected.join(", "), if u.affected.len() == 1 { "it" } else { "them" },
+                    if u.affected.len() == 1 { "it" } else { "them" }));
+            }
+            body.push("The uninstaller may also remove licences or settings it stored there. Your projects are not changed.".into());
+            Confirmation { title: "Uninstall?", body, confirm: "Uninstall", cancel: "Cancel",
+                offer: current(uninstaller.map(|u| &u.action).into_iter().collect()) }
         }
         _ => Confirmation { title: "Check current status", body: vec![], confirm: "Continue", cancel: "Close",
             offer: Err(CHANGED.into()) },
@@ -6347,7 +6405,7 @@ mod tests {
         let mut overview = overview_fixture();
         let product = overview.current.products[0].clone();
         let delete = AvailableAction {label:"Delete this setup".into(),
-            action:Action::SetupDelete {installer:"ab".repeat(32),environment:product.environment.clone(),confirmed:false},
+            action:Action::SetupDelete {installer:"ab".repeat(32),environment:product.environment.clone(),confirmed:false,forget_installer:false},
             disabled_reason:None};
         let remove_all = AvailableAction {label:"Remove its plug-ins from my DAW".into(),
             action:Action::SetupRemoveFromDaw {environment:product.environment.clone()},disabled_reason:None};
@@ -6387,7 +6445,8 @@ mod tests {
             "{:?}", asked.body);
         // Only the musician's confirmation is sent; the offer itself stays unconfirmed.
         assert_eq!(confirmed(delete.action.clone()), Action::SetupDelete {installer:"ab".repeat(32),
-            environment:product.environment.clone(),confirmed:true});
+            environment:product.environment.clone(),confirmed:true,forget_installer:false});
+        assert_eq!(offer_identity(&confirmed(delete.action.clone())), delete.action);
         assert_eq!(confirmed(remove_all.action.clone()), remove_all.action);
         assert_eq!(asked.offer.as_ref().map(|offer| &offer.action), Ok(&delete.action));
         overview.current.installer_setups[0].secondary[1].disabled_reason = Some("Remove Freq Echo from your DAW first.".into());
@@ -6397,6 +6456,26 @@ mod tests {
         if let Action::SetupDelete {installer,..} = &mut other { *installer = "ef".repeat(32); }
         assert!(removal_confirmation(Some(&overview.current), &other).offer.unwrap_err().contains("no longer offered"));
         assert!(removal_confirmation(None, &delete.action).offer.is_err());
+
+        // Uninstall names what leaves the DAW and runs only once confirmed.
+        let uninstall = AvailableAction {label:"Uninstall ValhallaFreqEcho".into(),
+            action:Action::ProductUninstall {environment:product.environment.clone(),registration:"ab".repeat(32),
+                command_sha256:"cd".repeat(32),confirmed:false},disabled_reason:None};
+        overview.current.uninstallers = vec![crate::model::Uninstaller {environment:product.environment.clone(),
+            name:"ValhallaFreqEcho".into(),affected:vec![product.name.clone()],
+            affected_classes:vec![product.class_id.clone()],coverage:"installed_with_this".into(),
+            action:uninstall.clone()}];
+        assert!(needs_confirmation(&uninstall.action));
+        let asked = removal_confirmation(Some(&overview.current), &uninstall.action);
+        assert_eq!(asked.title, "Uninstall?");
+        assert!(asked.body.iter().any(|line| line.contains(&product.name) && line.contains("removed from your DAW")),
+            "{:?}", asked.body);
+        assert_eq!(asked.offer.as_ref().map(|offer| &offer.action), Ok(&uninstall.action));
+        let sent = confirmed(uninstall.action.clone());
+        assert!(matches!(sent, Action::ProductUninstall {confirmed:true,..}));
+        assert_eq!(offer_identity(&sent), uninstall.action);
+        assert_eq!(removal_confirmation(Some(&overview.current), &sent).offer.as_ref().map(|o| &o.action),
+            Ok(&uninstall.action), "the confirmed request still finds its exact offer");
 
         // The setup card keeps both choices out of its everyday row, in their own section.
         overview.current.installer_setups[0].secondary[1].disabled_reason = None;
@@ -6409,7 +6488,7 @@ mod tests {
         let mut text = Vec::new();
         for clipped in &output.shapes { labels(&clipped.shape,&mut text); }
         output.textures_delta.clear();
-        assert!(text.iter().any(|line| line == "Remove or delete this setup"));
+        assert!(text.iter().any(|line| line == "Uninstall, remove or delete"));
         assert!(!text.iter().any(|line| line == "Delete this setup"), "collapsed until the musician opens it");
 
         // A finished installation reads as what is in the DAW now.
@@ -7049,6 +7128,7 @@ mod tests {
             actions: vec![],
             operation: Some(serde_json::json!({"operation":operation,"state":"vendor_running"})),
             deleted_setups: vec![],
+            uninstallers: vec![],
         }
     }
     fn start_feedback(o: &mut Operator, acknowledged: bool) {

@@ -11,6 +11,7 @@ pub(super) mod environment_runtime;
 mod environment_refresh;
 mod renderer_continuation;
 mod setup_removal;
+pub(super) mod uninstall;
 const ASC: &str = "arturia-software-center";
 const SERVICE: &str = "linux-vst-bridge.service";
 #[derive(Debug)]
@@ -102,7 +103,8 @@ fn token_with_registry(m: &Manager, registry: &Registry) -> Result<String> {
             "onboarding_history":onboarding::history_records(m)?,
             "vendor_checkpoints":automatic_install::vendor_checkpoint_authority(m)?,
             "user_programs":vendor_cli::selection::authority(m)?,
-            "deleted_setups":linux_vst_bridge::deleted_setup::records(m)?}),
+            "deleted_setups":linux_vst_bridge::deleted_setup::records(m)?,
+            "uninstall_operations":uninstall::records(m)?}),
     )?)))
 }
 fn action(label: &str, action: ui::Action, reason: Option<&str>) -> ui::AvailableAction {
@@ -1558,6 +1560,8 @@ fn snapshot_readonly_depth(
     }
     let deleted_setups = setup_removal::project(m, &mut installer_setups, &records, &db,
         &managed_bindings, &class_scope, &mut |operation| onboarding::live(operation))?;
+    let uninstallers = uninstall::project(m, &installer_setups, &records, &db, &managed_bindings, busy,
+        &vendor_applications)?;
     automatic_install::project_revalidation(m,&mut products,&records)?;
     let environment_installers = environment_install::projection(m,&products,busy,onboarding::live)?;
     let recheck = acquire_readback(m, ui::OperatorLock::Registry, id, timeout, waits)?;
@@ -1599,6 +1603,7 @@ fn snapshot_readonly_depth(
         ],
         operation,
         deleted_setups,
+        uninstallers,
     })
 }
 fn project_onboarding_failure(
@@ -1675,14 +1680,15 @@ pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
                 .filter_map(|p| p.export.as_ref()),
         )
         .chain(snapshot.deleted_setups.iter().flat_map(|d| d.actions.iter()))
+        .chain(snapshot.uninstallers.iter().map(|u| &u.action))
         .collect()
 }
 fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
     require(request.schema == ui::OPERATOR_SCHEMA,
         "operator_schema_mismatch_update_manager_frontend")?;
     // The offer is unconfirmed; only the musician's confirmation runs it.
-    require(!matches!(request.action, ui::Action::SetupDelete { confirmed: false, .. }),
-        setup_removal::DELETE_UNCONFIRMED)?;
+    require(!matches!(request.action, ui::Action::SetupDelete { confirmed: false, .. }
+        | ui::Action::ProductUninstall { confirmed: false, .. }), setup_removal::UNCONFIRMED)?;
     require(
         request.state_token == snapshot.state_token,
         "operator_stale_request_refresh",
@@ -1828,6 +1834,7 @@ fn current_offer_action(action: &ui::Action) -> bool {
         | ui::Action::ProgramChoose { .. }
         | ui::Action::SetupRemoveFromDaw { .. }
         | ui::Action::SetupDelete { .. }
+        | ui::Action::ProductUninstall { .. }
         | ui::Action::QuarantinedModuleRetry { .. })
 }
 fn installer_control(action: &ui::Action) -> Option<(&str, &str)> {
@@ -2199,6 +2206,9 @@ fn finish_owned_work(m: &Manager, id: &str) -> (Result<()>, Result<()>) {
         }
         if request.action.environment_installer_start().is_some() {
             environment_install::finish(m,id)?;
+        }
+        if matches!(request.action, ui::Action::ProductUninstall { .. }) {
+            uninstall::finish(m, id)?;
         }
         if matches!(request.action,ui::Action::EnvironmentRuntimeSelect { .. }) {
             environment_runtime::finish(m,id)?;
@@ -2870,14 +2880,46 @@ fn execute_with_receipt_policy_progress(
             drop(projection.take());
             setup_removal::remove_setup_from_daw(m, environment)
         }
-        ui::Action::SetupDelete { installer, environment, confirmed } => {
-            require(*confirmed, setup_removal::DELETE_UNCONFIRMED)?;
+        ui::Action::SetupDelete { installer, environment, confirmed, forget_installer } => {
+            require(*confirmed, setup_removal::UNCONFIRMED)?;
             // Serialized with rescans, installers and runtime changes; the
             // service keeps running for plug-ins in other setups.
             let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
             drop(projection.take());
-            setup_removal::delete_setup(m, installer, environment, owner)
+            setup_removal::delete_setup(m, installer, environment, *forget_installer, owner)
+        }
+        ui::Action::ProductUninstall { environment, registration, command_sha256, confirmed } => {
+            require(*confirmed, setup_removal::UNCONFIRMED)?;
+            let _environment = m.lock("operator-environment.lock")?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            drop(projection.take());
+            let record = uninstall::prepare(m, environment, registration, command_sha256, owner)?;
+            // One action: its plug-ins leave the DAW before anything runs.
+            let classes: Vec<_> = record.affected.iter().map(|a| a.class_id.clone()).collect();
+            let removed = setup_removal::remove_classes_from_daw(m, &classes)?;
+            suspend(m, owner, None, timeout, waits)?;
+            let launched = uninstall::launch(m, &record);
+            if launched.is_ok() {
+                write_operation(m, owner, &json!({"schema":2,"operation":owner,"state":"vendor_running","action":a}), false)?;
+                while onboarding::live(owner)? { std::thread::sleep(Duration::from_millis(500)); }
+            }
+            let retired = uninstall::result(m, &record).is_ok_and(|v| onboarding::retired(&v));
+            if launched.is_err() || !retired {
+                uninstall::finish(m, owner)?;
+                let settled = uninstall::result(m, &record).is_ok_and(|v| onboarding::retired(&v));
+                let resumed = if settled { resume_owned(m, owner) } else { Ok(()) };
+                let reason = launched.err().map(|e| e.to_string())
+                    .unwrap_or_else(|| "The uninstaller did not finish closing cleanly.".into());
+                return Err(format!("{reason}{}", if settled && resumed.is_ok() { "" }
+                    else { " Closing it is still unconfirmed; send Setup details before retrying." }).into());
+            }
+            let current = environment_install::current_environment(m, &record.environment)?;
+            let scanned = rescan_environment(m, current);
+            let resumed = resume_owned(m, owner);
+            scanned?;
+            resumed?;
+            Ok(uninstall::outcome(&record, &removed))
         }
         ui::Action::CaptureArm { class_id } => {
             crash_capture::arm(m, Some(class_id))?;
@@ -4487,6 +4529,7 @@ pub(crate) mod tests {
             actions: vec![action],
             operation: None,
             deleted_setups: vec![],
+            uninstallers: vec![],
         }
     }
     #[cfg(feature = "cpi2-test-contract")]

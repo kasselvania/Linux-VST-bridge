@@ -32,6 +32,7 @@ pub mod renderer_application;
 pub mod renderer_session;
 pub mod native_access_callback;
 pub mod ui_observation;
+pub mod uninstall_entry;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{

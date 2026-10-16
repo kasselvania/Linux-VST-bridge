@@ -152,6 +152,13 @@ removed and added back with the same publication; Space Modulator is set up agai
 from the kept installer after Delete and published in a new setup while the deleted
 setup's publication history stays; that setup is deleted again through the new
 confirmation (894 MB → identity record only).
+Test120 (#386 part 2): each Inno setup (Freq Echo, Supermassive, CHOW Tape,
+ChowCentaur, Space Modulator) is offered "Uninstall <vendor name>" for the plug-in
+its own installer added. Space Modulator's uninstall took it out of the DAW, ran
+Valhalla's own uninstaller window ("Are you sure…" → "successfully removed"), and
+the rescan shows it as "Uninstalled" with its history kept; Delete with "Also forget
+the installer file" then removed the setup and the manager's installer copy.
+MSI uninstall is covered by unit tests only. **unqualified**.
 
 Test72 on this CachyOS/native REAPER fixture passes Choose program without
 installer observations, Open with a sibling resource, Show from the manager and

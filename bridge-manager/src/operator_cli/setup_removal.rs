@@ -11,6 +11,8 @@ use std::os::unix::{ffi::{OsStrExt, OsStringExt}, fs::MetadataExt};
 use linux_vst_bridge::deleted_setup::{self, RetiredRegistration, State as Deletion, Tombstone};
 use linux_vst_bridge::publication::{self, RevisionRef};
 
+pub(super) const UNINSTALLED: &str =
+    "Uninstalled. Its history is kept; install it again to use it.";
 pub(super) const REMOVED_FROM_DAW: &str =
     "Removed from your DAW. Projects that use it open with it missing until you add it back.";
 const CHANGED: &str = "This changed since it was offered. Refresh and try again.";
@@ -26,7 +28,7 @@ const UNREADABLE_APP: &str = "The manager can't read the record of an app it set
 const TOO_MANY_SESSIONS: &str = "More plug-in sessions are open than the manager can check. Close your DAW, then try again.";
 const UNCHECKED_SESSION: &str = "A plug-in session record can't be checked, so the manager won't delete this setup now. Close your DAW and try again; if it stays, send Setup details.";
 const RECONNECT: &str = "This setup's folder can't be found. Reconnect its drive or restore the folder, then try again.";
-pub(super) const DELETE_UNCONFIRMED: &str = "Deleting a setup needs the musician's confirmation (\"confirmed\": true). Nothing was deleted.";
+pub(super) const UNCONFIRMED: &str = "This needs the musician's confirmation (\"confirmed\": true). Nothing was changed.";
 fn link_was_missing(name: &str) -> String {
     format!("{name}'s entry in your DAW's plug-in folder was already gone, so the manager now records it as removed from your DAW.")
 }
@@ -172,7 +174,9 @@ pub(super) fn plugin_offers(m: &Manager, class: &str, entry: &Entry, busy: Optio
                 class_reason(busy, name).as_deref())]
         }
         Publication::Removed => {
-            if !matches!(physical, Ok(None)) || !removed_by_musician(m, class, current) { return vec![]; }
+            // Gone from disk (uninstalled): nothing to add back.
+            if !matches!(physical, Ok(None)) || !removed_by_musician(m, class, current)
+                || !entry.registration.module.path.try_exists().unwrap_or(false) { return vec![]; }
             let unavailable = match &revision {
                 Err(_) => Some("Its prepared bridge files are no longer available. Use Check compatibility to prepare it again."),
                 Ok(revision) if !environment_current(&revision.registration.environment) =>
@@ -211,6 +215,17 @@ pub(super) fn present_removed(m: &Manager, product: &mut ui::Product, entry: &En
     // A failed test that removed it, or an unfinished result or check, keeps
     // its own presentation. A removal followed by a bridge update leaves the
     // inventory historical; that is still a plain removal Add back restores.
+    if !registration.module.path.try_exists().unwrap_or(true) {
+        product.actions.retain(|offer| !matches!(offer.action, ui::Action::PluginAddBackToDaw { .. }));
+        product.disposition = "uninstalled".into();
+        product.availability = Some(ui::NativeAvailability { available: false, reason: Some(UNINSTALLED.into()) });
+        if let Some(workflow) = product.compatibility.as_mut() {
+            workflow.summary = UNINSTALLED.into();
+            workflow.primary = None;
+            workflow.alternatives.clear();
+        }
+        return;
+    }
     let plain_removal = product.compatibility.as_ref().is_none_or(|workflow| !matches!(workflow.phase,
         ui::CompatibilityPhase::NeedsWork | ui::CompatibilityPhase::TestResultIncomplete
         | ui::CompatibilityPhase::AwaitingRetirement | ui::CompatibilityPhase::PublicationNeedsAttention
@@ -429,6 +444,13 @@ pub(super) fn plan(m: &Manager, installer: &str, environment: &str, records: &[o
             }
         }
     }
+    for run in uninstall::records(m)?.into_iter().filter(|r| ids.contains(&r.environment.id)) {
+        if is_live(&run.operation)? {
+            plan.blockers.push("An uninstaller is still running in this setup. Finish it first.".into());
+        } else if !onboarding::retired(&uninstall::result(m, &run)?) {
+            plan.blockers.push("The manager can't confirm that an uninstaller in this setup closed completely, so it won't delete the setup. Send Setup details if this stays.".into());
+        }
+    }
     for id in &ids {
         if environment_runtime::pending(m, id)? {
             plan.blockers.push("Finish the interrupted runtime change in this setup first.".into());
@@ -459,7 +481,12 @@ fn describe_daw_state(setup: &mut ui::InstallerSetup, plan: &SetupPlan) {
         .partition(|plugin| in_daw.contains(&plugin.class_id.to_uppercase()));
     if gone.is_empty() { return; }
     let names = |plugins: &[&ui::InstallationPlugin]| plugins.iter().map(|p| p.name.as_str()).collect::<Vec<_>>().join(", ");
-    setup.status = if now.is_empty() {
+    // Plug-ins whose files an uninstaller removed can't be added back.
+    let uninstalled = !plan.removed.is_empty() && plan.removed.iter()
+        .all(|retired| !retired.entry.registration.module.path.try_exists().unwrap_or(true));
+    setup.status = if now.is_empty() && uninstalled {
+        "This setup's plug-ins were uninstalled. Delete the setup to remove the rest of its Windows files.".into()
+    } else if now.is_empty() {
         "None of this setup's plug-ins are in your DAW now. Add them back from Plug-ins.".into()
     } else {
         format!("In your DAW: {}. Not in your DAW now: {}.", names(&now), names(&gone))
@@ -498,7 +525,7 @@ pub(super) fn project(m: &Manager, setups: &mut [ui::InstallerSetup], records: &
             Ok(plan) => plan,
             Err(error) => {
                 setup.secondary.push(action("Delete this setup", ui::Action::SetupDelete {
-                    installer: setup.installer.clone(), environment, confirmed: false }, Some(&format!(
+                    installer: setup.installer.clone(), environment, confirmed: false, forget_installer: false }, Some(&format!(
                     "The manager can't read this setup's records right now ({error}). Send Setup details."))));
                 continue;
             }
@@ -512,7 +539,7 @@ pub(super) fn project(m: &Manager, setups: &mut [ui::InstallerSetup], records: &
                 ui::Action::SetupRemoveFromDaw { environment: environment.clone() }, reason.as_deref()));
         }
         setup.secondary.push(action("Delete this setup", ui::Action::SetupDelete {
-            installer: setup.installer.clone(), environment, confirmed: false },
+            installer: setup.installer.clone(), environment, confirmed: false, forget_installer: false },
             delete_reason(&plan, setup_scope(&plan, scope).as_deref()).as_deref()));
     }
     let scan = deleted_setup::scan(m)?;
@@ -522,14 +549,42 @@ pub(super) fn project(m: &Manager, setups: &mut [ui::InstallerSetup], records: &
             name: record.name, state: if interrupted { "deleting" } else { "deleted" }.into(),
             deleted_at: record.deleted_at, plugins: record.plugins,
             actions: if interrupted { vec![action("Finish deleting this setup", ui::Action::SetupDelete {
-                installer: record.installer, environment: record.environment, confirmed: false },
-                scope(""))] } else { vec![] } }
+                installer: record.installer, environment: record.environment, confirmed: false,
+                forget_installer: false }, scope(""))] } else { vec![] } }
     }).collect();
     // Its setup stays hidden; the record itself needs Setup details.
     out.extend(scan.unreadable.into_iter().map(|environment| ui::DeletedSetup { installer: String::new(),
         environment, name: "A deleted setup".into(), state: "unreadable".into(), deleted_at: None,
         plugins: vec![], actions: vec![] }));
     Ok(out)
+}
+
+/// Take these classes out of the DAW where they are in it now, each by its
+/// exact current publication. Returns the names removed.
+/// Plug-ins already out of the DAW are recorded as the musician's choice too.
+pub(super) fn remove_classes_from_daw(m: &Manager, classes: &[String]) -> Result<Vec<String>> {
+    let mut removed = vec![];
+    for class in classes {
+        let key = class.to_uppercase();
+        let Some(entry) = m.registry()?.classes.get(&key).cloned() else { continue };
+        let Some(current) = entry.managed_revision.as_ref() else { continue };
+        let name = entry.registration.metadata.name.clone();
+        let linked = publication::physical(&m.link(&key))?.is_some();
+        let result = match entry.publication {
+            Publication::Published if linked => retry_busy(|| m.unpublish_exact(&key, current)),
+            Publication::Published => retry_busy(|| m.record_missing_publication_removed(&key, current)),
+            Publication::Removed if !linked => Ok(()),
+            _ => Err(attention(&name).into()),
+        };
+        if let Err(error) = result {
+            let reason = plain(&name, error).to_string();
+            return Err(if removed.is_empty() { reason }
+                else { format!("Removed {} from your DAW. {reason}", removed.join(", ")) }.into());
+        }
+        mark_removed(m, &key, current)?;
+        if entry.publication == Publication::Published { removed.push(name); }
+    }
+    Ok(removed)
 }
 
 pub(super) fn remove_setup_from_daw(m: &Manager, environment: &str) -> Result<Value> {
@@ -892,18 +947,29 @@ fn retain_inventory(m: &Manager, primary: &str, environment: &str) -> Result<()>
 }
 fn summary(record: &Tombstone, already: bool) -> Value {
     json!({"setup":record.name,"setup_deleted":record.state == Deletion::Deleted,"already_deleted":already,
+        "installer_forgotten":record.forget_installer,
         "environments":record.environments.len(),"plugins":record.plugins,
-        "history_retained":true,"installer_kept":true,"projects_changed":false,"add_back_available":false})
+        "history_retained":true,"installer_kept":!record.forget_installer,"projects_changed":false,
+        "add_back_available":false})
 }
 
-pub(super) fn delete_setup(m: &Manager, installer: &str, environment: &str, operation: &str) -> Result<Value> {
-    delete_setup_with(m, installer, environment, operation, &mut |op| onboarding::live(op), KEEPER_WAIT)
-        .map_err(plain_deletion)
+pub(super) fn delete_setup(m: &Manager, installer: &str, environment: &str, forget_installer: bool,
+    operation: &str) -> Result<Value> {
+    delete_setup_with(m, installer, environment, forget_installer, operation, &mut |op| onboarding::live(op),
+        KEEPER_WAIT).map_err(plain_deletion)
 }
-fn delete_setup_with(m: &Manager, installer: &str, environment: &str, operation: &str,
+fn delete_setup_with(m: &Manager, installer: &str, environment: &str, forget_installer: bool, operation: &str,
     is_live: &mut dyn FnMut(&str) -> Result<bool>, keeper_wait: Duration) -> Result<Value> {
-    if let Some(record) = deleted_setup::load(m, environment)? {
+    if let Some(mut record) = deleted_setup::load(m, environment)? {
         require(record.installer == installer, CHANGED)?;
+        // Finishing may add the musician's choice to forget the installer.
+        if forget_installer && !record.forget_installer {
+            let ids = record.environments.iter().map(|e| e.id.clone()).collect();
+            require(!installer_used_elsewhere(m, installer, &ids)?, INSTALLER_SHARED)?;
+            record.forget_installer = true;
+            if record.state == Deletion::Deleted { record.state = Deletion::Deleting; record.deleted_at = None; }
+            deleted_setup::write(m, &record)?;
+        }
         if record.state == Deletion::Deleted { return Ok(summary(&record, true)); }
         let held = claim(m, &record.environments, keeper_wait, record.environments_folder.as_ref())?;
         return finish(m, record, held);
@@ -920,6 +986,10 @@ fn delete_setup_with(m: &Manager, installer: &str, environment: &str, operation:
     let mut planned = plan(m, installer, environment, &records, &m.registry()?, is_live)?;
     require(planned.environments.iter().all(|e| !protected.contains(&e.id)), MANAGED)?;
     if let Some(reason) = delete_reason(&planned, None) { return Err(reason.into()); }
+    if forget_installer {
+        let ids = planned.environments.iter().map(|e| e.id.clone()).collect();
+        require(!installer_used_elsewhere(m, installer, &ids)?, INSTALLER_SHARED)?;
+    }
     // Exclusive environment locks, then live owners, mounts and a process census.
     let held = claim(m, &planned.environments, keeper_wait, None)?;
     // Only now, with nothing refusing: DAW entries deleted by hand are
@@ -932,7 +1002,7 @@ fn delete_setup_with(m: &Manager, installer: &str, environment: &str, operation:
     let record = Tombstone { schema: 1, environment: environment.into(), installer: installer.into(),
         name: planned.name.clone(), environments: planned.environments.clone(), registrations: planned.removed.clone(),
         plugins: planned.plugins.clone(), operation: operation.into(), requested_at: now()?,
-        deleted_at: None, state: Deletion::Deleting,
+        deleted_at: None, state: Deletion::Deleting, forget_installer,
         environments_folder: Some(deleted_setup::folder_identity(&m.root.join("environments"))?) };
     {
         let registry = retry_busy(|| m.lock("registry.lock"))?;
@@ -945,6 +1015,13 @@ fn delete_setup_with(m: &Manager, installer: &str, environment: &str, operation:
         m.retire_removed_registrations(&registry, &record.registrations)?;
     }
     finish(m, record, held)
+}
+const INSTALLER_SHARED: &str = "This installer was also run in another setup, so the manager keeps it. Delete without forgetting the installer file, or delete that setup first. Nothing was deleted.";
+/// The installer was also run inside another setup that still exists.
+fn installer_used_elsewhere(m: &Manager, installer: &str, own: &std::collections::BTreeSet<String>) -> Result<bool> {
+    let deleted = deleted_setup::environments(m)?;
+    Ok(environment_install::records(m)?.into_iter().any(|run| run.installer == installer
+        && !own.contains(&run.environment.id) && !deleted.contains(&run.environment.id)))
 }
 fn plan_registry(m: &Manager, plan: &SetupPlan) -> Result<bool> {
     let ids: std::collections::BTreeSet<_> = plan.environments.iter().map(|e| e.id.clone()).collect();
@@ -972,6 +1049,9 @@ fn finish(m: &Manager, mut record: Tombstone, held: Vec<Option<File>>) -> Result
         }
         require_unused(m, environment)?;
         remove_windows_files(m, environment)?;
+    }
+    if record.forget_installer {
+        installer_import::forget(m, &record.installer, &deleted_setup::history_directory(m, &record.environment)?)?;
     }
     record.state = Deletion::Deleted;
     record.deleted_at = Some(now()?);

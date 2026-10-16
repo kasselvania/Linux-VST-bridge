@@ -2784,6 +2784,30 @@ def installer_policy_environment(policy, inherited):
     return changed,receipt
 
 
+PRODUCT_CODE=re.compile(r'\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\}')
+def uninstall_validate(spec, root):
+    """Closed manager-chosen uninstall: a program inside the setup's drive C
+    (never its Windows directory) with the registration's own arguments, or
+    Windows Installer removal of one exact product code."""
+    u=spec.get('uninstall')
+    if spec.get('schema')!=2 or not isinstance(u,dict) or set(u)!={'schema','registration','product_code','arguments'} or u['schema']!=1:
+        raise ValueError('uninstall_spec')
+    if not isinstance(u['registration'],str) or not re.fullmatch('[0-9a-f]{64}',u['registration']):raise ValueError('uninstall_registration')
+    arguments=u['arguments']
+    if not isinstance(arguments,list) or len(arguments)>16 or any(not isinstance(a,str) or len(a)>512 or any(ord(c)<32 for c in a) for a in arguments):
+        raise ValueError('uninstall_arguments')
+    image=pathlib.Path(spec['installer']['path'])
+    if spec['format']=='uninstall_executable':
+        drive=(root/'compatdata/pfx/drive_c').resolve()
+        if u['product_code'] is not None or image.resolve()!=image or drive not in image.parents:raise ValueError('uninstall_image')
+        relative=image.relative_to(drive).parts
+        if relative[0].lower()=='windows' or image.suffix.lower()!='.exe':raise ValueError('uninstall_image')
+    else:
+        msiexec=pathlib.Path(spec['environment']['runner']['proton']).parent/'files/lib/wine/x86_64-windows/msiexec.exe'
+        if arguments or not isinstance(u['product_code'],str) or not PRODUCT_CODE.fullmatch(u['product_code']) or image!=msiexec:
+            raise ValueError('uninstall_product_code')
+    return u
+
 def managed_install(spec, *, source_owned_is3=None):
     """MF2 initial installer, exact dedicated unit. No product admission authority."""
     op=spec['operation'];env=spec['environment'];root=pathlib.Path(env['root']);report=pathlib.Path(spec['report'])
@@ -2851,6 +2875,14 @@ def managed_install(spec, *, source_owned_is3=None):
             msi_fifo=report.parent/(op+'-msi.pipe');os.mkfifo(msi_fifo,0o600)
             msi_fd=os.open(msi_fifo,os.O_RDWR|os.O_NONBLOCK|os.O_NOFOLLOW);sel.register(msi_fd,selectors.EVENT_READ)
             argv+=['msiexec','/i',windows(spec['installer']['path'],root/'compatdata/pfx'),'/L*v',windows(msi_fifo,root/'compatdata/pfx')]
+        elif spec['format']=='uninstall_executable':
+            # The vendor's own uninstaller window, as its registration names it.
+            argv+=[spec['installer']['path'],*uninstall_validate(spec,root)['arguments']]
+        elif spec['format']=='uninstall_msi':
+            code=uninstall_validate(spec,root)['product_code']
+            msi_fifo=report.parent/(op+'-msi.pipe');os.mkfifo(msi_fifo,0o600)
+            msi_fd=os.open(msi_fifo,os.O_RDWR|os.O_NONBLOCK|os.O_NOFOLLOW);sel.register(msi_fd,selectors.EVENT_READ)
+            argv+=['msiexec','/x',code,'/L*v',windows(msi_fifo,root/'compatdata/pfx')]
         else:raise RuntimeError('installer format unsupported')
         reg={'environment':env,'compatibility':{'disable_windows_accessibility':False}}
         launch_env=environment(reg);launch_env['HOME']=str(root/'home')

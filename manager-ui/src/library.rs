@@ -33,6 +33,9 @@ pub fn status(product: &Product) -> (&str, &str) {
     if product.disposition == "removed_from_daw" {
         return ("Removed from your DAW", "unpublished");
     }
+    if product.disposition == "uninstalled" {
+        return ("Uninstalled", "unpublished");
+    }
     if product.availability.as_ref().is_some_and(|availability|
         !availability.available && availability.reason.is_some()) {
         return ("DAW connection needs attention", "attention");
@@ -306,7 +309,7 @@ impl Library {
                                 workflow.phase == CompatibilityPhase::NeedsWork) {
                                 ui.colored_label(warning_color(ui), &workflow.summary);
                             }
-                        } else if p.disposition == "removed_from_daw" {
+                        } else if matches!(p.disposition.as_str(), "removed_from_daw" | "uninstalled") {
                             if let Some(reason) = p.availability.as_ref().and_then(|a| a.reason.as_ref()) {
                                 ui.label(reason);
                             }
@@ -382,6 +385,17 @@ impl Library {
                             ui.label(consequence);
                         }
                         action_buttons(ui, &current, snapshot.system.inactive_reason(), pending, chosen);
+                        // Uninstall through the plug-in's own setup, or its vendor app.
+                        for uninstaller in snapshot.uninstallers.iter().filter(|u| u.environment == p.environment
+                            && u.affected_classes.iter().any(|class| class.eq_ignore_ascii_case(&p.class_id))) {
+                            action_buttons(ui, std::slice::from_ref(&uninstaller.action),
+                                snapshot.system.inactive_reason(), pending, chosen);
+                            ui.small(if uninstaller.coverage == "vendor_app" {
+                                format!("{} manages this plug-in; uninstall it there.", uninstaller.name)
+                            } else {
+                                format!("Takes it out of your DAW, then runs {}'s own uninstaller.", uninstaller.name)
+                            });
+                        }
                         compatibility_settings(ui, p, snapshot.system.inactive_reason(), pending,
                             chosen, self.expand_details);
                         if p.compatibility.is_some() || settings_actions(p).iter().any(|offer|
