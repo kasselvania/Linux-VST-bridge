@@ -58,6 +58,8 @@ static_assert(sizeof(ap23_phase_trace_t)==264);
 #endif
 uint32_t transportMaximum(int32_t maximum) {
 #ifdef AP8_PREVIEW
+  // The DAW's accepted maximum; the backend activates the Windows plug-in
+  // for the transport block it was set up for (daw_blocks.rs).
   return static_cast<uint32_t>(maximum);
 #else
   return static_cast<uint32_t>(std::min(maximum,256));
@@ -913,6 +915,14 @@ tresult PLUGIN_API Processor::canProcessSampleSize(int32 size) {
 }
 tresult PLUGIN_API Processor::setupProcessing(ProcessSetup &setup) {
   Guard g(busy_);
+  // The product bridge plays DAW blocks up to LVBHostBlock::maximum frames,
+  // longer than one transport block, in parts; the reference bridges keep
+  // their single-block limits.
+#ifdef AP8_PREVIEW
+  const int32 block_limit = LVBHostBlock::maximum;
+#else
+  const int32 block_limit = preview_ ? 1024 : 256;
+#endif
   if (!g.held || owner_ != std::this_thread::get_id() ||
       terminal() ||
       (phase_ != Initialized && phase_ != Setup && phase_ != Deactivated) ||
@@ -920,8 +930,17 @@ tresult PLUGIN_API Processor::setupProcessing(ProcessSetup &setup) {
        !(preview_ && (setup.processMode == kRealtime || setup.processMode == kPrefetch))) ||
       setup.symbolicSampleSize != kSample32 ||
       (!preview_ && setup.sampleRate != 48000.) || !std::isfinite(setup.sampleRate) ||
-      setup.maxSamplesPerBlock < 1 || setup.maxSamplesPerBlock > (preview_ ? 1024 : 256))
+      setup.maxSamplesPerBlock < 1 || setup.maxSamplesPerBlock > block_limit)
     return kResultFalse;
+#ifdef AP8_PREVIEW
+  // Inactive owner thread: process() never runs while this guard is held.
+  if (setup.maxSamplesPerBlock > silent_capacity_) {
+    std::unique_ptr<float[]> silent(new (std::nothrow) float[size_t(setup.maxSamplesPerBlock)]());
+    if (!silent) return kResultFalse;
+    silent_input_ = std::move(silent);
+    silent_capacity_ = setup.maxSamplesPerBlock;
+  }
+#endif
   requested_maximum_ = setup.maxSamplesPerBlock;
   requested_rate_ = setup.sampleRate;
   requested_mode_ = setup.processMode;
@@ -1219,7 +1238,8 @@ tresult Processor::processBody(ProcessData &d) {
   if ((!queued_ && blocks_ >= 64) || !outputs(d, maximum_,output_mask_) ||
 #ifdef AP8_PREVIEW
       d.numInputs != int(std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& b){return b.media==kAudio&&b.direction==kInput;})))return reject();
-  float silent_input[1024]{};float* in[2]={silent_input,silent_input};uint64_t input_flags=3;
+  if(!silent_input_||d.numSamples>silent_capacity_)return reject();
+  float* in[2]={silent_input_.get(),silent_input_.get()};uint64_t input_flags=3;
   const bool receive_input=stereo_input_ordinal_>=0&&bus_active_[size_t(stereo_input_ordinal_)];
   if(receive_input){
     if(!d.inputs||d.inputs[0].numChannels!=2||!d.inputs[0].channelBuffers32||!d.inputs[0].channelBuffers32[0]||!d.inputs[0].channelBuffers32[1]||(d.inputs[0].silenceFlags&~uint64_t(3)))return reject();

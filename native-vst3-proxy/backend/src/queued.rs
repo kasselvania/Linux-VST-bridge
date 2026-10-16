@@ -738,6 +738,12 @@ struct Callback {
     startup_sync_ticket: Option<u64>,
     callback_ns_max: u64,
     callback_us_buckets: [u64; 10],
+    // DAW blocks longer than one transport block, their parts, and the curve
+    // anchors added (or left out for want of event slots) at part boundaries.
+    long_blocks: u64,
+    long_block_parts: u64,
+    boundary_anchors: u64,
+    boundary_anchors_omitted: u64,
     curve_plan: crate::parameter_curves::Plan,
     curve_carry: crate::parameter_curves::Carry,
     curve_values: crate::parameter_curves::Values,
@@ -787,6 +793,10 @@ impl Callback {
             completion_wait_misses: 0,
             callback_ns_max: 0,
             callback_us_buckets: [0; 10],
+            long_blocks: 0,
+            long_block_parts: 0,
+            boundary_anchors: 0,
+            boundary_anchors_omitted: 0,
             curve_plan: crate::parameter_curves::Plan::empty(),
             curve_carry: crate::parameter_curves::Carry::empty(),
             curve_values: crate::parameter_curves::Values::empty(),
@@ -868,6 +878,10 @@ impl Callback {
         next.completion_wait_misses = std::mem::take(&mut self.completion_wait_misses);
         next.callback_ns_max = std::mem::take(&mut self.callback_ns_max);
         next.callback_us_buckets = std::mem::take(&mut self.callback_us_buckets);
+        next.long_blocks = std::mem::take(&mut self.long_blocks);
+        next.long_block_parts = std::mem::take(&mut self.long_block_parts);
+        next.boundary_anchors = std::mem::take(&mut self.boundary_anchors);
+        next.boundary_anchors_omitted = std::mem::take(&mut self.boundary_anchors_omitted);
         next.curve_values = std::mem::replace(
             &mut self.curve_values, crate::parameter_curves::Values::empty());
         next.curve_values.invalidate();
@@ -2789,15 +2803,29 @@ unsafe fn setup(
             let live = INSTANCES.lease(id).ok_or_else(|| invalid("setup instance absent"))?;
             let installed = live.installed_delay;
             let delivery_mode = live.delivery_mode;
+            let minor = live.minor;
             drop(live);
+            let whole_block = crate::performance::whole_block(minor);
+            // A whole-block peer is set up for one transport block. A longer
+            // DAW block is played as consecutive parts (crate::daw_blocks),
+            // so latency and the Windows side's block size stay as they were.
+            need((1..=if whole_block { crate::daw_blocks::HOST_BLOCK_MAX as u32 } else { 1024 })
+                .contains(&maximum), "DAW block size above the bridge's limit")?;
             let remembered = if let Some(delay) = installed {
                 delay
             } else {
-                crate::performance::selected_delay(maximum)?
+                crate::performance::selected_delay(if whole_block { maximum.min(CAP as u32) } else { maximum })?
             };
-            let delay = delivery_mode.effective_delay(maximum, remembered)?;
-            let minor = INSTANCES.lease(id).ok_or_else(|| invalid("setup instance absent"))?.minor;
-            let mut bytes = crate::performance::wire_version(maximum, mode, rate, crate::performance::whole_block(minor))?;
+            // The transport block never exceeds the plug-in's buffering, so a
+            // musician's shorter buffering also plays any DAW block size.
+            let transport = match (whole_block, delivery_mode) {
+                (false, _) => maximum,
+                (true, crate::performance::DeliveryMode::Buffered) =>
+                    maximum.min(CAP as u32).min(remembered),
+                (true, crate::performance::DeliveryMode::SameCallback) => maximum.min(CAP as u32),
+            };
+            let delay = delivery_mode.effective_delay(transport, remembered)?;
+            let mut bytes = crate::performance::wire_version(transport, mode, rate, whole_block)?;
             if !io.is_empty() {
                 bytes[20..24]
                     .copy_from_slice(&(if notifications { 3u32 } else { 1u32 }).to_le_bytes());
@@ -2821,7 +2849,7 @@ unsafe fn setup(
             INSTANCES.update(id,|l| -> io::Result<()> {
                 let callback=l.callback.get_mut();
                 if callback.running {return Err(invalid("configuration during playback"));}
-                let block_maximum = if crate::performance::whole_block(minor) { maximum as usize }
+                let block_maximum = if whole_block { transport as usize }
                     else { maximum.min(256) as usize };
                 let channels = l.shared.extra.get().map_or(2, |pool| pool.channels + 2);
                 callback.prepare(block_maximum, channels, delay as usize); l.max=maximum as usize;
@@ -2832,7 +2860,7 @@ unsafe fn setup(
                 {callback.direct_audio=l.shared.prepared_audio.lock().map_err(|_|invalid("prepared audio owner poisoned"))?.take();}
                 l.setup=Some(bytes);
                 if let Some(path)=&l.report {
-                    crate::preview::append_report(path,format!("{{\"event\":\"ap9_setup\",\"protocol_minor\":{minor},\"host_maximum\":{maximum},\"transport_maximum\":{},\"sample_rate\":{rate},\"bridge_frames\":{delay},\"vendor_frames\":{vendor},\"total_frames\":{total},\"vendor_precision_bits\":{}}}\n",if crate::performance::whole_block(minor) {maximum} else {maximum.min(256)},ap1_native_client::get(&reply[8..12])).as_bytes());
+                    crate::preview::append_report(path,format!("{{\"event\":\"ap9_setup\",\"protocol_minor\":{minor},\"host_maximum\":{maximum},\"transport_maximum\":{},\"sample_rate\":{rate},\"bridge_frames\":{delay},\"vendor_frames\":{vendor},\"total_frames\":{total},\"vendor_precision_bits\":{}}}\n",if whole_block {transport} else {maximum.min(256)},ap1_native_client::get(&reply[8..12])).as_bytes());
                 }
                 Ok(())
             }).map_err(|_|invalid("setup instance ownership"))??;
@@ -2851,12 +2879,19 @@ unsafe fn setup(
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap4_activate(id: u64, max: u32, mode: u32) -> u32 {
-    crate::ffi(
-        || match control(id, 8, [max.to_le_bytes(), mode.to_le_bytes()].concat()) {
+    crate::ffi(|| {
+        // A whole-block peer is activated for the transport block it was set
+        // up for; the DAW's accepted maximum may be longer (crate::daw_blocks).
+        let max = INSTANCES.lease(id).and_then(|l| {
+            let setup = l.setup.as_ref()?;
+            (crate::performance::whole_block(l.minor) && max as usize == l.max)
+                .then(|| ap1_native_client::get(&setup[..4]) as u32)
+        }).unwrap_or(max);
+        match control(id, 8, [max.to_le_bytes(), mode.to_le_bytes()].concat()) {
             Ok(_) => 0,
             Err(e) => retain(&e),
-        },
-    ) as u32
+        }
+    }) as u32
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap4_deactivate(id: u64) -> u32 {
@@ -3121,9 +3156,12 @@ unsafe fn process_events_guarded(
     {
         return if detailed { 0x101 } else { 1 };
     }
+    let whole_block = crate::performance::whole_block(l.minor);
+    // A whole-block DAW callback may exceed one transport block (l.max is the
+    // DAW's accepted maximum); its events are checked against the whole block.
     if events.len() > MAX_EVENTS
         || (!events.is_empty() && l.shared.identity.is_none())
-        || events.iter().any(|e| !e.valid_host(n))
+        || events.iter().any(|e| !if whole_block { e.valid_in_block(n) } else { e.valid_host(n) })
     {
         return if detailed { 0x102 } else { 1 };
     }
@@ -3154,7 +3192,6 @@ unsafe fn process_events_guarded(
     if contain_terminal && l.shared.terminal_latched.load(Ordering::Acquire) {
         return if exact { 2 } else { CONTAINED_TERMINAL };
     }
-    let whole_block = crate::performance::whole_block(l.minor);
     // One original callback-entry containment bound includes all ordered debt
     // and presentation. It is independent of actual N, maximum M and Fs.
     // Offline remains separate; legacy/ARM retain their existing policy.
@@ -3251,10 +3288,14 @@ unsafe fn process_events_guarded(
     let phase = processing_phase((*l.callback.get()).epoch,
         l.shared.processing_ready_epoch.load(Ordering::Acquire));
     let mut combined = channel_mask(2+extra.len());
+    // A whole-block peer was set up for this transport block (at most CAP and
+    // never more than the bridge delay); a longer DAW block is played in parts.
+    let part = if whole_block { (*l.callback.get()).audio.maximum } else { LEGACY_CAP };
+    if whole_block && n > part { (*l.callback.get()).long_blocks += 1; }
     let mut offset = 0;
     let mut timing_requests = 0;
     loop {
-        let count = (n - offset).min(if whole_block { CAP } else { LEGACY_CAP });
+        let count = (n - offset).min(part);
         let mut item = Item::control(AUDIO, 0);
         item.n = count as u32;
         item.process_mode = mode;
@@ -3263,9 +3304,16 @@ unsafe fn process_events_guarded(
         item.context = context.chunk(offset).unwrap();
         item.flags = flags;
         item.gain = if offset == 0 { gain } else { f64::NAN };
-        if whole_block {
+        if whole_block && n <= part {
             item.events[..events.len()].copy_from_slice(events);
             item.event_count = events.len() as u32;
+        } else if whole_block {
+            let planned = crate::daw_blocks::part_events(events, n, offset, count, &mut item.events);
+            item.event_count = planned.count as u32;
+            let callback = &mut *l.callback.get();
+            callback.long_block_parts += 1;
+            callback.boundary_anchors += u64::from(planned.anchors);
+            callback.boundary_anchors_omitted += u64::from(planned.anchors_omitted);
         } else {
             let block = &(*l.callback.get()).curve_plan.blocks[offset / LEGACY_CAP];
             item.events[..block.count].copy_from_slice(&block.events[..block.count]);
@@ -3467,10 +3515,12 @@ unsafe fn close_instance(id: u64, contain_terminal: bool) -> u32 {
                 callback.gaps.report(path);
                 export_refusal(&l.shared,path);
                 crate::preview::append_report(path, format!(
-                    "{{\"event\":\"native_callback_completion\",\"scope\":\"successful Rust processing calls including completion wait\",\"waits\":{},\"waits_without_result\":{},\"unready_callbacks\":{},\"unready_frames\":{},\"startup_note_events_delayed\":{},\"startup_note_events_dropped\":{},\"maximum_ns\":{},\"bucket_upper_us\":[50,100,250,500,1000,2000,5000,10000,25000,null],\"buckets\":{:?}}}\n",
+                    "{{\"event\":\"native_callback_completion\",\"scope\":\"successful Rust processing calls including completion wait\",\"waits\":{},\"waits_without_result\":{},\"unready_callbacks\":{},\"unready_frames\":{},\"startup_note_events_delayed\":{},\"startup_note_events_dropped\":{},\"long_blocks\":{},\"long_block_parts\":{},\"boundary_anchors\":{},\"boundary_anchors_omitted\":{},\"maximum_ns\":{},\"bucket_upper_us\":[50,100,250,500,1000,2000,5000,10000,25000,null],\"buckets\":{:?}}}\n",
                     callback.completion_waits, callback.completion_wait_misses,
                     callback.unready_callbacks, callback.unready_frames,
                     callback.startup_note_events_delayed, callback.startup_note_events_dropped,
+                    callback.long_blocks, callback.long_block_parts,
+                    callback.boundary_anchors, callback.boundary_anchors_omitted,
                     callback.callback_ns_max, callback.callback_us_buckets).as_bytes());
             }
             if !ok {
@@ -7775,6 +7825,10 @@ mod tests {
 #[cfg(test)]
 #[path = "capture_tests.rs"]
 mod capture_tests;
+
+#[cfg(test)]
+#[path = "long_block_tests.rs"]
+mod long_block_tests;
 
 #[cfg(test)]
 #[path = "lc1_tests.rs"]

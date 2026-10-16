@@ -1,6 +1,7 @@
 #pragma once
 #include "public.sdk/source/vst/vstaudioeffect.h"
 #include "admission_refusal.h"
+#include "host_block.h"
 #include <atomic>
 #include <cstdint>
 #include <memory>
@@ -151,6 +152,10 @@ private:
     ap8_event_t invalid_event{};
   } admission_failure_;
   std::vector<uint8_t> state_readback_;
+  // Zero input for an instrument or an inactive input bus, as long as the
+  // accepted DAW maximum. Prepared at setupProcessing, only read by process().
+  std::unique_ptr<float[]> silent_input_;
+  int32_t silent_capacity_=0;
   std::unique_ptr<ap23_phase_trace_t[]> phase_trace_;
   uint64_t phase_trace_ordinal_=0,phase_trace_omitted_=0;
   uint32_t phase_trace_count_=0;
