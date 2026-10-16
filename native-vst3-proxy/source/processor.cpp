@@ -342,6 +342,8 @@ tresult PLUGIN_API Processor::connect(IConnectionPoint *peer) {
 #endif
   return result;
 }
+namespace { bool lvbTrace(){static const bool on=std::getenv("LVB_STATE_TRACE")!=nullptr;return on;}
+bool lvbProbeEmpty(){static const bool on=std::getenv("LVB_STATE_PROBE_EMPTY")!=nullptr;return on;} }
 void Processor::holdState(std::vector<uint8_t> &&blob) {
   if(lvbTrace())std::fprintf(stderr,"LVBDIAG hold bytes=%zu\n",blob.size());
   held_state_ = std::move(blob);
@@ -361,8 +363,6 @@ void Processor::announceHeldState() {
     m->release();
   }
 }
-namespace { bool lvbTrace(){static const bool on=std::getenv("LVB_STATE_TRACE")!=nullptr;return on;}
-bool lvbProbeEmpty(){static const bool on=std::getenv("LVB_STATE_PROBE_EMPTY")!=nullptr;return on;} }
 tresult PLUGIN_API Processor::getState(IBStream *stream) {
   if(lvbTrace())std::fprintf(stderr,"LVBDIAG getState phase=%d handle=%llu owner=%d held=%d size=%zu\n",int(phase_.load()),(unsigned long long)handle_,int(owner_==std::this_thread::get_id()),int(state_held_),held_state_.size());
   if(lvbProbeEmpty()&&!state_held_&&!handle_&&phase_==Failed&&stream){if(lvbTrace())std::fprintf(stderr,"LVBDIAG getState empty-probe ok\n");return kResultOk;}
