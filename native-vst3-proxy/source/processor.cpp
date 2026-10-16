@@ -369,6 +369,13 @@ void Processor::holdState(std::vector<uint8_t> &&blob) {
 // bytes: the held size, 0 when nothing was received, -1 when state was
 // received but could not be kept.
 void Processor::announceHeldState() {
+  // Messages belong to the owner thread; from elsewhere, the controller's
+  // next AP10.poll carries it.
+  if (owner_ != std::this_thread::get_id()) {
+    announce_pending_.store(true, std::memory_order_release);
+    return;
+  }
+  announce_pending_.store(false, std::memory_order_release);
   if (auto *m = allocateMessage()) {
     m->setMessageID("AP10.state_held");
     m->getAttributes()->setInt("bytes", state_held_ ? int64(held_state_.size())
@@ -380,6 +387,9 @@ void Processor::announceHeldState() {
 tresult PLUGIN_API Processor::getState(IBStream *stream) {
   if (!preview_)
     return kNotImplemented;
+  if (owner_ == std::this_thread::get_id() &&
+      unkept_pending_.exchange(false, std::memory_order_acq_rel))
+    dropUnkeptState();
   // No session has applied or produced state, and none can now: return the
   // host's exact held bytes, or the bridge's nothingRecorded marker when none
   // were received (never fabricated plug-in state). REAPER asks for state
@@ -461,7 +471,12 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
   bool accounted = false;
   struct Unkept {
     Processor &p; bool &accounted; bool active;
-    ~Unkept() { if (active && !accounted && !p.session_state_seen_) p.dropUnkeptState(); }
+    ~Unkept() {
+      if (!active || accounted || p.session_state_seen_) return;
+      // Held bytes are owner-thread data: another thread only flags it.
+      if (p.owner_ == std::this_thread::get_id()) p.dropUnkeptState();
+      else p.unkept_pending_.store(true, std::memory_order_release);
+    }
   } unkept{*this, accounted, stream != nullptr};
   // No session can apply this state now (refused, admission failed, or the
   // Windows side ended before any state was applied or produced). Keep the
@@ -633,6 +648,8 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
 #ifdef AP8_PREVIEW
   if(!std::strcmp(id,"AP10.capabilities")){int64 enabled=0;if(message->getAttributes()->getInt("notifications",enabled)!=kResultOk)return kResultFalse;notifications_=enabled==1;return kResultOk;}
   if(!std::strcmp(id,"AP10.poll")){
+    if (unkept_pending_.exchange(false, std::memory_order_acq_rel)) dropUnkeptState();
+    if (announce_pending_.load(std::memory_order_acquire)) announceHeldState();
     if1_terminal_t terminal{};
     if (handle_ && !if1_terminal(handle_, &terminal) && IF1::valid(terminal)) {
       terminal_latched_.store(true,std::memory_order_release);
