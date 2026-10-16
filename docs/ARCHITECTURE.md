@@ -1,7 +1,9 @@
 # Architecture
 
-This is the governing product design selected on 2026-10-16. It replaces the
-earlier policy of selecting separate production runtimes for different plug-ins.
+The product constraints below reflect the operator's direction on 2026-10-16,
+including replacement of separate production runtimes for different plug-ins.
+The ownership and status proposals are for design review; their schemas, physical
+modules, storage and migration rules are not settled by this document.
 Implementation and observed support are recorded in [CURRENT_SLICE.md](../CURRENT_SLICE.md)
 and [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md). Earlier designs remain in Git history;
 historical implementation notes do not override this design or AGENTS.md.
@@ -56,10 +58,12 @@ licensed machine identity and mutable user state through supported transitions.
 
 ## One resolved configuration
 
-The service owns the canonical selected configuration. Profiles, UI, CLI,
-publication and launch all consume that model; none invents a competing selection.
+The service exposes one canonical selected configuration. Profiles, UI, CLI,
+publication and launch consume that model; none invents a competing selection.
 It identifies the release/runtime, exact module/class, vendor setup revision,
-dependencies, content locations, renderer and applied options.
+dependencies, content locations, renderer and applied options. This shared view
+does not settle the domain ownership proposed below or make one profile dictionary
+the authority for every concern.
 
 Profiles are typed data for supported renderer/library choices, Windows version,
 dependencies, services and runtime options. They contain no commands, binary
@@ -81,10 +85,12 @@ and results may inform a reviewed shared profile without exporting private data.
 
 <a id="187-platform-execution-convergence"></a>
 
-## One musician status and primary action
+## Proposed musician status and primary action
 
-The service derives one displayed status and available actions from the canonical
-configuration and owned operation facts. The UI presents them consistently.
+The agreed goal is one displayed status and clear primary action. The proposed
+service projection derives these from canonical configuration and owned domain
+facts, rather than a second persisted status. The UI presents them consistently.
+The following meanings and conflict rules require design review.
 
 | Status | Meaning |
 | --- | --- |
@@ -112,25 +118,67 @@ can change licensed identity or external state; retaining old files does not mak
 that reversible. Explain the consequence before an affected user action. Never
 delete uncertain ownership records or original projects to make recovery succeed.
 
-## Logical owners
+## Ownership proposal for review
 
-These are code responsibilities, not a requirement for nine services or new
-databases. Rust owns product policy and lifecycle. C++ stays at the VST3 SDK and
-Win32 edges behind a versioned C ABI; process boundaries use versioned protocols.
+One service is not one undifferentiated module. Each domain needs a single writer
+for its facts and a clear extension boundary. The table proposes those boundaries;
+it does not choose a database, Rust crate layout or new process per row.
 
-| Owner | Responsibility |
-| --- | --- |
-| Runtime build | Pinned sources, common patches, reproducible component set and regression recipes. |
-| Windows host | Load the exact Windows module; implement vendor SDK, editor, state and audio calls. |
-| Linux proxy | Native DAW interfaces, stable class identity and bounded transport; never load a Windows binary. |
-| Service | Canonical configuration/status, affected-resource coordination and action admission. |
-| Supervisor | Launch, observe, cancel and retire exact process generations and their transports. |
-| UI | Musician-facing status, primary action and advanced controls from the service model. |
-| Profiles | Typed settings advice and separately identified tested support facts. |
-| Release | Coherent signed delivery, acquisition, update, retained predecessors and rollback. |
-| Tests | Contracts, combined-runtime regressions and actual installed musician journeys. |
+| Concern | Proposed source of truth and writer | Consumers | Scope / affected objects | Extension mechanism |
+| --- | --- | --- | --- | --- |
+| Vendor policy | Versioned VendorPolicy; policy owner | Resolver, installer planning | Shared vendor setup, dependencies and service advice | Typed recommendations with vendor-specific reasons |
+| Installer policy | InstallerPolicy; policy owner | Installer planner | Installer type/build and intended target setup | Data for implemented installer adapters; no command hooks |
+| Plug-in policy | PluginPolicy; policy owner | Resolver, preparation | Module/classes and applicable versioned advice | Typed settings; unfamiliar builds remain eligible to try |
+| User control and resolution | UserOverrides / selected configuration; configuration owner | UI/CLI, publication, admission, launch | Explicit instance/module/setup/release scope | Scoped typed actions; resolver derives one result from policy, facts and overrides |
+| Installer execution | InstallJob and observed result; installer owner | Discovery, resolver, status | One operation, exact target setup and affected siblings | Supervised installer adapters; process facts reference the supervisor |
+| Managed storage and content locations | Placement / content references; storage owner | Installer, resolver, host, project restoration | Runtime/cache, vendor install, user library and externally shared content | Typed storage/move operations with explicit ownership and preservation rules |
+| Renderer capabilities | Editor capability/effective-renderer observations; renderer assessor | Resolver, editor adapter, status | Actual runtime, editor, driver/display context | Capability adapters and supported backend types; settings do not write observations |
+| Audio topology | Observed SDK bus/layout capabilities; inspection owner | Audio negotiation, preparation | Exact module/class and declared SDK capabilities | SDK contracts implemented at both edges with tests |
+| Live audio negotiation | ProcessingConfiguration; DAW-facing audio owner | Windows audio worker, transport, latency readback | Actual instance, negotiated format and inactive reconfiguration | Versioned contracts and bounded capacities; profiles cannot invent live topology |
+| Platform capabilities and quirks | Capability observations; platform adapter owner | Acquisition, resolver, admission | OS/CPU, driver, desktop/sandbox and consuming DAW context | Capability adapters; distro-specific handling names a measured need |
+| Support and sanitized sharing | Support observations; test/qualification owner. Export derives an allow-listed view | Matrix generator, profile review, UI/export | Exact builds/configuration/platform/DAW and measured conditions | New measured checks and versioned exports; no private payloads or automatic promotion to advice |
+| Status and actions | Derived domain view; service projection | UI and CLI | Plug-in/setup/operation, including affected siblings | Named outcomes/actions with a domain owner and user journey |
 
-Converge or replace existing code toward these owners. Existing modules, schemas
+Vendor, installer and plug-in profiles are separate policy types, not additional
+runtime forks or duplicate copies of observed state. Requested renderer choices
+belong to configuration; renderer observations belong to the assessor. Installer
+intent, actual process custody, storage placement and discovered plug-in facts
+likewise remain distinct. No domain writes another's facts to make Ready true.
+
+Runtime build owns pinned common sources/patches and recipes; release owns coherent
+signed delivery and retained predecessors. The Windows host owns vendor SDK calls,
+the Linux proxy owns DAW interfaces and bounded transport, and the supervisor owns
+exact process-generation custody and retirement. Tests establish observed behavior;
+the UI consumes the service view. Rust owns product policy/lifecycle; C++ stays at
+the VST3 SDK and Win32 edges behind a versioned C ABI and process protocol.
+
+Growth scenarios and open decisions for the technical lead:
+
+- Adding a vendor/service dependency changes vendor advice; a genuinely new
+  capability changes the installer/service adapter. The Linux proxy stays generic.
+  Who resolves dependency versions, shared-service conflicts and readiness facts?
+- A shared-profile update changes advice; the configuration owner retains user
+  overrides and resolves the result. The launched host does not merge policy.
+  How are incompatible overrides, older schemas and selected configurations migrated?
+- Moving large content changes storage placement and references; audio callbacks
+  do no copying or discovery. Which references may move, who owns shared/external
+  files, and what authorization and restoration are real for that move or removal?
+- Selecting a renderer changes requested configuration; the assessor owns actual
+  capabilities/readback and the editor adapter applies it. Installer policy stays
+  unaware. Which fallback and override conflicts need an explicit user decision?
+- A different DAW channel layout changes live audio negotiation using inspected
+  SDK topology; vendor/installer policy stays unaware. Which supported layouts,
+  capacity bounds and inactive reconfiguration rules need new edge contracts?
+- A distro exception changes the platform capability adapter, not Windows SDK
+  calls or a distribution whitelist. Which exceptions are typed configuration,
+  which need an implemented adapter, and which require an operator-owned OS change?
+
+Review which facts are stored versus derived and what must change together.
+Define keys, scope, override/conflict and migration semantics before implementation.
+Choose module/API boundaries that keep new typed values separate from new
+capabilities without growing a profile dictionary, name branches or more stores.
+
+Converge or replace existing code toward the reviewed owners. Existing modules, schemas
 and experimental routes have no authority merely because they exist. Preserve
 user identity/state and useful tests when replacing them; quarantine or delete
 conflicting execution paths after their replacement is shown working. Do not add

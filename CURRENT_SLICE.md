@@ -37,4 +37,4 @@ installation use it; real patch cases plus baseline plug-ins install, play,
 save/reopen and survive restart, update and rollback in actual DAWs on both target
 fixtures. Preserve class/automation/content identity and licensed state. Record
 actual support and failures in the existing matrix/classes; no per-run report.
-Further profile/status/UI convergence follows this demonstrated runtime boundary.
+Profile/status/storage/audio/platform ownership remains a separate review proposal.
