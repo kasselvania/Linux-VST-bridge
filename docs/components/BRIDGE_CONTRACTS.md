@@ -128,6 +128,32 @@ Deterministic fixtures require byte-level round trips; vendor/project behavior
 requires actual save, full exit and reopen tests. Failed/partial restoration is
 not successful defaults; retire safely and offer a real retained predecessor.
 
+## Loaded-native admission and update continuity
+
+Descriptor C ABI v2 binds an anchor in the executing factory to its opened image
+and reads the descriptor through that same resolved directory handle. The factory
+caches its engine/descriptor digest pair. LVB5 carries that pair with logical class
+and vendor-module identity; the manager checks selected registration and the peer's
+executable mapping before starting resources and again before admission. Retain
+one authenticated peer process generation across those checks and graphical-context
+capture. Loader provenance uses the retained opened-file identity, not map presence
+alone. Derive mapping coordinates from a pinned file mapping where stat devices
+differ. Recovery uses the original caller binding, never a fresh hash of the path
+that happens to be selected. These non-RT contracts do not change Windows IPC15.
+
+LVB1–4 cannot prove cached descriptor provenance and cannot execute under the
+repaired manager. Retained codecs/files are compatibility history, not permission
+to weaken admission. [D-029](../DECISION_REGISTER.md#d-029--managed-refresh-of-pre-contract-native-publications)
+requires normal Update Bridge to prepare/verify affected selected publications
+before switching, with a DAW-close request when needed. Failure preserves prior
+selection and exact vendor/user state. Restoring a vendor/configuration predecessor
+prepares a compatible bridge pair; full package restoration restores coherent
+manager/publication components. Never fabricate lineage, silently use old proxy
+admission or substitute a missing vendor build. Extend the existing transition
+and history owners. Remaining installed update/recall, failed/interrupted recovery
+and predecessor-restoration acceptance stays explicit under FC-MGMT-008 in the
+[failure classes](../FAILURE_CLASSES.md); source binding alone does not deliver it.
+
 ## Custody, cleanup and admission
 
 Authenticate the final Windows host, not an assumed pre-exec launcher. Existing
@@ -193,13 +219,16 @@ their fixture identities authority over ordinary unfamiliar plug-ins.
 | Boundary | Current implementation / checks |
 | --- | --- |
 | SDK and Rust ABI | [proxy](../../native-vst3-proxy/), [Windows host](../../windows-factory-probe/source/), [completion ABI v3](../../native-vst3-proxy/include/ap23_backend.h), [SDK fixtures](../../windows-fixtures/beta/) |
-| Wire and audio | [IPC minor15 codec](../../native-audio-client/src/lib.rs), [LVB4 admission](../../native-audio-client/src/admission.rs), [notification schema1](../../native-audio-client/src/notification.rs), [direct mailbox layout4](../../native-vst3-proxy/backend/src/direct_audio.rs), [completion regressions](../../native-vst3-proxy/backend/src/completion_contract_tests.rs), [long blocks](../../native-vst3-proxy/backend/src/long_block_tests.rs) |
+| Wire and audio | [IPC minor15 codec](../../native-audio-client/src/lib.rs), [LVB5 admission](../../native-audio-client/src/admission.rs), [notification schema1](../../native-audio-client/src/notification.rs), [direct mailbox layout4](../../native-vst3-proxy/backend/src/direct_audio.rs), [completion regressions](../../native-vst3-proxy/backend/src/completion_contract_tests.rs), [long blocks](../../native-vst3-proxy/backend/src/long_block_tests.rs) |
+| Loaded factory provenance | [descriptor ABI v2](../../native-vst3-proxy/include/runtime_descriptor.h), [loader replacement regression](../../native-vst3-proxy/backend/src/descriptor.rs), [pinned-map identity regression](../../bridge-manager/src/mapped_file.rs), [same-peer admission/rechecks regression](../../bridge-manager/src/main.rs) |
 | State | [native state owner](../../native-vst3-proxy/backend/src/state.rs), [bounded streams](../../vst-state/), [Windows instance owner](../../windows-factory-probe/source/component_instance_session.cpp), [startup synchronization](../../native-vst3-proxy/backend/src/startup.rs) |
 | Custody | [session supervisor](../../bridge-manager/runtime/session.py), [ownership and negative-identity tests](../../bridge-manager/runtime/), [retained command-session contract](../BG1_RUNTIME_OWNER.md) |
 | Publication and transitions | [publication owner](../../bridge-manager/src/publication.rs), [preparation transitions](../../bridge-manager/src/preparation_cli.rs), [package/update authority](../../bridge-manager/src/package_authority.rs), [beta journeys](../INTEGRATED_BETA_DELIVERY.md#acceptance-method) |
 
 Current paired product routes retain IPC minor15, direct mailbox layout4 (legacy
-worker layout3), notification schema1, LVB4 admission and completion C ABI v3.
+worker layout3), notification schema1, LVB5 admission, descriptor C ABI v2 and
+completion C ABI v3. Retained LVB1–4 formats cannot authorize a new launch under
+the repaired manager; predecessor execution follows the coordinated refresh above.
 Their compatibility is checked independently; old executable publications retain
 their identities/limits. Updating a version requires both edges and relevant
 contract tests, not documentation-only promotion of support.
