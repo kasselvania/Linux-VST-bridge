@@ -129,8 +129,15 @@ fn visible_session(m:&Manager,action:&ui::Action,operation:&str,timeout:Duration
         job.registration.module.verify()?;
         require(report["cleanup_confirmed"]==true && report["transport_retired"]==true,
             "plugin_setup_cleanup_unconfirmed")?;
-        require(report["error"].is_null() && report["finish_setup"]["ended"]=="closed",
-            "plugin_setup_stopped_or_failed")?;
+        match report["finish_setup"]["ended"].as_str() {
+            Some("stopped")=>return Err("Setup was stopped. Close this task or open the plug-in again when you are ready.".into()),
+            Some("deadline")=>return Err("The setup window reached its 15-minute limit and was closed. Open the plug-in again to continue.".into()),
+            Some("window_lost")=>return Err("The plug-in's setup window disappeared unexpectedly. Its setup is kept; open it again to continue.".into()),
+            Some("closed") if report["error"].is_null()=>{},
+            _=>return Err(linux_vst_bridge::problem::from_report(&report)
+                .map(|problem|problem.summary()).unwrap_or_else(||
+                    "The plug-in stopped before its setup window closed normally. Its setup is kept.".into()).into()),
+        }
         write_operation(m,operation,&json!({"schema":2,"operation":operation,"state":"running",
             "environment":environment,"plugin_setup":false}),false)?;
         Ok(())

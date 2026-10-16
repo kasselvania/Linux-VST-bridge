@@ -1019,9 +1019,9 @@ fn spawn(m: &Manager, s: &Software, path: &Path, peer: Option<UnixStream>) -> Re
         Stdio::null()
     };
     let job: SessionSpec = read_json(path)?;
-    record_lease_generation(&job)?;
-    m.retain_lease_owner(path)?;
-    atomic_json(&job.lease, &job.report)?;
+    record_lease_generation(&job).map_err(|e|format!("session generation record: {e}"))?;
+    m.retain_lease_owner(path).map_err(|e|format!("session owner record: {e}"))?;
+    atomic_json(&job.lease, &job.report).map_err(|e|format!("session lease record: {e}"))?;
     let mut command = Command::new("/usr/bin/python3");
     command.arg(&s.supervisor.path);
     if job.registration.compatibility.graphics.is_some() && !job.keeper {
