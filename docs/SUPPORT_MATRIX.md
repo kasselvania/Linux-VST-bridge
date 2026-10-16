@@ -162,6 +162,13 @@ Test130 (after review): the uninstall reserves the setup like an installer run
 (environment revision 1 → 2 before Valhalla's window opened); answering "No" in
 Valhalla's prompt is reported as not finished with the plug-in still installed and
 out of the DAW; uninstalling again with "Yes" reports it uninstalled.
+Test140 (two plug-ins in one setup: Space Modulator's installer run in Freq Echo's
+setup, which now connects both): "No" put Space Modulator back checked again and
+re-checked Freq Echo, and both saved REAPER projects reopened and played; an
+uninstaller killed mid-run kept the bridge paused until Check that it closed, which
+then scanned, re-checked Freq Echo and put Space Modulator back; "Yes" uninstalled
+Space Modulator and Freq Echo, checked again, still played. Each re-check took
+about 15–25 s, shown as "Checking this setup's plug-ins (n of 2)".
 MSI uninstall is covered by unit tests only. **unqualified**.
 
 Test72 on this CachyOS/native REAPER fixture passes Choose program without
