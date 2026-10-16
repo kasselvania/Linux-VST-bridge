@@ -1,6 +1,7 @@
 #include "../../vst-state/stream.h"
 #include "ap4_backend.h"
 #include "processor.h"
+#include "nothing_recorded.h"
 #ifdef LVB_RUNTIME_DESCRIPTOR
 #include "public.sdk/source/main/pluginfactory.h"
 #include <memory>
@@ -111,9 +112,14 @@ public:
     try {
       std::vector<uint8_t> bytes;
       double gain = 0.;
-      if (!LVBState::readEnvelope(stream, bytes) ||
-          ap4_validate(bytes.data(), static_cast<uint32_t>(bytes.size()),
-                       &gain))
+      bool nothing = false;
+      if (!LVBState::readEnvelopeOrNothing(stream, bytes, nothing))
+        return Steinberg::kResultFalse;
+      // The bridge's nothing-recorded marker: nothing to mirror, as the
+      // processor accepts it too.
+      if (nothing)
+        return Steinberg::kResultOk;
+      if (ap4_validate(bytes.data(), static_cast<uint32_t>(bytes.size()), &gain))
         return Steinberg::kResultFalse;
       return setParamNormalized(0, gain); // no beginEdit/performEdit/endEdit
     } catch (...) {

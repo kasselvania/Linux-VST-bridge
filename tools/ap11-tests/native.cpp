@@ -46,6 +46,7 @@ void held_call(bool& entered, bool& released) {
   check(state_hold_changed.wait_for(lock,std::chrono::seconds(3),[&]{return released;}),"bounded held SDK operation");
 }
 uint32_t process_refusal=0;
+bool readback_invalid=false;
 uint32_t open_calls=0;bool open_refused=false;const char* error_detail="";
 bool startup_prepare_refused=false;
 uint32_t fixture_delay=UINT32_MAX,fixture_vendor=0,fixture_tail=0,notice_flags=0;
@@ -271,7 +272,7 @@ uint32_t __wrap_ap11_gui_failure(uint64_t, uint64_t g, uint32_t c) {
   return gui_fault;
 }
 uint32_t __wrap_ap8_validate(const uint8_t *, const uint8_t *, uint32_t) {
-  return 0;
+  return readback_invalid ? 1 : 0;
 }
 uint32_t __wrap_ap8_validate_restore(const uint8_t *, const uint8_t *, uint32_t) {
   return 0;
@@ -672,6 +673,37 @@ void held_state_regression() {
     controller->disconnect(&processor);processor.disconnect(controller);
     controller->terminate();controller->release();processor.terminate();
   }
+  // Admitted and active, then the Windows side ends before the project's
+  // restore arrives (REAPER restores while processing, FC-STATE-003): the
+  // restore is kept and saved unchanged, and the terminal view says so.
+  {
+    events.clear();commands.clear();gui_fault=0;terminal_record={};open_refused=false;
+    Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
+    host.processor=&processor;host.controller=controller;
+    auto* context=static_cast<IHostApplication*>(&host);
+    check(processor.initialize(context)==kResultOk && controller->initialize(context)==kResultOk,"late failure initialize");
+    controller->setComponentHandler(static_cast<IComponentHandler*>(&host));
+    processor.connect(controller);controller->connect(&processor);
+    ProcessSetup setup{kRealtime,kSample32,128,48000};
+    check(processor.setupProcessing(setup)==kResultOk && processor.setActive(true)==kResultOk,"live before the restore");
+    terminal_record.words[0]=1;terminal_record.words[1]=123;terminal_record.words[2]=456;
+    terminal_record.words[3]=generation;terminal_record.words[4]=2;terminal_record.words[5]=104687;
+    terminal_record.words[6]=512;terminal_record.words[7]=9;terminal_record.words[14]=1;
+    terminal_record.words[15]=90;terminal_record.words[18]=1;terminal_record.words[19]=1;
+    LVBState::Stream none;
+    check(processor.getState(&none)==kResultFalse && none.bytes.empty(),"an instance that had state of its own never saves the nothing-recorded marker");
+    const auto saved = held_envelope(4096, 77);
+    LVBState::Stream in(saved);
+    check(processor.setState(&in)==kResultFalse,"a restore after the Windows side ended is not applied");
+    LVBState::Stream out;
+    check(processor.getState(&out)==kResultOk && out.bytes==saved,"an active instance whose Windows side ended saves the project's bytes unchanged");
+    for (int i=0;i<3;++i) host.tick();
+    check(controller->savingLine()==AP2::NOT_LOADED_HELD,"the terminal view says saving keeps the settings");
+    terminal_record={};
+    processor.setActive(false);
+    controller->disconnect(&processor);processor.disconnect(controller);
+    controller->terminate();controller->release();processor.terminate();
+  }
   // An envelope claiming more than the cap is not read, so nothing is held:
   // the save refuses instead of writing the marker or a truncated state.
   {
@@ -767,7 +799,7 @@ void failed_restore_retirement_regression() {
   }
 }
 void processing_state_restore_regression() {
-  for(unsigned scenario=0;scenario<7;++scenario){
+  for(unsigned scenario=0;scenario<8;++scenario){
   events.clear();commands.clear();gui_fault=0;terminal_record={};
   save_code=close_code=process_refusal=0;processing_state_fixture=true;dsp=.375;
   transition_refusal=0;hold_process=hold_restore=false;
@@ -820,6 +852,7 @@ void processing_state_restore_regression() {
   else if(scenario==4)transition_refusal=12;
   else if(scenario==5)host.refuse_allocations=1;
   else if(scenario==6)transition_refusal=10;
+  else if(scenario==7)readback_invalid=true;
   const auto before=state_calls, before_process=process_calls;
   state_operations.clear();successful_starts=0;saved.position=0;
   // The pinned IComponent contract permits UI-thread setState in Processing,
@@ -833,7 +866,12 @@ void processing_state_restore_regression() {
     check(state_operations==(scenario==4?std::vector<uint32_t>{12}:
           scenario==6?std::vector<uint32_t>{12,18,10}:std::vector<uint32_t>{12,18}),"failure stops the ordered restore route");
     check(processor.process(data)==kResultFalse,"failed restore refuses subsequent processing");
-    save_code=transition_refusal=0;
+    save_code=transition_refusal=0;readback_invalid=false;
+    // The instance was active (its own state counted), yet the restore it
+    // could not apply is the project's newest state: a save keeps it.
+    LVBState::Stream kept;
+    check(processor.getState(&kept)==kResultOk&&kept.bytes==saved.bytes,
+          "an active instance whose restore failed saves the project's bytes unchanged");
   }else{
   check(restored==kResultOk,"legal Processing state restore accepted");
   check(state_operations==std::vector<uint32_t>({12,18,10})&&successful_starts==1,"same instance stops, restores, then starts once");
