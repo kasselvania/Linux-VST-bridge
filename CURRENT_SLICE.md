@@ -1,33 +1,40 @@
-# Current slice — from working Kontakt to explainable plug-in failures
+# Current slice — recover one shared compatibility runtime
 
-Goal: a musician on any distro installs Native Access and Kontakt, plays Kontakt
-in their DAW and gets it back after save and reopen (done, see below); next, any
-plug-in that fails tells them what kind of problem it is in plain words and, where
-safe, offers a fix. One build adapts to the distro; learned fixes ship as shared
-tooling, never per machine.
+Goal: recover the proven runtime recipes into Git and deliver one coherent,
+qualified compatibility component set through the normal bridge release.
+The old issue queue is paused; this first slice is runtime recovery, not a UI rewrite.
 
-State after 2026-10-15 (main = #343–#357; Test88 delivered for the tester):
-- Native Access + Kontakt 8 install through the manager on CachyOS (fresh and the
-  tester's recovered state); a host freeze no longer blocks Recover or updates.
-- Kontakt in REAPER 7.82: editor inside REAPER's FX window, DAW MIDI plays (start
-  notes held ≤250 ms, #357), save/full restart/reopen restores the instrument
-  (Deck, Test88). MIDI verified on the CachyOS fixture; CachyOS reopen untested.
-- Native Access's download folder is filled on new setups (#355; first live check
-  pending). The Deck is on Test88, yabridge moved aside.
-- Open defects: #365 Xwayland abort when the DAW dies with an embedded editor;
-  #366 no reload after a host death and the manager is silent; #364 crash-
-  interrupted continuation; #367 confirm processing start on the audio thread.
+Best explanation: confirmed runtime fragmentation separates working maintainer
+setups from what testers receive. Different component compositions and local
+recipe paths hide fixes from normal delivery. The live provenance/recovery task
+is [#430](https://github.com/kasselvania/Linux-VST-bridge/issues/430); its inventory owns the roster.
+Recover the full DComp build/composition recipe and Steamuser policy patch;
+BG1 D3D11 coherence source and launcher/content derivation recipe; and WebView2
+acquisition/distribution basis. UIA/MSI/touch/certificate recipes already exist.
 
-Next changes, in order:
-1. Valhalla (#358) and CHOW (#359): reproduce with free plug-ins, fix the causes.
-2. Failure types from that evidence (#360): plain sentence per type, safe self-help.
-3. #365/#366 host-death recovery; #367 start confirmation.
-4. Problem report button (#361); per-plug-in renderer choice, Serum (#362, #330).
-5. Backlog as issues: #363 #364 #368–#371.
+Boundary: an existing other-system backup is active; restoration is unverified.
+Preserve it and the working Deck. No wipe, licensed-state migration or runtime
+replacement is part of the governing-docs increment.
 
-Done for this slice: Valhalla Supermassive and the free CHOW plug-ins play in
-REAPER on the CachyOS fixture, or fail with a correct plain-English type.
+Next changes:
+1. The #430 recovery owner imports the missing original patches/recipes and their
+   provenance into Git, without private vendor data or builds on working machines.
+2. Choose the Proton/GE base by combined tests. Build one common engine/component
+   set with installer, crash-guard, graphics, touch and certificate corrections;
+   typed configuration selects supported paths within that same set.
+3. Deliver through runtime acquisition and a numbered package. Retain exact old
+   release/setup bindings for continuity/rollback; do not hide vendor engine forks
+   inside one archive or silently switch licensed environments.
+4. Qualify combined corrections and baseline behavior on disposable CachyOS and
+   SteamOS fixtures, then plan explicit adoption for preserved working setups.
 
-Working limits: start from the failing musician action and judge the fix by the
-same action. Three failed attempts or 15 minutes without progress on one
-outcome means stop and reassess; changing agent or tool does not reset it.
+First source increment: missing DComp/BG1 recipe recovery. A later common build
+entry point under tools/runtime/ feeds bridge-manager/src/runtime_delivery.rs;
+experimental_runner.rs is a retained migration route, not the new default.
+
+Done: a clean Git recipe builds the declared common set; normal acquisition and
+installation use it; real patch cases plus baseline plug-ins install, play,
+save/reopen and survive restart, update and rollback in actual DAWs on both target
+fixtures. Preserve class/automation/content identity and licensed state. Record
+actual support and failures in the existing matrix/classes; no per-run report.
+Further profile/status/UI convergence follows this demonstrated runtime boundary.
