@@ -76,6 +76,17 @@ Explicit graphics assessment retains its separate result. Kontakt's historical
 allocator origin remains open; accessibility A/B/A and a mapped-host debugger
 trial do not reproduce it. [Scoped update boundary](../evidence/reference-runtime-deck.json).
 
+Test126 (main `cbcfa84c`) on the CachyOS VM / REAPER 7.82 at 44.1 kHz / 512:
+Native Access installs Kontakt 8.13.1 on runtime r5; Kontakt's editor sits in
+REAPER's FX window and DAW MIDI plays (−9.2 to −9.5 dBFS). JUCE 6 effects pass
+their check and process audio: Valhalla Supermassive (−3.9 to −6.8 dBFS vs −6.0
+bypassed, saved Mix 0.8125 recalled after a full restart), Valhalla Freq Echo
+(−14.3), CHOW Tape Model (−8.0); a Freq Echo that failed on Test88 became
+Available with one Retry after updating (Test106). Steam Deck / REAPER 7.82,
+Test126: Kontakt's editor embeds in REAPER, live MIDI and a clip play, and Pad -
+Noir returns after a full REAPER restart (−4.7 dBFS). Limits: FC-MIDI-004
+(save-then-play), FC-STATE-004, #363, #364.
+
 Test73 on fresh CachyOS / REAPER 7.82 completes ordinary managed installation and discovery of the first-party Editor instrument/effect. The Editor Effect embeds with native Param/last-touched access; real pointer Touch recording and Read playback (29% → 60%) pass, and saved Level 60% recalls after a full REAPER restart with PulseAudio playback/meters active.
 
 Test58's corrected first-party vendor-application continuation passes in the
