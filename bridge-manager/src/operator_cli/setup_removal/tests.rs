@@ -153,6 +153,13 @@ fn created_setup() -> (test_fixture::Fixture, String, String) {
         .find(|r| r.id == environment).unwrap().installer;
     (f, environment, installer)
 }
+/// A session folder as an ended session leaves it: last changed a minute ago.
+fn backdate(session: &Path) {
+    let then = std::time::SystemTime::now() - Duration::from_secs(60);
+    for path in [session.join("owner.json"), session.to_path_buf()] {
+        File::open(&path).unwrap().set_modified(then).unwrap();
+    }
+}
 fn delete_offer(snapshot: &ui::Snapshot, installer: &str) -> Option<ui::AvailableAction> {
     snapshot.installer_setups.iter().find(|s| s.installer == installer)
         .and_then(|s| offer(&s.secondary, |a| matches!(a, ui::Action::SetupDelete { .. })))
@@ -181,6 +188,7 @@ fn deleting_a_setup_removes_its_windows_files_and_keeps_its_history() {
     private_dir(&ended).unwrap();
     fs::write(ended.join("owner.json"), b"{}").unwrap();
     fs::write(ended.join("environment.stop"), b"ended\n").unwrap();
+    backdate(&ended);
     let inventory = f.m.root.join("inventory");
     private_dir(&inventory).unwrap();
     let sw = software(&f.m).unwrap();
@@ -258,7 +266,13 @@ fn a_setup_in_use_or_with_uncertain_records_is_refused_and_unchanged() {
         .unwrap_err().to_string(), UNCHECKED_SESSION);
     unchanged(&f);
     fs::remove_file(&lease).unwrap();
-    fs::remove_dir(&session).unwrap();
+    // A session folder no lease names yet, changed a moment ago (a session
+    // starting or just stopping): left alone for now.
+    fs::write(session.join("owner.json"), b"{}").unwrap();
+    assert_eq!(delete_setup_with(&f.m, &installer, &environment, false, &"aa".repeat(16), &mut |_| Ok(false), Duration::ZERO)
+        .unwrap_err().to_string(), KEEPER_CLOSING);
+    unchanged(&f);
+    fs::remove_dir_all(&session).unwrap();
     // An installer whose cleanup is not confirmed: refuse, keep the record.
     let operation = "cd".repeat(16);
     let reserved = onboarding::reserve(&f.m, &environment, &operation).unwrap();

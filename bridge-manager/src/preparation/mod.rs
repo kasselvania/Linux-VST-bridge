@@ -2167,10 +2167,14 @@ fn catalogue_free_revision<'a>(m: &Manager, class: &str, entry: &'a Entry)
         "candidate_catalogue_free_identity")?;
     Ok(Some((revision, reference)))
 }
-/// The revision's setup moved on through an owned job: an installer or
-/// uninstaller run in it, or a runtime change. Only an exact owned revision
-/// chain counts; anything else is refused as before.
+/// The revision's setup moved on through the manager's own jobs: an installer
+/// or uninstaller run in it, a runtime change, or a vendor app's or
+/// renderer's installation. Only the managed setup folder is read, and only
+/// an exact chain of owned revision edges counts; anything else is refused as
+/// before.
 fn superseded(m: &Manager, recorded: &Environment) -> Result<bool> {
+    require(recorded.root == m.root.join("environments").join(&recorded.id)
+        && crate::environment_revision::valid_environment_id(&recorded.id), "installer_environment_identity")?;
     let current: Environment = bounded(&recorded.root.join("environment.json"))?;
     if current == *recorded { return Ok(false); }
     crate::environment_revision::require_owned_revision(m, recorded, &current)?;

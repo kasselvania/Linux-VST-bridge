@@ -798,7 +798,8 @@ fn plugins_waiting_for_their_recheck_keep_the_registry_managed() {
     let mut forged = environment_install::current_environment(&p.f.m, &p.record.environment).unwrap();
     forged.revision += 1;
     atomic_json(&forged.root.join("environment.json"), &forged).unwrap();
-    assert!(linux_vst_bridge::catalogue::catalogue_free_registry(&p.f.m, &p.f.m.registry().unwrap()).is_err());
+    assert_eq!(linux_vst_bridge::catalogue::catalogue_free_registry(&p.f.m, &p.f.m.registry().unwrap())
+        .unwrap_err().to_string(), "installer_environment_revision_unowned");
 }
 
 #[test]

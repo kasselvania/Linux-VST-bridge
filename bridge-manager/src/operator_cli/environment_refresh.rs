@@ -584,23 +584,40 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
         // The published plug-in is still at the setup's older revision until
         // it is checked again; the registry is still the manager's own.
         let db=f.m.registry().unwrap();
-        assert!(db.classes.values().any(|entry|entry.registration.environment.id==binding.environment.id
-            && entry.registration.environment.revision<binding.environment.revision));
+        let stale=db.classes.values().find(|entry|entry.registration.environment.id==binding.environment.id
+            && entry.registration.environment.revision<binding.environment.revision).unwrap().registration.clone();
         assert!(linux_vst_bridge::catalogue::catalogue_free_registry(&f.m,&db).unwrap());
+        // It still can't load: its registration names the older revision.
+        assert_eq!(stale.verify(&f.m.root).unwrap_err().to_string(),"registered environment revision differs");
+        let identity:Vec<u8>=(stale.metadata.class_id.clone()+&stale.module.sha256).as_bytes().chunks(2)
+            .map(|pair|u8::from_str_radix(std::str::from_utf8(pair).unwrap(),16).unwrap()).collect();
+        assert_eq!(f.m.resolve(&identity).unwrap_err().to_string(),"registered environment revision differs");
         // A revision no job of the manager owns is never accepted.
         let saved=fs::read(binding.environment.root.join("environment.json")).unwrap();
         let mut forged=binding.environment.clone();forged.revision+=1;
         atomic_json(&forged.root.join("environment.json"),&forged).unwrap();
-        assert!(linux_vst_bridge::catalogue::catalogue_free_registry(&f.m,&db).is_err());
+        assert_eq!(linux_vst_bridge::catalogue::catalogue_free_registry(&f.m,&db).unwrap_err().to_string(),
+            "installer_environment_revision_unowned");
         fs::write(binding.environment.root.join("environment.json"),saved).unwrap();
-        // Once the setup is deleted, its connection work is history and never
-        // stops the overview.
+        // The run's retained checkpoint. Once its setup is deleted, the
+        // overview no longer loads it as current work.
+        initialize_replacement(&f.m,&owner).unwrap();
+        assert!(load(&f.m,&owner).is_ok());
         let environment=binding.environment.id.clone();
         linux_vst_bridge::deleted_setup::write(&f.m,&linux_vst_bridge::deleted_setup::Tombstone {schema:1,
             environment:environment.clone(),installer:installer.id.clone(),name:"Setup".into(),
             environments:vec![binding.environment.clone()],registrations:vec![],plugins:vec![],
             operation:random_id().unwrap(),requested_at:1,deleted_at:None,
             state:linux_vst_bridge::deleted_setup::State::Deleting,forget_installer:false,environments_folder:None}).unwrap();
+        assert!(records(&f.m).unwrap().iter().all(|r|r.environment.id!=environment));
+        assert!(authority(&f.m).is_ok());
+        // On the VM the deleted setup's checkpoint could no longer be loaded
+        // (its source request's setup records went with it). Such a
+        // checkpoint is never loaded at all.
+        let mut retained:Value=read_json(&path(&f.m,&owner).unwrap()).unwrap();
+        retained["request"]["sha256"]=json!("00".repeat(32));
+        atomic_json(&path(&f.m,&owner).unwrap(),&retained).unwrap();
+        assert!(load(&f.m,&owner).is_err());
         assert!(records(&f.m).unwrap().iter().all(|r|r.environment.id!=environment));
         assert!(authority(&f.m).is_ok());
     }

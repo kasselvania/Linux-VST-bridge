@@ -747,11 +747,17 @@ fn lease_owners(m: &Manager, environment: &Environment) -> Result<(usize, usize)
 }
 /// A lease owned by this environment, or a session directory a lease still
 /// names, is live or uncertain custody: refuse rather than delete under it.
-/// A session directory no lease names is what an ended session left behind
-/// (one stopped with the bridge, for example). Every running session holds
-/// the setup's operation lock, which the caller now holds exclusively, and
-/// the process census that follows refuses if anything still runs from the
-/// setup; such a directory is deleted with the rest of the setup.
+///
+/// A session directory no lease names is normally what an ended session left
+/// behind (one stopped with the bridge, for example). A starting session can
+/// also have its directory for a moment before its lease and the setup's
+/// operation lock. Neither can start here: Delete runs only when every
+/// plug-in of the setup is out of the DAW, rechecked under registry.lock, so
+/// the DAW can't open a session in it; inspections and installers are
+/// operator actions, serialised with this one; and the process census that
+/// follows refuses if anything still runs from the setup. A directory changed
+/// in the last few seconds is still refused, to leave any such moment alone.
+/// Others are deleted with the rest of the setup.
 fn require_no_owners(m: &Manager, environment: &Environment) -> Result<()> {
     let (keepers, others) = lease_owners(m, environment)?;
     require(others == 0, IN_USE)?;
@@ -761,12 +767,28 @@ fn require_no_owners(m: &Manager, environment: &Environment) -> Result<()> {
         let leases = m.root.join("runtime/leases");
         for (seen, entry) in fs::read_dir(&sessions)?.enumerate() {
             require(seen < 4096, TOO_MANY_SESSIONS)?;
-            let session = entry?.file_name();
+            let entry = entry?;
+            let session = entry.file_name();
             require(!leases.join(format!("{}.json", session.to_string_lossy())).try_exists()?,
                 "A plug-in session in this setup never finished closing. Restart the computer, then try again; if it stays, send Setup details.")?;
+            require(!recently_changed(&entry.path())?, KEEPER_CLOSING)?;
         }
     }
     Ok(())
+}
+/// A session directory or its owner record changed in the last few seconds.
+fn recently_changed(session: &Path) -> Result<bool> {
+    let now = std::time::SystemTime::now();
+    for path in [session.to_path_buf(), session.join("owner.json")] {
+        match fs::symlink_metadata(&path) {
+            Ok(meta) => if now.duration_since(meta.modified()?).unwrap_or_default() < Duration::from_secs(10) {
+                return Ok(true);
+            },
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Ok(false)
 }
 /// Processes of this user whose Wine prefix, working directory or executable
 /// lies inside the environment, under its recorded or its resolved path. A
