@@ -9,6 +9,31 @@ fn published() -> (test_fixture::Fixture, prep::Candidate, RevisionRef) {
     let current = prep::enable(&f.m, &c, false).unwrap();
     (f, c, current)
 }
+/// The musician's answer to the Delete confirmation.
+fn confirmed(action: &ui::Action) -> ui::Action {
+    match action.clone() {
+        ui::Action::SetupDelete { installer, environment, .. } =>
+            ui::Action::SetupDelete { installer, environment, confirmed: true },
+        other => other,
+    }
+}
+/// An installer-setup record for an environment built by another fixture.
+fn setup_record(environment: &Environment) -> onboarding::Record {
+    onboarding::Record {schema:1,id:environment.id.clone(),installer:"ab".repeat(32),environment:environment.clone(),
+        created_at:1,creation_operation:"cd".repeat(16),installation_operation:None,published:false,
+        automatic:None,previous_attempt:None}
+}
+fn copy_tree(from: &Path, to: &Path) {
+    private_dir(to).unwrap();
+    for entry in fs::read_dir(from).unwrap() {
+        let entry = entry.unwrap();
+        let target = to.join(entry.file_name());
+        let kind = entry.file_type().unwrap();
+        if kind.is_dir() { copy_tree(&entry.path(), &target); }
+        else if kind.is_symlink() { std::os::unix::fs::symlink(fs::read_link(entry.path()).unwrap(), &target).unwrap(); }
+        else if entry.file_name() != "operation.lock" { fs::copy(entry.path(), &target).unwrap(); }
+    }
+}
 fn product<'a>(snapshot: &'a ui::Snapshot, class: &str) -> &'a ui::Product {
     snapshot.products.iter().find(|p| p.class_id.eq_ignore_ascii_case(class)).unwrap()
 }
@@ -162,7 +187,9 @@ fn deleting_a_setup_removes_its_windows_files_and_keeps_its_history() {
     let snapshot = snapshot_idle_test(&f.m).unwrap();
     let delete = delete_offer(&snapshot, &installer).unwrap();
     assert!(delete.disabled_reason.is_none(), "{delete:?}");
-    let operation = test_submit_offered(&f.m, &delete.action).unwrap();
+    assert_eq!(test_submit_offered(&f.m, &delete.action).unwrap_err().to_string(), DELETE_UNCONFIRMED,
+        "the offer alone never deletes");
+    let operation = test_submit_offered(&f.m, &confirmed(&delete.action)).unwrap();
     let deleted = test_run_offered_worker(&f.m, &operation).unwrap();
     assert_eq!(deleted["state"], "completed", "{deleted}");
     assert_eq!(deleted["result"]["setup_deleted"], true);
@@ -188,7 +215,7 @@ fn deleting_a_setup_removes_its_windows_files_and_keeps_its_history() {
     assert_eq!(snapshot.deleted_setups.len(), 1);
     assert_eq!(snapshot.deleted_setups[0].state, "deleted");
     assert!(snapshot.deleted_setups[0].actions.is_empty());
-    assert_eq!(test_submit_offered(&f.m, &delete.action).unwrap_err().to_string(), "operator_action_not_available");
+    assert_eq!(test_submit_offered(&f.m, &confirmed(&delete.action)).unwrap_err().to_string(), "operator_action_not_available");
     // A replay of the same accepted request is a no-op.
     assert_eq!(delete_setup(&f.m, &installer, &environment, &operation).unwrap()["already_deleted"], true);
 }
@@ -210,14 +237,14 @@ fn a_setup_in_use_or_with_uncertain_records_is_refused_and_unchanged() {
             .open(root.join("operation.lock")).unwrap();
         use std::os::fd::AsRawFd;
         assert_eq!(unsafe { libc::flock(held.as_raw_fd(), libc::LOCK_SH) }, 0);
-        assert_eq!(delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false))
+        assert_eq!(delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false), Duration::ZERO)
             .unwrap_err().to_string(), IN_USE);
         unchanged(&f);
     }
     // A plug-in session that never retired.
     let session = root.join("compatdata/pfx/drive_c/bridge/sessions").join("ab".repeat(16));
     private_dir(&session).unwrap();
-    assert!(delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false))
+    assert!(delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false), Duration::ZERO)
         .unwrap_err().to_string().contains("never finished closing"));
     unchanged(&f);
     fs::remove_dir(&session).unwrap();
@@ -232,7 +259,7 @@ fn a_setup_in_use_or_with_uncertain_records_is_refused_and_unchanged() {
     assert!(retired.blockers[0].contains("can't confirm"), "{:?}", retired.blockers);
     let live = plan(&f.m, &installer, &environment, &records, &f.m.registry().unwrap(), &mut |_| Ok(true)).unwrap();
     assert!(live.blockers[0].contains("still running"));
-    assert_eq!(delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false))
+    assert_eq!(delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false), Duration::ZERO)
         .unwrap_err().to_string(), retired.blockers[0]);
     unchanged(&f);
     assert!(onboarding::retained_environment_record(&f.m, &reserved.id).unwrap().is_some());
@@ -240,19 +267,260 @@ fn a_setup_in_use_or_with_uncertain_records_is_refused_and_unchanged() {
 
 #[test]
 fn plug_ins_still_in_the_daw_must_be_removed_before_the_setup_is_deleted() {
-    let (f, environment, installer) = created_setup();
-    let records = onboarding::history_records(&f.m).unwrap();
-    let mut db = f.m.registry().unwrap();
-    let mut entry = db.classes.values().next().unwrap().clone();
-    entry.registration.environment = records.iter().find(|r| r.id == environment).unwrap().environment.clone();
-    entry.registration.metadata.class_id = "0A".repeat(16);
-    entry.registration.metadata.name = "Freq Echo".into();
-    entry.managed_revision = Some(RevisionRef {id:"0b".repeat(16),sha256:"0c".repeat(32)});
-    db.classes.insert("0A".repeat(16), entry);
-    let planned = plan(&f.m, &installer, &environment, &records, &db, &mut |_| Ok(false)).unwrap();
+    let (f, c, _) = published();
+    let class = c.selection.class.id.clone();
+    let name = f.m.registry().unwrap().classes[&class].registration.metadata.name.clone();
+    let records = vec![setup_record(&c.selection.environment)];
+    let planned = plan(&f.m, &records[0].installer, &records[0].id, &records, &f.m.registry().unwrap(),
+        &mut |_| Ok(false)).unwrap();
     assert_eq!(planned.in_daw.len(), 1);
-    assert_eq!(delete_reason(&planned, None).as_deref(), Some("Remove Freq Echo from your DAW first."));
-    assert!(planned.plugins.contains(&"Freq Echo".to_owned()));
+    assert_eq!(delete_reason(&planned, None), Some(format!("Remove {name} from your DAW first.")));
+    assert!(planned.plugins.contains(&name));
+    assert_eq!(planned.classes, vec![(class, name)], "Delete is scoped to this setup's own plug-ins");
+}
+
+#[test]
+fn a_plugin_whose_daw_entry_was_deleted_by_hand_is_not_stuck() {
+    let (f, c, current) = published();
+    let class = c.selection.class.id.clone();
+    let name = f.m.registry().unwrap().classes[&class].registration.metadata.name.clone();
+    let records = vec![setup_record(&c.selection.environment)];
+    // The musician deleted the plug-in's entry from ~/.vst3 by hand.
+    fs::remove_file(f.m.link(&class)).unwrap();
+    let planned = plan(&f.m, &records[0].installer, &records[0].id, &records, &f.m.registry().unwrap(),
+        &mut |_| Ok(false)).unwrap();
+    assert!(planned.in_daw.is_empty());
+    assert_eq!(planned.missing_link.len(), 1);
+    assert_eq!(delete_reason(&planned, None), None, "Delete is not blocked by it");
+    let entry = f.m.registry().unwrap().classes[&class].clone();
+    let offers = plugin_offers(&f.m, &class, &entry, None, None);
+    assert!(matches!(offers[0].action, ui::Action::PluginRemoveFromDaw { .. }), "{offers:?}");
+    let removed = remove_from_daw(&f.m, &class, &identity(&current)).unwrap();
+    assert_eq!(removed["link_was_missing"], true);
+    assert_eq!(removed["message"], link_was_missing(&name));
+    let entry = f.m.registry().unwrap().classes[&class].clone();
+    assert_eq!(entry.publication, Publication::Removed);
+    assert_eq!(entry.managed_revision.as_ref(), Some(&current), "its publication record is kept");
+    assert!(removed_by_musician(&f.m, &class, &current));
+    let snapshot = snapshot_idle_test(&f.m).unwrap();
+    assert_eq!(product(&snapshot, &class).disposition, "removed_from_daw");
+    // Add back restores the manager's own entry.
+    add_back(&f.m, &class, &identity(&current), |_, _| unreachable!()).unwrap();
+    assert!(publication::physical(&f.m.link(&class)).unwrap().is_some());
+    assert!(!removed_by_musician(&f.m, &class, &current));
+    // Removed the ordinary way again, then deleted by setup: nothing missing remains.
+    fs::remove_file(f.m.link(&class)).unwrap();
+    let planned = plan(&f.m, &records[0].installer, &records[0].id, &records, &f.m.registry().unwrap(),
+        &mut |_| Ok(false)).unwrap();
+    assert_eq!(record_missing_links(&f.m, &planned).unwrap(), vec![name]);
+    let planned = plan(&f.m, &records[0].installer, &records[0].id, &records, &f.m.registry().unwrap(),
+        &mut |_| Ok(false)).unwrap();
+    assert!(planned.missing_link.is_empty() && planned.blockers.is_empty() && planned.removed.len() == 1);
+}
+
+#[test]
+fn a_removal_the_musician_did_not_choose_is_not_presented_as_one() {
+    let (f, c, current) = published();
+    let class = c.selection.class.id.clone();
+    // Another owner (for example a failed test) took it out of the DAW.
+    f.m.unpublish_exact(&class, &current).unwrap();
+    let entry = f.m.registry().unwrap().classes[&class].clone();
+    assert!(!removed_by_musician(&f.m, &class, &current));
+    assert!(plugin_offers(&f.m, &class, &entry, None, None).is_empty(), "no Add back for it");
+    let overview = current::capture(&f.m).unwrap();
+    assert_ne!(product(&overview.snapshot, &class).disposition, "removed_from_daw");
+}
+
+#[test]
+fn deleting_a_setup_is_not_blocked_by_plugins_of_other_setups() {
+    let (f, environment, installer) = created_setup();
+    // A plug-in from another setup is open in the DAW.
+    let other = f.r.environment.clone();
+    assert_ne!(other.id, environment);
+    dsp_lease(&f.m, &other, &f.r.key());
+    let snapshot = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![],
+        &|| capacity_fixture(&f.m)).unwrap();
+    let delete = delete_offer(&snapshot, &installer).unwrap();
+    assert!(delete.disabled_reason.is_none(), "{delete:?}");
+    // Admission agrees with the offer.
+    let deleted = execute_with_receipt_policy(&f.m, &confirmed(&delete.action), Some(&random_id().unwrap()),
+        &|| capacity_fixture(&f.m), OPERATOR_WAIT, &mut vec![]).unwrap();
+    assert_eq!(deleted["setup_deleted"], true, "{deleted}");
+    assert!(other.root.join("compatdata/pfx/drive_c/bridge/sessions").read_dir().unwrap().next().is_some(),
+        "the other setup is untouched");
+}
+
+fn add_attempt(f: &test_fixture::Fixture, first: &onboarding::Record, id: &str) -> onboarding::Record {
+    let mut attempt = first.clone();
+    attempt.id = id.into();
+    attempt.environment.id = id.into();
+    attempt.environment.root = f.m.root.join("environments").join(id);
+    attempt.created_at = first.created_at.saturating_sub(1);
+    let drive = attempt.environment.root.join("compatdata/pfx/drive_c");
+    private_dir(&drive).unwrap();
+    fs::write(drive.join("earlier-attempt.txt"), b"x").unwrap();
+    atomic_json(&attempt.environment.root.join("environment.json"), &attempt.environment).unwrap();
+    let directory = onboarding::directory(&f.m, id).unwrap();
+    private_dir(&directory).unwrap();
+    atomic_json(&directory.join("record.json"), &attempt).unwrap();
+    attempt
+}
+
+#[test]
+fn deleting_a_setup_deletes_every_attempt_of_it() {
+    let (f, environment, installer) = created_setup();
+    let first = onboarding::history_records(&f.m).unwrap().into_iter().find(|r| r.id == environment).unwrap();
+    let earlier = add_attempt(&f, &first, &"5a".repeat(16));
+    let records = onboarding::history_records(&f.m).unwrap();
+    let planned = plan(&f.m, &installer, &environment, &records, &f.m.registry().unwrap(), &mut |_| Ok(false)).unwrap();
+    assert_eq!(planned.environments.len(), 2);
+    assert_eq!(delete_reason(&planned, None), None);
+    let deleted = delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false),
+        Duration::ZERO).unwrap();
+    assert_eq!(deleted["setup_deleted"], true, "{deleted}");
+    assert_eq!(deleted["environments"], 2);
+    for root in [&first.environment.root, &earlier.environment.root] {
+        let mut left: Vec<_> = fs::read_dir(root).unwrap().map(|e| e.unwrap().file_name()).collect();
+        left.sort();
+        assert_eq!(left, ["environment.json", "operation.lock"], "{root:?}");
+    }
+    assert!(onboarding::history_records(&f.m).unwrap().iter().all(|r| r.installer != installer));
+    let tombstone = deleted_setup::load(&f.m, &environment).unwrap().unwrap();
+    assert_eq!(tombstone.environments.len(), 2);
+}
+
+#[test]
+fn a_setup_with_a_product_managed_environment_is_never_deleted() {
+    let (f, environment, installer) = created_setup();
+    let first = onboarding::history_records(&f.m).unwrap().into_iter().find(|r| r.id == environment).unwrap();
+    // An attempt bound to the shared renderer's environment.
+    add_attempt(&f, &first, renderer::ENVIRONMENT);
+    let snapshot = snapshot_idle_test(&f.m).unwrap();
+    assert!(delete_offer(&snapshot, &installer).is_none());
+    assert_eq!(delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false),
+        Duration::ZERO).unwrap_err().to_string(), MANAGED);
+    assert!(deleted_setup::load(&f.m, &environment).unwrap().is_none());
+    assert!(f.m.root.join("environments").join(renderer::ENVIRONMENT).join("compatdata/pfx/drive_c/earlier-attempt.txt").exists());
+}
+
+#[test]
+fn a_program_running_from_the_setup_is_found_by_its_recorded_or_resolved_path() {
+    let (f, environment, installer) = created_setup();
+    let root = f.m.root.join("environments").join(&environment);
+    let canonical = root.canonicalize().unwrap();
+    let alias = f.outer.join("setup-alias");
+    std::os::unix::fs::symlink(&root, &alias).unwrap();
+    let mut via_alias = std::process::Command::new("sleep").arg("30")
+        .env("WINEPREFIX", alias.join("compatdata/pfx")).spawn().unwrap();
+    let found = running_inside(&[&alias, &canonical]);
+    let missed = running_inside(&[&canonical]);
+    via_alias.kill().unwrap();
+    via_alias.wait().unwrap();
+    assert!(found.unwrap().iter().any(|name| name == "sleep"), "an unresolved prefix path is still this setup");
+    assert!(!missed.unwrap().iter().any(|name| name == "sleep"));
+    let mut direct = std::process::Command::new("sleep").arg("30")
+        .env("WINEPREFIX", root.join("compatdata/pfx")).spawn().unwrap();
+    let refused = delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false), Duration::ZERO);
+    direct.kill().unwrap();
+    direct.wait().unwrap();
+    assert_eq!(refused.unwrap_err().to_string(), "sleep is still running from this setup. Close it and try again.");
+    assert!(deleted_setup::load(&f.m, &environment).unwrap().is_none());
+}
+
+#[test]
+fn deletion_never_crosses_a_mount() {
+    let text = "36 35 98:0 / / rw - ext4 /dev/root rw\n\
+        37 36 0:5 / /home/me/env/compatdata/pfx/drive_c/My\\040Samples rw,nosuid - fuse.rclone remote: rw\n\
+        38 36 0:6 / /home/me/env2 rw - tmpfs none rw\n";
+    let root = Path::new("/home/me/env");
+    let found = mount_points_inside(text, &[root]);
+    assert_eq!(found, vec![PathBuf::from("/home/me/env/compatdata/pfx/drive_c/My Samples")]);
+    assert!(attached(&found[0], &[root]).contains("(compatdata/pfx/drive_c/My Samples)"));
+    assert!(mount_points_inside("1 0 0:1 / /home/me/env rw - tmpfs none rw", &[root]).len() == 1);
+    assert!(attached(root, &[root]).contains("its main folder"));
+    // This process's own mounts never include a fresh setup folder.
+    let (f, environment, _) = created_setup();
+    let setup = f.m.root.join("environments").join(&environment);
+    require_no_mounts(&setup, &setup.canonicalize().unwrap()).unwrap();
+}
+
+#[test]
+fn an_idle_bridge_host_is_explained_and_waited_for() {
+    let (f, environment, installer) = created_setup();
+    let bound = onboarding::history_records(&f.m).unwrap().into_iter().find(|r| r.id == environment).unwrap();
+    let lease = dsp_lease(&f.m, &bound.environment, &"0e".repeat(16));
+    let sid = lease.file_stem().unwrap().to_str().unwrap().to_owned();
+    let owner = bound.environment.root.join("compatdata/pfx/drive_c/bridge/sessions").join(&sid).join("owner.json");
+    let mut value: Value = read_json(&owner).unwrap();
+    value["keeper"] = true.into();
+    atomic_json(&owner, &value).unwrap();
+    assert_eq!(delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false),
+        Duration::ZERO).unwrap_err().to_string(), KEEPER_CLOSING);
+    // It retires while the deletion waits; the deletion then proceeds.
+    let retire = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(1500));
+        fs::remove_file(&lease).unwrap();
+        fs::remove_dir_all(owner.parent().unwrap()).unwrap();
+    });
+    let deleted = delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false),
+        Duration::from_secs(10)).unwrap();
+    retire.join().unwrap();
+    assert_eq!(deleted["setup_deleted"], true);
+}
+
+#[test]
+fn setting_up_again_after_delete_publishes_the_same_plugin_and_keeps_the_old_history() {
+    let (f, c, current) = published();
+    let class = c.selection.class.id.clone();
+    let before = product(&snapshot_idle_test(&f.m).unwrap(), &class).disposition.clone();
+    let old = c.selection.environment.clone();
+    // The new setup of the same installer: its own environment, the same plug-in files.
+    let mut fresh = old.clone();
+    fresh.id = "14".repeat(16);
+    fresh.root = f.m.root.join("environments").join(&fresh.id);
+    copy_tree(&old.root, &fresh.root);
+    atomic_json(&fresh.root.join("environment.json"), &fresh).unwrap();
+    // The old setup is deleted with its removed plug-in.
+    remove_from_daw(&f.m, &class, &identity(&current)).unwrap();
+    let entry = f.m.registry().unwrap().classes[&class].clone();
+    let record = Tombstone {schema:1,environment:old.id.clone(),installer:"ab".repeat(32),
+        name:"Old setup".into(),environments:vec![old.clone()],
+        registrations:vec![RetiredRegistration {class_id:class.clone(),name:"Fixture".into(),entry}],
+        plugins:vec![],operation:"cd".repeat(16),requested_at:1,deleted_at:None,state:Deletion::Deleting};
+    deleted_setup::write(&f.m, &record).unwrap();
+    let held = claim(&f.m, &record.environments, Duration::ZERO).unwrap();
+    finish(&f.m, record, held).unwrap();
+    assert!(!f.m.registry().unwrap().classes.contains_key(&class));
+    // Prepare and publish the same class from the new setup.
+    let mut selection = c.selection.clone();
+    selection.environment = fresh.clone();
+    selection.module.path = fresh.root.join(c.selection.module.path.strip_prefix(&old.root).unwrap());
+    let scan = inventory::Scan {schema:1,id:random_id().unwrap(),environment:fresh.clone(),
+        host:selection.scanner.clone(),host_source_sha256:selection.scanner_source.clone(),
+        completed_at:1,changes:Default::default(),
+        modules:vec![inventory::Module {artifact:selection.module.clone(),classes:vec![selection.class.clone()],
+            report:selection.factory_report.clone(),inspection_error:None,quarantine_reason:None}]};
+    atomic_json(&f.m.root.join("inventory").join(format!("{}.json", fresh.id)), &scan).unwrap();
+    let inspection = prep::inspect_record_with_layout(selection.clone(), c.inspection.report.clone(),
+        prep::Origin::ManagedPreparation, c.host.clone(), c.source_manifest.clone(),
+        c.inspection.audio_layout.clone()).unwrap();
+    let next = prep::prepared(selection, inspection, c.native.clone(), c.host.clone(),
+        c.source_manifest.clone(), c.recipe_sha256.clone()).unwrap();
+    prep::record_candidate(&f.m, &next).unwrap();
+    let republished = prep::enable(&f.m, &next, false).unwrap();
+    assert_ne!(republished, current);
+    let entry = f.m.registry().unwrap().classes[&class].clone();
+    assert_eq!(entry.publication, Publication::Published);
+    assert_eq!(entry.registration.environment.id, fresh.id);
+    assert!(publication::physical(&f.m.link(&class)).unwrap().is_some());
+    assert!(f.m.root.join("publications").join(&class).join("revisions").join(&current.id).exists(),
+        "the deleted setup's publication history is kept");
+    let snapshot = snapshot_idle_test(&f.m).unwrap();
+    let p = product(&snapshot, &class);
+    assert_eq!((p.environment.as_str(), p.disposition.as_str()), (fresh.id.as_str(), before.as_str()),
+        "the same state it had in the deleted setup");
+    assert_eq!(snapshot.deleted_setups.len(), 1);
+    assert!(!removed_by_musician(&f.m, &class, &republished), "the old removal never applies to it");
 }
 
 #[test]
@@ -270,7 +538,7 @@ fn an_interrupted_deletion_finishes_from_its_retained_record() {
     assert_eq!(snapshot.deleted_setups[0].state, "deleting");
     let finish = snapshot.deleted_setups[0].actions[0].clone();
     assert_eq!(finish.label, "Finish deleting this setup");
-    let operation = test_submit_offered(&f.m, &finish.action).unwrap();
+    let operation = test_submit_offered(&f.m, &confirmed(&finish.action)).unwrap();
     let finished = test_run_offered_worker(&f.m, &operation).unwrap();
     assert_eq!(finished["state"], "completed", "{finished}");
     assert!(!root.join("compatdata").exists());
@@ -289,7 +557,7 @@ fn readers_skip_a_deleted_setup_with_prepared_and_removed_history() {
         registrations:vec![RetiredRegistration {class_id:class.clone(),name:"Fixture".into(),entry}],
         plugins:vec![],operation:"cd".repeat(16),requested_at:1,deleted_at:None,state:Deletion::Deleting};
     deleted_setup::write(&f.m, &record).unwrap();
-    let held = vec![hold(&f.m, &environment).unwrap()];
+    let held = claim(&f.m, &record.environments, Duration::ZERO).unwrap();
     finish(&f.m, record, held).unwrap();
     assert!(!f.m.registry().unwrap().classes.contains_key(&class), "retired into the setup's history");
     assert!(f.m.root.join("publications").join(&class).join("revisions").join(&current.id).exists(),
@@ -348,7 +616,8 @@ fn a_finished_setup_states_what_is_in_the_daw_now() {
         rename:action("Rename",ui::Action::InstallerRename {installer:"ab".repeat(32),label:String::new()},None),
         history:vec![]};
     let reference = RevisionRef {id:"0c".repeat(16),sha256:"0d".repeat(32)};
-    let mut plan = SetupPlan {name:"Valhalla".into(),environments:vec![],removed:vec![],plugins:vec![],blockers:vec![],
+    let mut plan = SetupPlan {name:"Valhalla".into(),environments:vec![],classes:vec![],missing_link:vec![],
+        removed:vec![],plugins:vec![],blockers:vec![],
         in_daw:vec![("0A".repeat(16),"Freq Echo".into(),reference.clone()),("0B".repeat(16),"Space Modulator".into(),reference)]};
     describe_daw_state(&mut setup, &plan);
     assert_eq!(setup.status, installed, "all still in the DAW");

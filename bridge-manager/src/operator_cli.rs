@@ -1680,6 +1680,9 @@ pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
 fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
     require(request.schema == ui::OPERATOR_SCHEMA,
         "operator_schema_mismatch_update_manager_frontend")?;
+    // The offer is unconfirmed; only the musician's confirmation runs it.
+    require(!matches!(request.action, ui::Action::SetupDelete { confirmed: false, .. }),
+        setup_removal::DELETE_UNCONFIRMED)?;
     require(
         request.state_token == snapshot.state_token,
         "operator_stale_request_refresh",
@@ -2867,7 +2870,8 @@ fn execute_with_receipt_policy_progress(
             drop(projection.take());
             setup_removal::remove_setup_from_daw(m, environment)
         }
-        ui::Action::SetupDelete { installer, environment } => {
+        ui::Action::SetupDelete { installer, environment, confirmed } => {
+            require(*confirmed, setup_removal::DELETE_UNCONFIRMED)?;
             // Serialized with rescans, installers and runtime changes; the
             // service keeps running for plug-ins in other setups.
             let _environment = m.lock("operator-environment.lock")?;

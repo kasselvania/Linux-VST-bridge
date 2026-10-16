@@ -48,8 +48,9 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
     paths.insert(m.root.join("daw-workspaces/fl-studio/workspace.json"));
     let deleted = linux_vst_bridge::deleted_setup::directory(m);
     paths.insert(deleted.clone());
-    for record in linux_vst_bridge::deleted_setup::records(m)? {
-        paths.insert(linux_vst_bridge::deleted_setup::path(m, &record.environment)?);
+    let deleted_scan = linux_vst_bridge::deleted_setup::scan(m)?;
+    for environment in deleted_scan.records.iter().map(|record| &record.environment).chain(&deleted_scan.unreadable) {
+        paths.insert(linux_vst_bridge::deleted_setup::path(m, environment)?);
     }
     let vendor_root = m.root.join("vendor-applications");
     paths.insert(vendor_root.clone());
@@ -518,8 +519,9 @@ pub(super) fn current_products(m: &Manager, db: &Registry, sw: &Software,
             && (entry.managed_revision.is_none() || completed_publication);
         let publication_selected = entry.publication == Publication::Published;
         // A complete retained publication with no DAW link was removed on purpose.
-        let removed_by_choice = entry.publication == Publication::Removed
-            && entry.managed_revision.is_some() && publication_valid;
+        let removed_by_choice = entry.publication == Publication::Removed && publication_valid
+            && entry.managed_revision.as_ref().is_some_and(|publication|
+                setup_removal::removed_by_musician(m, class, publication));
         let current_valid = module_valid && environment_valid && runner_valid && performance_valid
             && native_valid && host_valid && publication_valid && publication_selected;
         let profile = loaded.map(|revision| &revision.profile);

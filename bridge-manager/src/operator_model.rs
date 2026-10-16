@@ -315,7 +315,14 @@ pub enum Action {
     SetupRemoveFromDaw { environment: String },
     /// Delete the Windows environments of one installer setup. Records are
     /// retained as deleted-setup history; uncertain ownership refuses.
-    SetupDelete { installer: String, environment: String },
+    /// Offered unconfirmed; a request runs only with `confirmed: true`, the
+    /// musician's answer to the confirmation that names what is deleted.
+    SetupDelete {
+        installer: String,
+        environment: String,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        confirmed: bool,
+    },
 }
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
@@ -958,6 +965,7 @@ impl Action {
                 | Self::PluginRemoveFromDaw { .. }
                 | Self::PluginAddBackToDaw { .. }
                 | Self::SetupRemoveFromDaw { .. }
+                | Self::SetupDelete { .. }
         )
     }
 }
@@ -987,6 +995,7 @@ mod tests {
             Action::PluginAddBackToDaw {class_id:"class".into(),
                 expected_removed:PublicationIdentity {id:"publication".into(),sha256:"digest".into()}},
             Action::SetupRemoveFromDaw {environment:"environment".into()},
+            Action::SetupDelete {installer:"installer".into(),environment:"environment".into(),confirmed:true},
         ] {
             assert!(action.requires_inactive(), "Affected owners still need inactivity: {action:?}");
             assert!(!action.requires_global_inactive(), "Unrelated DSP must remain independent: {action:?}");
@@ -995,10 +1004,19 @@ mod tests {
             Action::EnvironmentRescan {environment:"environment".into()},
             Action::PluginInspect {selection:"selection".into(),audio_layout:None},
             Action::OrdinaryRestoreRecommended {class_id:"class".into()},
-            Action::SetupDelete {installer:"installer".into(),environment:"environment".into()},
             Action::TransactionReconcile {}] {
             assert!(action.requires_global_inactive(), "Shared operation stays global: {action:?}");
         }
+    }
+    #[test]
+    fn deleting_a_setup_is_offered_unconfirmed_and_confirmed_only_explicitly() {
+        let offered = Action::SetupDelete {installer:"a".into(),environment:"b".into(),confirmed:false};
+        let wire = serde_json::to_value(&offered).unwrap();
+        assert_eq!(wire, serde_json::json!({"kind":"setup_delete","installer":"a","environment":"b"}));
+        assert_eq!(serde_json::from_value::<Action>(wire).unwrap(), offered);
+        let confirmed: Action = serde_json::from_value(serde_json::json!(
+            {"kind":"setup_delete","installer":"a","environment":"b","confirmed":true})).unwrap();
+        assert!(matches!(confirmed, Action::SetupDelete {confirmed:true,..}));
     }
     #[test]
     fn local_settings_trial_is_closed_typed_and_does_not_require_inactivity() {

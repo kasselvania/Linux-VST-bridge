@@ -217,7 +217,11 @@ impl RequestFeedback {
             Some("completed") => {
                 self.terminal = true;
                 self.release_after_snapshot = true;
-                if self.journey.as_ref().is_some_and(|journey|
+                if let Some(message) = op["result"]["message"].as_str().filter(|_| matches!(self.action,
+                    Action::PluginRemoveFromDaw { .. } | Action::PluginAddBackToDaw { .. }
+                    | Action::SetupRemoveFromDaw { .. })) {
+                    message.into()
+                } else if self.journey.as_ref().is_some_and(|journey|
                     journey.phase == InstallationPhase::NeedsAttention) {
                     "Installation or DAW connection needs attention. Refreshing its results…".into()
                 } else { "This operation completed. Refreshing its result…".into() }
@@ -866,6 +870,10 @@ impl Operator {
             if form.as_ref() == Some(&request.action) {
                 *form = None;
             }
+        }
+        // The confirmed request differs from its offer only by the musician's answer.
+        if self.removal_form.as_ref().is_some_and(|form| confirmed(form.clone()) == request.action) {
+            self.removal_form = None;
         }
         self.feedback = Some(RequestFeedback::captured(request.action.clone()));
         self.queued_action = Some(request);
@@ -2033,7 +2041,7 @@ impl Operator {
                         .cloned().collect();
                     if !removal.is_empty() {
                         egui::CollapsingHeader::new("Remove or delete this setup").show(ui, |ui| {
-                            ui.label("Remove its plug-ins from your DAW, or delete the whole Windows setup. Deleting also deletes anything installed in it and any licences or sign-ins stored there. Your projects are not changed.");
+                            ui.label("Remove its plug-ins from your DAW, or delete the whole Windows setup. Deleting also deletes everything installed in it, files saved inside it such as presets, and any licences or sign-ins stored there. Your project files are not changed.");
                             ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &removal,
                                 overview.current.system.inactive_reason(), pending, chosen));
                         });
@@ -2118,9 +2126,11 @@ impl Operator {
                     for deleted in &overview.current.deleted_setups {
                         ui.push_id(("deleted-setup", &deleted.environment), |ui| {
                             ui.strong(&deleted.name);
-                            ui.label(if deleted.state == "deleting" {
-                                "Deleting didn't finish. Finish it to remove the rest of its Windows files."
-                            } else { "Deleted. Its Windows files are gone; its history is kept." });
+                            ui.label(match deleted.state.as_str() {
+                                "deleting" => "Deleting didn't finish. Finish it to remove the rest of its Windows files.",
+                                "unreadable" => "Its history record can't be read. The setup stays hidden; send Setup details.",
+                                _ => "Deleted. Its Windows files are gone; its history is kept.",
+                            });
                             if !deleted.plugins.is_empty() {
                                 ui.small(format!("Plug-ins it held: {}", deleted.plugins.join(", ")));
                             }
@@ -2850,7 +2860,7 @@ impl eframe::App for Operator {
                     cancel = ui.add_sized([120.0, 44.0], egui::Button::new(confirmation.cancel)).clicked();
                 });
             });
-            if submit { chosen = Some(form); }
+            if submit { chosen = Some(confirmed(form)); }
             else if cancel { self.removal_form = None; }
         }
         let result_offer = self.product_form.as_ref().and_then(|form| {
@@ -2991,6 +3001,14 @@ fn needs_confirmation(action: &Action) -> bool {
 fn removal_offer(action: &Action) -> bool {
     matches!(action, Action::SetupRemoveFromDaw { .. } | Action::SetupDelete { .. })
 }
+/// The musician's answer to the confirmation. Only Delete carries it.
+fn confirmed(action: Action) -> Action {
+    match action {
+        Action::SetupDelete { installer, environment, .. } =>
+            Action::SetupDelete { installer, environment, confirmed: true },
+        other => other,
+    }
+}
 struct Confirmation {
     title: &'static str,
     body: Vec<String>,
@@ -3017,7 +3035,7 @@ fn removal_confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirm
             Confirmation { title: "Remove from your DAW?",
                 body: vec![format!("{name} will no longer appear in your DAW's plug-in list."),
                     "Projects that use it will open with it missing until you add it back.".into(),
-                    "Its Windows installation and settings stay in its setup, so you can add it back at any time.".into()],
+                    "Its Windows installation and settings stay in its setup, so you can add it back later, unless you delete that setup.".into()],
                 confirm: "Remove from my DAW", cancel: "Keep it",
                 offer: current(product.into_iter().flat_map(|p| p.actions.iter()).collect()) }
         }
@@ -3028,11 +3046,11 @@ fn removal_confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirm
             Confirmation { title: "Remove from your DAW?",
                 body: vec![format!("{names} will no longer appear in your DAW's plug-in list."),
                     "Projects that use them will open with them missing until you add them back.".into(),
-                    "Their Windows installation stays in this setup.".into()],
+                    "Their Windows installation stays in this setup. If you delete this setup afterwards, they can't be added back; you would set it up again.".into()],
                 confirm: "Remove from my DAW", cancel: "Keep them",
                 offer: current(snapshot.installer_setups.iter().flat_map(|s| s.secondary.iter()).collect()) }
         }
-        Action::SetupDelete { installer, environment } => {
+        Action::SetupDelete { installer, environment, .. } => {
             if let Some(deleted) = snapshot.deleted_setups.iter().find(|d| d.environment == *environment) {
                 return Confirmation { title: "Finish deleting this setup?",
                     body: vec![format!("Deleting the Windows setup for {} didn't finish. This removes the rest of its files.", deleted.name),
@@ -3042,9 +3060,15 @@ fn removal_confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirm
             }
             let setup = snapshot.installer_setups.iter().find(|s| s.installer == *installer);
             let name = setup.map_or_else(|| "this setup".into(), |s| setup_display_name(s, snapshot));
+            let plugins: Vec<_> = snapshot.products.iter().filter(|p| p.environment == *environment)
+                .map(|p| p.name.as_str()).collect();
+            let plugins = if plugins.is_empty() { "its plug-ins".into() } else { plugins.join(", ") };
             Confirmation { title: "Delete this setup?",
-                body: vec![format!("This deletes the Windows setup for {name}, including anything installed in it and any licences or sign-ins stored there. Your projects are not changed."),
-                    "The installer you added stays in the manager, so you can set it up again later. A record of this setup is kept in its history.".into()],
+                body: vec![format!("This deletes the Windows setup for {name}: everything installed in it, and any licences or sign-ins stored there."),
+                    "Files you saved from inside its plug-ins or apps and kept in this setup, such as presets or downloaded content, are deleted too.".into(),
+                    "If the vendor limits how many computers can be activated, deactivate the licence in the vendor's app first. Deleting the files doesn't give the activation back.".into(),
+                    format!("Projects that use {plugins} will open with them missing until you set this setup up again. Add back won't be possible."),
+                    "The installer you added stays in the manager, so you can set it up again later. A record of this setup is kept in its history. Your project files are not changed.".into()],
                 confirm: "Delete setup", cancel: "Cancel",
                 offer: current(setup.into_iter().flat_map(|s| s.secondary.iter()).collect()) }
         }
@@ -6315,7 +6339,7 @@ mod tests {
         let mut overview = overview_fixture();
         let product = overview.current.products[0].clone();
         let delete = AvailableAction {label:"Delete this setup".into(),
-            action:Action::SetupDelete {installer:"ab".repeat(32),environment:product.environment.clone()},
+            action:Action::SetupDelete {installer:"ab".repeat(32),environment:product.environment.clone(),confirmed:false},
             disabled_reason:None};
         let remove_all = AvailableAction {label:"Remove its plug-ins from my DAW".into(),
             action:Action::SetupRemoveFromDaw {environment:product.environment.clone()},disabled_reason:None};
@@ -6336,7 +6360,15 @@ mod tests {
 
         let asked = removal_confirmation(Some(&overview.current), &delete.action);
         assert_eq!(asked.title, "Delete this setup?");
-        assert_eq!(asked.body[0], "This deletes the Windows setup for Freq Echo installer, including anything installed in it and any licences or sign-ins stored there. Your projects are not changed.");
+        assert_eq!(asked.body[0], "This deletes the Windows setup for Freq Echo installer: everything installed in it, and any licences or sign-ins stored there.");
+        assert!(asked.body.iter().any(|line| line.contains("presets")), "{:?}", asked.body);
+        assert!(asked.body.iter().any(|line| line.contains("deactivate the licence")), "{:?}", asked.body);
+        assert!(asked.body.iter().any(|line| line.contains(&product.name) && line.contains("Add back won't be possible")),
+            "{:?}", asked.body);
+        // Only the musician's confirmation is sent; the offer itself stays unconfirmed.
+        assert_eq!(confirmed(delete.action.clone()), Action::SetupDelete {installer:"ab".repeat(32),
+            environment:product.environment.clone(),confirmed:true});
+        assert_eq!(confirmed(remove_all.action.clone()), remove_all.action);
         assert_eq!(asked.offer.as_ref().map(|offer| &offer.action), Ok(&delete.action));
         overview.current.installer_setups[0].secondary[1].disabled_reason = Some("Remove Freq Echo from your DAW first.".into());
         assert_eq!(removal_confirmation(Some(&overview.current), &delete.action).offer.unwrap_err(),

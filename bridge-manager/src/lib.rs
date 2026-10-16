@@ -1079,6 +1079,26 @@ impl Manager {
         entry.publication = Publication::Removed;
         self.save(&mut db)
     }
+    /// The DAW entry of this exact current publication was deleted outside the
+    /// manager (for example by hand). Record it as removed; nothing else
+    /// changes, and a link that is present (ours or not) is never touched.
+    pub fn record_missing_publication_removed(&self, key: &str, expected: &publication::RevisionRef)
+        -> Result<()> {
+        require(valid_hex(key, 32), "class ID syntax")?;
+        let key = key.to_uppercase();
+        let _lock = self.lock("registry.lock")?;
+        require(!self.root.join("package-transition.json").try_exists()?,
+            "package_transition_needs_recovery")?;
+        self.require_inactive(Some(&key))?;
+        require(!self.publication_pending(&key)?, "publication_recovery_pending")?;
+        let mut db = self.registry()?;
+        let entry = db.classes.get_mut(&key).ok_or("registration_absent")?;
+        require(entry.publication == Publication::Published
+            && entry.managed_revision.as_ref() == Some(expected), "experimental_publication_changed")?;
+        require(publication::physical(&self.link(&key))?.is_none(), "publication_link_present")?;
+        entry.publication = Publication::Removed;
+        self.save(&mut db)
+    }
     pub fn resolve(&self, identity: &[u8]) -> Result<Registration> {
         require(identity.len() == 48, "identity extent")?;
         let key = hex(&identity[..16]).to_uppercase();

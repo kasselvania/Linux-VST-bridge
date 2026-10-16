@@ -5,6 +5,11 @@ use crate::*;
 
 pub const DIRECTORY: &str = "deleted-setups";
 const BOUND: usize = 128;
+/// New deletions stop here; reading tolerates more so a full history never
+/// hides a deleted setup from the readers that skip it.
+pub const LIMIT: usize = 128;
+const READ_BOUND: usize = 1024;
+pub const HISTORY_FULL: &str = "The manager keeps the history of up to 128 deleted setups, and that history is full. Nothing was deleted. Send Setup details.";
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -82,26 +87,45 @@ pub fn load(m: &Manager, environment: &str) -> Result<Option<Tombstone>> {
     Ok(Some(record))
 }
 
-pub fn records(m: &Manager) -> Result<Vec<Tombstone>> {
+/// Every tombstone: the readable ones, and the environment named by each one
+/// that can't be read. An unreadable record never breaks a reader; its own
+/// environment still counts as deleted.
+pub struct Scan {
+    pub records: Vec<Tombstone>,
+    pub unreadable: Vec<String>,
+}
+pub fn scan(m: &Manager) -> Result<Scan> {
     let dir = directory(m);
-    if !dir.try_exists()? { return Ok(vec![]); }
-    let mut out = vec![];
-    for entry in fs::read_dir(dir)?.take(2 * BOUND + 1) {
+    let mut out = Scan { records: vec![], unreadable: vec![] };
+    if !dir.try_exists()? { return Ok(out); }
+    let mut seen = 0usize;
+    for entry in fs::read_dir(dir)? {
+        seen += 1;
+        // Tombstones and their history folders; far beyond the deletion limit.
+        require(seen <= 2 * READ_BOUND, "deleted_setup_bound")?;
         let path = entry?.path();
         let Some(name) = path.file_name().and_then(|n| n.to_str()) else { continue };
         let Some(id) = name.strip_suffix(".json") else { continue };
         if !environment_revision::valid_environment_id(id) { continue; }
-        require(out.len() < BOUND, "deleted_setup_bound")?;
-        out.push(load(m, id)?.ok_or("deleted_setup_record_binding")?);
+        match load(m, id) {
+            Ok(Some(record)) => out.records.push(record),
+            _ => out.unreadable.push(id.to_owned()),
+        }
     }
-    out.sort_by_key(|record| (record.requested_at, record.environment.clone()));
+    out.records.sort_by_key(|record| (record.requested_at, record.environment.clone()));
+    out.unreadable.sort();
     Ok(out)
+}
+/// Readable tombstones, oldest first.
+pub fn records(m: &Manager) -> Result<Vec<Tombstone>> {
+    Ok(scan(m)?.records)
 }
 
 /// Every environment marked by any tombstone, deleting or deleted.
 pub fn environments(m: &Manager) -> Result<std::collections::BTreeSet<String>> {
-    Ok(records(m)?.into_iter()
-        .flat_map(|record| record.environments.into_iter().map(|e| e.id)).collect())
+    let scan = scan(m)?;
+    Ok(scan.records.into_iter().flat_map(|record| record.environments.into_iter().map(|e| e.id))
+        .chain(scan.unreadable).collect())
 }
 pub fn is_deleted(m: &Manager, environment: &str) -> Result<bool> {
     Ok(environments(m)?.contains(environment))
@@ -109,8 +133,14 @@ pub fn is_deleted(m: &Manager, environment: &str) -> Result<bool> {
 
 pub fn write(m: &Manager, record: &Tombstone) -> Result<()> {
     record.validate(m)?;
+    let path = path(m, &record.environment)?;
+    // A new deletion at the limit is refused before anything is written.
+    if !path.try_exists()? {
+        let scan = scan(m)?;
+        require(scan.records.len() + scan.unreadable.len() < LIMIT, HISTORY_FULL)?;
+    }
     private_dir(&directory(m))?;
-    atomic_json(&path(m, &record.environment)?, record)
+    atomic_json(&path, record)
 }
 
 impl Manager {
@@ -159,6 +189,33 @@ mod tests {
         let mut inconsistent = tombstone(&f, State::Deleted);
         inconsistent.deleted_at = None;
         assert!(write(&f.m, &inconsistent).is_err());
+    }
+    #[test]
+    fn an_unreadable_record_still_marks_its_setup_and_a_full_history_refuses_new_deletions() {
+        let f = Fixture::new();
+        write(&f.m, &tombstone(&f, State::Deleted)).unwrap();
+        let broken = "77".repeat(16);
+        fs::write(directory(&f.m).join(format!("{broken}.json")), b"{not json").unwrap();
+        let scan = scan(&f.m).unwrap();
+        assert_eq!(scan.records.len(), 1);
+        assert_eq!(scan.unreadable, vec![broken.clone()]);
+        assert!(is_deleted(&f.m, &broken).unwrap(), "fails closed for its own setup");
+        assert!(is_deleted(&f.m, &f.r.environment.id).unwrap());
+        assert_eq!(records(&f.m).unwrap().len(), 1, "other history stays readable");
+        // Fill the history to its limit with other setups' records.
+        for n in 0..LIMIT - 2 {
+            fs::write(directory(&f.m).join(format!("{:032x}.json", n + 1)), b"{}").unwrap();
+        }
+        let mut next = tombstone(&f, State::Deleting);
+        next.environment = "78".repeat(16);
+        let mut environment = f.r.environment.clone();
+        environment.id = next.environment.clone();
+        environment.root = f.m.root.join("environments").join(&environment.id);
+        next.environments = vec![environment];
+        assert_eq!(write(&f.m, &next).unwrap_err().to_string(), HISTORY_FULL);
+        assert!(!path(&f.m, &next.environment).unwrap().exists(), "refused before writing");
+        // Finishing an existing record is never refused by the limit.
+        write(&f.m, &tombstone(&f, State::Deleted)).unwrap();
     }
     #[test]
     fn retiring_a_registration_requires_its_exact_removed_entry() {

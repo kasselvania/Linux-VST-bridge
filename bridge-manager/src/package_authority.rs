@@ -1332,6 +1332,13 @@ pub(super) fn add_back_needs_refresh(m: &Manager, key: &str, removed: &RevisionR
 /// service under the environment lock, as for a refreshed restore.
 pub(super) fn add_back_publication(m: &Manager, key: &str, removed: &RevisionRef,
     operation: &str) -> Result<RevisionRef> {
+    add_back_publication_with(m, key, removed, operation, inspect_for_package_refresh)
+}
+/// `inspect` is the supervised inspection of the same module and class with
+/// the current bridge; tests supply its report.
+pub(super) fn add_back_publication_with(m: &Manager, key: &str, removed: &RevisionRef,
+    operation: &str, inspect: impl FnOnce(&Manager, &Software, &preparation::build::Runtime,
+        &Registration) -> Result<Artifact>) -> Result<RevisionRef> {
     let _package = m.lock("package.lock")?;
     require(!m.root.join("package-transition.json").try_exists()?,
         "package_transition_needs_recovery")?;
@@ -1346,7 +1353,7 @@ pub(super) fn add_back_publication(m: &Manager, key: &str, removed: &RevisionRef
     let runtime = preparation::build::stage_runtime_for_software(m, &selected)?;
     require(preparation::build::runtime_declares_loaded_engine(&runtime)?,
         "loaded_engine_admission_contract_missing")?;
-    let report = inspect_for_package_refresh(m, &selected, &runtime, &predecessor.registration)?;
+    let report = inspect(m, &selected, &runtime, &predecessor.registration)?;
     let prepared = preparation::refresh_candidate(m, &predecessor, runtime, report, operation);
     let cleanup = preparation::build::cleanup_work(m, operation);
     let candidate = prepared?;
@@ -4533,6 +4540,34 @@ print('LVO0 '+j['session']+' ready',flush=True)
         f
     }
 
+    #[test]
+    fn adding_back_after_an_update_rechecks_the_same_plugin_with_the_installed_bridge() {
+        let f = refreshing_update_fixture();
+        let m = &f.base.m;
+        let key = f.base.r.key();
+        let removed = m.registry().unwrap().classes[&key].managed_revision.clone().unwrap();
+        // The musician took it out of the DAW before the bridge update.
+        m.unpublish_exact(&key, &removed).unwrap();
+        update_from(m, &f.home, &f.inputs, f.owner, &f.service).unwrap();
+        assert!(add_back_needs_refresh(m, &key, &removed).unwrap(), "prepared with the old bridge");
+        // The real supervised inspection, preparation and publication.
+        let fresh = add_back_publication(m, &key, &removed, &random_id().unwrap()).unwrap();
+        let entry = m.registry().unwrap().classes[&key].clone();
+        assert_eq!(entry.publication, Publication::Published);
+        assert_eq!(entry.managed_revision.as_ref(), Some(&fresh));
+        assert_ne!(fresh, removed);
+        let prior = m.load_revision(&key, &removed).unwrap();
+        let current = m.load_revision(&key, &fresh).unwrap();
+        assert_eq!(current.registration.module, prior.registration.module, "the same Windows module");
+        assert_eq!(current.registration.metadata.class_id, prior.registration.metadata.class_id);
+        assert_eq!(current.registration.environment.id, prior.registration.environment.id);
+        assert!(!add_back_needs_refresh(m, &key, &fresh).unwrap(), "built with the installed bridge");
+        assert_eq!(linux_vst_bridge::publication::physical(&m.link(&key)).unwrap(), Some(current.target));
+        // The removed publication stays in history; a replay refuses without changing anything.
+        let registry = fs::read(m.root.join("registry.json")).unwrap();
+        assert!(add_back_publication(m, &key, &removed, &random_id().unwrap()).is_err());
+        assert_eq!(fs::read(m.root.join("registry.json")).unwrap(), registry);
+    }
     #[test]
     fn software_update_preserves_owned_stale_publications_until_fresh_preparation() {
         for broken_edge in [false, true] {
