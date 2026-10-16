@@ -540,6 +540,11 @@ fn owned_service_pause_with(
 
 pub(super) fn failure(stage: ui::InstallationFailureStage, reason: impl ToString) -> ui::InstallationFailure {
     let code: String = reason.to_string().chars().take(512).collect();
+    // A lock that stayed busy past its bounded wait changed nothing.
+    if linux_vst_bridge::operator_lock::is_busy_text(&code) {
+        return ui::InstallationFailure {stage, code,
+            reason: linux_vst_bridge::operator_lock::BUSY_SENTENCE.into(), retryable: true};
+    }
     // An enumerated outcome has a plain explanation; other codes keep the
     // stage's general sentence until their exact record explains them.
     if let Some(problem) = linux_vst_bridge::problem::from_code(&code) {
@@ -1269,6 +1274,7 @@ fn continue_installed(
     timeout: Duration,
     waits: &mut Vec<ui::LockFacts>,
 ) -> Result<Value> {
+    let step_wait = step_wait(timeout);
     continue_with(
         m,
         record,
@@ -1280,12 +1286,35 @@ fn continue_installed(
                 action,
                 Some(owner),
                 capacity_read,
-                timeout,
+                step_wait,
                 waits,
                 progress,
             )
         },
     )
+}
+/// A step that only met a busy lock needs that same step again, which the
+/// card's continuation repeats. "Start a new installer attempt" (shown as
+/// Retry) would run the installer again, so it is not offered beside it.
+pub(super) fn settle_busy_offers(setups: &mut [ui::InstallerSetup]) {
+    for setup in setups {
+        let Some(journey) = &setup.journey else { continue };
+        let mut failures = journey.failure.iter()
+            .chain(journey.plugins.iter().filter_map(|plugin| plugin.failure.as_ref())).peekable();
+        let only_busy = failures.peek().is_some()
+            && failures.all(|failure| linux_vst_bridge::operator_lock::is_busy_text(&failure.code));
+        let repeats = setup.primary.as_ref().is_some_and(|offer| matches!(offer.action,
+            ui::Action::EnvironmentRefreshResume {..} | ui::Action::SoftwareInstallResume {..}));
+        if only_busy && repeats {
+            setup.secondary.retain(|offer| !matches!(offer.action, ui::Action::InstallerNewAttempt {..}));
+        }
+    }
+}
+/// The steps of an accepted job (its scan, checks and publication) run after
+/// the musician's click, not during it, so each waits three times a request's
+/// bound (30 s) for an operator lock before it reports the manager busy.
+pub(super) fn step_wait(request_wait: Duration) -> Duration {
+    request_wait.saturating_mul(3).min(Duration::from_secs(75))
 }
 
 pub(super) fn continue_refresh(m:&Manager,environment:&Environment,intent:&mut Intent,
@@ -2507,6 +2536,51 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn a_busy_check_offers_its_continuation_not_a_new_installer_attempt() {
+        let busy = failure(ui::InstallationFailureStage::Inspection,
+            "Manager Canonical lock Timeout after 986 attempts");
+        let journey = ui::InstallationJourney {daw:ui::DawChoice::Bitwig,
+            phase:ui::InstallationPhase::NeedsAttention, failure:None,
+            plugins:vec![ui::InstallationPlugin {selection:"01".repeat(16),name:"Guitar Rig 7".into(),
+                class_id:"ab".repeat(16),stage:ui::InstallationPluginStage::NeedsAttention,failure:Some(busy)}]};
+        let new_attempt = action("Retry", ui::Action::InstallerNewAttempt {previous:"34".repeat(16),
+            runner:"runner".into()}, None);
+        let card = |journey: ui::InstallationJourney| ui::InstallerSetup {installer:"cd".repeat(32),
+            name:"Native Access".into(),label_source:"user".into(),byte_size:1,format:"exe".into(),
+            imported_at:1,phase:ui::SetupPhase::DiscoveryComplete,journey:Some(journey),status:String::new(),
+            environment:Some("ef".repeat(16)),compatibility:None,discovered:vec![],
+            primary:Some(action("Continue connecting plug-ins",
+                ui::Action::EnvironmentRefreshResume {operation:"12".repeat(16)}, None)),
+            secondary:vec![new_attempt.clone()],
+            rename:action("Rename",ui::Action::InstallerRename {installer:"cd".repeat(32),label:String::new()},None),
+            history:vec![]};
+        let mut setups = vec![card(journey.clone())];
+        settle_busy_offers(&mut setups);
+        assert!(setups[0].secondary.is_empty());
+        assert_eq!(setups[0].primary.as_ref().unwrap().label, "Continue connecting plug-ins");
+        // A real failure beside it keeps the new attempt available.
+        let mut mixed = journey;
+        mixed.failure = Some(failure(ui::InstallationFailureStage::VendorInstallation, "partial_installation"));
+        let mut setups = vec![card(mixed)];
+        settle_busy_offers(&mut setups);
+        assert_eq!(setups[0].secondary.len(), 1);
+    }
+    #[test]
+    fn busy_lock_steps_say_run_again_and_wait_three_request_bounds() {
+        // The Test126 card: a check that met the lock after its wait.
+        let failed = failure(ui::InstallationFailureStage::Inspection,
+            "Manager Canonical lock Timeout after 986 attempts");
+        assert_eq!(failed.reason, linux_vst_bridge::operator_lock::BUSY_SENTENCE);
+        assert_eq!(failed.code, "Manager Canonical lock Timeout after 986 attempts");
+        assert!(failed.retryable);
+        assert_eq!(failure(ui::InstallationFailureStage::Discovery, "operation already running").reason,
+            linux_vst_bridge::operator_lock::BUSY_SENTENCE);
+        assert_eq!(failure(ui::InstallationFailureStage::Inspection, "inspection_failed").reason,
+            "This plug-in could not be checked for connection to your DAW.");
+        assert_eq!(step_wait(OPERATOR_WAIT), Duration::from_secs(30));
+        assert_eq!(step_wait(Duration::from_secs(60)), Duration::from_secs(75));
+    }
     #[test]
     fn failed_vendor_restart_retains_original_scope_and_prior_terminal_result() {
         for state in ["failed","cancelled"] {

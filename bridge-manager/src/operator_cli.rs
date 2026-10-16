@@ -1382,8 +1382,13 @@ fn snapshot_readonly_depth(
     capacity_read: &dyn Fn() -> Option<CapacityReadback>,
     deep: bool,
 ) -> Result<ui::Snapshot> {
-    // Bounded wait order: operator serialization -> registry authority.
-    let _projection = acquire_readback(m, ui::OperatorLock::Canonical, id, timeout, waits)?;
+    // Bounded wait order: operator serialization -> registry authority. Only
+    // an action validating its own request takes serialization. A status read
+    // (no operation) is optimistic like the overview: it samples registry
+    // authority briefly and rechecks the same token after projection, so it
+    // never holds operator actions or their checks out for a whole projection.
+    let _projection = id.map(|_| acquire_readback(m, ui::OperatorLock::Canonical, id, timeout, waits))
+        .transpose()?;
     // History migration can change the projection token. Complete it before
     // sampling registry/capacity authority; never hash provenance under registry.lock.
     if deep { linux_vst_bridge::preparation::materialize_retained_history(m)?; }
@@ -1415,6 +1420,9 @@ fn snapshot_readonly_depth(
     let owners = capacity::owners(m)?;
     let cap = cap.filter(|c| c.owners == owners);
     let before = token(m)?;
+    // The same change samples the overview takes: scan results, pending
+    // updates and buffer settings are not all in the state token.
+    let generation = pulse_generation(m)?;
     let db = m.registry()?;
     drop(registry);
     // Digests, runner verification, systemd and presentation run outside the
@@ -1592,6 +1600,7 @@ fn snapshot_readonly_depth(
     if let Some(app)=vendor_applications.iter_mut().find(|app|app.id==renderer::ID) {
         renderer_continuation::project(m,app,Some(&mut installer_setups),busy)?;
     }
+    automatic_install::settle_busy_offers(&mut installer_setups);
     let deleted_setups = setup_removal::project(m, &mut installer_setups, &records, &db,
         &managed_bindings, &class_scope, &mut |operation| onboarding::live(operation))?;
     let uninstallers = uninstall::project(m, &installer_setups, &records, &db, &managed_bindings, busy)?;
@@ -1601,7 +1610,8 @@ fn snapshot_readonly_depth(
     let recheck = acquire_readback(m, ui::OperatorLock::Registry, id, timeout, waits)?;
     let after = token(m)?;
     require(
-        before == after && owners == capacity::owners(m)?,
+        before == after && owners == capacity::owners(m)?
+            && generation == pulse_generation(m)? && pending == pending_transactions(m)?,
         "operator_state_changed_refresh",
     )?;
     drop(recheck);
@@ -2358,7 +2368,10 @@ fn dispatch_recorded(
     let result = match run(&id) {
         Ok(r) => Ok(r),
         Err(e) => {
-            let reason: String = e.to_string().chars().take(512).collect();
+            // Another request or task held a lock past its wait; nothing started.
+            let reason: String = if linux_vst_bridge::operator_lock::is_busy(e.as_ref()) {
+                linux_vst_bridge::operator_lock::BUSY_SENTENCE.into()
+            } else { e.to_string().chars().take(512).collect() };
             write_operation(
                 m,
                 &id,
@@ -4149,9 +4162,10 @@ fn worker_with_capacity_observed(
                 ui::Action::InstallerEnvironmentCreate { .. }
                     | ui::Action::InstallerNewAttempt { .. }
             ) {
-                "Manager busy validating state. Environment creation did not start; installer was not launched. Retry after canonical state is healthy.".to_owned()
+                format!("{} No setup was created and the installer did not start.",
+                    linux_vst_bridge::operator_lock::BUSY_SENTENCE)
             } else {
-                "Manager busy validating state. The requested action did not start. Retry after canonical state is healthy.".to_owned()
+                linux_vst_bridge::operator_lock::BUSY_SENTENCE.to_owned()
             }
         } else {
             format!("Operator validation readback: {e}")
@@ -4215,7 +4229,10 @@ fn worker_with_capacity_observed(
                     lock: f.facts.clone(),
                 });
             let reason = if failure.as_ref().is_some_and(|f| f.retryable) {
-                "Manager busy before environment creation. No environment was created; installer was not launched. Retry after healthy canonical refresh.".to_owned()
+                format!("{} No setup was created and the installer did not start.",
+                    linux_vst_bridge::operator_lock::BUSY_SENTENCE)
+            } else if linux_vst_bridge::operator_lock::is_busy(e.as_ref()) {
+                linux_vst_bridge::operator_lock::BUSY_SENTENCE.to_owned()
             } else {
                 format!("Operator action: {e}").chars().take(512).collect()
             };
@@ -4223,6 +4240,11 @@ fn worker_with_capacity_observed(
         }
     };
     timing::measure(Stage::FinalReceipt, || write_operation(m, id, &value, false))
+}
+/// Operator actions wait out a status read's brief registry hold (bounded by
+/// OPERATOR_WAIT) instead of refusing at once; status reads never do this.
+fn operator_wait<T>(run: impl FnOnce() -> T) -> T {
+    linux_vst_bridge::operator_lock::with_operator_registry_wait(OPERATOR_WAIT, run)
 }
 pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
     match args {
@@ -4256,7 +4278,7 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
             std::io::stdin().take(16385).read_to_end(&mut bytes)?;
             require(bytes.len() <= 16384, "operator_request_bound")?;
             let req = serde_json::from_slice(&bytes)?;
-            let receipt = match dispatch(m, req) {
+            let receipt = match operator_wait(|| dispatch(m, req)) {
                 Ok(r) => r,
                 Err(e) => ui::Receipt {
                     schema: ui::OPERATOR_SCHEMA,
@@ -4267,8 +4289,8 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
             };
             println!("{}", serde_json::to_string(&receipt)?);
         }
-        [a, id] if a == "worker" => worker(m, id)?,
-        [a, id] if a == "finish" => finish_operation(m, id)?,
+        [a, id] if a == "worker" => operator_wait(|| worker(m, id))?,
+        [a, id] if a == "finish" => operator_wait(|| finish_operation(m, id))?,
         _ => return Err("operator snapshot | request".into()),
     }
     Ok(())
@@ -8377,6 +8399,22 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         );
     }
     #[test]
+    fn detail_read_refuses_a_pending_update_that_appears_during_projection() {
+        let (f, _) = onboarding_worker_fixture();
+        let root = f.m.root.clone();
+        // Not part of the state token; the overview's change samples cover it.
+        installer_import::IDENTITY_READ_BARRIER.with(|h| {
+            *h.borrow_mut() = Some(Box::new(move || {
+                private_dir(&root.join("transactions")).unwrap();
+                fs::write(root.join("transactions/fixture.pending.json"), b"{}").unwrap();
+            }))
+        });
+        let result = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &|| {
+            capacity_fixture(&f.m)
+        });
+        assert_eq!(result.unwrap_err().to_string(), "operator_state_changed_refresh");
+    }
+    #[test]
     fn exact_readback_lock_purposes_for_acquisition_and_timeout() {
         let f = test_fixture::Fixture::new();
         let id = "ab".repeat(16);
@@ -8572,6 +8610,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         let _busy = f.m.lock("operator-dispatch.lock").unwrap();
         let reply = dispatch(&f.m, request).unwrap();
         assert!(!reply.accepted);
+        assert_eq!(reply.refusal.as_deref(), Some(linux_vst_bridge::operator_lock::BUSY_SENTENCE));
         let id = reply.operation.unwrap();
         assert_ne!(id, old);
         let result = worker_receipt(&f.m, &id);
@@ -8851,6 +8890,22 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
             latest
         );
         assert_eq!(onboarding::records(&f.m).unwrap().len(), 1);
+    }
+    #[test]
+    fn status_details_never_wait_for_an_action_but_a_worker_validation_does() {
+        let (f, id) = onboarding_worker_fixture();
+        // An action, or a connection check inside one, owns serialization.
+        let _action = canonical_lock(&f.m).unwrap();
+        let mut waits = vec![];
+        snapshot_for_operation(&f.m, None, Duration::from_millis(200), &mut waits,
+            &|| capacity_fixture(&f.m)).unwrap();
+        assert!(waits.iter().all(|wait| wait.name != ui::OperatorLock::Canonical), "{waits:?}");
+        // A worker validating its own request is still serialized with it.
+        let error = snapshot_for_operation(&f.m, Some(&id), Duration::from_millis(50), &mut vec![],
+            &|| capacity_fixture(&f.m)).unwrap_err();
+        let failure = error.downcast_ref::<linux_vst_bridge::operator_lock::AcquisitionFailure>().unwrap();
+        assert_eq!((failure.facts.name, failure.facts.outcome),
+            (ui::OperatorLock::Canonical, ui::LockOutcome::Timeout));
     }
     #[test]
     fn readback_and_action_entry_share_one_bounded_lock_without_repeating_action() {

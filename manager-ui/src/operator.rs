@@ -622,6 +622,53 @@ pub struct Operator {
     page: Page,
     focus: RouteFocus,
     preview: bool,
+    pacing: ReadPacing,
+}
+/// Status reads take seconds on a populated setup and briefly share the
+/// manager's registry lock with running work. Passive refreshes (a noticed
+/// change, details on a technical page while a task runs) are paced so the
+/// window never reads back to back. The first read, an explicit Refresh and
+/// actions themselves are never delayed.
+#[derive(Default)]
+struct ReadPacing {
+    started: Option<Instant>,
+    last: Option<(Instant, Duration)>,
+    action_accepted: Option<Instant>,
+    /// "Try loading details again": the next details read is the musician's
+    /// own. Only that read uses and clears it; the Refresh button keeps its
+    /// own explicit path.
+    details_explicit: bool,
+    /// A task just ended: its result is read at once.
+    task_ended: bool,
+}
+impl ReadPacing {
+    const GAP: Duration = Duration::from_secs(3);
+    const ACTION_START: Duration = Duration::from_secs(5);
+    fn started(&mut self, now: Instant) {
+        self.started = Some(now);
+        self.task_ended = false;
+    }
+    fn details_explicit(&mut self) { self.details_explicit = true; }
+    fn task_ended(&mut self) { self.task_ended = true; }
+    /// Only one request is in flight; the next reply ends a started read.
+    fn finished(&mut self, now: Instant) {
+        if let Some(at) = self.started.take() { self.last = Some((now, now.duration_since(at))); }
+    }
+    fn accepted(&mut self, now: Instant) { self.action_accepted = Some(now); }
+    /// How long a passive read still has to wait, if at all. It waits as long
+    /// as the last read took (at least 3 s), so at most half the time is spent
+    /// reading, and while the task runs none starts in the first 5 s of an
+    /// accepted action, while its worker gets going.
+    fn wait(&self, now: Instant, task_running: bool) -> Option<Duration> {
+        if self.task_ended { return None; }
+        let after_read = self.last.map(|(done, cost)| done + cost.max(Self::GAP));
+        let after_start = self.action_accepted.filter(|_| task_running).map(|at| at + Self::ACTION_START);
+        after_read.into_iter().chain(after_start).max()
+            .and_then(|due| due.checked_duration_since(now)).filter(|wait| !wait.is_zero())
+    }
+    fn passive_due(&self, now: Instant, task_running: bool) -> bool {
+        self.wait(now, task_running).is_none()
+    }
 }
 impl Operator {
     pub fn new(ctx: &egui::Context, window_wake: Option<client::WindowWake>) -> Self {
@@ -669,6 +716,7 @@ impl Operator {
             page: Page::Home,
             focus: RouteFocus::default(),
             preview: false,
+            pacing: ReadPacing::default(),
         }
     }
     /// The example owns only synthetic state; it never starts the manager client.
@@ -717,6 +765,7 @@ impl Operator {
             page,
             focus: RouteFocus::default(),
             preview: true,
+            pacing: ReadPacing::default(),
         }
     }
     /// Synthetic current-only overview for source previews. It never calls the manager.
@@ -869,6 +918,9 @@ impl Operator {
     }
     fn request(&mut self, q: Query, origin: RequestOrigin, ctx: &egui::Context) {
         if self.frontend_superseded { return; }
+        if matches!(q, Query::Overview | Query::CurrentOverview | Query::Snapshot) {
+            self.pacing.started(Instant::now());
+        }
         self.pending = true;
         self.origin = Some(origin);
         self.background_poll = origin == RequestOrigin::BackgroundActivity;
@@ -1097,6 +1149,7 @@ impl Operator {
             RequestOrigin::BackgroundActivity
         } else { RequestOrigin::InitialSnapshot });
         let was_action = origin == RequestOrigin::UserAction;
+        self.pacing.finished(Instant::now());
         self.pending = false;
         self.background_poll = false;
         self.action_inflight = false;
@@ -1159,6 +1212,7 @@ impl Operator {
                 if r.accepted {
                     self.operation_live = true;
                     self.prompt_pulse = true;
+                    self.pacing.accepted(Instant::now());
                 }
                 if let Some(f) = &mut self.feedback {
                     f.receipt(&r);
@@ -1214,6 +1268,7 @@ impl Operator {
                 if let Some(failed) = p.cleanup_unconfirmed {self.cleanup_failure_observed = failed;}
                 veto_owned_pause(&mut p.operation, self.cleanup_failure_observed);
                 self.prompt_pulse = false;
+                if self.operation_live && !p.operation_live { self.pacing.task_ended(); }
                 self.operation_live = p.operation_live;
                 if let Some(op) = &p.operation {
                     if let Some(feedback) = &mut self.feedback { feedback.observe(op); }
@@ -1275,6 +1330,7 @@ impl Operator {
                     if let Some(feedback) = &mut self.feedback { feedback.text = e; }
                     return;
                 }
+                let deferred = readback_deferred(&e);
                 if origin == RequestOrigin::ProductDetail {
                     self.product_detail = None;
                     return;
@@ -1299,12 +1355,16 @@ impl Operator {
                     self.message = e;
                 }
                 // Background readback errors stay quiet as requests, but the
-                // last healthy service state cannot remain current.
-                if let Some(s) = &mut self.snapshot {
-                    s.system.service = "capacity unavailable".into();
-                }
-                if let Some(overview) = &mut self.overview {
-                    overview.current.system.service = "capacity unavailable".into();
+                // last healthy service state cannot remain current. A read that
+                // saw a change or stepped aside for an action says nothing
+                // about the service; it is only read again.
+                if was_action || !deferred {
+                    if let Some(s) = &mut self.snapshot {
+                        s.system.service = "capacity unavailable".into();
+                    }
+                    if let Some(overview) = &mut self.overview {
+                        overview.current.system.service = "capacity unavailable".into();
+                    }
                 }
                 self.overview_fresh = false;
                 self.overview_renewing = false;
@@ -1536,13 +1596,14 @@ fn current_journey_label(journey: &InstallationJourney, current: Option<(&Snapsh
     }
     journey_phase_label(journey)
 }
-fn journey_results(ui: &mut egui::Ui, journey: &InstallationJourney, current: Option<(&Snapshot, &str)>) {
+fn journey_results(ui: &mut egui::Ui, journey: &InstallationJourney, current: Option<(&Snapshot, &str)>,
+    next: Option<&AvailableAction>) {
     ui.small(format!("Your DAW: {}", presentation::daw_name(journey.daw)));
     if journey.phase == InstallationPhase::Available && journey.plugins.is_empty() {
         ui.label("No plug-ins were added during this visit.");
     }
     if let Some(failure) = &journey.failure {
-        ui.colored_label(warning_color(ui), installation_failure_text(failure));
+        ui.colored_label(warning_color(ui), installation_failure_text(failure, next));
     }
     for plugin in &journey.plugins {
         ui.horizontal_wrapped(|ui| {
@@ -1559,7 +1620,7 @@ fn journey_results(ui: &mut egui::Ui, journey: &InstallationJourney, current: Op
             });
         });
         if let Some(failure) = &plugin.failure {
-            ui.colored_label(warning_color(ui), installation_failure_text(failure));
+            ui.colored_label(warning_color(ui), installation_failure_text(failure, next));
         }
         if plugin.stage == InstallationPluginStage::ReplacementRequired {
             ui.small("Open this plug-in to review changing its existing DAW setup.");
@@ -1567,7 +1628,15 @@ fn journey_results(ui: &mut egui::Ui, journey: &InstallationJourney, current: Op
     }
 }
 
-fn installation_failure_text(failure: &InstallationFailure) -> String {
+/// A step that met a busy lock is repeated by the card's own continuation;
+/// the sentence names that button as the card shows it. Without one on the
+/// card, the manager's sentence ("run the same step again") stays.
+fn installation_failure_text(failure: &InstallationFailure, next: Option<&AvailableAction>) -> String {
+    let reason = match next.and_then(|offer| continuation_offer(std::slice::from_ref(offer))) {
+        Some(offer) if linux_vst_bridge::operator_lock::is_busy_text(&failure.code) =>
+            linux_vst_bridge::operator_lock::busy_sentence_naming(&presentation::action_label(offer)),
+        _ => failure.reason.clone(),
+    };
     let phase = match failure.stage {
         InstallationFailureStage::EnvironmentPreparation => "Installation setup",
         InstallationFailureStage::VendorInstallation => "Vendor installation",
@@ -1576,7 +1645,19 @@ fn installation_failure_text(failure: &InstallationFailure) -> String {
         InstallationFailureStage::Preparation => "Native connection preparation",
         InstallationFailureStage::Publication => "DAW connection",
     };
-    format!("{phase}: {}", failure.reason)
+    format!("{phase}: {reason}")
+}
+/// A status read refused because the state changed while it was read, or
+/// because it gave way to a running action until its bound. Neither is a
+/// service fault.
+fn readback_deferred(error: &str) -> bool {
+    error.contains("changed_refresh")
+        || (error.contains("AcquisitionFailure") && error.contains("outcome: Timeout"))
+}
+/// The offer on a card that repeats an unfinished connection step.
+fn continuation_offer(offers: &[AvailableAction]) -> Option<&AvailableAction> {
+    offers.iter().find(|offer| matches!(offer.action,
+        Action::EnvironmentRefreshResume { .. } | Action::SoftwareInstallResume { .. }))
 }
 
 /// Removal choices sit on every settled card; they are not pending setup work.
@@ -1798,7 +1879,7 @@ impl Operator {
                 if partial {
                     ui.label("A complete installation was not confirmed. Review this setup before making installation changes. Plug-ins already available in your DAW remain available.");
                 } else {ui.label(&setup.status);}
-                if let Some(journey) = &setup.journey { journey_results(ui, journey, current); }
+                if let Some(journey) = &setup.journey { journey_results(ui, journey, current, setup.primary.as_ref()); }
                 if let Some(action) = &setup.primary {
                     crate::library::primary_action(ui, action,
                         overview.current.system.inactive_reason(), pending || !fresh, chosen);
@@ -1963,9 +2044,15 @@ impl Operator {
                         else if retained_refresh {"Installation records need attention"}
                         else if partial {"Review earlier installation"}
                         else {setup_phase_label(&setup.phase)});
+                    let continuation = overview.current.environment_installers.iter().find(|target|
+                        setup.environment.as_ref() == Some(&target.environment) && target.operation.is_some());
+                    let reviewing_replacement = focus.replacement.as_ref().is_some_and(|d|d.original == setup.installer);
+                    let shown_primary = setup.primary.as_ref().filter(|offer| (continuation.is_none()
+                        || !obsolete_initial_installer_offer(offer))
+                        && !reviewing_replacement && !setup_offer_uses_program_choice(&overview.current,setup,offer));
                     if let Some(journey) = &setup.journey {
                         ui.label(&setup.status);
-                        journey_results(ui, journey, current);
+                        journey_results(ui, journey, current, shown_primary);
                     } else if settled {
                         ui.label(format!("{} plug-ins available in your DAW.",setup.discovered.len()));
                     } else if retained_refresh {
@@ -1977,12 +2064,7 @@ impl Operator {
                     } else if setup.phase == SetupPhase::Imported && setup.primary.is_none() {
                         ui.colored_label(warning_color(ui), &setup.status);
                     } else { ui.label(&setup.status); }
-                    let continuation = overview.current.environment_installers.iter().find(|target|
-                        setup.environment.as_ref() == Some(&target.environment) && target.operation.is_some());
-                    let reviewing_replacement = focus.replacement.as_ref().is_some_and(|d|d.original == setup.installer);
-                    if let Some(primary) = setup.primary.as_ref().filter(|offer| (continuation.is_none()
-                        || !obsolete_initial_installer_offer(offer))
-                        && !reviewing_replacement && !setup_offer_uses_program_choice(&overview.current,setup,offer)) {
+                    if let Some(primary) = shown_primary {
                         ui.add_enabled_ui(fresh, |ui| crate::library::primary_action(ui, primary,
                             overview.current.system.inactive_reason(), pending, chosen));
                     }
@@ -2139,7 +2221,7 @@ impl Operator {
                                 app.details["journey"].clone()) {
                                 let current = Some((&overview.current, group.environment));
                                 ui.strong(current_journey_label(&journey, current));
-                                journey_results(ui, &journey, current);
+                                journey_results(ui, &journey, current, continuation_offer(&app.actions));
                             } else { ui.label("Open this app to install or manage its plug-ins."); }
                             if let Some(notice) = presentation::vendor_default_notice(app) { ui.label(notice); }
                             if let Some(consequence) = app.actions.iter().find_map(|offer|
@@ -2285,11 +2367,11 @@ impl Operator {
                         ui.small(format!("{available} plug-ins connected · {attention} need attention"));
                     }
                     if let Some(failure) = &journey.failure {
-                        ui.colored_label(warning_color(ui), installation_failure_text(failure));
+                        ui.colored_label(warning_color(ui), installation_failure_text(failure, None));
                     }
                     egui::CollapsingHeader::new("Installation progress").show(ui, |ui| {
                         ui.strong(journey_phase_label(journey));
-                        journey_results(ui, journey, None);
+                        journey_results(ui, journey, None, None);
                     });
                 }
                 egui::CollapsingHeader::new("Request details").show(ui, |ui| {
@@ -2765,6 +2847,11 @@ impl Operator {
         } else {
             Duration::from_secs(10)
         };
+        // A refresh held back by pacing is sent when it becomes due.
+        let interval = match self.pacing.wait(Instant::now(), self.operation_live) {
+            Some(wait) if self.refresh_after && !self.pending => interval.min(wait + self.last_poll.elapsed()),
+            _ => interval,
+        };
         interval.saturating_sub(self.last_poll.elapsed()).max(Duration::from_millis(50))
     }
 }
@@ -3026,10 +3113,7 @@ impl eframe::App for Operator {
             return;
         }
         if self.frontend_superseded { return; }
-        if retry_details {
-            if self.page == Page::Plugins { self.product_attempted = None; }
-            else { self.details_attempted = false; }
-        }
+        if retry_details { self.retry_details(); }
         if pick { self.queued_import = true; }
         if refresh { self.explicit_refresh_queued = true; }
         if let Some(a) = chosen {
@@ -3053,34 +3137,59 @@ impl eframe::App for Operator {
         } else if !self.pending && self.prompt_pulse {
             self.prompt_pulse = false;
             self.request(Query::Pulse, RequestOrigin::BackgroundActivity, ui.ctx());
-        } else if !self.pending && (self.explicit_refresh_queued || self.refresh_after)
-            && (self.explicit_refresh_queued || self.retry_after.is_none_or(|at| Instant::now() >= at)) {
+        } else if let Some((query, origin)) = self.next_read(Instant::now()) {
+            self.request(query, origin, ui.ctx());
+        }
+        ui.ctx().request_repaint_after(self.repaint_delay());
+    }
+}
+impl Operator {
+    /// "Try loading details again".
+    fn retry_details(&mut self) {
+        if self.page == Page::Plugins { self.product_attempted = None; }
+        else {
+            self.details_attempted = false;
+            self.pacing.details_explicit();
+        }
+    }
+    /// The status read to start now, if any, after imports, actions and a
+    /// prompted pulse. What it starts is marked as attempted.
+    fn next_read(&mut self, now: Instant) -> Option<(Query, RequestOrigin)> {
+        if self.pending { return None; }
+        if self.explicit_refresh_queued || (self.refresh_after
+            && self.retry_after.is_none_or(|at| now >= at)
+            && self.pacing.passive_due(now, self.operation_live)) {
             let origin = if self.explicit_refresh_queued { RequestOrigin::ExplicitRefresh }
                 else { RequestOrigin::SilentPostMutationRefresh };
             let query = self.overview_query();
             self.explicit_refresh_queued = false;
             self.refresh_after = false;
-            self.request(query, origin, ui.ctx());
-        } else if !self.pending && self.page == Page::Plugins && self.overview_fresh
+            return Some((query, origin));
+        }
+        if self.page == Page::Plugins && self.overview_fresh
             && self.selected_product_snapshot().is_none()
             && self.library.focused_product().is_some_and(|key|
                 self.product_attempted.as_ref() != Some(key)) {
             let key = self.library.focused_product().expect("selected product").clone();
             self.product_attempted = Some(key.clone());
-            self.request(Query::Product(key), RequestOrigin::ProductDetail, ui.ctx());
-        } else if !self.pending && self.snapshot.is_none() && !self.details_attempted
-            && !matches!(self.page, Page::Home | Page::Setup | Page::Plugins) {
-            self.details_attempted = true;
-            self.request(Query::Snapshot, RequestOrigin::DetailSnapshot, ui.ctx());
-        } else if !self.pending && self.page == Page::Activity
-            && self.last_poll.elapsed() > Duration::from_secs(10) {
-            self.request(Query::Activity, RequestOrigin::BackgroundActivity, ui.ctx());
-        } else if !self.pending && self.last_poll.elapsed() >
-            Duration::from_secs(if self.operation_live { 2 } else { 10 })
-            && self.retry_after.is_none_or(|at| Instant::now() >= at) {
-            self.request(Query::Pulse, RequestOrigin::BackgroundActivity, ui.ctx());
+            return Some((Query::Product(key), RequestOrigin::ProductDetail));
         }
-        ui.ctx().request_repaint_after(self.repaint_delay());
+        if self.snapshot.is_none() && !self.details_attempted
+            && !matches!(self.page, Page::Home | Page::Setup | Page::Plugins)
+            && (!self.operation_live || self.pacing.details_explicit
+                || self.pacing.passive_due(now, true)) {
+            self.details_attempted = true;
+            self.pacing.details_explicit = false;
+            return Some((Query::Snapshot, RequestOrigin::DetailSnapshot));
+        }
+        if self.page == Page::Activity && self.last_poll.elapsed() > Duration::from_secs(10) {
+            return Some((Query::Activity, RequestOrigin::BackgroundActivity));
+        }
+        if self.last_poll.elapsed() > Duration::from_secs(if self.operation_live { 2 } else { 10 })
+            && self.retry_after.is_none_or(|at| now >= at) {
+            return Some((Query::Pulse, RequestOrigin::BackgroundActivity));
+        }
+        None
     }
 }
 fn software_install_offer(snapshot: Option<&Snapshot>, installer: &str, policy: Option<crate::model::Powershell>)
@@ -4653,6 +4762,146 @@ mod tests {
             assert!(!plausible_installer_label(invalid));
         }
     }
+    #[test]
+    fn passive_reads_are_paced_after_long_reads_and_starting_actions() {
+        let t0 = Instant::now();
+        let at = |seconds: u64| t0 + Duration::from_secs(seconds);
+        let mut pacing = ReadPacing::default();
+        assert!(pacing.passive_due(t0, true), "the first read is never delayed");
+        // An 8-second overview on a populated setup: the next passive read
+        // waits as long again, so the window reads at most half the time.
+        pacing.started(t0);
+        pacing.finished(at(8));
+        assert_eq!(pacing.wait(at(15), true), Some(Duration::from_secs(1)));
+        assert!(pacing.passive_due(at(16), true));
+        // A quick read still leaves at least three seconds.
+        pacing.started(at(16));
+        pacing.finished(at(17));
+        assert!(!pacing.passive_due(at(19), false));
+        assert!(pacing.passive_due(at(20), false));
+        // A just-accepted action gets five quiet seconds to start; once the
+        // task has ended its final state is read without that wait.
+        pacing.accepted(at(20));
+        assert!(!pacing.passive_due(at(24), true));
+        assert!(pacing.passive_due(at(24), false));
+        assert!(pacing.passive_due(at(25), true));
+        // A reply that did not follow a read (pulse, receipt) changes nothing.
+        pacing.finished(at(26));
+        assert_eq!(pacing.last, Some((at(17), Duration::from_secs(1))));
+    }
+    #[test]
+    fn a_busy_check_names_the_button_its_card_shows() {
+        let busy = InstallationFailure {stage:InstallationFailureStage::Inspection,
+            code:"Manager Canonical lock Timeout after 986 attempts".into(),
+            reason:linux_vst_bridge::operator_lock::BUSY_SENTENCE.into(), retryable:true};
+        let mut journey = automatic_journey(InstallationPhase::NeedsAttention);
+        journey.plugins[1].failure = Some(busy.clone());
+        for (label, action) in [
+            ("Continue connecting plug-ins", Action::EnvironmentRefreshResume {operation:"ab".repeat(16)}),
+            ("Retry unfinished connection", Action::SoftwareInstallResume {onboarding:"cd".repeat(16)}),
+        ] {
+            let mut setup = automatic_setup(journey.clone(), Some(action));
+            setup.primary.as_mut().unwrap().label = label.into();
+            let text = installation_failure_text(&busy, setup.primary.as_ref());
+            // The named button is one the card actually shows; never the
+            // installer's "Retry", which would run the installer again.
+            let shown: Vec<_> = setup.primary.iter().chain(&setup.secondary)
+                .map(presentation::action_label).collect();
+            assert!(shown.iter().any(|button| text.contains(&format!("\u{201c}{button}\u{201d}"))),
+                "{text} names none of {shown:?}");
+            assert!(!text.contains("Retry"), "{text}");
+        }
+        // Without a continuation on the card the manager's sentence stays.
+        let rename = AvailableAction {label:"Rename".into(),
+            action:Action::InstallerRename {installer:"ab".repeat(32),label:String::new()},disabled_reason:None};
+        for next in [None, Some(&rename)] {
+            assert!(installation_failure_text(&busy, next).ends_with(linux_vst_bridge::operator_lock::BUSY_SENTENCE));
+        }
+        let other = InstallationFailure {code:"inspection_failed".into(),
+            reason:"This plug-in could not be checked for connection to your DAW.".into(), ..busy};
+        let setup = automatic_setup(journey, Some(Action::EnvironmentRefreshResume {operation:"ab".repeat(16)}));
+        assert!(installation_failure_text(&other, setup.primary.as_ref()).ends_with(&other.reason));
+    }
+    #[test]
+    fn a_finished_task_is_read_at_once() {
+        let now = Instant::now();
+        let mut pacing = ReadPacing::default();
+        pacing.started(now - Duration::from_secs(8));
+        pacing.finished(now);
+        pacing.accepted(now);
+        assert!(!pacing.passive_due(now, true));
+        pacing.started(now);
+        pacing.finished(now + Duration::from_secs(8));
+        assert!(!pacing.passive_due(now + Duration::from_secs(9), false));
+        pacing.task_ended();
+        assert!(pacing.passive_due(now + Duration::from_secs(9), false));
+        // The window marks the end of a task from the pulse that reports it.
+        let mut operator = state_fixture();
+        operator.operation_live = true;
+        operator.pacing.started(Instant::now());
+        operator.pacing.finished(Instant::now());
+        operator.origin = Some(RequestOrigin::BackgroundActivity);
+        operator.handle_reply(Reply::Pulse(pulse_fixture(false)));
+        assert!(!operator.operation_live && operator.pacing.passive_due(Instant::now(), false));
+    }
+    #[test]
+    fn try_loading_details_again_starts_the_details_read_while_a_paced_refresh_waits() {
+        let mut operator = state_fixture();
+        operator.page = Page::Activity;
+        operator.operation_live = true;
+        operator.overview = Some(overview_fixture().into());
+        operator.refresh_after = true;
+        operator.details_attempted = true;
+        let now = Instant::now();
+        operator.last_poll = now;
+        // The last read took 8 s, so a passive read waits 8 s more.
+        operator.pacing.started(now - Duration::from_secs(8));
+        operator.pacing.finished(now);
+        assert!(operator.next_read(now).is_none(), "both reads are paced while the task runs");
+        operator.retry_details();
+        let (query, origin) = operator.next_read(now).expect("the details read starts now");
+        assert!(matches!(query, Query::Snapshot) && origin == RequestOrigin::DetailSnapshot);
+        assert!(operator.refresh_after, "the waiting overview refresh stays paced");
+        // The press is used by that one details read only.
+        operator.details_attempted = false;
+        assert!(operator.next_read(now).is_none());
+        // The Refresh button keeps its own immediate path.
+        operator.explicit_refresh_queued = true;
+        assert!(matches!(operator.next_read(now), Some((_, RequestOrigin::ExplicitRefresh))));
+    }
+    #[test]
+    fn a_read_that_saw_a_change_or_gave_way_does_not_mark_the_service_unavailable() {
+        for (error, deferred) in [
+            ("Error: \"operator_state_changed_refresh\"", true),
+            ("Error: AcquisitionFailure { facts: LockFacts { name: Registry, mode: Exclusive, purpose: OperatorReadback, operation: None, policy: Bounded, elapsed_wait_us: 10000000, attempts: 900, timeout_ms: 10000, outcome: Timeout, holder: Unknown } }", true),
+            ("Error: \"capacity_readback_unavailable\"", false),
+        ] {
+            let mut operator = state_fixture();
+            operator.overview = Some(overview_fixture().into());
+            operator.overview.as_mut().unwrap().current.system.service = "active".into();
+            let before = "active".to_string();
+            operator.origin = Some(RequestOrigin::SilentPostMutationRefresh);
+            operator.handle_reply(Reply::Error(error.into()));
+            let service = &operator.overview.as_ref().unwrap().current.system.service;
+            assert_eq!(service == &before, deferred, "{error}");
+            assert!(!operator.overview_fresh && operator.retry_after.is_some());
+        }
+    }
+    #[test]
+    fn a_paced_refresh_wakes_the_window_when_due_without_busy_redraws() {
+        let mut operator = state_fixture();
+        operator.operation_live = true;
+        operator.refresh_after = true;
+        let now = Instant::now();
+        operator.pacing.started(now - Duration::from_secs(4));
+        operator.pacing.finished(now);
+        operator.last_poll = now;
+        let delay = operator.repaint_delay();
+        assert!(delay > Duration::from_secs(1) && delay <= Duration::from_secs(2), "{delay:?}");
+        operator.operation_live = false;
+        let delay = operator.repaint_delay();
+        assert!(delay > Duration::from_secs(3) && delay <= Duration::from_secs(4), "{delay:?}");
+    }
     fn state_fixture() -> Operator {
         let (sender, receiver) = mpsc::channel();
         Operator {
@@ -4697,6 +4946,7 @@ mod tests {
             page: Page::Home,
             focus: RouteFocus::default(),
             preview: false,
+            pacing: ReadPacing::default(),
         }
     }
     #[test]
