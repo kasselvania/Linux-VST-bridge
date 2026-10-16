@@ -2844,6 +2844,27 @@ def installer_first_launch_profiles(spec):
         profiles.append({'profile':entry['profile'],'executable':name,'resources':list(resources)})
     return profiles
 
+def mapped_file_identity(path):
+    """The (major, minor, inode) /proc/PID/maps reports for this exact file.
+
+    stat() and maps disagree on the device of files on Btrfs subvolumes (the
+    CachyOS default: stat 0:35, maps 00:21 for the same file), so map one page
+    of the opened file here and read back how the kernel names that mapping.
+    """
+    import mmap
+    with open(path,'rb') as f:
+        st=os.fstat(f.fileno())
+        if not stat.S_ISREG(st.st_mode) or st.st_size<=0:return None
+        mapping=mmap.mmap(f.fileno(),min(st.st_size,mmap.PAGESIZE),access=mmap.ACCESS_READ)
+        try:
+            with open('/proc/self/maps','rb') as maps:raw=maps.read(4*1024*1024)
+        finally:mapping.close()
+    name=os.fsencode(str(path))
+    found={(int(major,16),int(minor,16),st.st_ino) for parts in (line.split(None,5) for line in raw.splitlines())
+        if len(parts)==6 and parts[4]==str(st.st_ino).encode() and parts[5]==name
+        for major,minor in [parts[3].split(b':')]}
+    return found.pop() if len(found)==1 else None
+
 def installer_started_profiled_images(trace,profiles):
     """Still-running traced processes whose image is a profiled application here.
 
@@ -2853,24 +2874,29 @@ def installer_started_profiled_images(trace,profiles):
     mapping exactly this file, never by name, PID or arguments.
     """
     if not profiles:return {}
-    drive=trace.root/'compatdata/pfx/drive_c';found={}
+    drive=trace.root/'compatdata/pfx/drive_c';found={};seen=set()
     try:real_drive=drive.resolve(strict=True)
     except OSError:return {}
     for row in trace.rows:
         if row.get('self_exit') is not None or row.get('target_root'):continue
         path=trace.path(row.get('image_request'))
-        if path is None or not path.is_relative_to(drive):continue
+        if path is None or not path.is_relative_to(drive) or path in seen:continue
+        seen.add(path)
         for profile in profiles:
             if path.name.casefold()!=profile['executable'].casefold():continue
             try:
                 # A home reached through a symlink (/home -> /var/home) is fine;
                 # the app and its resources themselves must be plain files here.
-                if not path.resolve(strict=True).is_relative_to(real_drive) or not stat.S_ISREG(path.lstat().st_mode):continue
+                real=path.resolve(strict=True)
+                if not real.is_relative_to(real_drive) or not stat.S_ISREG(path.lstat().st_mode):continue
                 if not all(stat.S_ISREG((path.parent/r).lstat().st_mode) for r in profile['resources']):continue
                 st=path.stat()
             except OSError:continue
-            found[(os.major(st.st_dev),os.minor(st.st_dev),st.st_ino)]={'profile':profile['profile'],
-                'image':str(path.relative_to(drive))}
+            try:mapped=mapped_file_identity(real)
+            except (OSError,ValueError):mapped=None
+            value={'profile':profile['profile'],'image':str(path.relative_to(drive))}
+            found[(os.major(st.st_dev),os.minor(st.st_dev),st.st_ino)]=value
+            if mapped is not None:found[mapped]=value
     return found
 
 def installer_retire_profiled(scope,images):

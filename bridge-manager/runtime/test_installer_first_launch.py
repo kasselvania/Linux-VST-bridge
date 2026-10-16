@@ -75,6 +75,23 @@ class ImageMatchTests(unittest.TestCase):
             self.assertNotEqual(outside,CREATE)
             self.assertEqual(session.installer_started_profiled_images(self.trace(root,[outside,STARTED]),[PROFILE]),{})
 
+@unittest.skipUnless(sys.platform.startswith('linux'),'/proc maps')
+class MappedIdentityTests(unittest.TestCase):
+    def test_identity_is_how_maps_names_this_file_not_stat(self):
+        # On Btrfs stat's device differs from maps' (stat 0:35, maps 00:21).
+        import mmap
+        with tempfile.TemporaryDirectory() as tmp:
+            path=pathlib.Path(tmp).resolve()/'App With Space.exe';path.write_bytes(b'MZ'+bytes(5000))
+            identity=session.mapped_file_identity(path)
+            with open(path,'rb') as f:
+                m=mmap.mmap(f.fileno(),4096,access=mmap.ACCESS_READ)
+                try:lines=[l.split(None,5) for l in pathlib.Path('/proc/self/maps').read_bytes().splitlines()]
+                finally:m.close()
+            expected={(int(p[3].split(b':')[0],16),int(p[3].split(b':')[1],16),int(p[4])) for p in lines if len(p)==6 and p[5]==os.fsencode(str(path))}
+            self.assertEqual({identity},expected)
+            empty=pathlib.Path(tmp).resolve()/'empty';empty.touch()
+            self.assertIsNone(session.mapped_file_identity(empty))
+
 @unittest.skipUnless(sys.platform.startswith('linux'),'Linux supervisor subreaper and /proc maps')
 class InstallerLoopTests(unittest.TestCase):
     def run_installer(self,profiles,*,resources=True):
