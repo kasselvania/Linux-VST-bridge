@@ -3,6 +3,7 @@
 #include "ap4_backend.h"
 #include "commercial_controller.h"
 #include "processor.h"
+#include "nothing_recorded.h"
 #include "contained_terminal.h"
 #include "../../vst-state/stream.h"
 #include "public.sdk/source/vst/hosting/eventlist.h"
