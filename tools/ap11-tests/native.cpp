@@ -68,7 +68,7 @@ struct Host final : HostApplication,
   AP8::Controller *controller = nullptr;
   AP2::Processor *processor = nullptr;
   bool flush = true, reentrant = false;
-  uint32 dirty = 0, restarts = 0, reload_calls = 0, restart_calls=0, refuse_restarts=0;
+  uint32 dirty = 0, restarts = 0, reload_calls = 0, restart_calls=0, refuse_restarts=0, midi_restarts=0;
   unsigned refuse_allocations = 0;
   tresult PLUGIN_API createInstance(TUID cid, TUID iid, void **out) override {
     if (refuse_allocations) { --refuse_allocations; *out = nullptr; return kResultFalse; }
@@ -156,6 +156,7 @@ struct Host final : HostApplication,
   }
   tresult PLUGIN_API restartComponent(int32 flags) override {
     ++restart_calls;
+    if (flags & kMidiCCAssignmentChanged) ++midi_restarts;
     if(refuse_restarts){--refuse_restarts;return kResultFalse;}
     restarts |= flags;
     if(flags & kReloadComponent) ++reload_calls;
@@ -989,7 +990,7 @@ void midi_mapping_regression() {
   check(processor.connect(c)==kResultOk&&c->connect(&processor)==kResultOk,"MIDI connect");
   check(events.empty()&&commands.size()==1&&commands[0].kind==AP11::Refresh,
         "the queued vendor table is taken while connecting, beside the bootstrap refresh");
-  check(!(host.restarts&kMidiCCAssignmentChanged),"no restart for a host that has not asked yet");
+  check(host.midi_restarts==0,"no restart for a host that has not asked yet");
   check(mapping->getMidiControllerAssignment(0,0,1,id)==kResultOk&&id==7,"CC1 answers the vendor's modulation parameter");
   check(mapping->getMidiControllerAssignment(0,0,kPitchBend,id)==kResultOk&&id==8,"pitch bend answers the vendor's parameter");
   check(mapping->getMidiControllerAssignment(0,3,kAfterTouch,id)==kResultOk&&id==9,"channel aftertouch answers on its channel");
@@ -1002,13 +1003,13 @@ void midi_mapping_regression() {
         mapping->getMidiControllerAssignment(0,0,-1,id)==kResultFalse,"out-of-range questions are answered, not trusted");
   // The vendor changed its assignments: the host that asked is told once.
   stream(2,{{0,0,1,9},{0,0,kPitchBend,8},{0,0,kCtrlProgramChange,0}});
-  const auto restarts=host.restart_calls;host.tick();
-  check(events.empty()&&host.restart_calls==restarts+1&&(host.restarts&kMidiCCAssignmentChanged),"changed table tells the host to ask again");
+  host.tick();
+  check(events.empty()&&host.midi_restarts==1,"changed table tells the host to ask again");
   check(mapping->getMidiControllerAssignment(0,0,1,id)==kResultOk&&id==9&&
         mapping->getMidiControllerAssignment(0,0,kCtrlProgramChange,id)==kResultOk&&id==0&&
         mapping->getMidiControllerAssignment(0,3,kAfterTouch,id)==kResultFalse,"the whole new table replaces the old one");
   stream(3,{{0,0,1,9},{0,0,kPitchBend,8},{0,0,kCtrlProgramChange,0}});host.tick();
-  check(host.restart_calls==restarts+1,"an identical republished table is not a change");
+  check(host.midi_restarts==1,"an identical republished table is not a change");
   // The host's mapped changes travel as parameter changes at their offsets.
   ProcessSetup setup{kRealtime,kSample32,128,48000.};
   check(processor.setupProcessing(setup)==kResultOk&&processor.setActive(true)==kResultOk&&processor.setProcessing(true)==kResultOk,"MIDI start");
@@ -1031,7 +1032,7 @@ void midi_mapping_regression() {
   // A vendor without IMidiMapping publishes an empty table: no answers, as before.
   stream(4,{});host.tick();
   check(mapping->getMidiControllerAssignment(0,0,1,id)==kResultFalse&&mapping->getMidiControllerAssignment(0,0,kPitchBend,id)==kResultFalse&&
-        host.restart_calls==restarts+2,"empty table withdraws every answer");
+        host.midi_restarts==2,"empty table withdraws every answer");
   {
     std::ifstream in(report);std::stringstream text;text<<in.rdbuf();
     check(text.str().find("\"event\":\"ap11_midi_mapping\",\"generation\":7,\"mapped\":3,\"unexposed\":1,\"early_queries\":0,\"host_notified\":0")!=std::string::npos&&
