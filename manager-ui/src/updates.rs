@@ -48,6 +48,8 @@ pub struct Updates {
     receiver: Option<mpsc::Receiver<Event>>,
     next_check: Option<Instant>,
     show_notes: bool,
+    /// Why the last download stopped; the offer stays so it can be retried.
+    notice: Option<String>,
 }
 
 fn version(text: &str) -> String { feed::display_version(text) }
@@ -62,13 +64,13 @@ impl Updates {
         };
         let next_check = link.is_some().then(Instant::now);
         Self { home, link, draft: String::new(), editing: false, link_message,
-            status: Status::Idle, receiver: None, next_check, show_notes: false }
+            status: Status::Idle, receiver: None, next_check, show_notes: false, notice: None }
     }
     /// Previews and tests: no link, no checks, no files.
     #[allow(dead_code)]
     pub fn disabled() -> Self {
         Self { home: None, link: None, draft: String::new(), editing: false, link_message: None,
-            status: Status::Idle, receiver: None, next_check: None, show_notes: false }
+            status: Status::Idle, receiver: None, next_check: None, show_notes: false, notice: None }
     }
     fn busy(&self) -> bool {
         matches!(self.status, Status::Checking | Status::Downloading { .. }
@@ -111,7 +113,10 @@ impl Updates {
                     let Status::Downloading { offer, .. } = &self.status else { continue };
                     self.status = match result {
                         Ok(frontend) => Status::WaitingForDaw { offer: offer.clone(), frontend, since: Instant::now() },
-                        Err(error) => Status::Failed(error.to_string()),
+                        Err(error) => {
+                            self.notice = Some(error.to_string());
+                            Status::Available(offer.clone())
+                        }
                     };
                 }
             }
@@ -146,6 +151,7 @@ impl Updates {
         self.receiver = Some(receiver);
         self.status = Status::Checking;
         self.next_check = None;
+        self.notice = None;
         let ctx = ctx.clone();
         std::thread::spawn(move || {
             let result = context(&home).and_then(|(trust, current)| {
@@ -162,6 +168,7 @@ impl Updates {
         let (sender, receiver) = mpsc::channel();
         self.receiver = Some(receiver);
         self.status = Status::Downloading { offer: offer.clone(), done: 0, total: offer.package.size };
+        self.notice = None;
         let ctx = ctx.clone();
         std::thread::spawn(move || {
             let mut last = None;
@@ -256,6 +263,7 @@ impl Updates {
                         egui::CollapsingHeader::new("What's new").default_open(self.show_notes)
                             .show(ui, |ui| { ui.label(plain_notes(&offer.notes)); });
                     }
+                    if let Some(notice) = &self.notice { ui.colored_label(warning(ui), notice); }
                     ui.label("Close your DAW before updating. Your plug-ins, projects and settings are kept, and Restore previous setup can bring back this version.");
                     if ui.add(crate::presentation::primary_button("Download and update", ui)).clicked() {
                         download = Some(offer.clone());
@@ -384,6 +392,22 @@ mod tests {
             assert!(due > DAILY - Duration::from_secs(5) && due <= DAILY);
         }
         assert_eq!(updates.headline().as_deref(), Some("Update available: Test148"));
+        // A stopped download keeps the offer, so Download and update resumes it.
+        let (sender, receiver) = mpsc::channel();
+        updates.receiver = Some(receiver);
+        updates.status = Status::Downloading { offer: offer(), done: 5, total: 10 };
+        sender.send(Event::Staged(Err(UpdateError::DownloadStopped))).unwrap();
+        assert!(!updates.poll(&ctx, Some(false)));
+        assert_eq!(updates.status, Status::Available(offer()));
+        assert!(updates.notice.as_deref().unwrap().contains("continue where it left off"));
+        let labels = rendered(&mut updates_with_link(updates));
+        assert!(labels.iter().any(|l| l.contains("continue where it left off")));
+        assert!(labels.iter().any(|l| l == "Download and update"));
+    }
+
+    fn updates_with_link(mut updates: Updates) -> Updates {
+        updates.link = Some(BetaLink::parse("https://beta.example.ts.net:8443/private-beta/?pw=s3cret").unwrap());
+        updates
     }
 
     fn rendered(updates: &mut Updates) -> Vec<String> {

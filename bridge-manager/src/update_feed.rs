@@ -18,7 +18,7 @@ use std::{
     collections::BTreeMap,
     fmt, fs,
     io::{Read, Write},
-    os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt},
+    os::{fd::AsRawFd, unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt}},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     time::{Duration, Instant},
@@ -546,6 +546,12 @@ fn download_and_stage_with(home: &Path, link: &BetaLink, trust: &Trust, current:
     }
     let downloads = updates_dir(home).join("downloads");
     private_directory(&downloads).map_err(local)?;
+    // One download at a time, even with two manager windows open.
+    let lock = fs::OpenOptions::new().read(true).write(true).create(true).truncate(false)
+        .mode(0o600).open(updates_dir(home).join("download.lock")).map_err(local)?;
+    if unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+        return Err(UpdateError::Local("An update is already downloading in another manager window.".into()));
+    }
     let part = downloads.join(format!("{}.part", package.sha256));
     let done = downloads.join(format!("{}.install", package.sha256));
     // Only the offered download is kept; an older partial one is removed.
@@ -980,6 +986,12 @@ mod tests {
         server.shared.lock().unwrap().key = Some("rotated".into());
         assert_eq!(stage(&f, &link, &good, "0.12.0test146"), Err(UpdateError::LinkRejected));
         assert_eq!((staged_packages(&f), downloads(&f)), (0, 0));
+        // A second manager window cannot download into the same files.
+        let held = fs::OpenOptions::new().read(true).write(true)
+            .open(updates_dir(&f.home).join("download.lock")).unwrap();
+        assert_eq!(unsafe { libc::flock(held.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) }, 0);
+        assert!(matches!(stage(&f, &link, &good, "0.12.0test146"),
+            Err(UpdateError::Local(text)) if text.contains("already downloading")));
     }
 
     #[test]
