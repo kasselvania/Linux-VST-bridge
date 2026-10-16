@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <stdexcept>
 namespace linux_vst_bridge::wf0 {
 struct TerminalStatusTestAccess {
  template<class AfterCopy> static bool fail(TerminalStatus& status,AfterCopy after_copy) {
@@ -212,7 +213,7 @@ struct Mapping {
     check(data, "native mapping");
     std::memset(data, 0, bytes);
     std::memcpy(data, "LVBU", 4);
-    put(4, 6, 4);
+    put(4, AP11::GuiProtocolVersion, 4);
     put(8, bytes, 4);
     put(12, sizeof(ap11_gui_message_t), 4);
     std::copy(id.begin(), id.end(), data + 16);
@@ -283,6 +284,162 @@ struct External final : ExternalProcessing {
   void done(const float *, const float *, uint64_t, uint64_t,
             const ap10_results_t *) override {}
 };
+// #410: a vendor controller with IMidiMapping, as Kontakt exposes one.
+struct MidiController final : EditController, IMidiMapping {
+  std::vector<AP11::MidiAssignment> table;
+  uint32_t queries = 0;
+  bool fails = false;
+  tresult PLUGIN_API queryInterface(const TUID iid, void **obj) override {
+    QUERY_INTERFACE(iid, obj, IMidiMapping::iid, IMidiMapping)
+    return EditController::queryInterface(iid, obj);
+  }
+  REFCOUNT_METHODS(EditController)
+  tresult PLUGIN_API getMidiControllerAssignment(int32 bus, int16 channel, CtrlNumber number,
+                                                 ParamID &id) override {
+    check(std::this_thread::get_id() == owner, "vendor mapping asked on its owner thread");
+    ++queries;
+    if (fails) throw std::runtime_error("vendor mapping failure");
+    for (const auto &a : table)
+      if (a.bus == uint32_t(bus) && a.channel == uint32_t(channel) && a.controller == uint32_t(number)) {
+        id = a.id;
+        return kResultOk;
+      }
+    return kResultFalse;
+  }
+};
+// Exactly one complete published table: Begin, Entries..., End.
+std::vector<AP11::MidiAssignment> midi_table(const std::vector<ap11_gui_message_t> &messages,
+                                             uint64_t &serial) {
+  check(messages.size() >= 2 && messages.front().kind == AP11::MidiMapBegin &&
+            messages.back().kind == AP11::MidiMapEnd,
+        "one complete MIDI assignment stream");
+  serial = messages.front().revision;
+  check(serial && messages.back().revision == serial &&
+            messages.back().count == messages.front().count,
+        "stream identity and total");
+  std::vector<AP11::MidiAssignment> out;
+  for (size_t i = 1; i + 1 < messages.size(); ++i) {
+    AP11::MidiAssignment records[AP11::MidiAssignmentsPerMessage];
+    check(messages[i].revision == serial && AP11::unpackMidi(messages[i], records),
+          "well-formed assignment records");
+    out.insert(out.end(), records, records + messages[i].count);
+  }
+  check(out.size() == messages.front().count, "record total");
+  return out;
+}
+std::vector<std::vector<ap11_gui_message_t>> midi_streams(const std::vector<ap11_gui_message_t> &messages) {
+  std::vector<std::vector<ap11_gui_message_t>> streams;
+  for (const auto &m : messages) {
+    if (m.kind < AP11::MidiMapBegin || m.kind > AP11::MidiMapEnd) continue;
+    if (m.kind == AP11::MidiMapBegin) streams.emplace_back();
+    check(!streams.empty(), "assignments follow a stream start");
+    streams.back().push_back(m);
+  }
+  return streams;
+}
+void midi_mapping_stream() {
+  HostApplication host;
+  {
+    // A vendor without IMidiMapping publishes an empty table: hosts keep
+    // today's behavior for it.
+    auto *plain = new Controller;
+    plain->echo = false;
+    check(plain->initialize(&host) == kResultOk, "plain controller");
+    Mapping native;
+    GuiChannel channel(native.dir.wstring(), native.id);
+    {
+      EditorSession session(channel, *plain);
+      session.midi_inputs(1);
+      uint64_t serial = 0;
+      check(midi_table(native.drain(), serial).empty(), "no IMidiMapping, empty table");
+    }
+    plain->terminate();
+    plain->release();
+  }
+  auto *c = new MidiController;
+  check(c->initialize(&host) == kResultOk, "MIDI controller");
+  c->table = {{0, 0, 1, 7}, {0, 0, kPitchBend, 8}, {0, 3, kAfterTouch, 9}, {1, 0, 74, 10}};
+  {
+    Mapping native;
+    GuiChannel channel(native.dir.wstring(), native.id);
+    EditorSession session(channel, *c);
+    session.midi_inputs(2);
+    uint64_t first = 0;
+    auto table = midi_table(native.drain(), first);
+    check(c->queries == 2 * AP11::MidiChannels * AP11::MidiControllers && table.size() == 4 &&
+              table[0].controller == 1 && table[0].id == 7 && table[1].controller == kPitchBend &&
+              table[2].channel == 3 && table[3].bus == 1 && table[3].id == 10,
+          "the vendor's complete table for both event inputs is queued at load");
+    c->table[0].id = 9;
+    check(session.restart(kMidiCCAssignmentChanged) == kResultOk, "vendor MIDI assignment change accepted");
+    session.service(true);
+    uint64_t second = 0;
+    table = midi_table(native.drain(), second);
+    check(second > first && table.size() == 4 && table[0].id == 9, "changed assignments republished");
+    native.command(AP11::Refresh);
+    session.service(true);
+    auto messages = native.drain();
+    check(std::any_of(messages.begin(), messages.end(), [](const auto &m) { return m.kind == AP11::RefreshEnd; }),
+          "native bootstrap refresh still refreshes parameters");
+    auto streams = midi_streams(messages);
+    uint64_t third = 0;
+    check(streams.size() == 1 && midi_table(streams[0], third).size() == 4 && third > second,
+          "native bootstrap refresh republishes the MIDI table");
+    // Every channel and controller assigned: 2096 records over 33 messages,
+    // two back-to-back changes publish two complete tables in order.
+    c->table.clear();
+    for (uint32_t ch = 0; ch < AP11::MidiChannels; ++ch)
+      for (uint32_t n = 0; n < AP11::MidiControllers; ++n) c->table.push_back({0, ch, n, 1000 + ch * 1000 + n});
+    check(session.restart(kMidiCCAssignmentChanged | kParamValuesChanged) == kResultOk &&
+              session.restart(kMidiCCAssignmentChanged) == kResultOk,
+          "combined and repeated vendor restarts accepted");
+    messages.clear();
+    for (int i = 0; i < 4; ++i) {
+      session.service(true);
+      auto more = native.drain();
+      messages.insert(messages.end(), more.begin(), more.end());
+    }
+    streams = midi_streams(messages);
+    check(streams.size() == 2 && streams[0].size() == 35 && streams[1].size() == 35 && channel.failure() == 0,
+          "large tables complete in order without queue overrun");
+    uint64_t a = 0, b = 0;
+    const auto full = midi_table(streams[0], a);
+    check(midi_table(streams[1], b).size() == 2096 && b > a && full.size() == 2096 &&
+              full.back().channel == 15 && full.back().controller == 130 && full.back().id == 1000 + 15 * 1000 + 130,
+          "every channel, aftertouch, pitch bend and program change carried");
+    // A vendor exception costs MIDI routing only: an empty table, live session.
+    c->fails = true;
+    check(session.restart(kMidiCCAssignmentChanged) == kResultOk, "failing vendor mapping restart");
+    session.service(true);
+    uint64_t failed = 0;
+    check(midi_table(native.drain(), failed).empty() && channel.failure() == 0,
+          "vendor mapping failure publishes an empty table");
+    c->fails = false;
+  }
+  c->terminate();
+  c->release();
+  // The host's mapped controller changes reach the vendor processor as ordinary
+  // parameter changes at their sample offsets, beside the notes.
+  std::array<InputEvent, event_capacity> in{};
+  in[0] = {0, 0, 1, 0, 60, .8, 0};
+  in[1] = {5, 2, 7, 0, 0, .25, 0};
+  in[2] = {20, 2, 8, 0, 0, .5, 0};
+  in[3] = {40, 2, 7, 0, 0, .75, 0};
+  Changes changes;
+  Notes notes;
+  changes.load(in.data(), 4, notes);
+  int32 offset = -1;
+  ParamValue value = -1;
+  auto *wheel = changes.getParameterData(0), *bend = changes.getParameterData(1);
+  check(notes.getEventCount() == 1 && changes.getParameterCount() == 2 && wheel && bend &&
+            wheel->getParameterId() == 7 && wheel->getPointCount() == 2 &&
+            wheel->getPoint(0, offset, value) == kResultOk && offset == 5 && value == .25 &&
+            wheel->getPoint(1, offset, value) == kResultOk && offset == 40 && value == .75 &&
+            bend->getParameterId() == 8 && bend->getPointCount() == 1 &&
+            bend->getPoint(0, offset, value) == kResultOk && offset == 20 && value == .5,
+        "modulation and pitch bend reach the plug-in as parameter changes at their offsets");
+  std::cout << "AP11 Windows MIDI controller mapping PASS\n";
+}
 unsigned destroyRefusals=0;
 HWND lastDestroyed=nullptr;
 BOOL WINAPI controlledDestroy(HWND window) {
@@ -626,6 +783,7 @@ int main(int argc,char** argv) {
   process_retirement_regression();
   lifecycle_faults();
   retained_lifecycle();
+  midi_mapping_stream();
   HostApplication host;
   auto *c = new Controller;
   check(c->initialize(&host) == kResultOk, "controller initialize");

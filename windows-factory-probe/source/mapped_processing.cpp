@@ -894,7 +894,8 @@ bool MappedSession::commercial() const {
     return impl_->commercial;
 }
 void MappedSession::bind_controller(Steinberg::Vst::IEditController* c, bool separate,
-                                    Steinberg::Vst::IComponentHandler* handler) {
+                                    Steinberg::Vst::IComponentHandler* handler,
+                                    int32_t event_inputs) {
     auto& x = *impl_;
     FaultStatus::Scope activity(x.fault.get(), 2, 24, c ? 1 : 2);
     if (!c && x.editor) {
@@ -932,6 +933,8 @@ void MappedSession::bind_controller(Steinberg::Vst::IEditController* c, bool sep
             x.editor->fault_status(x.fault.get());
             x.editor->diagnostics(x.events);
             x.editor->name(x.editor_title);
+            // Queued now, before the native session is admitted (#410).
+            x.editor->midi_inputs(event_inputs);
         }
     }
 }
@@ -961,12 +964,17 @@ Steinberg::tresult MappedSession::request_restart(int32_t flags) {
     auto& x = *impl_;
     // Active topology changes are unsupported. Inactive requests are revalidated
     // against the exact descriptor when the DAW reconfigures. Latency/tail queries
-    // and SDK notifications stay on the owner/UI threads.
-    if (flags <= 0 || (flags & ~30) || (flags & 2 && x.audio_active.load()))
+    // and SDK notifications stay on the owner/UI threads. Parameter value/title
+    // and MIDI controller assignment changes republish through the UI channel.
+    constexpr int32_t controller_flags = Steinberg::Vst::kParamValuesChanged |
+                                         Steinberg::Vst::kParamTitlesChanged |
+                                         Steinberg::Vst::kMidiCCAssignmentChanged;
+    if (flags <= 0 || (flags & ~(10 | controller_flags)) || (flags & 2 && x.audio_active.load()))
         return Steinberg::kNotImplemented;
     if ((flags & 10) && !x.can_notify.load())
         return Steinberg::kNotImplemented;
-    if ((flags & 20) && (!x.editor || x.editor->restart(flags & 20) != Steinberg::kResultOk))
+    if ((flags & controller_flags) &&
+        (!x.editor || x.editor->restart(flags & controller_flags) != Steinberg::kResultOk))
         return Steinberg::kNotImplemented;
     x.requested_restart.fetch_or(uint32_t(flags & 10));
     return Steinberg::kResultOk;
