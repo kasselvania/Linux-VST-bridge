@@ -110,6 +110,7 @@ private:
   // nothing-recorded marker is never written over real state.
   bool state_unkept_ = false;
   void dropUnkeptState();
+  std::atomic<bool> announce_pending_{false}, unkept_pending_{false};
   void holdState(std::vector<uint8_t> &&blob);
   Steinberg::tresult saveNothingRecorded(Steinberg::IBStream *stream);
   void announceHeldState();
