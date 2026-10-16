@@ -2726,7 +2726,8 @@ pub(crate) mod tests {
         report_sw.supervisor=helper("session.py");
         report_sw.ownership=helper("ownership.py");
         report_sw.operator_frontend=Some(helper("frontend"));
-        for artifact in [&report_sw.manager,&report_sw.host,&report_sw.source_manifest] {
+        for artifact in [&report_sw.manager,&report_sw.host,&report_sw.source_manifest].into_iter()
+            .chain([&report_sw.preparation_kit,&report_sw.native_catalogue].into_iter().flatten()) {
             fs::set_permissions(&artifact.path,fs::Permissions::from_mode(0o400)).unwrap();
         }
         atomic_json(&f.m.root.join("software.json"),&report_sw).unwrap();
