@@ -3058,7 +3058,7 @@ under a new name cut Kontakt's saved state from 173,328 to 22,848 characters
 (parameter values only). A trace in REAPER showed why keeping the bytes alone
 was not enough: REAPER asks for state before restoring it, and after that one
 refusal it neither restores nor asks again. Until a bridge session has applied
-the host's state or produced state of its own, an instance that cannot apply a
+the host's state or the instance has been activated, an instance that cannot apply a
 restore (refused, admission failed, or its Windows side ended during the
 project load) now answers that question with the bridge's 16-byte
 nothing-recorded marker, keeps the exact envelope REAPER then restores, and
@@ -3073,8 +3073,8 @@ the original (173,328 characters, same digest). Rollback limit, accepted by the
 coordinator and put to the maintainer: bridge builds older than this fail an
 instance restored from the marker, which only a project saved while an instance
 that never received state was refused can contain. A terminal instance whose
-session had applied or produced state keeps snapshot recovery, and its view
-says that saving drops its settings.
+session had applied state or that was activated keeps snapshot recovery, and
+its view says that saving drops its settings.
 
 ## FC-UI-008 — Vendor editor removal crashes the Windows host
 
