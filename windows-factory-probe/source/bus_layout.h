@@ -1,5 +1,7 @@
 #pragma once
 #include "ap1_protocol.h"
+#include <algorithm>
+#include <array>
 #include <cstdlib>
 #include <string_view>
 #include "../../native-vst3-proxy/include/ap18_bus_support.h"
@@ -50,20 +52,37 @@ struct BusLayout {
  }
  // Called with fixed owner-prepared storage. The setup contract, not product
  // role, determines which SDK bus receives the single transported stereo pair.
+  // An input the plug-in kept on reads its own private planes (two per input
+ // bus index, from `kept`), never the shared zero plane: a plug-in may write
+ // into an input it considers active. clear_kept_inputs zeroes them per block.
  void map_inputs(std::array<Steinberg::Vst::AudioBusBuffers,8>& inputs,
-                 float** transported,float** zeros,uint64_t silence)const {
+                 float** transported,float** zeros,uint64_t silence,float** kept_planes=nullptr)const {
   int index=0;
   for(size_t i=0;i<size;++i){const auto& b=buses[i];
    if(b.info.mediaType!=Steinberg::Vst::kAudio||b.info.direction!=Steinberg::Vst::kInput)continue;
    const bool selected=index==transported_input&&b.supported&&b.active;
+   auto** unused=kept_planes&&kept[i]?kept_planes+2*index:zeros;
    auto& input=inputs[size_t(index++)];input.numChannels=b.info.channelCount;
-   input.channelBuffers32=selected?transported:zeros;input.silenceFlags=selected?silence:3;
+   input.channelBuffers32=selected?transported:unused;input.silenceFlags=selected?silence:3;
   }
  }
+ // Zero the first `frames` samples of every kept input's private planes.
+ void clear_kept_inputs(float** kept_planes,int frames)const {
+  int index=0;
+  for(size_t i=0;i<size;++i){const auto& b=buses[i];
+   if(b.info.mediaType!=Steinberg::Vst::kAudio||b.info.direction!=Steinberg::Vst::kInput)continue;
+   if(kept[i])for(int ch=0;ch<2;++ch)std::fill_n(kept_planes[2*index+ch],frames,0.f);
+   ++index;
+  }
+ }
+ // Audio delivered to the DAW for this output bus. Outputs after the main
+ // output follow the contract's active flag; a kept, inactive one is zeroed.
+ bool delivers(size_t i)const {return buses[i].active;}
  // Preserve bus indices and channel-pointer arrays for inactive outputs, as
  // required by AudioBusBuffers. Inactive sample addresses may be null, except
- // for a bus the plug-in kept on: it writes into its own private lane, which
- // is never delivered (delivery follows the contract's active flag).
+ // for a bus the plug-in kept on: it writes into its own private lane. Only
+ // outputs after the main output can be inactive, and those are delivered as
+ // zeros (delivers()), so a kept lane never reaches the DAW.
  void map_outputs(std::array<Steinberg::Vst::AudioBusBuffers,AP18Buses::max_audio_outputs>& outputs,
                   float** transported,float** inactive)const {
   int index=0;
