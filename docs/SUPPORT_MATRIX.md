@@ -158,6 +158,10 @@ its own installer added. Space Modulator's uninstall took it out of the DAW, ran
 Valhalla's own uninstaller window ("Are you sure…" → "successfully removed"), and
 the rescan shows it as "Uninstalled" with its history kept; Delete with "Also forget
 the installer file" then removed the setup and the manager's installer copy.
+Test130 (after review): the uninstall reserves the setup like an installer run
+(environment revision 1 → 2 before Valhalla's window opened); answering "No" in
+Valhalla's prompt is reported as not finished with the plug-in still installed and
+out of the DAW; uninstalling again with "Yes" reports it uninstalled.
 MSI uninstall is covered by unit tests only. **unqualified**.
 
 Test72 on this CachyOS/native REAPER fixture passes Choose program without
