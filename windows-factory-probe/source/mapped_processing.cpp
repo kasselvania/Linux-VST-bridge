@@ -1456,12 +1456,13 @@ void MappedSession::done_outputs(const Steinberg::Vst::AudioBusBuffers* buses, i
             const int bus = index++;
             if (bus == 0)
                 continue;
-            const auto flags = b.active ? buses[bus].silenceFlags : 3;
+            const bool delivered = x.buses.delivers(i);
+            const auto flags = delivered ? buses[bus].silenceFlags : 3;
             require((flags & ~uint64_t(3)) == 0, "extra output silence bits");
             x.extra_silence |= flags << (2 * bus);
             for (int ch = 0; ch < 2; ++ch) {
                 auto* destination = x.view + x.layout.output + (2 * bus + ch) * x.layout.stride + 4;
-                if (!b.active)
+                if (!delivered)
                     std::memset(destination, 0, x.current.frames * 4);
                 else {
                     require(buses[bus].numChannels == 2 && buses[bus].channelBuffers32 &&

@@ -1,5 +1,7 @@
 #pragma once
 #include "ap1_protocol.h"
+#include <algorithm>
+#include <array>
 #include <cstdlib>
 #include <string_view>
 #include "../../native-vst3-proxy/include/ap18_bus_support.h"
@@ -19,6 +21,8 @@ inline bool event_output_policy() {
 struct BusLayout {
  struct Bus {Steinberg::Vst::BusInfo info{};Steinberg::Vst::SpeakerArrangement arrangement=0;bool supported=false,active=false;int effective_channels=0;};
  std::array<Bus,AP18Buses::max_buses> buses{};size_t size=0;std::array<int,4> counts{};int transported_input=-1;
+ // Buses the plug-in kept on when the last activate() asked to switch them off.
+ std::array<bool,AP18Buses::max_buses> kept{};
  void read(Steinberg::Vst::IComponent& c,Steinberg::Vst::IAudioProcessor& p,bool zero_unspecified=event_output_policy()){
   using namespace Steinberg;using namespace Steinberg::Vst;using ap1::require;size=0;transported_input=-1;
   for(int media=0;media<2;++media)for(int dir=0;dir<2;++dir){auto n=c.getBusCount(media,dir);require(n>=0&&n<=AP18Buses::capacity(media,dir),"bus count bound");counts[media*2+dir]=n;
@@ -48,18 +52,37 @@ struct BusLayout {
  }
  // Called with fixed owner-prepared storage. The setup contract, not product
  // role, determines which SDK bus receives the single transported stereo pair.
+  // An input the plug-in kept on reads its own private planes (two per input
+ // bus index, from `kept`), never the shared zero plane: a plug-in may write
+ // into an input it considers active. clear_kept_inputs zeroes them per block.
  void map_inputs(std::array<Steinberg::Vst::AudioBusBuffers,8>& inputs,
-                 float** transported,float** zeros,uint64_t silence)const {
+                 float** transported,float** zeros,uint64_t silence,float** kept_planes=nullptr)const {
   int index=0;
   for(size_t i=0;i<size;++i){const auto& b=buses[i];
    if(b.info.mediaType!=Steinberg::Vst::kAudio||b.info.direction!=Steinberg::Vst::kInput)continue;
    const bool selected=index==transported_input&&b.supported&&b.active;
+   auto** unused=kept_planes&&kept[i]?kept_planes+2*index:zeros;
    auto& input=inputs[size_t(index++)];input.numChannels=b.info.channelCount;
-   input.channelBuffers32=selected?transported:zeros;input.silenceFlags=selected?silence:3;
+   input.channelBuffers32=selected?transported:unused;input.silenceFlags=selected?silence:3;
   }
  }
+ // Zero the first `frames` samples of every kept input's private planes.
+ void clear_kept_inputs(float** kept_planes,int frames)const {
+  int index=0;
+  for(size_t i=0;i<size;++i){const auto& b=buses[i];
+   if(b.info.mediaType!=Steinberg::Vst::kAudio||b.info.direction!=Steinberg::Vst::kInput)continue;
+   if(kept[i])for(int ch=0;ch<2;++ch)std::fill_n(kept_planes[2*index+ch],frames,0.f);
+   ++index;
+  }
+ }
+ // Audio delivered to the DAW for this output bus. Outputs after the main
+ // output follow the contract's active flag; a kept, inactive one is zeroed.
+ bool delivers(size_t i)const {return buses[i].active;}
  // Preserve bus indices and channel-pointer arrays for inactive outputs, as
- // required by AudioBusBuffers. Inactive sample addresses may be null.
+ // required by AudioBusBuffers. Inactive sample addresses may be null, except
+ // for a bus the plug-in kept on: it writes into its own private lane. Only
+ // outputs after the main output can be inactive, and those are delivered as
+ // zeros (delivers()), so a kept lane never reaches the DAW.
  void map_outputs(std::array<Steinberg::Vst::AudioBusBuffers,AP18Buses::max_audio_outputs>& outputs,
                   float** transported,float** inactive)const {
   int index=0;
@@ -68,7 +91,7 @@ struct BusLayout {
    const bool selected=b.supported&&b.active;
    auto** lane=transported+2*index;
    auto& output=outputs[size_t(index++)];output.numChannels=b.info.channelCount;
-   output.channelBuffers32=selected?lane:inactive;output.silenceFlags=selected?0:3;
+   output.channelBuffers32=selected||kept[i]?lane:inactive;output.silenceFlags=selected?0:3;
   }
  }
  void negotiate(Steinberg::Vst::IAudioProcessor& p){
@@ -77,9 +100,17 @@ struct BusLayout {
   ap1::require(p.setBusArrangements(ni?in.data():nullptr,ni,no?out.data():nullptr,no)==kResultOk,"SDK bus negotiation rejected");
   for(int d=0;d<2;++d)for(int i=0;i<(d?no:ni);++i){SpeakerArrangement a=0;ap1::require(p.getBusArrangement(d,i,a)==kResultOk&&a==(d?out[i]:in[i]),"SDK arrangement changed");}
  }
- void activate(Steinberg::Vst::IComponent& c,bool enabled)const {
-  std::array<int,4> index{};for(size_t i=0;i<size;++i){const auto& b=buses[i];auto m=b.info.mediaType,d=b.info.direction;
-   ap1::require(c.activateBus(m,d,index[m*2+d]++,enabled&&b.active)==Steinberg::kResultOk,"SDK bus activation rejected");}
+ // Switching a bus on must succeed. Switching one off is a request a plug-in
+ // may refuse for a bus its layout needs (a JUCE plug-in keeps its required
+ // main buses), whether the DAW turned that bus off or the session is
+ // deactivating. A refused bus is recorded as kept: its input reads zeros and
+ // its output gets a private lane that is never delivered. Other results fail.
+ void activate(Steinberg::Vst::IComponent& c,bool enabled){
+  std::array<int,4> index{};kept.fill(false);
+  for(size_t i=0;i<size;++i){const auto& b=buses[i];auto m=b.info.mediaType,d=b.info.direction;const bool on=enabled&&b.active;
+   const auto r=c.activateBus(m,d,index[m*2+d]++,on);
+   ap1::require(r==Steinberg::kResultOk||(!on&&(r==Steinberg::kResultFalse||r==Steinberg::kNotImplemented)),"SDK bus activation rejected");
+   kept[i]=!on&&r!=Steinberg::kResultOk;}
  }
 };
 }

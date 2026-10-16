@@ -51,6 +51,9 @@ struct Block {
     std::array<AudioBusBuffers,8> all_inputs{};
     std::array<float,capacity+2> silent_input{};
     std::array<float*,2> silent_channels{silent_input.data()+1,silent_input.data()+1};
+    // Private planes for inputs the plug-in kept on: two per input bus index.
+    std::array<std::array<float,capacity+2>,2*8> kept_input{};
+    std::array<float*,2*8> kept_channels{};
     ParameterChanges parameters{2};
     Changes commercial_parameters;Notes notes;ExternalBlock request{};
     AP10Results::Collector returned;
@@ -138,6 +141,11 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         auto& block=blocks[b];
         block.silent_input.fill(0.f);
         block.silent_input.front()=block.silent_input.back()=std::bit_cast<float>(guard);
+        for(size_t ch=0;ch<block.kept_input.size();++ch){
+            auto& plane=block.kept_input[ch];plane.fill(0.f);
+            plane.front()=plane.back()=std::bit_cast<float>(guard);
+            block.kept_channels[ch]=plane.data()+1;
+        }
         for(size_t ch=0;ch<64;++ch){
             auto& plane=ch<2?block.output[ch]:block.extra_output[ch-2];
             plane.fill(std::bit_cast<float>(sentinel));
@@ -209,6 +217,11 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         if(latency!=0||(!commercial&&tail!=0))throw std::runtime_error("AP2 retained processor latency/tail differs");
     }
     layout.activate(component,true);
+    // A bus the plug-in kept on needs its private lane or planes before any block.
+    for(auto& block:blocks){
+        layout.map_outputs(block.all_outputs,block.output_channels.data(),block.inactive_output_channels.data());
+        layout.map_inputs(block.all_inputs,block.in.data(),block.silent_channels.data(),block.input_bus.silenceFlags,block.kept_channels.data());
+    }
     active=call("set_active_true",[&]{return component.setActive(true);});
     if (!active) return {false,false};
     uint64_t processed=0,intervals=0;
@@ -299,7 +312,9 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                         block.gain=request.gain;block.data.numSamples=request.frames;
                         block.data.processMode=callback_process_mode(request,setup.processMode);
                         block.input_bus.silenceFlags=request.silence;
-                        layout.map_inputs(block.all_inputs,block.in.data(),block.silent_channels.data(),request.silence);layout.map_outputs(block.all_outputs,block.output_channels.data(),block.inactive_output_channels.data());
+                        layout.map_inputs(block.all_inputs,block.in.data(),block.silent_channels.data(),request.silence,block.kept_channels.data());layout.map_outputs(block.all_outputs,block.output_channels.data(),block.inactive_output_channels.data());
+                        // A kept input the plug-in wrote into reads zeros again.
+                        layout.clear_kept_inputs(block.kept_channels.data(),request.frames);
                         block.parameters.clearQueue();int32 parameter=0,point=0;
                         if(request.gain_present)block.parameters.addParameterData(0,parameter)->addPoint(0,request.gain,point);
                         if(!stateful)block.parameters.addParameterData(2,parameter)->addPoint(0,0.,point);
@@ -346,12 +361,14 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                             const auto direction=bus.info.direction;const int index=bus_index[direction]++;
                             const bool selected=bus.supported&&bus.active&&
                                 (direction==kOutput||index==layout.transported_input);
+                            const bool kept=layout.kept[i];
                             for(int ch=0;ch<bus.info.channelCount;++ch) {
                                 // Use prepared addresses/extent, never a pointer
                                 // or count the vendor could replace in ProcessData.
                                 const int lane=2*index+ch;
-                                const auto* plane=direction==kInput?(selected?block.input[ch].data()+1:block.silent_input.data()+1):
-                                    (selected?(lane<2?block.output[lane].data()+1:block.extra_output[lane-2].data()+1):nullptr);
+                                const auto* plane=direction==kInput?(selected?block.input[ch].data()+1:
+                                        kept?block.kept_channels[size_t(lane)]:block.silent_input.data()+1):
+                                    (selected||kept?(lane<2?block.output[lane].data()+1:block.extra_output[lane-2].data()+1):nullptr);
                                 if(plane&&(std::bit_cast<uint32>(plane[-1])!=guard||
                                            std::bit_cast<uint32>(plane[capacity])!=guard))
                                     throw std::runtime_error("direct private plane guard");
@@ -362,6 +379,9 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                        (std::bit_cast<uint32>(block.silent_input.front())!=guard||std::bit_cast<uint32>(block.silent_input.back())!=guard||
                         std::any_of(block.silent_input.begin()+1,block.silent_input.end()-1,[](float v){return v!=0.f;})))
                         throw std::runtime_error("AP18 inactive input modified");
+                    if(admitted_samples&&std::any_of(block.kept_input.begin(),block.kept_input.end(),[](const auto& plane){
+                           return std::bit_cast<uint32>(plane.front())!=guard||std::bit_cast<uint32>(plane.back())!=guard;}))
+                        throw std::runtime_error("kept input plane guard");
                     ++processed;
                     if(external&&admitted_samples&&!external->direct_audio()) {
 #ifdef LVB_SAMPLE_PLANE_TEST

@@ -36,6 +36,20 @@ struct MultiOutput:AudioEffect {
   return AudioEffect::activateBus(m,d,i,on);
  }
 };
+// Main stereo effect that refuses to disable a bus, as JUCE plug-ins do when
+// their layout requires the main buses. Optionally a second stereo output.
+struct MainBusesRequired:AudioEffect {
+ tresult disable_result=kResultFalse,enable_result=kResultOk;bool aux_output=false,sidechain=false;int enables=0,disables=0;
+ tresult PLUGIN_API initialize(FUnknown* h)override{auto r=AudioEffect::initialize(h);addAudioInput(u"Input",SpeakerArr::kStereo);
+  if(sidechain)addAudioInput(u"Sidechain",SpeakerArr::kStereo,kAux);
+  addAudioOutput(u"Output",SpeakerArr::kStereo);
+  if(aux_output)addAudioOutput(u"Aux",SpeakerArr::kStereo,kAux);return r;}
+ tresult PLUGIN_API setBusArrangements(SpeakerArrangement*,int32 ni,SpeakerArrangement*,int32 no)override{assert(ni==(sidechain?2:1)&&no==(aux_output?2:1));return kResultOk;}
+ tresult PLUGIN_API activateBus(MediaType m,BusDirection d,int32 i,TBool on)override{
+  if(!on){++disables;return disable_result;}
+  ++enables;return enable_result==kResultOk?AudioEffect::activateBus(m,d,i,on):enable_result;
+ }
+};
 struct StereoNegotiationPlugin:AudioEffect {
  tresult request_result=kResultOk;SpeakerArrangement current=SpeakerArr::kMono;int calls=0;
  tresult PLUGIN_API initialize(FUnknown* h)override{auto r=AudioEffect::initialize(h);addAudioInput(u"In",SpeakerArr::kMono);addAudioOutput(u"Out",SpeakerArr::kMono);return r;}
@@ -46,6 +60,62 @@ struct StereoNegotiationPlugin:AudioEffect {
  }
 };
 int main(){
+ for(auto refusal:{kResultFalse,kNotImplemented,kInternalError}){
+  HostApplication host;MainBusesRequired plugin;plugin.disable_result=refusal;assert(plugin.initialize(&host)==kResultOk);
+  BusLayout layout;layout.read(plugin,plugin,false);layout.negotiate(plugin);
+  layout.activate(plugin,true);assert(plugin.enables==2&&plugin.disables==0);
+  // Deactivating after setActive(false): an ordinary refusal keeps the session,
+  // so the DAW's next activation (REAPER cycles on insert) still gets audio.
+  bool refused=false;try{layout.activate(plugin,false);}catch(const std::exception&){refused=true;}
+  assert(refused==(refusal==kInternalError)&&plugin.disables==(refused?1:2));
+  layout.activate(plugin,true);assert(plugin.enables==4);
+  assert(plugin.terminate()==kResultOk);
+ }
+ {
+  // Switching a bus on stays strict.
+  HostApplication host;MainBusesRequired plugin;plugin.enable_result=kResultFalse;assert(plugin.initialize(&host)==kResultOk);
+  BusLayout layout;layout.read(plugin,plugin,false);layout.negotiate(plugin);
+  bool refused=false;try{layout.activate(plugin,true);}catch(const std::exception&){refused=true;}
+  assert(refused&&plugin.enables==1);assert(plugin.terminate()==kResultOk);
+ }
+ for(auto refusal:{kResultFalse,kNotImplemented,kInternalError}){
+  // A sidechain the bridge cannot transport (input index 1) and an auxiliary
+  // output the DAW turned off: a plug-in that keeps them on reads private
+  // zero planes and writes into a private lane that is delivered as zeros.
+  // Any other refusal still fails.
+  HostApplication host;MainBusesRequired plugin;plugin.sidechain=plugin.aux_output=true;plugin.disable_result=refusal;
+  assert(plugin.initialize(&host)==kResultOk);
+  BusLayout layout;layout.read(plugin,plugin,false);layout.negotiate(plugin);
+  assert(layout.size==4&&layout.buses[1].info.busType==kAux&&!layout.buses[1].supported&&!layout.buses[1].active);
+  assert(layout.buses[3].info.direction==kOutput&&layout.buses[3].info.busType==kAux);
+  layout.buses[3].active=false;
+  bool refused=false;try{layout.activate(plugin,true);}catch(const std::exception&){refused=true;}
+  assert(refused==(refusal==kInternalError));
+  if(refused){assert(plugin.terminate()==kResultOk);continue;}
+  assert(plugin.enables==2&&plugin.disables==2);
+  assert(!layout.kept[0]&&layout.kept[1]&&!layout.kept[2]&&layout.kept[3]);
+  std::array<float,64> samples{};float* channels[64];for(size_t i=0;i<64;++i)channels[i]=&samples[i];float* inactive[]={nullptr,nullptr};
+  std::array<AudioBusBuffers,32> outputs{};layout.map_outputs(outputs,channels,inactive);
+  assert(outputs[0].channelBuffers32==channels&&outputs[0].silenceFlags==0);
+  assert(outputs[1].channelBuffers32==channels+2&&outputs[1].numChannels==2);
+  assert(layout.delivers(2)&&!layout.delivers(3));
+  std::array<std::array<float,8>,16> kept_storage{};float* kept_planes[16];for(size_t i=0;i<16;++i)kept_planes[i]=kept_storage[i].data();
+  float zero[2]{};float* zeros[]={zero,zero+1};float* pair[]={&samples[60],&samples[61]};
+  std::array<AudioBusBuffers,8> inputs{};layout.map_inputs(inputs,pair,zeros,0,kept_planes);
+  assert(inputs[0].channelBuffers32==pair&&inputs[0].silenceFlags==0);
+  assert(inputs[1].channelBuffers32==kept_planes+2&&inputs[1].channelBuffers32[0]!=zero&&inputs[1].silenceFlags==3);
+  // The plug-in writes into the input it kept; the next block reads zeros again.
+  for(int ch=0;ch<2;++ch)for(int n=0;n<8;++n)inputs[1].channelBuffers32[ch][n]=0.5f;
+  layout.clear_kept_inputs(kept_planes,8);
+  for(int ch=0;ch<2;++ch)for(int n=0;n<8;++n)assert(inputs[1].channelBuffers32[ch][n]==0.f);
+  assert(zero[0]==0.f&&zero[1]==0.f);
+  // A later activation the plug-in accepts is no longer kept.
+  plugin.disable_result=kResultOk;layout.activate(plugin,true);
+  assert(!layout.kept[1]&&!layout.kept[3]);
+  layout.map_outputs(outputs,channels,inactive);assert(outputs[1].channelBuffers32==inactive);
+  layout.map_inputs(inputs,pair,zeros,0,kept_planes);assert(inputs[1].channelBuffers32==zeros);
+  assert(plugin.terminate()==kResultOk);
+ }
  {
   HostApplication host;StereoNegotiationPlugin plugin;assert(plugin.initialize(&host)==kResultOk);
   const auto applied=apply_stereo_main_pair(plugin,plugin);
