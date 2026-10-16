@@ -279,7 +279,7 @@ writes both from a verified build's `ready/` folder; nothing is edited by hand.
    feed lists one package per system, named from the file names (`cachyos`,
    `steamos`, …), with real sizes and SHA-256; `--alias arch=cachyos` adds a
    family entry. `--min-version` is the oldest installed build that may update
-   in the app (Test146 is the first with the updater). Only openssl reads the
+   in the app: the first published build that has the updater. Only openssl reads the
    private key.
 
 2. From any machine with SSH to the beta host:

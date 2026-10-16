@@ -55,7 +55,7 @@ Optional experience reports are under the plug-in's **Help and testing** control
 
 ## Later updates
 
-The manager updates itself from Test146 on. Once, in **Setup → Beta updates**,
+A build that has **Setup → Beta updates** updates itself. Once, in that panel,
 paste the beta link you were sent and choose **Save beta link**. The manager
 then checks for a new test build when it starts and once a day; **Check for
 updates** checks now. When one is published it shows **Update available:
@@ -74,7 +74,7 @@ longer works; paste the new link”: choose **Paste a new link** and paste the
 new one. The key stays private on your computer: it is never shown, logged or
 put in a support export.
 
-Builds before Test146 have no update button. Update those once by hand:
+Older builds have no update button. Update those once by hand:
 download the new `.install` file, run it as above and choose **Install
 application files → Open Setup → Update Bridge**.
 
