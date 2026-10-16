@@ -410,6 +410,29 @@ fn input_root_record_with_trust(executable:&Path,home:&Path,trust:&Trust)
     Ok(input_release_record_with_trust(executable,home,trust)?
         .map(|(root,_)|root.join("usr")))
 }
+/// Version of the package the user's Setup entry opens, from that package's
+/// signed release record. Display only: it selects and certifies nothing.
+pub fn setup_version(home:&Path)->Result<Option<String>> {
+    if !home.join(".local/share/linux-vst-bridge/packages/setup.json").try_exists()? {
+        return Ok(None);
+    }
+    setup_version_with_trust(home,&Trust::compiled()?)
+}
+fn setup_version_with_trust(home:&Path,trust:&Trust)->Result<Option<String>> {
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Setup { schema: u32, frontend: PathBuf }
+    let base=home.join(".local/share/linux-vst-bridge/packages").canonicalize()?;
+    let setup:Setup=crate::read_json(&base.join("setup.json"))?;
+    let parts=setup.frontend.strip_prefix(&base)?.iter().collect::<Vec<_>>();
+    require(setup.schema==1 && parts.len()==4 && parts[0].to_str().is_some_and(|s|hexadecimal(s,64))
+        && parts[1]=="usr" && parts[2]=="bin" && parts[3]=="linux-audio-compatibility-manager",
+        "user_package_setup_record")?;
+    let root=base.join(parts[0]);
+    let (release,manifest_sha256)=release_record(&root,trust)?;
+    require(Some(manifest_sha256.as_str())==parts[0].to_str(),"user_package_directory_identity")?;
+    Ok(Some(release.version))
+}
 /// Resolve another source-package executable only after verifying both the
 /// running launcher and the exact executable about to be spawned.
 pub fn input_executable(executable:&Path,home:&Path,name:&str)
@@ -626,6 +649,23 @@ mod tests {
         fs::write(&second,b"changed source frontend").unwrap();
         assert!(input_root_with_trust(&second,&f.home,&f.trust()).is_err());
         assert_eq!(fs::read(&setup).unwrap(),setup_bytes);
+    }
+    #[test]
+    fn setup_version_names_the_package_the_setup_entry_opens() {
+        let f=Fixture::new();
+        assert_eq!(setup_version(&f.home).unwrap(),None);
+        let first=Bundle::open(&f.bundle("1.0"),f.trust()).unwrap().stage(&f.home).unwrap();
+        let second=Bundle::open(&f.bundle("1.1"),f.trust()).unwrap().stage(&f.home).unwrap();
+        let source=input_root_with_trust(&second,&f.home,&f.trust()).unwrap().unwrap();
+        expose_verified_setup(&second,&f.home,&source).unwrap();
+        assert_eq!(setup_version_with_trust(&f.home,&f.trust()).unwrap().as_deref(),Some("1.1"));
+        // Only a staged package's own frontend names a version.
+        let record=f.home.join(".local/share/linux-vst-bridge/packages/setup.json");
+        atomic_json(&record,&serde_json::json!({"schema":1,
+            "frontend":first.with_file_name("linux-vst-bridge")})).unwrap();
+        assert!(setup_version_with_trust(&f.home,&f.trust()).is_err());
+        atomic_json(&record,&serde_json::json!({"schema":1,"frontend":first})).unwrap();
+        assert_eq!(setup_version_with_trust(&f.home,&f.trust()).unwrap().as_deref(),Some("1.0"));
     }
     #[test]
     fn gate_supervisor_lookup_verifies_only_its_two_signed_rows() {

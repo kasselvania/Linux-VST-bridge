@@ -2036,6 +2036,7 @@ pub(crate) mod tests {
             operation: None,
             deleted_setups: vec![],
             uninstallers: vec![],
+            bridge: Default::default(),
         };
         let refresh: Vec<_> = crate::operator_cli::available(&snapshot)
             .into_iter()

@@ -994,6 +994,26 @@ pub(super) fn require_current_frontend_caller(_m: &Manager) -> Result<()> {
 pub(super) fn selected_package_version(m: &Manager, current: &Software) -> Result<Option<String>> {
     Ok(selected_generation(m, current)?.map(|record| record.manifest.version))
 }
+/// The selected bridge build and the package Setup would apply next, for
+/// display. Setup opens the user's staged package when there is one, otherwise
+/// the system package. An unreadable record leaves its version unknown and
+/// never fails the readback.
+pub(super) fn bridge_build(m: &Manager, current: &Software) -> operator_model::BridgeBuild {
+    let staged = std::env::var_os("HOME").and_then(|home|
+        linux_vst_bridge::portable_package::setup_version(Path::new(&home)).ok().flatten());
+    let installed = Inputs::installed_record().ok();
+    bridge_build_from(m, current, staged, installed.as_ref().map(|(inputs, owner)| (inputs, *owner)))
+}
+fn bridge_build_from(m: &Manager, current: &Software, staged: Option<String>,
+    installed: Option<(&Inputs, u32)>) -> operator_model::BridgeBuild {
+    operator_model::BridgeBuild {
+        version: selected_generation_record(m, current).ok().flatten()
+            .map(|record| record.manifest.version),
+        setup_package: staged.or_else(|| installed
+            .and_then(|(inputs, owner)| read_manifest_record(inputs, owner).ok())
+            .map(|(manifest, _)| manifest.version)),
+    }
+}
 fn selected_generation(m: &Manager, current: &Software) -> Result<Option<Generation>> {
     let dir = current.manager.path.parent().ok_or("package_generation_path")?;
     match fs::symlink_metadata(dir.join("package-generation.json")) {
@@ -3620,6 +3640,28 @@ mod tests {
         f.service.fail_health.set(false);
         activate_from(&f.base.m, &f.home, &f.service).unwrap();
         assert_eq!(f.service.starts.get(), 1);
+    }
+
+    #[test]
+    fn bridge_build_names_the_selected_version_and_the_package_setup_holds() {
+        let f = Fixture::new();
+        let build = |staged: Option<&str>| bridge_build_from(&f.base.m, &f.current(),
+            staged.map(Into::into), Some((&f.inputs, f.owner)));
+        f.adopt().unwrap();
+        assert_eq!(build(None), operator_model::BridgeBuild {
+            version: Some("0.1.0beta1".into()), setup_package: Some("0.1.0beta1".into()) });
+        let mut manifest = f.manifest();
+        manifest.version = "0.2.0beta1".into();
+        atomic_json(&f.inputs.manifest(), &manifest).unwrap();
+        fs::set_permissions(f.inputs.manifest(), fs::Permissions::from_mode(0o444)).unwrap();
+        assert_eq!(build(None).setup_package.as_deref(), Some("0.2.0beta1"));
+        // The user's staged package is what their Setup entry opens.
+        assert_eq!(build(Some("0.3.0test1")).setup_package.as_deref(), Some("0.3.0test1"));
+        // An unreadable record leaves a version unknown; the readback goes on.
+        fs::remove_file(f.current().manager.path.parent().unwrap()
+            .join("package-generation.json")).unwrap();
+        fs::remove_file(f.inputs.manifest()).unwrap();
+        assert_eq!(build(None), operator_model::BridgeBuild::default());
     }
 
     #[test]
