@@ -142,6 +142,11 @@ inline bool transfer(Steinberg::IBStream *s, uint8_t *bytes, size_t n,
   }
   return true;
 }
+// As readEnvelope, but a stream with no bytes at all is a valid "nothing
+// recorded" state (empty=true, b empty): a refused instance saves that
+// rather than fabricating plug-in state, and any instance accepts it back.
+inline bool readEnvelopeOrEmpty(Steinberg::IBStream *s, std::vector<uint8_t> &b,
+                                bool &empty);
 inline bool readEnvelope(Steinberg::IBStream *s, std::vector<uint8_t> &b) {
   b.resize(overhead);
   if (!transfer(s, b.data(), b.size(), false))
@@ -159,6 +164,39 @@ inline bool readEnvelope(Steinberg::IBStream *s, std::vector<uint8_t> &b) {
   uint8_t extra = 0;
   Steinberg::int32 count = 0;
   auto result = s->read(&extra, 1, &count);
+  return count == 0 && (result == Steinberg::kResultOk ||
+                        result == Steinberg::kResultFalse);
+}
+inline bool readEnvelopeOrEmpty(Steinberg::IBStream *s, std::vector<uint8_t> &b,
+                                bool &empty) {
+  empty = false;
+  b.clear();
+  if (!s)
+    return false;
+  uint8_t first = 0;
+  Steinberg::int32 count = 0;
+  auto result = s->read(&first, 1, &count);
+  if (count == 0 && (result == Steinberg::kResultOk || result == Steinberg::kResultFalse)) {
+    empty = true;
+    return true;
+  }
+  if (count != 1)
+    return false;
+  b.resize(overhead);
+  b[0] = first;
+  if (!transfer(s, b.data() + 1, b.size() - 1, false))
+    return false;
+  uint32_t n = 0;
+  for (size_t i = 0; i < 4; ++i)
+    n |= uint32_t(b[64 + i]) << (8 * i);
+  if (n > payloadLimit)
+    return false;
+  b.resize(overhead + n);
+  if (!transfer(s, b.data() + overhead, n, false))
+    return false;
+  uint8_t extra = 0;
+  count = 0;
+  result = s->read(&extra, 1, &count);
   return count == 0 && (result == Steinberg::kResultOk ||
                         result == Steinberg::kResultFalse);
 }

@@ -375,15 +375,15 @@ pub fn from_load_record(outcome: &str, phase: Option<&str>) -> Option<Explanatio
         Some("keeper_failed") => Explanation::new("windows_side_stopped",
             "The last time your DAW loaded this plug-in, its Windows side had stopped, so the plug-in stayed empty and silent.",
             "The Windows programs behind this plug-in's setup ended unexpectedly (for example when the desktop's display server restarted) or failed while starting.",
-            "Load the plug-in again: reopen the project or restart your DAW. Removing and adding the plug-in starts it with default settings. Saving while it is not loaded drops its settings from the project. The bridge starts its Windows side again on that load. If it is refused again, wait a minute before loading it again. If it keeps failing, create a problem report."),
+            "Load the plug-in again: reopen the project or restart your DAW. Removing and adding the plug-in starts it with default settings. Saving meanwhile keeps its saved settings unchanged. The bridge starts its Windows side again on that load. If it is refused again, wait a minute before loading it again. If it keeps failing, create a problem report."),
         Some("bridge_update_required") => Explanation::new("bridge_updated_daw_old",
             "The last time your DAW loaded this plug-in, the bridge did not load it, so it stayed empty and silent.",
             "The bridge was updated while your DAW still had the older bridge plug-in loaded; reopening a project keeps that older one.",
-            "Quit and restart your DAW, then open the project. Saving before that drops this plug-in's settings from the project."),
+            "Quit and restart your DAW, then open the project. Saving before that keeps this plug-in's saved settings unchanged."),
         _ => Explanation::new("load_refused",
             "The last time your DAW loaded this plug-in, the bridge did not load it, so it stayed empty and silent.",
             "The bridge could not prepare it in time: the plug-in's setup may have changed during the load, the bridge may have been busy, or the DAW stopped waiting.",
-            "Load the plug-in again: reopen the project or restart your DAW. Removing and adding the plug-in starts it with default settings. Saving while it is not loaded drops its settings from the project. If it keeps happening, create a problem report."),
+            "Load the plug-in again: reopen the project or restart your DAW. Removing and adding the plug-in starts it with default settings. Saving meanwhile keeps its saved settings unchanged. If it keeps happening, create a problem report."),
     })
 }
 

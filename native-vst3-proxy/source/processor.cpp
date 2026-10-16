@@ -345,17 +345,20 @@ tresult PLUGIN_API Processor::connect(IConnectionPoint *peer) {
 void Processor::holdState(std::vector<uint8_t> &&blob) {
   held_state_ = std::move(blob);
   state_held_ = true;
+  state_unkept_ = false;
   announceHeldState();
 }
 // Tell the controller the project's state is held unchanged. Bounded,
 // owner-thread notification; an older controller ignores it. Sent when the
 // state is held and again on every refused bind, because a host may restore
 // state before the pair is connected.
+// bytes: the held size, 0 when nothing was received, -1 when state was
+// received but could not be kept.
 void Processor::announceHeldState() {
-  if (!state_held_) return;
   if (auto *m = allocateMessage()) {
     m->setMessageID("AP10.state_held");
-    m->getAttributes()->setInt("bytes", int64(held_state_.size()));
+    m->getAttributes()->setInt("bytes", state_held_ ? int64(held_state_.size())
+                                        : state_unkept_ ? int64(-1) : int64(0));
     sendMessage(m);
     m->release();
   }
@@ -364,10 +367,17 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
   if (!preview_)
     return kNotImplemented;
   // This instance never applied the host's state: return those exact bytes.
-  // Nothing is fabricated; without held bytes the refusal below stands.
   if (state_held_ && stream && owner_ == std::this_thread::get_id())
     return LVBState::transfer(stream, held_state_.data(), held_state_.size(), true)
                ? kResultOk : kResultFalse;
+  // Without a session and without held bytes it has nothing recorded and says
+  // so with an empty state, never fabricated plug-in state. REAPER asks for
+  // state before restoring it and, after one refusal, neither restores nor
+  // asks again, saving only parameter values (#380). State received but not
+  // kept is refused instead, so nothing claims to be that state.
+  if (stream && owner_ == std::this_thread::get_id() && phase_ == Failed &&
+      !handle_ && !terminal())
+    return state_unkept_ ? kResultFalse : kResultOk;
   if (phase_ == Failed || terminal())
     stateFailure("get", "failed_instance");
   if (!stream || owner_ != std::this_thread::get_id() || phase_ == New ||
@@ -375,7 +385,8 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
     return kResultFalse;
   try {
     if (!stateSession())
-      return kResultFalse;
+      // Admission was refused by this very request: nothing is recorded yet.
+      return !handle_ && !terminal() && !state_unkept_ ? kResultOk : kResultFalse;
 #ifdef AP8_PREVIEW
     // Deliver already accepted UI gestures before the existing DSP/state
     // barrier. Never wait here for work owned by this native UI thread.
@@ -426,9 +437,19 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
       !handle_ && !terminal()) {
     try {
       std::vector<uint8_t> blob;
-      if (LVBState::readEnvelope(stream, blob))
+      bool empty = false;
+      if (!LVBState::readEnvelopeOrEmpty(stream, blob, empty)) {
+        state_unkept_ = !state_held_;
+      } else if (!empty) {
         holdState(std::move(blob));
+      } else {
+        // The host restored "nothing recorded": that is what a save returns.
+        std::vector<uint8_t>().swap(held_state_);
+        state_held_ = state_unkept_ = false;
+        announceHeldState();
+      }
     } catch (...) {
+      state_unkept_ = !state_held_;
     }
   }
   if (phase_ == Failed || terminal())
@@ -452,7 +473,14 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
 #ifndef AP8_PREVIEW
     double restored = 0.;
 #endif
-    const bool envelope = LVBState::readEnvelope(stream, blob);
+    bool empty = false;
+    const bool envelope = LVBState::readEnvelopeOrEmpty(stream, blob, empty);
+    // Nothing recorded (saved while this plug-in was not loaded): keep the
+    // plug-in's own defaults; there is nothing to restore or to refuse.
+    if (envelope && empty)
+      return kResultOk;
+    if (!envelope && !handle_)
+      state_unkept_ = !state_held_;
 #ifdef AP8_PREVIEW
     if (!envelope ||
         ap8_validate_restore(AP8::identity, blob.data(), static_cast<uint32_t>(blob.size())))

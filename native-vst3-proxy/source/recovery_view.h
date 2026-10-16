@@ -16,6 +16,9 @@ inline constexpr const char* NOT_LOADED_STATE =
 // The processor holds the host's restored state and saves it unchanged.
 inline constexpr const char* NOT_LOADED_HELD =
     "Saving keeps this plug-in's saved settings unchanged.";
+// The host restored nothing, so a save records nothing for this plug-in.
+inline constexpr const char* NOT_LOADED_NONE =
+    "This instance received no saved settings; saving records none.";
 class RecoveryView final : public Steinberg::CPluginView,
                            public Steinberg::Linux::ITimerHandler {
 public:

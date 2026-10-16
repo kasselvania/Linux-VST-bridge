@@ -564,10 +564,16 @@ std::vector<uint8_t> held_envelope(size_t payload, uint8_t seed) {
   return b;
 }
 void held_state_regression() {
-  enum Order { ComponentFirst, ControllerFirst, BeforeAdmission, NeverReceived };
-  for (Order order : {ComponentFirst, ControllerFirst, BeforeAdmission, NeverReceived}) {
+  // REAPER's order: it asks for state, restores, then asks again to save.
+  enum Order { ProbeThenRestore, ComponentFirst, ControllerFirst, BeforeAdmission, NeverReceived };
+  for (Order order : {ProbeThenRestore, ComponentFirst, ControllerFirst, BeforeAdmission, NeverReceived}) {
+    events.clear();commands.clear();gui_fault=0;terminal_record={};
     open_refused=true;open_calls=0;
+    Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
+    host.processor=&processor;host.controller=controller;
+    auto* context=static_cast<IHostApplication*>(&host);
     check(processor.initialize(context)==kResultOk && controller->initialize(context)==kResultOk,"held state initialize");
+    controller->setComponentHandler(static_cast<IComponentHandler*>(&host));
     // 24 MiB: far above any small-buffer path, well inside the 256 MiB cap.
     const auto saved = held_envelope(24u << 20, uint8_t(order));
     auto restoreComponent = [&] {
@@ -589,22 +595,30 @@ void held_state_regression() {
     } else {
       processor.connect(controller);controller->connect(&processor);
       check(open_calls>=1,"admission was refused at connection");
+      if (order == ProbeThenRestore) {
+        // A refusal here makes REAPER skip the restore and every later save.
+        LVBState::Stream probe;
+        check(processor.getState(&probe)==kResultOk && probe.bytes.empty(),"a refused instance answers a state probe with nothing recorded");
+        restoreComponent(); restoreController();
+      }
       if (order == ComponentFirst) { restoreComponent(); restoreController(); }
       if (order == ControllerFirst) { restoreController(); restoreComponent(); }
     }
     LVBState::Stream out;
     const auto result = processor.getState(&out);
     if (order == NeverReceived) {
-      check(result==kResultFalse && out.bytes.empty(),"an instance that received no state saves none and fabricates none");
+      check(result==kResultOk && out.bytes.empty(),"an instance that received no state saves an empty state, nothing fabricated");
     } else {
       check(result==kResultOk,"a refused instance saves the host's restored state");
       check(out.bytes==saved,"the saved state is byte-identical to the restored project data");
       LVBState::Stream again;
       check(processor.getState(&again)==kResultOk && again.bytes==saved,"repeated saves stay byte-identical");
     }
-    // The editor learns the state is held even when the restore preceded
-    // the connection (the processor repeats it on the refused bind).
-    check(controller->heldStateAnnounced()==(order!=NeverReceived),"the controller knows whether the project's state is held");
+    // The editor learns what saving does even when the restore preceded the
+    // connection (the processor repeats it on every refused bind).
+    for (int i=0;i<3;++i) host.tick();
+    check(controller->heldStateAnnounced()==(order==NeverReceived ? 0 : int64_t(saved.size())),
+          "the controller knows whether the project's state is held");
     LVBState::Stream controllerOut;
     check(controller->getState(&controllerOut)==kResultOk && controllerOut.bytes.size()==8,"controller state round-trips unchanged");
     open_refused=false;
@@ -612,9 +626,12 @@ void held_state_regression() {
     controller->terminate();controller->release();processor.terminate();
   }
   // An envelope claiming more than the cap is not read, so nothing is held:
-  // the save refuses exactly as before instead of writing a truncated state.
+  // the save refuses instead of writing an empty or truncated state.
   {
     open_refused=true;
+    Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
+    host.processor=&processor;host.controller=controller;
+    auto* context=static_cast<IHostApplication*>(&host);
     check(processor.initialize(context)==kResultOk && controller->initialize(context)==kResultOk,"cap initialize");
     processor.connect(controller);controller->connect(&processor);
     auto oversized = held_envelope(16, 9);
@@ -623,8 +640,26 @@ void held_state_regression() {
     LVBState::Stream in(oversized);
     check(processor.setState(&in)==kResultFalse,"an over-cap restore is refused");
     LVBState::Stream out;
-    check(processor.getState(&out)==kResultFalse && out.bytes.empty(),"an over-cap restore is never saved truncated");
+    check(processor.getState(&out)==kResultFalse && out.bytes.empty(),"an over-cap restore is never saved as empty or truncated");
     open_refused=false;
+    controller->disconnect(&processor);processor.disconnect(controller);
+    controller->terminate();controller->release();processor.terminate();
+  }
+  // A project saved while the plug-in was refused records nothing for it; a
+  // loaded instance accepts that and keeps its own defaults.
+  {
+    open_refused=false;
+    Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
+    host.processor=&processor;host.controller=controller;
+    auto* context=static_cast<IHostApplication*>(&host);
+    check(processor.initialize(context)==kResultOk && controller->initialize(context)==kResultOk,"empty restore initialize");
+    controller->setComponentHandler(static_cast<IComponentHandler*>(&host));
+    processor.connect(controller);controller->connect(&processor);
+    const auto before=state_calls;
+    LVBState::Stream nothing;
+    check(processor.setState(&nothing)==kResultOk && state_calls==before,"an empty restore is accepted and restores nothing");
+    ProcessSetup setup{kRealtime,kSample32,128,48000};
+    check(processor.setupProcessing(setup)==kResultOk,"the instance stays usable after an empty restore");
     controller->disconnect(&processor);processor.disconnect(controller);
     controller->terminate();controller->release();processor.terminate();
   }

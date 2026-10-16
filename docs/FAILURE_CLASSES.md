@@ -3053,16 +3053,20 @@ Installed Test26 on Ubuntu 26.04.1 / REAPER 7.82 restores effect Level/Colour .7
 
 CachyOS, REAPER 7.82, Kontakt 8 ([#380](https://github.com/kasselvania/Linux-VST-bridge/issues/380)):
 with the bridge refusing the instance (service stopped), saving the project
-under a new name cut Kontakt's saved state from 173,328 to 22,848 characters.
-The proxy refused both setState and getState for an instance without a bridge
-session, so REAPER saved nothing for the component. An instance that never
-applied the host's state in a session (refused at connection, or its admission
-failed during the restore) now keeps the exact restored envelope and returns
-it unchanged from getState; one that received none still refuses, so nothing
-is fabricated. The copy is bounded like any loaded instance's state (256 MiB);
-an envelope over the cap is not read, so the save refuses as before rather
-than writing a truncated state. A terminal instance that had a session keeps
-today's behaviour (snapshot recovery).
+under a new name cut Kontakt's saved state from 173,328 to 22,848 characters
+(parameter values only). A trace in REAPER showed why keeping the bytes alone
+was not enough: REAPER asks for state before restoring it, and after that one
+refusal it neither restores nor asks again. An instance without a bridge
+session now answers that question with an empty state (nothing recorded, never
+fabricated plug-in state), keeps the exact envelope REAPER then restores, and
+returns it unchanged from getState. Test108 on CachyOS: the saved Kontakt
+block was identical to the original (173,328 characters, same digest). A
+loaded instance accepts an empty state and keeps its defaults. State received
+but not kept (over the 256 MiB cap a loaded instance also has, or malformed)
+makes getState refuse rather than claim an empty state. Older bridge builds
+fail an instance restored from an empty state; that only arises for a
+never-restored instance saved while refused. A terminal instance that had a
+session keeps today's behaviour (snapshot recovery).
 
 ## FC-UI-008 — Vendor editor removal crashes the Windows host
 
