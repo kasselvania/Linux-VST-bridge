@@ -76,6 +76,14 @@ Explicit graphics assessment retains its separate result. Kontakt's historical
 allocator origin remains open; accessibility A/B/A and a mapped-host debugger
 trial do not reproduce it. [Scoped update boundary](../evidence/reference-runtime-deck.json).
 
+Test160 (#402, main + DAW blocks in parts) on the CachyOS VM / REAPER 7.82 at
+44.1 kHz with a 2048-frame buffer: a JS tone through bridged Valhalla Supermassive
+(512-frame buffering) plays (−8.0 dBFS; tone alone −12.0) and its tail sounds after
+the tone stops (−21.6 dBFS); 176 DAW calls of 2048 frames, each in four 512-frame
+parts, none refused, no underrun; whole calls median 5.2 ms, p95 12.4 ms, max
+34.7 ms of a 46.4 ms period. On Test164 the same check was silent (setup refused).
+At 512 frames nothing is split and it still plays. **unqualified** beyond REAPER.
+
 Test126 (main `cbcfa84c`) on the CachyOS VM / REAPER 7.82 at 44.1 kHz / 512:
 Native Access installs Kontakt 8.13.1 on runtime r5; Kontakt's editor sits in
 REAPER's FX window and DAW MIDI plays (−9.2 to −9.5 dBFS). JUCE 6 effects pass
