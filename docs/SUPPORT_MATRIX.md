@@ -11,6 +11,10 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+PACE/iLok dependency assistance is source-only: the existing same-setup installer
+and continuation preserve the pinned runner and environment identity. Installed
+acceptance of this assistance remains pending; #414/#417 stay open.
+
 Test60/61 are installed on SteamOS 3.8.16 Deck through ordinary Update Bridge.
 The actual retained app-only hub bootstrap now opens normally, installs two
 classes and connects them automatically after full helper retirement; its repeat

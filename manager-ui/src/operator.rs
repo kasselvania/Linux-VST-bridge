@@ -1982,6 +1982,20 @@ impl Operator {
                             overview.current.system.inactive_reason(), pending, chosen));
                     }
                     if let Some(context) = replacement_context(&overview.current, setup) {
+                        if context.environment.is_some() {
+                            ui.strong("Install a required app in this setup");
+                            if let Some(target)=overview.current.environment_installers.iter().find(|target|
+                                context.environment.as_ref()==Some(&target.environment)) {
+                                for help in &target.dependency_help {ui.label(help);}
+                            }
+                            ui.label("If the plug-in asks for a licence manager or another dependency, download its Windows installer from the vendor. Choose it here; after it closes, the bridge checks this same setup again.");
+                            if ui.add_enabled(fresh && !pending,
+                                egui::Button::new("Choose dependency installer").min_size(egui::vec2(240.0,44.0))).clicked() {
+                                focus.replacement=Some(context.clone());
+                                focus.setup_installer=Some(setup.installer.clone());
+                                *pick=true;
+                            }
+                        }
                         if ui.add_enabled(fresh && !pending,
                             egui::Button::new("Choose another installer").min_size(egui::vec2(240.0,44.0))).clicked() {
                             focus.replacement = Some(context);
@@ -6245,7 +6259,7 @@ mod tests {
             action:Action::SoftwareInstall {installer:right.clone(),daw:DawChoice::Other}});
         overview.current.installer_setups = vec![original,replacement];
         overview.current.environment_installers = environment.into_iter().map(|environment|EnvironmentInstaller {
-            environment:environment.into(),name:"Intended setup".into(),affected:vec!["Existing sibling".into()],
+            dependency_help:vec![],environment:environment.into(),name:"Intended setup".into(),affected:vec!["Existing sibling".into()],
             consequence:"This installer can change this setup's vendor state. Stopping cannot undo those changes.".into(),
             runtime:Some(EnvironmentRuntime {runner:"same-runner".into(),revision:1,affected:vec![],
                 consequence:String::new(),choices:vec![]}),operation:None,installer:None,result:serde_json::Value::Null,
@@ -6320,6 +6334,47 @@ mod tests {
                     else {Action::SoftwareInstall {installer:right,daw:DawChoice::Other}}));
                 assert!(operator.focus.replacement.is_none());
             }
+        }
+    }
+    #[test]
+    fn dependency_installer_from_stalled_setup_keeps_exact_setup_through_file_choice() {
+        for width in [560.0,960.0] {
+            let mut overview=wrong_installer_overview(Some("intended-environment"));
+            let setup=&mut overview.current.installer_setups[0];
+            setup.phase=SetupPhase::SetupNeedsAttention;
+            setup.journey=Some(automatic_journey(InstallationPhase::NeedsAttention));
+            setup.primary=Some(AvailableAction {label:"Open this plug-in to finish setup".into(),disabled_reason:None,
+                action:Action::PluginFinishSetup {environment:"intended-environment".into(),scan:"ab".repeat(16),
+                    module_index:0,module_sha256:"cd".repeat(32),report_sha256:"ef".repeat(32)}});
+            let original=setup.installer.clone();let primary=setup.primary.clone();
+            let dependency=overview.current.installer_setups[1].installer.clone();
+            overview.current.environment_installers[0].dependency_help=vec![
+                "The iLok (PACE) licence service is registered in this setup; whether it runs has not been checked.".into()];
+            let mut operator=state_fixture();operator.focus.setup_installer=Some(original.clone());
+            for (fresh,pending) in [(false,false),(true,true)] {
+                let (pick,chosen)=wrong_installer_click_with_pending(&overview,&mut operator.focus,
+                    "Choose dependency installer",width,fresh,pending);
+                assert!(!pick);assert!(chosen.is_none());assert!(operator.focus.replacement.is_none());
+            }
+            let (pick,chosen)=wrong_installer_click(&overview,&mut operator.focus,
+                "Choose dependency installer",width,true);
+            assert!(pick);assert!(chosen.is_none());
+            operator.origin=Some(RequestOrigin::InstallerImport);
+            operator.handle_reply(Reply::Imported(InstallerImportResult {schema:2,
+                installer_sha256:dependency.clone(),display_label:"First-party dependency fixture".into(),
+                format:"pe_executable".into(),byte_size:1024,newly_imported:false,created_at:1}));
+            operator.apply_current_overview(overview.clone());
+            assert!(operator.queued_action.is_none());assert!(operator.pending_import_route.is_none());
+            assert_eq!(operator.focus.setup_installer.as_deref(),Some(original.as_str()));
+            assert_eq!(serde_json::to_value(&overview.current.installer_setups[0].primary).unwrap(),
+                serde_json::to_value(primary).unwrap());
+            let draft=operator.focus.replacement.as_ref().unwrap();
+            assert_eq!(draft.environment.as_deref(),Some("intended-environment"));
+            assert_eq!(draft.runtime,Some(("same-runner".into(),1)));
+            let (_,chosen)=wrong_installer_click(&overview,&mut operator.focus,
+                "Run installer in this setup",width,true);
+            assert_eq!(chosen,Some(Action::EnvironmentInstallerStart {
+                environment:"intended-environment".into(),installer:dependency}));
         }
     }
     #[test]
@@ -6772,7 +6827,7 @@ mod tests {
                 overview.current.installer_setups.push(setup);
             }
             overview.current.environment_installers=vec![crate::model::EnvironmentInstaller {
-                environment:environment.clone(),runtime:None,name:"Synth setup".into(),affected:vec![],
+                dependency_help:vec![],environment:environment.clone(),runtime:None,name:"Synth setup".into(),affected:vec![],
                 consequence:"The installer can change this setup.".into(),operation:Some("ef".repeat(16)),
                 installer:Some(installer.clone()),result:serde_json::json!({"state":"cancelled"}),
                 choices:vec![AvailableAction {label:"Run chosen installer".into(),
@@ -6817,7 +6872,7 @@ mod tests {
             powershell:crate::model::Powershell::Inherited };
         let mut overview=overview_fixture();
         overview.current.environment_installers=vec![crate::model::EnvironmentInstaller {
-            environment:environment.clone(),runtime:None,name:"Synth setup".into(),affected:vec![],
+            dependency_help:vec![],environment:environment.clone(),runtime:None,name:"Synth setup".into(),affected:vec![],
             consequence:"The installer can change this setup.".into(),operation:Some("ef".repeat(16)),installer:Some(installer.clone()),
             result:serde_json::json!({"state":"cancelled"}),choices:vec![AvailableAction {label:"Run chosen installer".into(),
                 action:Action::EnvironmentInstallerStart {environment:environment.clone(),installer},disabled_reason:None}],
@@ -6857,7 +6912,7 @@ mod tests {
         let stop=Action::EnvironmentInstallerStop {operation:operation.clone()};
         for (width,running) in [(960.0,false),(560.0,false),(960.0,true),(560.0,true)] {
             let ctx=egui::Context::default();
-            let target=crate::model::EnvironmentInstaller {environment:environment.clone(),runtime:None,
+            let target=crate::model::EnvironmentInstaller {dependency_help:vec![],environment:environment.clone(),runtime:None,
                 name:"Synth setup".into(),affected:vec!["Synth".into(),"Effect sibling".into()],
                 consequence:"Stopping cannot undo vendor changes. Both plug-ins need fresh preparation.".into(),
                 choices:vec![AvailableAction {label:"Run companion in this setup".into(),action:run.clone(),

@@ -132,7 +132,7 @@ class ManagedVendorTests(unittest.TestCase):
             operation,directory=self.replacement_operation(seed)
             if policy:
                 request=json.loads((directory/'request.json').read_bytes())
-                request['schema']=28
+                request['schema']=29
                 request['action'].update(kind='environment_installer_start_with_policy',powershell=policy)
                 self.write(directory/'request.json',request)
             original=self.managed/'onboarding'/operation['application']['environment']['id']/'record.json'
@@ -142,6 +142,18 @@ class ManagedVendorTests(unittest.TestCase):
                 self.assertTrue(s.vendor_application(operation))
             self.assertEqual(run.call_args.kwargs['managed_contract'],operation['managed']['capabilities'])
             self.assertEqual(original.read_bytes(),history)
+
+    def test_dependency_installer_continuation_accepts_retained_and_current_wire_generations(self):
+        operation,directory=self.replacement_operation('a')
+        request=json.loads((directory/'request.json').read_bytes())
+        for schema in (26,27,28,29):
+            request['schema']=schema
+            self.write(directory/'request.json',request)
+            self.assertEqual(s.selected_installer_origin(self.managed,operation['application']),directory.name)
+        request['schema']=30
+        self.write(directory/'request.json',request)
+        with self.assertRaisesRegex(ValueError,'managed_application_installation_binding'):
+            s.selected_installer_origin(self.managed,operation['application'])
 
     def test_replacement_policy_origin_remains_closed_and_exact(self):
         operation,directory=self.replacement_operation('a')
