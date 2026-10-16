@@ -90,6 +90,15 @@ private:
   std::atomic<bool> terminal_latched_{false};
   bool terminal();
   bool stateSession();
+  // An instance that never applied host state in a bridge session (refused,
+  // or its admission failed during restore) keeps the exact envelope the host
+  // restored and returns it unchanged from getState, so a save keeps the
+  // project's own bytes. Owner thread only; never touched by process(). One
+  // envelope, bounded by LVBState::payloadLimit like any loaded instance's
+  // state; released once a session applies state.
+  std::vector<uint8_t> held_state_;
+  bool state_held_ = false;
+  void holdState(std::vector<uint8_t> &&blob);
   uint32_t output_mask_=1;
 #ifdef AP8_PREVIEW
   AP10Results::Output returned_;

@@ -332,9 +332,26 @@ tresult PLUGIN_API Processor::connect(IConnectionPoint *peer) {
 #endif
   return result;
 }
+void Processor::holdState(std::vector<uint8_t> &&blob) {
+  held_state_ = std::move(blob);
+  state_held_ = true;
+  // Tell the controller the project's state is held unchanged. Bounded,
+  // owner-thread notification; an older controller ignores it.
+  if (auto *m = allocateMessage()) {
+    m->setMessageID("AP10.state_held");
+    m->getAttributes()->setInt("bytes", int64(held_state_.size()));
+    sendMessage(m);
+    m->release();
+  }
+}
 tresult PLUGIN_API Processor::getState(IBStream *stream) {
   if (!preview_)
     return kNotImplemented;
+  // This instance never applied the host's state: return those exact bytes.
+  // Nothing is fabricated; without held bytes the refusal below stands.
+  if (state_held_ && stream && owner_ == std::this_thread::get_id())
+    return LVBState::transfer(stream, held_state_.data(), held_state_.size(), true)
+               ? kResultOk : kResultFalse;
   if (phase_ == Failed || terminal())
     stateFailure("get", "failed_instance");
   if (!stream || owner_ != std::this_thread::get_id() || phase_ == New ||
@@ -387,6 +404,17 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
 tresult PLUGIN_API Processor::setState(IBStream *stream) {
   if (!preview_)
     return kNotImplemented;
+  // No bridge session was ever admitted, so this state cannot be applied.
+  // Keep the host's exact bytes for a later save; the restore still fails.
+  if (stream && owner_ == std::this_thread::get_id() && phase_ == Failed &&
+      !handle_ && !terminal()) {
+    try {
+      std::vector<uint8_t> blob;
+      if (LVBState::readEnvelope(stream, blob))
+        holdState(std::move(blob));
+    } catch (...) {
+    }
+  }
   if (phase_ == Failed || terminal())
     stateFailure("set", "failed_instance");
   if (!stream || owner_ != std::this_thread::get_id() || phase_ == New ||
@@ -408,16 +436,21 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
 #ifndef AP8_PREVIEW
     double restored = 0.;
 #endif
+    const bool envelope = LVBState::readEnvelope(stream, blob);
 #ifdef AP8_PREVIEW
-    if (!LVBState::readEnvelope(stream, blob) ||
+    if (!envelope ||
         ap8_validate_restore(AP8::identity, blob.data(), static_cast<uint32_t>(blob.size())))
 #else
-    if (!LVBState::readEnvelope(stream, blob) ||
+    if (!envelope ||
         ap4_validate(blob.data(), static_cast<uint32_t>(blob.size()), &restored))
 #endif
-      {phase_=Failed;return kResultFalse;}
-    if (!stateSession())
+      {if(envelope&&!handle_)holdState(std::move(blob));phase_=Failed;return kResultFalse;}
+    // Restore before admission: if this admission fails, keep the bytes.
+    if (!stateSession()) {
+      if (!handle_)
+        holdState(std::move(blob));
       return kResultFalse;
+    }
     if (resume) {
 #ifdef AP8_PREVIEW
       returned_.release_requested = true;
@@ -471,6 +504,9 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
       // unchanged across this private pause of the same Windows instance.
       phase_ = Running;
     }
+    // A session applied this state; it, not held bytes, now answers getState.
+    std::vector<uint8_t>().swap(held_state_);
+    state_held_ = false;
     return kResultOk;
   } catch (...) {
     phase_ = Failed;
