@@ -13,8 +13,9 @@ enum Kind : int64_t {
   Capacity = 5,    // the configured instance limit is reached
   Maintenance = 6, // the manager is changing the bridge or this plug-in
   Cleanup = 7,     // an earlier instance's cleanup is not yet confirmed
+  Local = 8,       // failed on the DAW side after or without a service answer
 };
-inline bool valid(int64_t kind) { return kind >= Unknown && kind <= Cleanup; }
+inline bool valid(int64_t kind) { return kind >= Unknown && kind <= Local; }
 inline Kind classify(const char *detail) {
   if (!detail) return Unknown;
   auto has = [detail](const char *code) { return std::strstr(detail, code) != nullptr; };
@@ -25,6 +26,9 @@ inline Kind classify(const char *detail) {
   if (has("admission_maintenance_active")) return Maintenance;
   if (has("admission_cleanup_unconfirmed")) return Cleanup;
   if (has("bridge_service_unreachable")) return NotRunning;
+  if (has("preview startup timeout")) return Busy;
+  // Only a service refusal leaves a record the manager can explain.
+  if (!has("admission_")) return Local;
   return Unknown;
 }
 inline const char *text(int64_t kind) {
@@ -35,6 +39,7 @@ inline const char *text(int64_t kind) {
   case Capacity: return "The bridge's plug-in limit is reached. Remove another instance first.";
   case Maintenance: return "The manager is changing the bridge. Load the plug-in when it finishes.";
   case Cleanup: return "The bridge is still confirming an earlier cleanup; the manager shows why.";
+  case Local: return "The bridge did not finish loading this plug-in. Reopen the project or restart your DAW.";
   default: return "The bridge did not load this plug-in; the manager shows why.";
   }
 }

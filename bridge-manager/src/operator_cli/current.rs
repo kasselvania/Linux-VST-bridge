@@ -579,12 +579,13 @@ pub(super) fn project_last_load(m: &Manager, product: &mut ui::Product) {
     let Ok(record) = read_json::<Value>(&path) else { return };
     let Some(outcome) = record["outcome"].as_str() else { return };
     if !record["observed_at"].is_u64() { return; }
-    // A record made against another publication (an update, reinstall or
-    // rollback since) says nothing about this one.
+    // Only a record made against this exact publication explains it; one made
+    // against another (an update, reinstall or rollback since), or never tied
+    // to one, says nothing about this plug-in now.
     let binding = &record["binding"];
-    if binding.is_object() && (binding["environment"] != product.environment.as_str()
+    if !binding.is_object() || binding["environment"] != product.environment.as_str()
         || binding["environment_revision"] != product.details["environment_revision"]
-        || binding["native_sha256"] != product.details["native_sha256"]) { return; }
+        || binding["native_sha256"] != product.details["native_sha256"] { return; }
     let phase = record["phases"].as_array().and_then(|phases| phases.last())
         .and_then(|phase| phase[0].as_str());
     let Some(problem) = linux_vst_bridge::problem::from_load_record(outcome, phase) else { return };
@@ -1269,15 +1270,18 @@ pub(super) mod tests {
         let class=base.selection.class.id.clone();
         let startup=f.m.root.join("runtime/native-startup");
         private_dir(&startup).unwrap();
-        let record=|outcome:&str,last:&str| atomic_json(&startup.join(format!("{}.json",class.to_ascii_lowercase())),
-            &json!({"schema":1,"class_id":class,"request":"07".repeat(16),
-                "observed_at":1792100498u64,"outcome":outcome,
-                "phases":[["request_received",0],["binding_verified",31],[last,267]],"total_ms":267})).unwrap();
         let product=|| {
             let captured=capture(&f.m).unwrap();
             captured.snapshot.products.iter().find(|p|p.class_id==class).unwrap().clone()
         };
         let before=product();
+        let binding=json!({"environment":before.environment,
+            "environment_revision":before.details["environment_revision"],
+            "native_sha256":before.details["native_sha256"]});
+        let record=|outcome:&str,last:&str| atomic_json(&startup.join(format!("{}.json",class.to_ascii_lowercase())),
+            &json!({"schema":1,"class_id":class,"request":"07".repeat(16),
+                "observed_at":1792100498u64,"outcome":outcome,"binding":binding,
+                "phases":[["request_received",0],["binding_verified",31],[last,267]],"total_ms":267})).unwrap();
         assert!(before.details["last_load"].is_null());
         let available=before.availability.clone();
         // Before: the musician saw an available plug-in and a blank editor.
@@ -1316,6 +1320,12 @@ pub(super) mod tests {
                     "native_sha256":shown},"total_ms":267})).unwrap();
         assert_eq!(product().details["last_load"]["problem"]["code"],"windows_side_stopped");
         fs::write(startup.join(format!("{}.json",class.to_ascii_lowercase())),b"not json").unwrap();
+        assert!(product().details["last_load"].is_null());
+        // A record never tied to a publication does not explain this one.
+        atomic_json(&startup.join(format!("{}.json",class.to_ascii_lowercase())),
+            &json!({"schema":1,"class_id":class,"request":"07".repeat(16),
+                "observed_at":1792100498u64,"outcome":"refused","phases":[["keeper_failed",267]],
+                "total_ms":267})).unwrap();
         assert!(product().details["last_load"].is_null());
     }
     #[test]

@@ -520,7 +520,8 @@ void refused_admission_regression() {
     {false, "Other: admission_binding_invalid", "The bridge did not load this plug-in; the manager shows why."},
     {true, "Other: admission_stale_native_caller", "The bridge was updated. Quit and restart your DAW to load this plug-in."},
     {true, "NotFound: bridge_service_unreachable: No such file or directory (os error 2)", "The bridge service is not running, so this plug-in was not loaded."},
-    {false, "NotFound: No such file or directory (os error 2)", "The bridge did not load this plug-in; the manager shows why."},
+    {false, "NotFound: No such file or directory (os error 2)", "The bridge did not finish loading this plug-in. Reopen the project or restart your DAW."},
+    {false, "InvalidData: preview startup timeout", "The bridge did not load this plug-in in time."},
   };
   for (const auto &c : cases) {
     events.clear();commands.clear();gui_fault=0;terminal_record={};
