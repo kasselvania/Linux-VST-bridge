@@ -4634,7 +4634,15 @@ pub(crate) mod tests {
         // Only the external scanner is a fixture. Projection, queued action,
         // worker admission, retirement checks and inventory mutation are real.
         let script=m.root.join("software/retry-supervisor.py");
-        let healthy=serde_json::to_string(&census.report.path).unwrap();
+        let healthy_path=f.outer.join("retry-healthy-report.json");
+        let mut healthy=test_fixture::inspection_report(&census);
+        let factory=healthy["records"].as_array_mut().unwrap().iter_mut()
+            .find(|row|row["state"]=="ap8_factory").unwrap();
+        factory["class_count"]=json!(1);
+        factory["classes"].as_array_mut().unwrap().truncate(1);
+        assert_eq!(inventory::classes(&healthy).unwrap().len(),1);
+        atomic_json(&healthy_path,&healthy).unwrap();
+        let healthy=serde_json::to_string(&healthy_path).unwrap();
         fs::write(&script,format!("import json,shutil,sys\njob=json.load(open(sys.argv[1]))\nwith open({healthy},'rb') as source,open(job['report'],'wb') as target: target.write(source.read())\nprint('LVO0 '+job['session']+' ready',flush=True)\nshutil.rmtree(job['directory'])\nprint('LVO1 '+job['session']+' retired',flush=True)\n")).unwrap();
         let mut sw=software(m).unwrap();
         sw.supervisor=Artifact {sha256:digest(&script).unwrap(),path:script};
@@ -4652,7 +4660,7 @@ pub(crate) mod tests {
         assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get),1);
         let current:inventory::Scan=read_json(&inventory).unwrap();
         assert_ne!(current.id,scan.id);
-        assert!(current.modules[0].quarantine_reason.is_none());
+        assert!(current.modules[0].quarantine_reason.is_none(),"{:?}",current.modules[0]);
         assert!(current.modules[0].inspection_error.is_none());
         assert!(!current.modules[0].classes.is_empty());
         let history=m.root.join("inventory/history").join(format!("{}.json",scan.id));
