@@ -3067,9 +3067,11 @@ never an `LVBSTATE` envelope, so it cannot be mistaken for any plug-in's own
 state. A loaded instance accepts the marker and keeps its current state. A
 restore that is neither applied nor held (over the 256 MiB cap a loaded instance
 also has, malformed, another thread, an exception) makes a later save refuse
-rather than claim nothing was recorded. Test108 was a diagnostic switch with
-the same answer, not this code: there the saved Kontakt block was identical to
-the original (173,328 characters, same digest). Rollback limit, accepted by the
+rather than claim nothing was recorded. Test112 (main + #378 + this change) on
+CachyOS / REAPER 7.82 with the service stopped: the editor said why it was not
+loaded and that saving keeps its settings, and the saved Kontakt block was
+identical to the original (173,328 characters, same digest); reopened with the
+bridge running, Kontakt loaded and played (−9.4 dBFS). Rollback limit, accepted by the
 coordinator and put to the maintainer: bridge builds older than this fail an
 instance restored from the marker, which only a project saved while an instance
 that never received state was refused can contain. A terminal instance whose
