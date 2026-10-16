@@ -370,7 +370,7 @@ pub(crate) mod tests {
         }
         transaction["after"]["uninstall"]["cd".repeat(32)]["DerivedUninstaller"] =
             "PROGRAM FILES/VENDOR/RemoveSaved.exe".into();
-        transaction["after"]["services"] = json!({"observed-service":{
+        transaction["after"]["services"] = json!({"ef".repeat(32):{
             "image":"C:\\Program Files\\Vendor\\BackgroundHost.exe"}});
         atomic_json(&path, &transaction).unwrap();
         let before = test_fixture::snapshot(&f.m.root);
