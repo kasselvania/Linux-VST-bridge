@@ -510,6 +510,10 @@ void curve_refusal_regression() {
   controller->disconnect(&processor);processor.disconnect(controller);
   controller->terminate();controller->release();processor.terminate();
 }
+// The bridge's own nothing-recorded state, as an unloaded instance saves it.
+std::vector<uint8_t> nothing_recorded() {
+  return {std::begin(LVBState::nothingRecorded), std::end(LVBState::nothingRecorded)};
+}
 // A bridge admission refused at load (for example a failed Windows
 // environment) used to be asked again on every 10 ms editor tick, each ask
 // reaching the bridge service and blocking the DAW's UI thread; with the
@@ -541,7 +545,7 @@ void refused_admission_regression() {
     ProcessSetup setup{kRealtime,kSample32,128,48000};
     check(processor.setupProcessing(setup)!=kResultOk,"a refused instance cannot be set up");
     LVBState::Stream stream;
-    check(processor.getState(&stream)==kResultOk && stream.bytes.empty(),"a refused instance records nothing and fabricates no state");
+    check(processor.getState(&stream)==kResultOk && stream.bytes==nothing_recorded(),"a refused instance saves the bridge's nothing-recorded marker, no plug-in state");
     check(open_calls==1,"UI ticks, setup and state never repeat a refused admission");
     // REAPER restores parameters into the controller after loading; that
     // must not replace the refusal with an editor-control failure.
@@ -601,7 +605,7 @@ void held_state_regression() {
       if (order == ProbeThenRestore) {
         // A refusal here makes REAPER skip the restore and every later save.
         LVBState::Stream probe;
-        check(processor.getState(&probe)==kResultOk && probe.bytes.empty(),"a refused instance answers a state probe with nothing recorded");
+        check(processor.getState(&probe)==kResultOk && probe.bytes==nothing_recorded(),"a refused instance answers a state probe with the nothing-recorded marker");
         restoreComponent(); restoreController();
       }
       if (order == ComponentFirst) { restoreComponent(); restoreController(); }
@@ -610,7 +614,7 @@ void held_state_regression() {
     LVBState::Stream out;
     const auto result = processor.getState(&out);
     if (order == NeverReceived) {
-      check(result==kResultOk && out.bytes.empty(),"an instance that received no state saves an empty state, nothing fabricated");
+      check(result==kResultOk && out.bytes==nothing_recorded(),"an instance that received no state saves the nothing-recorded marker, nothing fabricated");
     } else {
       check(result==kResultOk,"a refused instance saves the host's restored state");
       check(out.bytes==saved,"the saved state is byte-identical to the restored project data");
@@ -643,7 +647,7 @@ void held_state_regression() {
     LVBState::Stream in(oversized);
     check(processor.setState(&in)==kResultFalse,"an over-cap restore is refused");
     LVBState::Stream out;
-    check(processor.getState(&out)==kResultFalse && out.bytes.empty(),"an over-cap restore is never saved as empty or truncated");
+    check(processor.getState(&out)==kResultFalse && out.bytes.empty(),"an over-cap restore is never saved as nothing recorded or truncated");
     open_refused=false;
     controller->disconnect(&processor);processor.disconnect(controller);
     controller->terminate();controller->release();processor.terminate();
@@ -659,10 +663,13 @@ void held_state_regression() {
     controller->setComponentHandler(static_cast<IComponentHandler*>(&host));
     processor.connect(controller);controller->connect(&processor);
     const auto before=state_calls;
-    LVBState::Stream nothing;
-    check(processor.setState(&nothing)==kResultOk && state_calls==before,"an empty restore is accepted and restores nothing");
-    ProcessSetup setup{kRealtime,kSample32,128,48000};
-    check(processor.setupProcessing(setup)==kResultOk,"the instance stays usable after an empty restore");
+    LVBState::Stream nothing(nothing_recorded());
+    check(processor.setState(&nothing)==kResultOk && state_calls==before,"the nothing-recorded marker is accepted and restores nothing");
+    // A plug-in's own state is never mistaken for it: zero bytes stay a
+    // malformed restore, as before.
+    LVBState::Stream zero;
+    check(processor.setState(&zero)==kResultFalse,"zero bytes are not the nothing-recorded marker");
+
     controller->disconnect(&processor);processor.disconnect(controller);
     controller->terminate();controller->release();processor.terminate();
   }
