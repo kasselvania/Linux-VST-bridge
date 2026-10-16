@@ -3071,10 +3071,9 @@ rather than claim nothing was recorded. Test112 (main + #378 + this change) on
 CachyOS / REAPER 7.82 with the service stopped: the editor said why it was not
 loaded and that saving keeps its settings, and the saved Kontakt block was
 identical to the original (173,328 characters, same digest); reopened with the
-bridge running, Kontakt loaded and played (−9.4 dBFS). Rollback limit, accepted by the
-coordinator and put to the maintainer: bridge builds older than this fail an
-instance restored from the marker, which only a project saved while an instance
-that never received state was refused can contain. A terminal instance whose
+bridge running, Kontakt loaded and played (−9.4 dBFS). Accepted by the
+maintainer 2026-10-15: an older bridge build cannot load an instance restored
+from the "nothing recorded" marker. A terminal instance whose
 session had applied state or that was activated keeps snapshot recovery, and
 its view says that saving drops its settings.
 
