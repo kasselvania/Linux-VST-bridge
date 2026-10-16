@@ -23,9 +23,14 @@ impl Event {
     pub fn valid(&self, frames: usize) -> bool {
         frames <= CAP && (self.offset as usize) < frames.max(1) && self.valid_host(frames)
     }
+    /// One transport block: at most 1024 frames.
     pub fn valid_host(&self, frames: usize) -> bool {
-        frames <= 1024
-            && (if self.kind == PARAMETER { (self.offset as usize) <= frames }
+        frames <= 1024 && self.valid_in_block(frames)
+    }
+    /// The same value and extent rules for a DAW block of any length; the
+    /// native proxy splits a longer block into transport blocks.
+    pub fn valid_in_block(&self, frames: usize) -> bool {
+        (if self.kind == PARAMETER { (self.offset as usize) <= frames }
                 else { (self.offset as usize) < frames.max(1) })
             && self.value.is_finite()
             && (0.0..=1.0).contains(&self.value)

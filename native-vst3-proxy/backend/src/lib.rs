@@ -2,6 +2,7 @@
 #[cfg(test)]
 mod commercial_tests;
 mod context;
+mod daw_blocks;
 #[cfg(target_os = "linux")]
 mod descriptor;
 mod startup;
