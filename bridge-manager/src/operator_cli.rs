@@ -1369,8 +1369,13 @@ fn snapshot_readonly_depth(
     capacity_read: &dyn Fn() -> Option<CapacityReadback>,
     deep: bool,
 ) -> Result<ui::Snapshot> {
-    // Bounded wait order: operator serialization -> registry authority.
-    let _projection = acquire_readback(m, ui::OperatorLock::Canonical, id, timeout, waits)?;
+    // Bounded wait order: operator serialization -> registry authority. Only
+    // an action validating its own request takes serialization. A status read
+    // (no operation) is optimistic like the overview: it samples registry
+    // authority briefly and rechecks the same token after projection, so it
+    // never holds operator actions or their checks out for a whole projection.
+    let _projection = id.map(|_| acquire_readback(m, ui::OperatorLock::Canonical, id, timeout, waits))
+        .transpose()?;
     // History migration can change the projection token. Complete it before
     // sampling registry/capacity authority; never hash provenance under registry.lock.
     if deep { linux_vst_bridge::preparation::materialize_retained_history(m)?; }
@@ -8838,6 +8843,22 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
             latest
         );
         assert_eq!(onboarding::records(&f.m).unwrap().len(), 1);
+    }
+    #[test]
+    fn status_details_never_wait_for_an_action_but_a_worker_validation_does() {
+        let (f, id) = onboarding_worker_fixture();
+        // An action, or a connection check inside one, owns serialization.
+        let _action = canonical_lock(&f.m).unwrap();
+        let mut waits = vec![];
+        snapshot_for_operation(&f.m, None, Duration::from_millis(200), &mut waits,
+            &|| capacity_fixture(&f.m)).unwrap();
+        assert!(waits.iter().all(|wait| wait.name != ui::OperatorLock::Canonical), "{waits:?}");
+        // A worker validating its own request is still serialized with it.
+        let error = snapshot_for_operation(&f.m, Some(&id), Duration::from_millis(50), &mut vec![],
+            &|| capacity_fixture(&f.m)).unwrap_err();
+        let failure = error.downcast_ref::<linux_vst_bridge::operator_lock::AcquisitionFailure>().unwrap();
+        assert_eq!((failure.facts.name, failure.facts.outcome),
+            (ui::OperatorLock::Canonical, ui::LockOutcome::Timeout));
     }
     #[test]
     fn readback_and_action_entry_share_one_bounded_lock_without_repeating_action() {
