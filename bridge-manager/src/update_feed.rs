@@ -567,10 +567,21 @@ pub fn check(home: &Path, link: &BetaLink, trust: &Trust, current: &str, systems
 }
 /// A kept download is not needed once nothing newer is published. A
 /// download running in another window is left alone.
+/// The download lock, waiting up to two seconds. A just-released lock can
+/// stay held for a moment by another thread's freshly forked child (its copy
+/// of the descriptor closes at exec); a real download holds it far longer.
+fn lock_soon(lock: &fs::File) -> bool {
+    let deadline = Instant::now() + Duration::from_secs(2);
+    loop {
+        if unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0 { return true; }
+        if Instant::now() >= deadline { return false; }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
 fn clear_downloads(home: &Path) {
     let Ok(lock) = fs::OpenOptions::new().read(true).write(true).create(true).truncate(false)
         .mode(0o600).open(updates_dir(home).join("download.lock")) else { return };
-    if unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 { return; }
+    if !lock_soon(&lock) { return; }
     if let Ok(entries) = fs::read_dir(updates_dir(home).join("downloads")) {
         for entry in entries.flatten() { let _ = fs::remove_file(entry.path()); }
     }
@@ -629,7 +640,7 @@ fn download_and_stage_with(home: &Path, link: &BetaLink, trust: &Trust, current:
     // covers the partial download, the received range and staging.
     let lock = fs::OpenOptions::new().read(true).write(true).create(true).truncate(false)
         .mode(0o600).open(updates_dir(home).join("download.lock")).map_err(local_download)?;
-    if unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+    if !lock_soon(&lock) {
         return Err(UpdateError::LocalDownload("An update is already downloading in another manager window.".into()));
     }
     let part = downloads.join(format!("{}.part", package.sha256));
