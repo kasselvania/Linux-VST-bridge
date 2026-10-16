@@ -95,17 +95,21 @@ private:
   // the editor timer must not reach the bridge service on every tick.
   std::atomic<bool> session_refused_{false};
   int64_t refusal_kind_ = LVBAdmission::Unknown; // Set with session_refused_.
-  // An instance that never applied host state in a bridge session (refused,
-  // or its admission failed during restore) keeps the exact envelope the host
-  // restored and returns it unchanged from getState, so a save keeps the
-  // project's own bytes. Owner thread only; never touched by process(). One
-  // envelope, bounded by LVBState::payloadLimit like any loaded instance's
-  // state; released once a session applies state.
+  // Until a bridge session has applied the host's state or produced state of
+  // its own, an instance that cannot apply a restore (refused, admission
+  // failed, or its Windows side ended during the project load) keeps the exact
+  // envelope the host restored and returns it unchanged from getState, so a
+  // save keeps the project's own bytes. Owner thread only; never touched by
+  // process(). One envelope, bounded by LVBState::payloadLimit like any loaded
+  // instance's state; released once a session applies or produces state.
   std::vector<uint8_t> held_state_;
   bool state_held_ = false;
-  // The host restored state this instance could not keep (over the cap or
-  // malformed): saving then refuses rather than claim an empty state.
+  bool session_state_seen_ = false;
+  // The host restored state this instance neither applied nor kept (over the
+  // cap, malformed, wrong thread, or an exception): saving then refuses so the
+  // nothing-recorded marker is never written over real state.
   bool state_unkept_ = false;
+  void dropUnkeptState();
   void holdState(std::vector<uint8_t> &&blob);
   Steinberg::tresult saveNothingRecorded(Steinberg::IBStream *stream);
   void announceHeldState();

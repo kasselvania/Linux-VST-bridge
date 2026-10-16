@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cstring>
 #include <deque>
+#include <thread>
 #include <chrono>
 #include <condition_variable>
 #include <iostream>
@@ -46,6 +47,7 @@ void held_call(bool& entered, bool& released) {
 }
 uint32_t process_refusal=0;
 uint32_t open_calls=0;bool open_refused=false;const char* error_detail="";
+bool startup_prepare_refused=false;
 uint32_t fixture_delay=UINT32_MAX,fixture_vendor=0,fixture_tail=0,notice_flags=0;
 uint32_t actual_mode=UINT32_MAX,process_calls=0;
 uint32_t configured_maximum=0, activated_maximum=0;
@@ -200,7 +202,7 @@ uint32_t __wrap_ap23_startup_prepare(uint64_t,const uint32_t* ids,uint32_t count
   check(role<=1,"SDK role bounded");
   check(count==std::size(AP8::parameters),"exact startup SDK parameter census configured");
   for(uint32_t i=0;i<count;++i)check(ids[i]==AP8::parameters[i].id,"exact startup parameter identity");
-  return 0;
+  return startup_prepare_refused ? 1 : 0;
 }
 uint32_t __wrap_ap5_report_path(uint64_t, uint8_t *p, uint32_t n) {
   if (n)
@@ -577,10 +579,15 @@ std::vector<uint8_t> held_envelope(size_t payload, uint8_t seed) {
 }
 void held_state_regression() {
   // REAPER's order: it asks for state, restores, then asks again to save.
-  enum Order { ProbeThenRestore, ComponentFirst, ControllerFirst, BeforeAdmission, NeverReceived };
-  for (Order order : {ProbeThenRestore, ComponentFirst, ControllerFirst, BeforeAdmission, NeverReceived}) {
+  enum Order { ProbeThenRestore, ComponentFirst, ControllerFirst, BeforeAdmission, NeverReceived,
+               AdmittedThenFailed };
+  for (Order order : {ProbeThenRestore, ComponentFirst, ControllerFirst, BeforeAdmission, NeverReceived,
+                      AdmittedThenFailed}) {
     events.clear();commands.clear();gui_fault=0;terminal_record={};
-    open_refused=true;open_calls=0;
+    open_refused=order!=AdmittedThenFailed;open_calls=0;
+    // Admitted, then failed before the host's restore (here its start-up
+    // preparation; also a Windows side ending during the project load).
+    startup_prepare_refused=order==AdmittedThenFailed;
     Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
     host.processor=&processor;host.controller=controller;
     auto* context=static_cast<IHostApplication*>(&host);
@@ -606,14 +613,14 @@ void held_state_regression() {
       processor.connect(controller);controller->connect(&processor);
     } else {
       processor.connect(controller);controller->connect(&processor);
-      check(open_calls>=1,"admission was refused at connection");
+      check(open_calls==1,"one admission attempt at connection");
       if (order == ProbeThenRestore) {
         // A refusal here makes REAPER skip the restore and every later save.
         LVBState::Stream probe;
         check(processor.getState(&probe)==kResultOk && probe.bytes==nothing_recorded(),"a refused instance answers a state probe with the nothing-recorded marker");
         restoreComponent(); restoreController();
       }
-      if (order == ComponentFirst) { restoreComponent(); restoreController(); }
+      if (order == ComponentFirst || order == AdmittedThenFailed) { restoreComponent(); restoreController(); }
       if (order == ControllerFirst) { restoreController(); restoreComponent(); }
     }
     LVBState::Stream out;
@@ -621,24 +628,52 @@ void held_state_regression() {
     if (order == NeverReceived) {
       check(result==kResultOk && out.bytes==nothing_recorded(),"an instance that received no state saves the nothing-recorded marker, nothing fabricated");
     } else {
-      check(result==kResultOk,"a refused instance saves the host's restored state");
+      check(result==kResultOk,"an instance that could not apply the restore saves the host's restored state");
       check(out.bytes==saved,"the saved state is byte-identical to the restored project data");
       LVBState::Stream again;
       check(processor.getState(&again)==kResultOk && again.bytes==saved,"repeated saves stay byte-identical");
     }
+    check(open_calls==1,"probe, restore and saves never ask for admission again");
     // The editor learns what saving does even when the restore preceded the
-    // connection (the processor repeats it on every refused bind).
+    // connection (the processor repeats it on every refused bind), and its
+    // view reads the current sentence.
     for (int i=0;i<3;++i) host.tick();
-    check(controller->heldStateAnnounced()==(order==NeverReceived ? 0 : int64_t(saved.size())),
-          "the controller knows whether the project's state is held");
+    if (order != AdmittedThenFailed) {
+      check(controller->heldStateAnnounced()==(order==NeverReceived ? 0 : int64_t(saved.size())),
+            "the controller knows whether the project's state is held");
+      check(controller->savingLine()==(order==NeverReceived ? AP2::NOT_LOADED_NONE : AP2::NOT_LOADED_HELD),
+            "the editor's saving sentence matches what a save writes");
+    }
+    if (order == ComponentFirst) {
+      // The host restores "nothing recorded" over held bytes: that is saved.
+      LVBState::Stream nothing(nothing_recorded());
+      processor.setState(&nothing);
+      LVBState::Stream after;
+      check(processor.getState(&after)==kResultOk && after.bytes==nothing_recorded(),"a nothing-recorded restore replaces held bytes");
+      check(controller->savingLine()==AP2::NOT_LOADED_NONE,"the editor follows a later restore");
+      LVBState::Stream marker(nothing_recorded());
+      check(controller->setComponentState(&marker)==kResultOk,"controller and processor both accept the marker");
+    }
+    if (order == ControllerFirst) {
+      // A restore that is neither applied nor held (here from another thread)
+      // leaves nothing to save in its place: the save refuses rather than
+      // write older bytes or the marker over the project's state.
+      LVBState::Stream in(saved);
+      std::thread other([&]{ check(processor.setState(&in)==kResultFalse,"another thread's restore is refused"); });
+      other.join();
+      LVBState::Stream after;
+      check(processor.getState(&after)==kResultFalse && after.bytes.empty(),"a restore that was not kept is never saved over");
+      for (int i=0;i<3;++i) host.tick();
+      check(controller->savingLine()==AP2::NOT_LOADED_STATE,"the editor warns that saving drops the settings");
+    }
     LVBState::Stream controllerOut;
     check(controller->getState(&controllerOut)==kResultOk && controllerOut.bytes.size()==8,"controller state round-trips unchanged");
-    open_refused=false;
+    open_refused=false;startup_prepare_refused=false;
     controller->disconnect(&processor);processor.disconnect(controller);
     controller->terminate();controller->release();processor.terminate();
   }
   // An envelope claiming more than the cap is not read, so nothing is held:
-  // the save refuses instead of writing an empty or truncated state.
+  // the save refuses instead of writing the marker or a truncated state.
   {
     open_refused=true;
     Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
@@ -658,23 +693,24 @@ void held_state_regression() {
     controller->terminate();controller->release();processor.terminate();
   }
   // A project saved while the plug-in was refused records nothing for it; a
-  // loaded instance accepts that and keeps its own defaults.
+  // loaded instance accepts that, keeps its state and stays usable.
   {
     open_refused=false;
     Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
     host.processor=&processor;host.controller=controller;
     auto* context=static_cast<IHostApplication*>(&host);
-    check(processor.initialize(context)==kResultOk && controller->initialize(context)==kResultOk,"empty restore initialize");
+    check(processor.initialize(context)==kResultOk && controller->initialize(context)==kResultOk,"marker restore initialize");
     controller->setComponentHandler(static_cast<IComponentHandler*>(&host));
     processor.connect(controller);controller->connect(&processor);
     const auto before=state_calls;
     LVBState::Stream nothing(nothing_recorded());
     check(processor.setState(&nothing)==kResultOk && state_calls==before,"the nothing-recorded marker is accepted and restores nothing");
+    ProcessSetup setup{kRealtime,kSample32,128,48000};
+    check(processor.setupProcessing(setup)==kResultOk,"the instance stays usable after a marker restore");
     // A plug-in's own state is never mistaken for it: zero bytes stay a
     // malformed restore, as before.
     LVBState::Stream zero;
     check(processor.setState(&zero)==kResultFalse,"zero bytes are not the nothing-recorded marker");
-
     controller->disconnect(&processor);processor.disconnect(controller);
     controller->terminate();controller->release();processor.terminate();
   }

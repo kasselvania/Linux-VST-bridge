@@ -1,5 +1,6 @@
 #pragma once
 #include "admission_refusal.h"
+#include "nothing_recorded.h"
 #include "../../vst-state/stream.h"
 #include "ap10_backend.h"
 #include "ap11_gui.h"
@@ -86,10 +87,8 @@ public:
         std::strcmp(name, Steinberg::Vst::ViewType::kEditor))
       return nullptr;
     try {
-      if (terminal_failed_) return new AP2::RecoveryView(this,status_,terminal_.words[7]);
-      if (session_refused_) return new AP2::RecoveryView(this,status_,AP2::RecoveryView::NotLoaded{},
-          held_state_bytes_ > 0 ? AP2::NOT_LOADED_HELD
-          : held_state_bytes_ == 0 ? AP2::NOT_LOADED_NONE : AP2::NOT_LOADED_STATE);
+      if (terminal_failed_) return new AP2::RecoveryView(this,status_,terminal_.words[7],&saving_line_);
+      if (session_refused_) return new AP2::RecoveryView(this,status_,AP2::RecoveryView::NotLoaded{},&saving_line_);
       auto token = editor_.allocate();
       return token ? new AP11::VendorPanel(this, *this, token) : nullptr;
     } catch (...) {
@@ -142,8 +141,14 @@ public:
       return Steinberg::kResultFalse;
     try {
       std::vector<uint8_t> b;
-      if (!LVBState::readEnvelope(s, b) ||
-          ap8_validate_restore(identity, b.data(), static_cast<uint32_t>(b.size())))
+      bool nothing = false;
+      if (!LVBState::readEnvelopeOrNothing(s, b, nothing))
+        return Steinberg::kResultFalse;
+      // The bridge's nothing-recorded marker: nothing to mirror, as the
+      // processor accepts it too.
+      if (nothing)
+        return Steinberg::kResultOk;
+      if (ap8_validate_restore(identity, b.data(), static_cast<uint32_t>(b.size())))
         return Steinberg::kResultFalse;
       // This is the host's original component object, possibly produced by an
       // older module with different parameters. Only the selected Windows
@@ -175,6 +180,8 @@ public:
       if (m->getAttributes()->getInt("bytes", bytes) != kResultOk || bytes < -1)
         return kResultFalse;
       held_state_bytes_ = bytes;
+      saving_line_ = bytes > 0 ? AP2::NOT_LOADED_HELD
+                   : bytes == 0 ? AP2::NOT_LOADED_NONE : AP2::NOT_LOADED_STATE;
       return kResultOk;
     }
     if (!std::strcmp(id, "AP10.refused")) {
@@ -418,6 +425,7 @@ public:
   uint64_t allocateEditorView() { return onOwner() ? editor_.allocate() : 0; }
   uint32_t panelState(uint64_t view) const override { return editor_.state(view); }
   int64_t heldStateAnnounced() const { return held_state_bytes_; }
+  const char* savingLine() const { return saving_line_; }
   const char *panelStatus() const { if(terminal_failed_)return status_;return save_unavailable_ ? "Saving unavailable; vendor editor remains accessible" : status_; }
   bool readbackAvailable(uint32_t id) {auto* p=state(id);return p&&p->available;}
 
@@ -432,6 +440,8 @@ private:
   // From AP10.state_held: held size, 0 nothing received, -1 not kept (the
   // default until the processor says, which is the cautious reading).
   int64_t held_state_bytes_=-1;
+  // What saving does for this instance; views read it on every redraw.
+  const char* saving_line_=AP2::NOT_LOADED_STATE;
   AP15::EditorLifecycle editor_;
   Steinberg::Vst::IMessage *retirement_message_ = nullptr;
   ap11_gui_message_t pending_close_{};

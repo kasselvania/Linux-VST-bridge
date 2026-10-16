@@ -380,7 +380,7 @@ fn code_suffix(code: &str) -> String {
 }
 
 // What saving does while a plug-in is not loaded; every refused-load card says it.
-const SAVING_NOT_LOADED: &str = "Saving meanwhile keeps its saved settings unchanged.";
+const SAVING_NOT_LOADED: &str = "Before saving, look at the plug-in's editor window: it says whether saving keeps the plug-in's saved settings (checked in REAPER).";
 const NOT_LOADED: &str = "The last time your DAW loaded this plug-in, the bridge did not load it, so it stayed empty and silent.";
 
 /// The last DAW load of a plug-in did not succeed (`runtime/native-startup`
@@ -397,7 +397,7 @@ pub fn from_load_record(outcome: &str, phase: Option<&str>, refusal: Option<&str
             format!("Load the plug-in again: reopen the project or restart your DAW. Removing and adding the plug-in starts it with default settings. {SAVING_NOT_LOADED} The bridge starts its Windows side again on that load. If it is refused again, wait a minute before loading it again. If it keeps failing, create a problem report.")),
         (Some("bridge_update_required"), _) => Explanation::new("bridge_updated_daw_old", NOT_LOADED,
             "The bridge was updated while your DAW still had the older bridge plug-in loaded; reopening a project keeps that older one.",
-            "Quit and restart your DAW, then open the project. Saving before that keeps this plug-in's saved settings unchanged."),
+            "Quit and restart your DAW, then open the project. Do not save before restarting: the older bridge module still loaded can drop this plug-in's settings from the project."),
         (_, Some("admission_global_capacity" | "admission_class_capacity" | "admission_native_image_capacity")) =>
             Explanation::new("bridge_plugin_limit", NOT_LOADED,
             "The bridge was already running as many plug-ins as it allows at once, in total or of this plug-in.",
