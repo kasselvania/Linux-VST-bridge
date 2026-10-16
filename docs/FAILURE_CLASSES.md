@@ -98,6 +98,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-STATE-001](#fc-state-001--saved-state-rejects-an-explicitly-selected-module-update) | Updated module rejects earlier saved state | Native state envelope / selected execution identity | causal for reference fixtures | installed reference repair passed | Ubuntu SDK instrument/effect; normal manager rollback | reference regression resolved; real DAW/commercial unqualified | Physical DAW update/recall and declared interaction/soak |
 | [FC-STATE-002](#fc-state-002--recorded-audio-exceeds-the-state-cap-and-ends-the-host) | Recording makes saving end the host | SDK state streams / state transport | causal in source; recording comparison agrees | 256 MiB cap and recoverable capture refusal installed in Test 11 | SDK recorded-state recall and continued audio after refusal; Deck pair verified | resolved on the Deck in Test 14 | state near 100 MiB; flat Linux-side limits |
 | [FC-STATE-003](#fc-state-003--saved-project-reopens-with-default-state) | Saved project reopens with default state | Native component state restore | causal | Processing restore correction installed in Test26 | Ubuntu 26.04.1 / REAPER 7.82 Reference instrument/effect recall | resolved for this tested case | Broader plug-in and DAW recall qualification |
+| [FC-STATE-004](#fc-state-004--saving-a-refused-instance-drops-its-saved-state) | Saving a refused instance drops its saved state | Native component state for unadmitted instances | causal | source-fixed | Kontakt 8 / CachyOS REAPER 7.82 (#380) | open until installed | Installed REAPER save comparison |
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process policy installed; corrected r4 installed | Ubuntu FRAGMENTS/Deck Analog Lab policy lifecycle; Deck FRAGMENTS retained-policy recall/retirement; Deck MOTIONS r4 Windows-default editor lifecycle; Test41 owned FRAGMENTS/Analog Lab r4 default editor lifecycle | review candidate; old policy disables Windows screen readers | Broader audio/accessibility qualification and manager recovery |
@@ -3048,6 +3049,21 @@ Last reviewed: 2026-10-06.
 
 Test25 confirms REAPER invokes both component restores on the UI thread while Processing, as the SDK permits; the native guard refused them before parsing or vendor restoration despite correctly saved opaque state. The correction reserves the existing bounded owner, stops, restores/readbacks and restarts the same instance; callbacks remain nonwaiting and failures cannot restart processing. The old guard fails the regression; corrected SDK 6/6 and worker/capture 3/3 pass.
 Installed Test26 on Ubuntu 26.04.1 / REAPER 7.82 restores effect Level/Colour .766/.655, instrument .61/.33 and its Level envelope from the unchanged original project. Both four-second stereo 24-bit/44.1-kHz offline renders match the baseline PCM exactly (352,800 samples each, zero differences): [specific recall evidence](../evidence/state-recall/2026-10-07-reaper-processing-restore.json). Resolved for this Reference case.
+
+## FC-STATE-004 — Saving a refused instance drops its saved state
+
+CachyOS, REAPER 7.82, Kontakt 8 ([#380](https://github.com/kasselvania/Linux-VST-bridge/issues/380)):
+with the bridge refusing the instance (service stopped), saving the project
+under a new name cut Kontakt's saved state from 173,328 to 22,848 characters.
+The proxy refused both setState and getState for an instance without a bridge
+session, so REAPER saved nothing for the component. An instance that never
+applied the host's state in a session (refused at connection, or its admission
+failed during the restore) now keeps the exact restored envelope and returns
+it unchanged from getState; one that received none still refuses, so nothing
+is fabricated. The copy is bounded like any loaded instance's state (256 MiB);
+an envelope over the cap is not read, so the save refuses as before rather
+than writing a truncated state. A terminal instance that had a session keeps
+today's behaviour (snapshot recovery).
 
 ## FC-UI-008 — Vendor editor removal crashes the Windows host
 
