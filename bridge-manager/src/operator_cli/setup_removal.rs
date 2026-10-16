@@ -18,7 +18,7 @@ const IN_USE: &str = "Something is still using this setup (an installer, an app 
 const KEEPER_CLOSING: &str = "The bridge is still closing this setup. Try again in a minute.";
 /// An idle bridge host retires about 90 seconds after its last plug-in closed.
 const KEEPER_WAIT: Duration = Duration::from_secs(100);
-const MANAGED: &str = "This setup is managed by the product and can't be deleted.";
+const MANAGED: &str = "This setup belongs to the bridge itself, not to software you installed, so it can't be deleted here.";
 const SETUP_MOVED: &str = "This setup's folder isn't where the manager put it, or it was replaced by a link, so the manager won't delete it. Send Setup details.";
 const TOO_DEEP: &str = "This setup has folders nested too deeply to delete safely. Nothing outside it was touched. Send Setup details.";
 const NOT_OURS: &str = "A folder in this setup belongs to another user, so the manager won't delete it. Send Setup details.";
