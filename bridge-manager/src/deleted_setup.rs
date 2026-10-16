@@ -45,6 +45,9 @@ pub struct Tombstone {
     pub requested_at: u64,
     pub deleted_at: Option<u64>,
     pub state: State,
+    /// The musician also chose to discard the imported installer file.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub forget_installer: bool,
     /// The environments folder when the deletion started. A setup folder
     /// missing later counts as already deleted only on this same folder, so
     /// an unplugged drive is never taken for deleted files.
@@ -195,7 +198,7 @@ mod tests {
         Tombstone {schema:1,environment:f.r.environment.id.clone(),installer:"ab".repeat(32),
             name:"Fixture setup".into(),environments:vec![f.r.environment.clone()],registrations:vec![],
             plugins:vec!["Actual class".into()],operation:"cd".repeat(16),requested_at:1,
-            deleted_at:(state == State::Deleted).then_some(2),state,environments_folder:None}
+            deleted_at:(state == State::Deleted).then_some(2),state,environments_folder:None,forget_installer:false}
     }
     #[test]
     fn tombstones_mark_every_recorded_environment_and_refuse_foreign_paths() {

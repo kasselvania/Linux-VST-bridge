@@ -522,6 +522,7 @@ pub(super) fn current_products(m: &Manager, db: &Registry, sw: &Software,
         let removed_by_choice = entry.publication == Publication::Removed && publication_valid
             && entry.managed_revision.as_ref().is_some_and(|publication|
                 setup_removal::removed_by_musician(m, class, publication));
+        let uninstalled = removed_by_choice && setup_removal::gone(&r.module.path);
         let current_valid = module_valid && environment_valid && runner_valid && performance_valid
             && native_valid && host_valid && publication_valid && publication_selected;
         let profile = loaded.map(|revision| &revision.profile);
@@ -535,14 +536,15 @@ pub(super) fn current_products(m: &Manager, db: &Registry, sw: &Software,
             class_id: class.clone(), name:r.metadata.name.clone(), vendor:r.metadata.vendor.clone(),
             role:serde_json::to_value(profiles::role(&r.metadata)?)?.as_str().unwrap_or("unknown").into(),
             version:r.metadata.version.clone(),
-            disposition:if current_valid {"ready"} else if removed_by_choice {"removed_from_daw"}
-                else {"needs_attention"}.into(),
+            disposition:if current_valid {"ready"} else if uninstalled {"uninstalled"}
+                else if removed_by_choice {"removed_from_daw"} else {"needs_attention"}.into(),
             active_revision:profile.map(|p| p.revision),
             recommended_revision:recommended.map(|p| p.revision),
             environment:r.environment.id.clone(), runner:r.environment.runner.id.clone(),
             module_sha256:r.module.sha256.clone(), limitations, history:vec![], actions:vec![],
             compatibility:None,availability:Some(ui::NativeAvailability {available:current_valid,
-                reason:if current_valid {None} else if removed_by_choice {Some(setup_removal::REMOVED_FROM_DAW.into())}
+                reason:if current_valid {None} else if uninstalled {Some(setup_removal::UNINSTALLED.into())}
+                    else if removed_by_choice {Some(setup_removal::REMOVED_FROM_DAW.into())}
                     else {Some("The native DAW connection needs attention.".into())}}),
             details:json!({"profile":profile.map(|p|json!({"id":p.id,"revision":p.revision,"claim":p.claim})),
                 "environment_revision":r.environment.revision,
@@ -708,7 +710,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
             Ok(record.installation_operation.is_none()
                 || onboarding::retired(&onboarding::result(m, record)?))
         })?;
-    let retired = vendor && installers_retired && environment_install::all_retired(m)?;
+    let retired = vendor && installers_retired && environment_install::all_retired(m)? && uninstall::all_retired(m)?;
     let owner_at = Instant::now(); phases.push(("current_owners",owner_at.duration_since(product_at).as_millis()));
     let installers = installer_import::list_identity_records(m)?;
     let record_at = Instant::now(); phases.push(("setup_records",record_at.duration_since(owner_at).as_millis()));
@@ -811,6 +813,8 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
         vendor_applications.push(app);
     }
     let workspace_at = Instant::now(); phases.push(("workspace_and_cards",workspace_at.duration_since(joined_at).as_millis()));
+    let uninstallers=uninstall::project(m,&installer_setups,&records,&db,&managed_bindings,busy)?;
+    phases.push(("uninstallers",workspace_at.elapsed().as_millis()));
     #[cfg(feature = "pb0-c0-audit")]
     eprintln!("PB0_PHASE {}", serde_json::to_string(&phases)?);
     #[cfg(not(feature = "pb0-c0-audit"))]
@@ -828,7 +832,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
             action("Create sanitized support export",ui::Action::SupportExport {},None),
             action("Reconcile interrupted transaction",ui::Action::TransactionReconcile {},
                 inactive_reason(cap.as_ref(),retired,pending,true))],
-        operation,deleted_setups};
+        operation,deleted_setups,uninstallers};
     Ok(CurrentOverviewContext {snapshot,busy,profiles,revisions,owners,watched,current_generation,
         software:sw,registry:db,preparation,bindings:managed_bindings,
         installer_live,vendor_progress,vendor_retired:vendor,all_vendor_retired:retired,cleanup_seen,
@@ -1220,7 +1224,7 @@ pub(super) mod tests {
                 system:system_from_capacity(None,pending,0),onboarding:vec![],
                 installer_setups:vec![],environment_installers:vec![],environments:vec![],vendor_applications:vec![],
                 products:vec![],workspaces,active_sessions:vec![],capture:Value::Null,
-                recent_incidents:vec![],actions:vec![],operation:None,deleted_setups:vec![]},
+                recent_incidents:vec![],actions:vec![],operation:None,deleted_setups:vec![],uninstallers:vec![]},
             busy:None,profiles:vec![],revisions:BTreeMap::new(),
             current_generation:pulse_generation(m).unwrap(),
             software,registry:m.registry().unwrap(),preparation:preparation::RecordReadback::capture(m).unwrap(),
@@ -1735,7 +1739,7 @@ pub(super) mod tests {
             system:system_from_capacity(None,0,0),onboarding:vec![],
             installer_setups:vec![],environment_installers:vec![],environments:vec![],vendor_applications:vec![],
             products:vec![],workspaces:vec![],active_sessions:vec![],
-            capture:Value::Null,recent_incidents:vec![],actions:vec![],operation:None,deleted_setups:vec![]};
+            capture:Value::Null,recent_incidents:vec![],actions:vec![],operation:None,deleted_setups:vec![],uninstallers:vec![]};
         let mut context = context_for_watched(&fixture.m, watched);
         context.snapshot = snapshot;
         context.recheck(&fixture.m).unwrap();

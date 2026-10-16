@@ -613,7 +613,7 @@ pub fn all_retired(m: &Manager) -> Result<bool> {
             return Ok(false);
         }
     }
-    operator_cli::environment_install::all_retired(m)
+    Ok(operator_cli::environment_install::all_retired(m)? && operator_cli::uninstall::all_retired(m)?)
 }
 pub fn unit(op: &str) -> Result<String> {
     require(valid_hex(op, 32), "installer_operation_identity")?;
@@ -894,7 +894,12 @@ pub(super) fn projection_current(m: &Manager, busy: Option<&str>,
                     }
                 } else {
                     state = "cleanup_unconfirmed".into();
-                    human = "Cleanup is unresolved; further installation is refused";
+                    human = "The manager couldn't confirm that this installer closed. Use Check that it closed";
+                    actions.push(ui::AvailableAction {
+                        label: operator_cli::environment_install::CLOSE_CHECK.into(),
+                        action: ui::Action::InstallerCloseCheck { operation: op.clone() },
+                        disabled_reason: None,
+                    });
                 }
             } else {
                 actions.push(ui::AvailableAction {
@@ -2030,6 +2035,7 @@ pub(crate) mod tests {
             actions: vec![],
             operation: None,
             deleted_setups: vec![],
+            uninstallers: vec![],
         };
         let refresh: Vec<_> = crate::operator_cli::available(&snapshot)
             .into_iter()

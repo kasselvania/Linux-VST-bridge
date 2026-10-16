@@ -317,9 +317,27 @@ pub enum Action {
     /// retained as deleted-setup history; uncertain ownership refuses.
     /// Offered unconfirmed; a request runs only with `confirmed: true`, the
     /// musician's answer to the confirmation that names what is deleted.
+    /// `forget_installer` also discards the imported installer file.
     SetupDelete {
         installer: String,
         environment: String,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        confirmed: bool,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        forget_installer: bool,
+    },
+    /// Check that an installer or uninstaller run whose closing was never
+    /// confirmed (the manager or the computer stopped meanwhile) has nothing
+    /// left running, and record it as closed. Nothing is run or stopped.
+    InstallerCloseCheck { operation: String },
+    /// Run the uninstaller that one registration in the setup's own registry
+    /// names (exact key and command bytes), after removing its plug-ins from
+    /// the DAW. Nothing outside that registration is ever run. Offered
+    /// unconfirmed, like Delete.
+    ProductUninstall {
+        environment: String,
+        registration: String,
+        command_sha256: String,
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         confirmed: bool,
     },
@@ -512,6 +530,26 @@ pub struct Snapshot {
     pub operation: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub deleted_setups: Vec<DeletedSetup>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub uninstallers: Vec<Uninstaller>,
+}
+/// One uninstall choice of a setup: a registration in its own registry, or
+/// the vendor app that manages the listed plug-ins.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Uninstaller {
+    pub environment: String,
+    /// The vendor's own name for what is uninstalled.
+    pub name: String,
+    /// Plug-ins taken out of the DAW first: those this registration's own
+    /// installation added, or every plug-in of the setup when that is unknown.
+    pub affected: Vec<String>,
+    pub affected_classes: Vec<String>,
+    /// "installed_with_this" when the setup's own installation records show
+    /// which plug-ins it installed; "unknown" when they cannot, and then
+    /// every plug-in of the setup is affected.
+    pub coverage: String,
+    pub action: AvailableAction,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -944,6 +982,7 @@ impl Action {
                 | Self::PluginAddBackToDaw { .. }
                 | Self::SetupRemoveFromDaw { .. }
                 | Self::SetupDelete { .. }
+                | Self::ProductUninstall { .. }
         )
     }
     /// Shared-resource operations use the global status. Class-scoped operations
@@ -995,7 +1034,8 @@ mod tests {
             Action::PluginAddBackToDaw {class_id:"class".into(),
                 expected_removed:PublicationIdentity {id:"publication".into(),sha256:"digest".into()}},
             Action::SetupRemoveFromDaw {environment:"environment".into()},
-            Action::SetupDelete {installer:"installer".into(),environment:"environment".into(),confirmed:true},
+            Action::SetupDelete {installer:"installer".into(),environment:"environment".into(),confirmed:true,
+                forget_installer:false},
         ] {
             assert!(action.requires_inactive(), "Affected owners still need inactivity: {action:?}");
             assert!(!action.requires_global_inactive(), "Unrelated DSP must remain independent: {action:?}");
@@ -1004,19 +1044,30 @@ mod tests {
             Action::EnvironmentRescan {environment:"environment".into()},
             Action::PluginInspect {selection:"selection".into(),audio_layout:None},
             Action::OrdinaryRestoreRecommended {class_id:"class".into()},
+            Action::ProductUninstall {environment:"environment".into(),registration:"key".into(),
+                command_sha256:"digest".into(),confirmed:true},
             Action::TransactionReconcile {}] {
             assert!(action.requires_global_inactive(), "Shared operation stays global: {action:?}");
         }
     }
     #[test]
     fn deleting_a_setup_is_offered_unconfirmed_and_confirmed_only_explicitly() {
-        let offered = Action::SetupDelete {installer:"a".into(),environment:"b".into(),confirmed:false};
+        let offered = Action::SetupDelete {installer:"a".into(),environment:"b".into(),confirmed:false,
+            forget_installer:false};
         let wire = serde_json::to_value(&offered).unwrap();
         assert_eq!(wire, serde_json::json!({"kind":"setup_delete","installer":"a","environment":"b"}));
         assert_eq!(serde_json::from_value::<Action>(wire).unwrap(), offered);
         let confirmed: Action = serde_json::from_value(serde_json::json!(
             {"kind":"setup_delete","installer":"a","environment":"b","confirmed":true})).unwrap();
-        assert!(matches!(confirmed, Action::SetupDelete {confirmed:true,..}));
+        assert!(matches!(confirmed, Action::SetupDelete {confirmed:true,forget_installer:false,..}));
+        // Forgetting the installer is the musician's separate, explicit choice.
+        let forget: Action = serde_json::from_value(serde_json::json!({"kind":"setup_delete","installer":"a",
+            "environment":"b","confirmed":true,"forget_installer":true})).unwrap();
+        assert!(matches!(forget, Action::SetupDelete {confirmed:true,forget_installer:true,..}));
+        let uninstall = Action::ProductUninstall {environment:"a".into(),registration:"b".into(),
+            command_sha256:"c".into(),confirmed:false};
+        assert_eq!(serde_json::to_value(&uninstall).unwrap(), serde_json::json!({"kind":"product_uninstall",
+            "environment":"a","registration":"b","command_sha256":"c"}));
     }
     #[test]
     fn local_settings_trial_is_closed_typed_and_does_not_require_inactivity() {
@@ -1089,6 +1140,8 @@ mod tests {
             r#"{"kind":"setup_delete","environment":"b"}"#,
             r#"{"kind":"plugin_remove_from_daw","class_id":"a","expected_current":{"id":"b","sha256":"c"},"link":"x"}"#,
             r#"{"kind":"plugin_add_back_to_daw","class_id":"a"}"#,
+            r#"{"kind":"product_uninstall","environment":"a","registration":"b","command_sha256":"c","command":"x"}"#,
+            r#"{"kind":"product_uninstall","environment":"a","registration":"b","command_sha256":"c","arguments":["/S"]}"#,
         ] {
             assert!(serde_json::from_str::<Action>(raw).is_err());
         }

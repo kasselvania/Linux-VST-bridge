@@ -152,6 +152,27 @@ removed and added back with the same publication; Space Modulator is set up agai
 from the kept installer after Delete and published in a new setup while the deleted
 setup's publication history stays; that setup is deleted again through the new
 confirmation (894 MB → identity record only).
+Test120 (#386 part 2): each Inno setup (Freq Echo, Supermassive, CHOW Tape,
+ChowCentaur, Space Modulator) is offered "Uninstall <vendor name>" for the plug-in
+its own installer added. Space Modulator's uninstall took it out of the DAW, ran
+Valhalla's own uninstaller window ("Are you sure…" → "successfully removed"), and
+the rescan shows it as "Uninstalled" with its history kept; Delete with "Also forget
+the installer file" then removed the setup and the manager's installer copy.
+Test130 (after review): the uninstall reserves the setup like an installer run
+(environment revision 1 → 2 before Valhalla's window opened); answering "No" in
+Valhalla's prompt is reported as not finished with the plug-in still installed and
+out of the DAW; uninstalling again with "Yes" reports it uninstalled.
+Test140 (two plug-ins in one setup: Space Modulator's installer run in Freq Echo's
+setup, which now connects both): "No" put Space Modulator back checked again and
+re-checked Freq Echo, and both saved REAPER projects reopened and played; an
+uninstaller killed mid-run kept the bridge paused until Check that it closed, which
+then scanned, re-checked Freq Echo and put Space Modulator back; "Yes" uninstalled
+Space Modulator and Freq Echo, checked again, still played. Each re-check took
+about 15–25 s, shown as "Checking this setup's plug-ins (n of 2)".
+Test142: Freq Echo set to 256-frame buffering on its card was re-checked with it after an
+in-setup installer run and after a declined uninstall (it is silent at 256 frames on this VM
+either way; at 512 the same revision played).
+MSI uninstall is covered by unit tests only. **unqualified**.
 
 Test72 on this CachyOS/native REAPER fixture passes Choose program without
 installer observations, Open with a sibling resource, Show from the manager and
