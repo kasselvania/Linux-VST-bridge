@@ -48,3 +48,31 @@ jobs:
         run: python3 tools/runtime/prepare.py --check-upstream
       - name: Check complete Proton build inputs and generated prefix
         run: python3 tools/runtime/redist-inputs.py --check-upstream
+
+  mechanism-fixtures:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Build original Win32 regression fixtures in both architectures
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends gcc-mingw-w64-i686 gcc-mingw-w64-x86-64
+          mkdir "$RUNNER_TEMP/runtime-mechanism-fixtures"
+          for arch in i686 x86_64; do
+            compiler="$arch-w64-mingw32-gcc"
+            output="$RUNNER_TEMP/runtime-mechanism-fixtures"
+            "$compiler" -municode -static -Wall -Wextra -Werror \
+              tools/runtime-msi-reader/strref_fixture.c -o "$output/strref-$arch.exe" -lmsi -lole32
+            "$compiler" -municode -static -Wall -Wextra -Werror \
+              tools/runtime/dcomp_fixture.c -o "$output/dcomp-$arch.exe" -lole32
+            "$compiler" -municode -static -Wall -Wextra -Werror \
+              tools/runtime/loader_fixture.c -o "$output/loader-$arch.exe"
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runtime-mechanism-fixtures
+          path: ${{ runner.temp }}/runtime-mechanism-fixtures/*.exe
+          if-no-files-found: error
+          retention-days: 3

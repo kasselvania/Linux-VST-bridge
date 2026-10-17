@@ -59,6 +59,15 @@ the older MR11824 re-encoder over that implementation. The additional regression
 corrupts only a signature byte and requires `NTE_BAD_SIGNATURE`, preserving the
 requirement to reject invalid signatures. No production crypt32 code is changed.
 
+The original account-free PE fixtures are built for both architectures by the
+source-input workflow. `loader_fixture` takes the opposite-architecture fixture
+path and checks native execution and same/opposite-architecture child creation
+with bounded waits. `dcomp_fixture` checks the three device-creation exports;
+it does not test composition or rendered pixels. `strref_fixture` takes a new
+disposable directory: ordinary short and engine-written genuine long pools are
+controls, while a separate short database advertises long references to expose
+the historical reader defect. It refuses to overwrite fixture databases.
+
 ## Acquisition and delivery boundary
 
 Valve's [pinned source instructions](https://github.com/ValveSoftware/Proton/blob/5b89db940e0ebe3a137a6009a3589232fe084c09/README.md)
