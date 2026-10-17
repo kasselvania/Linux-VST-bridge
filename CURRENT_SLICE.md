@@ -10,10 +10,8 @@ capabilities into one release, not more plug-in/campaign production pathways.
 
 Built: both native Wine architectures and the approved full Wine/audio/graphics/
 services redist are complete, without Steam game/overlay or VR relay integrations.
-Fresh first-party fixtures: full launcher initialization in 7s; both PE architectures
-and cross-child, DComp/MSI/UIA/certificate tests pass. The exact paired helper passes
-1,000 bidirectional futex exchanges. Matching source/notices collection is complete.
-Exact WebView2 remains setup-owned; delivery/servicing remain outstanding.
+PE architectures/cross-child, DComp/MSI/UIA/certificate and paired-helper tests pass;
+matching source/notices collection is complete. WebView2 delivery/servicing is open.
 Live inventory and implementation ownership: [#430](https://github.com/kasselvania/Linux-VST-bridge/issues/430).
 
 Boundary: preserve the working Deck. Operator reports ~170 GB backup complete:
@@ -21,17 +19,19 @@ Boundary: preserve the working Deck. Operator reports ~170 GB backup complete:
 one growing log; licensed setups excluded, restoration untested. No wipe, licensed
 state migration, private payload import or silent switch. Use disposable fixtures.
 
-Checkpoint: fresh CachyOS Test206 completes ordinary install/acquisition, original
-Reference installer, discovery/preparation/publication and native REAPER play/save/
-full exit/reopen. Effect Level .7 / Colour .2 and instance identity survive; the
-2s stereo render measures .490000008 / .490000002 gain (expected .49).
-Cold acquisition takes about 14.5 minutes. Failed Test205 remains preserved.
-Reopened real-time/offline logs retain expired-output counts; continuity is open.
+Resumed installed outcomes: exact fresh CachyOS Test206 / native REAPER preserves
+Reference Level .7 / Colour .2 and FX identity through full exit/reopen. Complete
+2s renders, including edges, match .49 gain. A 60s capture has one permitted startup
+handoff, settled by 220.7 ms; every later frame matches .49. Stopped-only processing
+also accumulates expirations, so the earlier totals did not establish audio drops.
+TyrellN6 16976 now completes ordinary common-runtime install/discovery/publication,
+Windows editor, 16-note playback and Output .37 save/full exit/reopen with the same
+FX identity. Cold acquisition takes about 14.5 minutes; failed Test205 is preserved.
 
-Paused at the operator's working checkpoint. PR453 stays draft/unmerged and the
-main runtime recommendation stays unchanged. Remaining: real-vendor combined cases,
-SteamOS, reboot, explicit update/rollback, and setup-owned browser delivery.
-Resume only on operator instruction; preserve the working Deck and licensed state.
+Next: one combined real case at a time; fix the first demonstrated blocker and
+repeat its installed journey. Graphics/touch and installer/services cases, SteamOS,
+reboot, explicit update/rollback and browser delivery remain open. PR453 stays
+draft/unmerged; main's runtime recommendation is unchanged. #430 remains open.
 
 Done: clean Git build → normal acquisition/install/discovery/publication → combined
 real cases. Play and save/reopen through full DAW exit, restart/reboot, update and

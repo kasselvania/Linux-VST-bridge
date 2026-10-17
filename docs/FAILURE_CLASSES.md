@@ -17,12 +17,15 @@ staging supplies the exact kit-owned adjacent helper; ordinary discovery connect
 both Reference classes. Failed Test205 remains preserved; this is fresh-account
 acceptance, not recovery of that failed setup.
 
-Test206 Reference expired-output totals: initial real-time 0 / 1,476,096 frames;
-reopened real-time 6,656 / 986,624 (138.7 ms at 48 kHz); offline render 1,536 /
-111,104 (32 ms), despite `clean=true`. These cover whole instance lifetimes,
-including stopped time; sample placement and audible impact remain unresolved.
-Only the render's 0.1–1.9s interior was compared. Dropout-free real-time behavior
-and endurance remain unqualified (#430).
+Test206 Reference expired-output counts do not establish playback drops (#430):
+a fresh ten-second stopped control records 9,728 expired / 502,784 processed frames.
+The original and fresh complete 96,000-frame renders match expected .49 gain,
+including both edges. A 60-second captured fixed signal has one permitted startup
+dry/handoff, settled by 220.7 ms; all remaining 2,869,409 frames match .49 with
+maximum error 5.1e-9 and no later transition. Retain the startup contract. Earlier
+totals cover whole lifetimes; the final logged mode does not locate expirations
+inside offline callbacks, and `clean` records retirement. Longer endurance and
+combined real cases remain open. [Measurements](../evidence/common-runtime-first-party.json).
 
 Xalia's display initialization remains open (#430): intact GE 11-7 on the Test204
 CachyOS Wayland fixture reports `No displays available` through SLR from SSH,

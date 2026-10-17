@@ -64,5 +64,23 @@
       "expired_output_frames": 1536,
       "clean": true
     }
-  ]
+  ],
+  "resumed_audio_check": {
+    "date": "2026-10-17",
+    "full_render_compared_frames": 96000,
+    "full_render_max_absolute_error": 6.19888305686267e-08,
+    "no_play_processed_frames": 502784,
+    "no_play_expired_output_frames": 9728,
+    "real_time_signal_frames": 2880000,
+    "startup_settled_frame": 10591,
+    "startup_settled_ms": 220.64583333333334,
+    "post_startup_compared_frames": 2869409,
+    "post_startup_max_absolute_error": 5.066394803687757e-09,
+    "post_startup_gain": [
+      0.4899999942867634,
+      0.48999999393925076
+    ],
+    "later_incorrect_frames": 0,
+    "comparison_absolute_tolerance": 1e-05
+  }
 }
