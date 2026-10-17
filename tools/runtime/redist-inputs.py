@@ -6,6 +6,7 @@ the remaining notice/source distribution obligations.
 """
 import argparse
 import ast
+from contextlib import nullcontext
 import hashlib
 import io
 import json
@@ -18,6 +19,7 @@ import sys
 import tarfile
 import tempfile
 from types import SimpleNamespace
+from unittest.mock import patch as replace
 import urllib.request
 
 ROOT = Path(__file__).resolve().parent
@@ -240,6 +242,101 @@ def check_launch_composition(source):
                 conversion = "-w" if verb == "getcompatpath" else ""
                 args = [proton.wine_bin, "winepath"] + ([conversion] if conversion else []) + [target[0]]
                 assert remaining == [("path", args)] and stdout.buffer.getvalue() == b"converted path"
+            calls.clear()
+            def refuse_preparation(_):
+                raise RuntimeError("fixture prefix preparation failed")
+            current.init_session = refuse_preparation
+            try:
+                exec(compile(ast.Module(body=main.body, type_ignores=[]), "patched-proton-main", "exec"), namespace)
+            except RuntimeError as failure:
+                assert str(failure) == "fixture prefix preparation failed"
+            else:
+                raise ValueError("launcher continued after preparation failed")
+            assert not any(isinstance(call, tuple) and call[0] in ("command", "path") for call in calls)
+
+
+def check_prefix_composition(source):
+    """Run actual file preparation with synthetic ordinary payloads, no Wine.
+
+    Locking and the Linux-only casefold ioctl are outside this temporary test.
+    Prefix copying/tracking, registry identity, fonts and graphics remain real.
+    """
+    tree = ast.parse((source / "proton").read_text())
+    tree.body = [node for node in tree.body if not
+                 (isinstance(node, ast.ImportFrom) and node.module == "filelock")]
+    namespace = {"__name__": "prefix-composition-test", "FileLock": lambda *a, **k: nullcontext()}
+    exec(compile(tree, str(source / "proton"), "exec"), namespace)
+    namespace["set_dir_casefold_bit"] = lambda _: None
+    with tempfile.TemporaryDirectory(prefix="lvb-audio-prefix-") as directory:
+        root = Path(directory).resolve()
+        engine = root / "engine"
+        proton = namespace["Proton"](str(engine))
+        namespace["g_proton"] = proton
+        for path in (proton.fonts_dir, proton.wine_fonts_dir, proton.default_pfx_dir + "dosdevices"):
+            Path(path).mkdir(parents=True)
+        Path(proton.fonts_dir, "fixture.ttf").write_text("font fixture")
+        Path(proton.wine_inf).write_text("Wine metadata fixture")
+        default = Path(proton.default_pfx_dir)
+        (default / "system.reg").write_text('WINE REGISTRY Version 2\n\n'
+                                             '[Software\\\\Microsoft\\\\Cryptography] 0\n'
+                                             '"MachineGuid"="builder-template"\n')
+        (default / "user.reg").write_text("WINE REGISTRY Version 2\n")
+        graphics = ("d3d8", "d3d9", "d3d10", "d3d10_1", "d3d10core", "d3d11", "d3d12", "dxgi")
+        for arch, folder in (("x86_64", "system32"), ("i386", "syswow64")):
+            destination = default / "drive_c/windows" / folder
+            destination.mkdir(parents=True)
+            for name in graphics:
+                (destination / (name + ".dll")).write_text(arch + " wine " + name)
+            for component, names in (("wine/dxvk", ("d3d9", "d3d10core", "d3d11", "dxgi")),
+                                     ("wine/vkd3d-proton", ("d3d12", "d3d12core")),
+                                     ("wine/icu", ("icuin68", "icuuc68", "icudt68"))):
+                destination = Path(proton.arch_pe_dir(component, arch == "i386"))
+                destination.mkdir(parents=True, exist_ok=True)
+                for name in names:
+                    (destination / (name + ".dll")).write_text(arch + " " + component + " " + name)
+        for renderer in ("dxvk", "wined3d"):
+            state = root / renderer
+            state.mkdir()
+            compat = namespace["CompatData"](str(state))
+            namespace["g_compatdata"] = compat
+            options = {"disablenvapi"} | ({"wined3d"} if renderer == "wined3d" else set())
+            namespace["g_session"] = SimpleNamespace(env={}, compat_config=options,
+                                                      dlloverrides={}, nvidia_wine_dll_dir=None)
+            with replace.dict(os.environ, {}, clear=True):
+                compat.setup_prefix()
+                prefix = Path(compat.prefix_dir)
+                assert (prefix / "dosdevices/c:").is_symlink()
+                assert (prefix / "drive_c/windows/Fonts/fixture.ttf").resolve() == Path(proton.fonts_dir, "fixture.ttf")
+                assert not any((prefix / p).exists() for p in
+                               ("drive_c/vrclient", "drive_c/openxr", "drive_c/Program Files (x86)/Steam"))
+                for arch, folder in (("x86_64", "system32"), ("i386", "syswow64")):
+                    contents = (prefix / "drive_c/windows" / folder / "d3d11.dll").read_text()
+                    assert contents == arch + (" wine d3d11" if renderer == "wined3d" else " wine/dxvk d3d11")
+                guid = namespace["get_replace_reg_value"](str(prefix / "system.reg"),
+                                                          r"Software\\Microsoft\\Cryptography", "MachineGuid")
+                assert guid is not None and guid != '"builder-template"'
+                owned = prefix / "drive_c/keep.txt"
+                owned.write_text("preserved caller data")
+                compat.setup_prefix()
+                assert owned.read_text() == "preserved caller data"
+                assert namespace["get_replace_reg_value"](str(prefix / "system.reg"),
+                                                           r"Software\\Microsoft\\Cryptography", "MachineGuid") == guid
+                tracked = Path(compat.tracked_files_file).read_text()
+                assert "drive_c/windows/system32/d3d11.dll" in tracked
+                assert "drive_c/windows/syswow64/d3d11.dll" in tracked
+                required = (default / "drive_c/windows/system32/d3d11.dll" if renderer == "wined3d"
+                            else Path(proton.arch_pe_dir("wine/dxvk", False)) / "d3d11.dll")
+                payload = required.read_bytes()
+                required.unlink()
+                try:
+                    compat.setup_prefix()
+                except FileNotFoundError:
+                    pass
+                else:
+                    raise ValueError("missing required graphics payload was accepted")
+                finally:
+                    required.write_bytes(payload)
+                assert owned.read_text() == "preserved caller data"
 
 
 def check():
@@ -255,9 +352,17 @@ def check():
             if len(data) > 1024 * 1024:
                 raise ValueError("redist source exceeds check bound")
             target.write_bytes(data)
+        try:
+            check_prefix_composition(source)
+        except KeyError as failure:
+            if failure.args != ("STEAM_COMPAT_CLIENT_INSTALL_PATH",):
+                raise
+        else:
+            raise ValueError("prefix regression did not detect the original Steam dependency")
         patch_source(source)
         patch_source(source)  # Composition can resume after an acquisition failure.
         check_launch_composition(source)
+        check_prefix_composition(source)
         # Execute the pinned x64 post-install recipe with only c27's real file
         # layout. Obsolete wine64 aliases must not be required or cross-copied.
         installed = source / "installed-x64"
@@ -323,7 +428,7 @@ def check():
             pass
         else:
             raise ValueError("modified redist source was accepted")
-    print("Pinned source, native loader layout, Cargo execution and generated-prefix regressions verified")
+    print("Pinned source, audio launch/prefix composition, native loader, Cargo and generated-prefix regressions verified")
 
 
 if __name__ == "__main__":

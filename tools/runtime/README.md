@@ -82,6 +82,9 @@ prefix initialization, `run` invokes the requested program through the pinned
 native Wine dispatcher; `waitforexitandrun` preserves its wineserver wait first.
 `runinprefix`, path conversion and the shared SLR command-session anchor retain
 their behavior. Existing applied predecessor runtimes are not modified.
+The source checks execute the actual launcher and prefix-preparation methods with
+synthetic payloads: arguments/wait ordering, required-copy failures, architecture
+placement and preserved identity/data are checked without starting Wine.
 
 c27's [native loader dispatch](https://github.com/giang17/wine/blob/c27f058814b402a5709e073adccd42baa66810b9/dlls/ntdll/unix/loader.c#L479)
 uses `wine` and `wine-preloader` in each architecture's own library directory.
