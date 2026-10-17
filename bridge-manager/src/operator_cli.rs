@@ -8864,26 +8864,58 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         };
         let op = id.clone();
         let (tx, rx) = std::sync::mpsc::channel();
+        let (release_worker, worker_gate) = std::sync::mpsc::channel();
         let worker = std::thread::spawn(move || {
-            worker_with_capacity(&a, &op, Duration::from_secs(2), &|| {
-                let _ = tx.send(());
+            let first = std::cell::Cell::new(true);
+            worker_with_capacity(&a, &op, OPERATOR_WAIT, &|| {
+                if first.replace(false) {
+                    tx.send(()).unwrap();
+                    worker_gate.recv_timeout(OPERATOR_WAIT).unwrap();
+                }
                 capacity_fixture(&a)
             })
         });
-        rx.recv_timeout(Duration::from_secs(1)).unwrap();
-        let snapshot = std::thread::spawn(move || {
-            snapshot_for_operation(&b, None, Duration::from_secs(2), &mut vec![], &|| {
-                capacity_fixture(&b)
-            })
-        });
+        rx.recv_timeout(OPERATOR_WAIT).unwrap();
         // Newer receipt is projection authority, regardless of A's late completion.
         let newer = "fe".repeat(16);
         private_dir(&job_dir(&f.m, &newer).unwrap()).unwrap();
         let latest = json!({"schema":1,"operation":newer,"state":"queued"});
         write_operation(&f.m, &newer, &latest, true).unwrap();
+        let (capacity_sampled, capacity_ready) = std::sync::mpsc::channel();
+        let (projecting, projection_ready) = std::sync::mpsc::channel();
+        let (release_snapshot, projection_gate) = std::sync::mpsc::channel();
+        let snapshot = std::thread::spawn(move || {
+            installer_import::IDENTITY_READ_BARRIER.with(|hook| {
+                *hook.borrow_mut() = Some(Box::new(move || {
+                    projecting.send(()).unwrap();
+                    projection_gate.recv_timeout(OPERATOR_WAIT).unwrap();
+                }));
+            });
+            let mut waits = vec![];
+            let result = snapshot_for_operation(&b, None, OPERATOR_WAIT, &mut waits, &|| {
+                let _ = capacity_sampled.send(());
+                capacity_fixture(&b)
+            });
+            (result, waits)
+        });
+        // Capacity must be sampled without registry.lock; the snapshot then
+        // releases that lock before projection, allowing creation to complete.
+        capacity_ready.recv_timeout(OPERATOR_WAIT).unwrap();
         drop(registry);
+        projection_ready.recv_timeout(OPERATOR_WAIT).unwrap();
+        release_worker.send(()).unwrap();
         worker.join().unwrap().unwrap();
-        snapshot.join().unwrap().unwrap();
+        release_snapshot.send(()).unwrap();
+        let (result, waits) = snapshot.join().unwrap();
+        // An optimistic read spanning real creation must refuse mixed state.
+        assert_eq!(result.unwrap_err().to_string(), "operator_state_changed_refresh");
+        let fresh = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &|| {
+            capacity_fixture(&f.m)
+        }).unwrap();
+        assert_eq!(fresh.state_token, token(&f.m).unwrap());
+        assert_eq!(fresh.onboarding.len(), 1);
+        assert_eq!(fresh.operation.as_ref().unwrap()["operation"], newer);
+        assert!(waits.iter().all(|wait| wait.name != ui::OperatorLock::Canonical));
         assert_eq!(worker_receipt(&f.m, &id)["state"], "completed");
         assert_eq!(
             optional(&f.m.root.join("operator/latest.json")).unwrap(),
