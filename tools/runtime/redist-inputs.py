@@ -352,6 +352,8 @@ def check():
             if len(data) > 1024 * 1024:
                 raise ValueError("redist source exceeds check bound")
             target.write_bytes(data)
+        if source_state(source) != 0:
+            raise ValueError("downloaded source is not the pinned pristine input")
         try:
             check_prefix_composition(source)
         except KeyError as failure:
