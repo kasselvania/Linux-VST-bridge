@@ -222,7 +222,9 @@ def cargo_sources(output, destination):
         if not dependencies:
             raise ValueError("selected Cargo compiler dependencies missing: " + arch)
         for dependency in dependencies:
-            for relative in re.findall(r"/work/cargo/((?:registry/src|git/checkouts)/[^\s:]+)", dependency.read_text()):
+            make_dependencies = "\n".join(line for line in dependency.read_text().splitlines()
+                                          if not line.lstrip().startswith("#"))
+            for relative in re.findall(r"/work/cargo/((?:registry/src|git/checkouts)/[^\s:]+)", make_dependencies):
                 parts = Path(relative).parts
                 if len(parts) < 4:
                     raise ValueError("Cargo source path differs: " + relative)
@@ -239,14 +241,14 @@ def cargo_sources(output, destination):
         if relative.parts[0] == "registry":
             package = tomllib.loads((source / "Cargo.toml").read_text())["package"]
             expected = registry[(package["name"], package["version"])]
-            checksum = json.loads((source / ".cargo-checksum.json").read_bytes())
-            if checksum["package"] != expected:
-                raise ValueError("Cargo registry source differs: " + str(relative))
+            if relative.name != package["name"] + "-" + package["version"]:
+                raise ValueError("Cargo registry source path differs: " + str(relative))
             cache = output / "cargo/registry/cache" / relative.parts[2] / (relative.name + ".crate")
             if sha(cache) != expected:
                 raise ValueError("Cargo crate archive differs: " + relative.name)
-            # Authenticate the extracted file map against the lock-verified
-            # archive, rather than trusting mutable cache metadata by itself.
+            # Use the lock-verified archive itself. Current Cargo caches need
+            # not contain .cargo-checksum.json; mutable cache metadata is not
+            # evidence that the compiled sources match the original package.
             original = {}
             with tarfile.open(cache, "r|gz") as archive:
                 for member in archive:
@@ -257,13 +259,13 @@ def cargo_sources(output, destination):
                     if not parts or parts[0] != relative.name or name in original or ".." in parts:
                         raise ValueError("Cargo source archive layout differs")
                     original[name] = hashlib.file_digest(archive.extractfile(member), "sha256").hexdigest()
-            if original != checksum["files"] or not roots[relative].issubset(original):
+            if not roots[relative].issubset(original):
                 raise ValueError("Cargo source file inventory differs from its original archive")
-            for name, digest in checksum["files"].items():
+            for name, digest in original.items():
                 if Path(name).is_absolute() or ".." in Path(name).parts or sha(source / name) != digest:
                     raise ValueError("Cargo registry source changed: " + str(relative / name))
             shutil.copyfile(cache, destination / cache.name)
-            names = [name for name in checksum["files"] if is_notice(name)]
+            names = [name for name in original if is_notice(name)]
         else:
             revision = git(source, "rev-parse", "HEAD").decode().strip()
             if revision not in revisions or git(source, "diff", "HEAD", "--"):
@@ -292,7 +294,8 @@ def build_context(output, repository):
     expected = {name: sha(repository / name) for name in HELPER_SOURCES}
     configurations = {arch: sha(output / ("build/obj-wine-" + arch + "/Makefile"))
                       for arch in ("i386", "x86_64")}
-    if (declaration.get("wine_revision") != RECIPE["wine"]["commit"]
+    if (declaration.get("schema") != 1 or declaration.get("kind") != "wine_build"
+            or declaration.get("wine_revision") != RECIPE["wine"]["commit"]
             or declaration.get("sdk_image") != RECIPE["sdk"]
             or declaration.get("helper_sources") != expected
             or declaration.get("configuration_sha256") != configurations):
@@ -446,7 +449,8 @@ def check():
         for arch in ("i386", "x86_64"):
             objects = output / ("build/obj-gst_plugins_rs-" + arch)
             objects.mkdir(parents=True)
-            (objects / "selected.d").write_text("target: /work/cargo/registry/src/test-registry/selected-1.0.0/LICENSE\n")
+            (objects / "selected.d").write_text("target: /work/cargo/registry/src/test-registry/selected-1.0.0/LICENSE\n"
+                "# env-dep:CARGO_MANIFEST_DIR=/work/cargo/registry/src/test-registry/selected-1.0.0\n")
         destination = output / "selected"
         cargo_sources(output, destination)
         assert [path.name for path in destination.iterdir()] == [cache.name]
@@ -489,7 +493,7 @@ def check():
             configs[arch] = sha(path)
         construction = output / "build/redist/wine-build.json"
         construction.parent.mkdir(parents=True)
-        construction.write_text(json.dumps(dict(wine_revision=RECIPE["wine"]["commit"], sdk_image=RECIPE["sdk"],
+        construction.write_text(json.dumps(dict(schema=1, kind="wine_build", wine_revision=RECIPE["wine"]["commit"], sdk_image=RECIPE["sdk"],
             helper_sources={name: sha(repository / name) for name in HELPER_SOURCES}, configuration_sha256=configs)))
         original = construction.read_bytes()
         assert build_context(output, repository) == construction
