@@ -285,3 +285,11 @@ limits and measure the whole DAW call and captured audio. No probe/counter or bu
 success proves timely sound or beta readiness. Existing support matrix, failure
 classes and beta acceptance retain tested facts; they confer no catalogue permission
 gate. No new campaign ledger or per-run report is needed.
+
+The operator adopted the initial beta envelope on 2026-10-17: x86-64, 48 kHz,
+float32, Buffered delivery with 512 added bridge frames, one instrument feeding
+one effect, ten minutes of continuous playback, editor open/close while playing,
+save/full exit/reopen, no incorrect delivered audio after the permitted startup
+handoff, no terminal bridge fault and clean retirement. Greater workloads remain
+unqualified. The finite CR0–CR10 release gates and change-specific invalidation
+rules are maintained in [#430](https://github.com/kasselvania/Linux-VST-bridge/issues/430).

@@ -1,44 +1,41 @@
-# Current slice — common runtime recovery (#430)
+# Current slice — CR2 candidate authority, then CR4 NI (#430)
 
-Goal: one Git-rebuildable common runtime reaches ordinary delivery and combined
-real-case qualification. This is the sole implementation slice; the old issue
-queue, new UI and control-plane implementation remain frozen.
+Reached: a real common-runtime release candidate with a generic clean-machine
+checkpoint. Construction is complete; finite release qualification remains.
+The operator-adopted [CR0–CR10 checklist](https://github.com/kasselvania/Linux-VST-bridge/issues/430)
+owns the remaining gates. CR0/CR1 and CachyOS/REAPER CR3 are closed; CR2 physical
+delivery passed. This candidate is not yet the qualified product default.
 
-Best explanation: successful maintainer corrections diverged from tester delivery
-through separate runtime compositions and machine-local construction. Recover
-capabilities into one release, not more plug-in/campaign production pathways.
+Active CR2: normalize draft PR453 from current main to the r6 catalog/internal
+recommendation and required generic tests/delivery pins only. Every qualification
+package = current main + that one overlay. Keep vendor results on main's support
+records, outside the overlay. Independent Max review and green checks precede
+the next numbered package. Keep the overlay unmerged until final promotion.
+Freeze the existing r6 archive; no rebuild now:
+SHA256 6c0d09e1ed76cc2f33fa0117ab777da6128eb9e7473e85e08bedd0163848d58d.
 
-Built: both native Wine architectures and the approved full Wine/audio/graphics/
-services redist are complete, without Steam game/overlay or VR relay integrations.
-PE architectures/cross-child, DComp/MSI/UIA/certificate and paired-helper tests pass;
-matching source/notices collection is complete. WebView2 delivery/servicing is open.
-Live inventory and implementation ownership: [#430](https://github.com/kasselvania/Linux-VST-bridge/issues/430).
+Next CR4 only: fresh disposable CachyOS account, native REAPER 7.82, 48 kHz,
+float32 Buffered with 512 added bridge frames; exact current-main/overlay package,
+r6 runtime and paired host/proxy/helper. Ordinary Native Access install and
+authorized sign-in → Kontakt through Native Access → owned services/retirement →
+discovery/publication without prefix repair → editor/MIDI/audio → changed
+instrument/state full DAW exit/reopen → cold-boot recall → cleanup and second load.
+Record exact vendor builds privately. The first attempt exposed live status
+invalidation during installer observation writes; repair through the existing
+readback owner, retaining terminal evidence/configuration/identity watches.
+After that repair repeat the failed NI journey and short Reference/Tyrell
+editor/state smoke. No other compatibility case starts during CR4.
 
-Boundary: preserve the working Deck. Operator reports ~170 GB backup complete:
-801,991 runtime/build/patch files and 180,431 bridge records match name/size except
-one growing log; licensed setups excluded, restoration untested. No wipe, licensed
-state migration, private payload import or silent switch. Use disposable fixtures.
+Preserved CR3: Reference full .49-gain renders and 60 s delivered-output capture
+pass (sole permitted startup handoff settled by 220.7 ms, all later frames correct).
+TyrellN6 16976 ordinary install/editor/16 notes/Output .37 and both projects'
+FX identities survive full exit/reopen and cold boot. Expiry counters alone do
+not reopen audio architecture; stopped processing also accumulates them.
 
-Resumed installed outcomes: exact fresh CachyOS Test206 / native REAPER preserves
-Reference Level .7 / Colour .2 and FX identity through full exit/reopen. Complete
-2s renders, including edges, match .49 gain. A 60s capture has one permitted startup
-handoff, settled by 220.7 ms; every later frame matches .49. Stopped-only processing
-also accumulates expirations, so the earlier totals did not establish audio drops.
-TyrellN6 16976 now completes ordinary common-runtime install/discovery/publication,
-Windows editor, 16-note playback and Output .37 save/full exit/reopen with the same
-FX identity. Cold guest boot now preserves both projects' parameters/FX identities;
-Reference's full render and Tyrell's editor/16-note capture pass again. Cold
-acquisition takes about 14.5 minutes; failed Test205 is preserved.
-
-Next: one combined real case at a time; fix the first demonstrated blocker and
-repeat its installed journey. Graphics/touch and installer/services cases, SteamOS,
-explicit update/rollback and browser delivery remain open. NI/Kontakt fresh authorization is allowed; Blackhole must reuse its existing
-Deck activation, pending an approved preservation plan. Browser transitions remain unresolved. PR453 stays
-draft/unmerged; main's runtime recommendation is unchanged. #430 remains open.
-
-Done: clean Git build → normal acquisition/install/discovery/publication → combined
-real cases. Play and save/reopen through full DAW exit, restart/reboot, update and
-rollback; preserve class/automation/content identity and licensed state. Record
-actual support/failures in existing matrix/classes, with no new campaign ledger.
-Later API/config read-only correspondence precedes write authority, supervisor
-narrowing, UI and explicit migration. Unresolved semantics require a decision first.
+Limits: NI/Kontakt fresh authorization is permitted. No fresh licensed Blackhole
+activation or repeated iLok reconnection; demo terms/behavior are checked at CR7.
+Existing licensed Deck transitions require a concrete approved preservation and
+rollback plan; the backup excludes licensed setups and restoration is unproven.
+Browser-data rollback semantics remain unresolved. CR5–CR10, their separate
+lifecycle checks, final independent rebuild and promotion remain in #430.
+The old issue queue, new UI and new control-plane architecture remain frozen.
