@@ -6,11 +6,9 @@ The operator-adopted [CR0–CR10 checklist](https://github.com/kasselvania/Linux
 owns the remaining gates. CR0/CR1, candidate authority/delivery CR2 and CachyOS/
 REAPER CR3 are closed. This candidate is not yet the qualified product default.
 
-Candidate authority: draft PR453 contains only the r6 catalog/internal
-recommendation and required generic tests/delivery pins on current main. Every
-qualification package = current main + that one overlay. Keep vendor results on
-main's support records, outside the overlay. The reconciled candidate passed
-independent Max review and green checks; keep it unmerged until final promotion.
+Candidate authority: draft PR453 contains the r6 catalog/internal recommendation,
+generic tests and delivery pins only. Each package = current main + this overlay.
+Vendor results stay on main. Max review/checks passed; keep draft until promotion.
 Freeze the existing r6 archive; no rebuild now:
 SHA256 6c0d09e1ed76cc2f33fa0117ab777da6128eb9e7473e85e08bedd0163848d58d.
 
@@ -20,12 +18,14 @@ r6 runtime and paired host/proxy/helper. Ordinary Native Access install and
 authorized sign-in → Kontakt through Native Access → owned services/retirement →
 discovery/publication without prefix repair → editor/MIDI/audio → changed
 instrument/state full DAW exit/reopen → cold-boot recall → cleanup and second load.
-Record exact vendor builds privately. The first attempt exposed live status
-invalidation during installer observation writes; the bounded existing-readback
-repair is merged, retaining terminal evidence/configuration/identity watches.
-Restore the packaged installer's existing typed policy offers, keeping exact
-launch verification. Repeat NI and short Reference/Tyrell editor/state smoke.
-No other compatibility case starts during CR4.
+Record exact vendor builds privately. Test208's ordinary update, explicit typed
+installer choices, exact adapter binding and live diagnostic-write readback passed.
+NI copied its app without a usable window; installer-root completion is unproved.
+Common r6 emits no self-exit trace required by the existing completion owner.
+Ordinary Stop retired the cohort cleanly; no sign-in occurred. Decide its proof
+before changing it: exact process-handle exit status differs from voluntary
+self-exit. Keep r6 frozen while that contract boundary is resolved. Short Test208
+audio/state/full-reopen checks pass; Reference parameter UI and Tyrell editor open/close.
 
 Preserved CR3: Reference full .49-gain renders and 60 s delivered-output capture
 pass (sole permitted startup handoff settled by 220.7 ms, all later frames correct).
