@@ -74,8 +74,17 @@ Valve's [pinned source instructions](https://github.com/ValveSoftware/Proton/blo
 support recursive acquisition and rebuilding changed components. The SDK digest
 is the pinned Proton tree's own default SDK tag. Its ICU tarballs are tracked
 in Git, with [Unicode provenance and hashes](https://github.com/ValveSoftware/Proton/blob/5b89db940e0ebe3a137a6009a3589232fe084c09/icu/README.md).
-OpenVR auxiliaries come from the pinned official submodule; vrclient is rebuilt.
-These official upstream auxiliaries are distinct from transplanted Wine DLLs.
+The operator-selected composition retains complete Wine, graphics, media,
+installer/service and accessibility components. It omits Steam-client/game and
+overlay integration, the Steam executable intermediary and OpenVR/OpenXR relays.
+Their build edges and required prefix copies are removed together. After normal
+prefix initialization, `run` invokes the requested program through the pinned
+native Wine dispatcher; `waitforexitandrun` preserves its wineserver wait first.
+`runinprefix`, path conversion and the shared SLR command-session anchor retain
+their behavior. Existing applied predecessor runtimes are not modified.
+The source checks execute the actual launcher and prefix-preparation methods with
+synthetic payloads: arguments/wait ordering, required-copy failures, architecture
+placement and preserved identity/data are checked without starting Wine.
 
 c27's [native loader dispatch](https://github.com/giang17/wine/blob/c27f058814b402a5709e073adccd42baa66810b9/dlls/ntdll/unix/loader.c#L479)
 uses `wine` and `wine-preloader` in each architecture's own library directory.
@@ -88,8 +97,8 @@ architecture's directory. Normal dual-architecture and forced new-WoW64 launches
 are distinct smoke tests; source layout alone does not qualify either execution.
 
 `build.sh` builds Wine and its dependencies. `complete.sh` uses the same source
-and object tree for upstream's complete `redist` target, including graphics,
-vrclient, integration, fonts and an unlicensed generated default prefix. It
+and object tree for the declared composition's `redist` target, including graphics,
+media, fonts and an unlicensed generated default prefix. It
 pins matching Mono 10.4.1, both Gecko 2.47.4 packages and Xalia 0.4.9, and retains
 the corresponding Mono/Gecko release-source archives outside Git. Cargo first
 fetches the unchanged upstream workspace with `--locked`, then compilation runs
@@ -118,7 +127,8 @@ from this private build.
 WebView2 is intentionally absent from this engine build. The historical .37
 official archive URL and hash are now recovered and independently verified in
 `../runtime-dcomp/recipe.json`. The operator selected a managed setup dependency:
-its exact browser binding advances through an explicit setup revision, while the
-common Wine engine remains independent. Acquisition versus redistribution, user
+its installed dependency set advances through explicit setup revisions, and the
+configuration owner binds an exact version for each resolved launch. The common
+Wine engine remains independent. Acquisition versus redistribution, user
 terms and servicing still need a valid delivery basis before implementation.
 The historical extracted Deck browser is never a build input.

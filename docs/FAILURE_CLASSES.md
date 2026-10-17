@@ -12,6 +12,11 @@ Open-program suggestions exclude installer-witnessed uninstallers and service
 images; unknown support-installer/redistributable roles still need authoritative
 metadata. Explicit program choice remains available (#417).
 
+Xalia's display initialization remains open (#430): intact GE 11-7 on the Test204
+CachyOS Wayland fixture reports `No displays available` through SLR from SSH,
+including with the product's graphical environment variables. A separate `run`
+target returns zero and writes its marker; direct PE32/PE64 fixtures execute.
+
 Historical AP/UIO/UIR/IF documents remain authoritative for what a particular experiment observed. This ledger is authoritative for the project's current cross-plug-in understanding.
 
 The 2026-10-02 [graphics/runtime source investigation](GRAPHICS_RUNTIME_REVIEW.md)

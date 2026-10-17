@@ -10,8 +10,9 @@ capabilities into one release, not more plug-in/campaign production pathways.
 
 Known basis: PR439 recovered DComp/BG1 inputs. PR440 integrates UIA/MSI/touch and
 certificate regression sources; the full Wine/dependency build is in progress.
-The exact official WebView2 archive is recovered and hash-verified. It belongs to
-setup revisions by operator decision; delivery terms/servicing remain outstanding.
+Operator selected complete Wine/audio/graphics/services without Steam game/overlay
+or VR relay integrations; direct launch preserves prefix init and supervisor custody.
+Exact WebView2 is hash-verified and setup-owned; delivery/servicing remain outstanding.
 Live inventory and implementation ownership: [#430](https://github.com/kasselvania/Linux-VST-bridge/issues/430).
 
 Boundary: preserve the working Deck. Operator reports ~170 GB backup complete:
