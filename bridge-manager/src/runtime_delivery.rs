@@ -50,8 +50,6 @@ const MSI_READER: Correction = Correction {root:"msi-reader",
 #[derive(Clone, Copy)]
 enum Layout {
     RetainedGeCorrections(&'static [Correction]),
-    // The format is implemented before selecting/publishing a new release.
-    #[allow(dead_code)]
     WholeArchive { root: &'static str },
 }
 #[derive(Clone)]
@@ -93,7 +91,16 @@ fn revisions() -> Vec<Revision> {
             downloads:corrected,layout:Layout::RetainedGeCorrections(&[UIA_GUARD])},
         Revision {id:"managed-ge-proton11-7-slr4-20260805-r5",
             version:"GE-Proton11-7; SLR 4.0.20260805.254769; managed UIA guard + MSI reader v5",
-            downloads:msi_reader,layout:Layout::RetainedGeCorrections(&[UIA_GUARD,MSI_READER])}]
+            downloads:msi_reader,layout:Layout::RetainedGeCorrections(&[UIA_GUARD,MSI_READER])},
+        // Frozen internal candidate. This overlay stays unmerged until the
+        // finite release gates and production promotion are reviewed.
+        Revision {id:"managed-common-audio-slr4-20260805-r6",
+            version:"Common Wine audio runtime; SLR 4.0.20260805.254769; source-built v6",
+            downloads:vec![Download {
+                url:"https://github.com/kasselvania/Linux-VST-bridge/releases/download/runtime-common-r6/Common-Proton-x86_64.tar.gz".into(),
+                sha256:"6c0d09e1ed76cc2f33fa0117ab777da6128eb9e7473e85e08bedd0163848d58d".into(),
+                size:1682743460,root:"Common-Proton-x86_64".into(),compression:"gzip".into(),
+            },downloads()[1].clone()],layout:Layout::WholeArchive {root:"Common-Proton-x86_64"}}]
 }
 fn recommended() -> Revision {
     // Recommendations apply to acquisition and new environments. Retained
@@ -694,7 +701,7 @@ mod tests {
         let base = revision_record_path(m,revision).parent().unwrap().to_owned();
         fs::DirBuilder::new().recursive(true).mode(0o700).create(&base).unwrap();
         let mut files = Vec::new();
-        for relative in [format!("{GE}/proton"),format!("{SLR}/_v2-entry-point")] {
+        for relative in [format!("{}/proton",revision.engine_root()),format!("{SLR}/_v2-entry-point")] {
             let path=base.join(relative);
             fs::DirBuilder::new().recursive(true).mode(0o700).create(path.parent().unwrap()).unwrap();
             fs::write(&path,revision.id).unwrap();
@@ -702,10 +709,18 @@ mod tests {
             files.push(Artifact {sha256:digest(&path).unwrap(),path});
         }
         if revision.command_session() {
-            let path=base.join(GE).join("native-command-session.json");
-            atomic_json(&path,&serde_json::json!({"schema":1,
-                "kind":"native_proton_command_session","client_sha256":"ab".repeat(32),
-                "service_sha256":"cd".repeat(32)})).unwrap();
+            let path=base.join(revision.engine_root()).join("native-command-session.json");
+            let marker=if matches!(revision.layout,Layout::WholeArchive {..}) {
+                let build=base.join(revision.engine_root()).join(wine_build::NAME);
+                atomic_json(&build,&wine_build::fixture()).unwrap();
+                fs::set_permissions(&build,fs::Permissions::from_mode(0o400)).unwrap();
+                files.push(Artifact {sha256:digest(&build).unwrap(),path:build.clone()});
+                serde_json::json!({"schema":2,"kind":"native_proton_command_session",
+                    "client_sha256":"ab".repeat(32),"service_sha256":"cd".repeat(32),
+                    "wine_build_sha256":digest(&build).unwrap()})
+            } else {serde_json::json!({"schema":1,"kind":"native_proton_command_session",
+                "client_sha256":"ab".repeat(32),"service_sha256":"cd".repeat(32)})};
+            atomic_json(&path,&marker).unwrap();
             fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();
             files.push(Artifact {sha256:digest(&path).unwrap(),path});
         }
@@ -720,7 +735,7 @@ mod tests {
         fs::set_permissions(&manifest,fs::Permissions::from_mode(0o400)).unwrap();
         files.push(Artifact {sha256:digest(&manifest).unwrap(),path:manifest});
         let runner=Runner {id:revision.id.into(),version:revision.version.into(),
-            proton:base.join(GE).join("proton"),entry_point:base.join(SLR).join("_v2-entry-point"),
+            proton:base.join(revision.engine_root()).join("proton"),entry_point:base.join(SLR).join("_v2-entry-point"),
             files,policy:None};
         let record=revision_record_path(m,revision);
         atomic_json(&record,&Record {schema:1,id:revision.id.into(),
@@ -804,8 +819,8 @@ mod tests {
             assert_eq!(fs::read(path).ok(),original);
             assert!(!stage.join(TREE).exists());assert!(!stage.join("runtime.json").exists());
         }
-        assert!(revisions().iter().all(|revision|matches!(revision.layout,Layout::RetainedGeCorrections(_))));
-        assert_eq!(recommended_id(),"managed-ge-proton11-7-slr4-20260805-r5");
+        assert!(revisions()[..3].iter().all(|revision|matches!(revision.layout,Layout::RetainedGeCorrections(_))));
+        assert_eq!(recommended_id(),"managed-common-audio-slr4-20260805-r6");
     }
     #[test]
     fn whole_archive_missing_or_malformed_build_declaration_never_seals_or_falls_back() {
@@ -1137,10 +1152,11 @@ mod tests {
         assert!(!stage.join(GE).join("native-command-session.json").exists());
     }
     #[test]
-    fn msi_reader_revision_is_recommended_without_changing_prior_identities() {
+    fn common_revision_is_recommended_without_changing_prior_identities() {
         let declared=revisions();
         assert_eq!(declared.iter().map(|revision|revision.id).collect::<Vec<_>>(),[ID,
-            "managed-ge-proton11-7-slr4-20260805-r4","managed-ge-proton11-7-slr4-20260805-r5"]);
+            "managed-ge-proton11-7-slr4-20260805-r4","managed-ge-proton11-7-slr4-20260805-r5",
+            "managed-common-audio-slr4-20260805-r6"]);
         assert_eq!(declared[0].downloads,downloads());assert!(declared[0].corrections().is_empty());
         assert_eq!(declared[1].version,"GE-Proton11-7; SLR 4.0.20260805.254769; managed UIA guard v4");
         assert_eq!(declared[1].corrections(),[UIA_GUARD]);
@@ -1151,8 +1167,14 @@ mod tests {
         let msi=declared[2].downloads.last().unwrap();
         assert_eq!((msi.root.as_str(),msi.compression.as_str()),("msi-reader","gzip"));
         assert!(msi.url.ends_with("/releases/download/runtime-msi-r5/msi-reader.tar.gz"));
-        assert_eq!(recommended_id(),"managed-ge-proton11-7-slr4-20260805-r5");
-        assert_eq!(recommended_downloads(),declared[2].downloads);
+        assert_eq!(recommended_id(),"managed-common-audio-slr4-20260805-r6");
+        assert_eq!(recommended_downloads(),declared[3].downloads);
+        assert!(declared[3].corrections().is_empty());
+        assert!(matches!(declared[3].layout,Layout::WholeArchive {root:"Common-Proton-x86_64"}));
+        assert_eq!(declared[3].downloads.len(),2);
+        assert_eq!(declared[3].downloads[1],downloads()[1]);
+        assert_eq!(declared[3].downloads[0].sha256,"6c0d09e1ed76cc2f33fa0117ab777da6128eb9e7473e85e08bedd0163848d58d");
+        assert_eq!(declared[3].downloads[0].size,1682743460);
         for revision in &declared {
             assert!(revision.downloads.iter().all(|d| d.url.starts_with("https://") &&
                 !d.url.contains("latest") && valid_hex(&d.sha256,64) && d.size>0));

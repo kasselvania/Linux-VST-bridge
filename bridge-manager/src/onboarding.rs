@@ -1491,6 +1491,9 @@ pub(crate) mod tests {
     }
     mod policy_fixture { include!("../tests/fixtures/nsis_installer.rs"); }
     pub(crate) fn close_policy_imported_fixture() -> (test_fixture::Fixture, installer_import::Installer, Runner) {
+        close_policy_imported_with(|m|operator_cli::tests::retained_managed_runtime(m,false))
+    }
+    fn close_policy_imported_with(runtime:impl FnOnce(&Manager)->Runner) -> (test_fixture::Fixture, installer_import::Installer, Runner) {
         let f = test_fixture::Fixture::new();
         let path = f.outer.join("chosen-program.exe");
         fs::write(&path, policy_fixture::fixture(None)).unwrap();
@@ -1501,7 +1504,7 @@ pub(crate) mod tests {
             host: owner.clone(), source_manifest: owner.clone(), source_sha256: owner.sha256.clone(),
             operator_frontend: None, native_catalogue: None, preparation_kit: None, installer_launch: Some(owner) };
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
-        let runner = operator_cli::tests::retained_managed_runtime(&f.m, false);
+        let runner = runtime(&f.m);
         (f,installer,runner)
     }
     /// A started attempt on an exact runner the creation offer need not list.
@@ -1517,16 +1520,18 @@ pub(crate) mod tests {
         let r = load(&f.m, created["onboarding"].as_str().unwrap()).unwrap();
         (f, r)
     }
-    pub(crate) fn close_policy_fixture() -> (test_fixture::Fixture, Record) {
-        let (f,r) = close_policy_unstarted_fixture();
-        let r = reserve(&f.m, &r.id, &"cd".repeat(16)).unwrap();
-        (f,r)
+    pub(crate) fn close_policy_advice_fixture() -> (test_fixture::Fixture,Record) {
+        let (f,installer,runner)=close_policy_imported_with(operator_cli::tests::retained_corrected_runtime);
+        let created=create_exact(&f.m,&installer,runner,&"ab".repeat(16),
+            &f.m.lock("registry.lock").unwrap(),None).unwrap();
+        let record=reserve(&f.m,created["onboarding"].as_str().unwrap(),&"cd".repeat(16)).unwrap();
+        (f,record)
     }
     #[test]
     fn refused_launch_input_finishes_the_attempt_with_its_reason() {
         // A packaged software record whose kit cannot supply the launch component
         // that the matched installer advice needs.
-        let (f, r) = close_policy_fixture();
+        let (f, r) = close_policy_advice_fixture();
         let mut sw: Software = read_json(&f.m.root.join("software.json")).unwrap();
         sw.installer_launch = None; sw.preparation_kit = None;
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
@@ -1561,7 +1566,7 @@ pub(crate) mod tests {
     #[test]
     fn ordinary_initial_installer_launch_selects_advice_without_changing_setup_or_labels() {
         use linux_vst_bridge::installer_policy::Powershell;
-        let (f, r) = close_policy_fixture();
+        let (f, r) = close_policy_advice_fixture();
         let environment = fs::read(r.environment.root.join("environment.json")).unwrap();
         let software = fs::read(f.m.root.join("software.json")).unwrap();
         let spec = launch_input(&f.m, &r, None).unwrap();
