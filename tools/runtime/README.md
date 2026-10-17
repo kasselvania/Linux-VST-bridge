@@ -140,6 +140,40 @@ the selected pair and refuses missing/mismatched facts rather than selecting a
 substitute. Retained schema1 predecessors keep their existing interpretation.
 The declaration has no qualification or readiness meaning.
 
+After the source companion completes, package the final redist without changing
+its bytes or the original declaration:
+
+```sh
+python3 tools/runtime/package.py --build-root "$OUTPUT" \
+  --source-companion "$OUTPUT/source-companion" --source-sha256 "$SOURCE_SHA256" \
+  --wine-build-sha256 "$BUILD_SHA256" --slr-archive "$SLR_ARCHIVE" --output "$ARCHIVE"
+```
+
+The source digest is the collector's existing SHA256 over canonical sorted JSON
+mapping relative filenames to their size and SHA256, with a final newline. No
+new manifest or installation record is written. The producer verifies that exact
+collection, original recipe/helper/configuration bytes, unchanged runtime notices
+and declaration. It writes a deterministic gzip tar with the generic
+`Common-Proton-x86_64/` root, the entire unchanged `source-companion/`, and the
+schema2 command-session declaration required by `runtime_delivery`'s WholeArchive
+layout. That declaration binds the original Wine declaration and exact paired
+SLR launch-client/service hashes. Existing outputs, changed inputs and unsafe
+symlinks refuse. Run archive production with the same shared lock and resource
+limits as collection. This command does not select, install or publish a runtime.
+
+SLR remains the existing separate direct Valve acquisition. The producer reads
+only its fixed catalog archive (4.0.20260805.254769, 164895128 bytes,
+SHA256 `3226d8234e7c0542ee767837832bfb1dad5e5e2dc944ec97eb221b437f6b9349`);
+it does not put SLR binaries in the common archive. Existing delivery preserves
+Valve's supplied component licences and notices. The matching
+[Valve release](https://repo.steampowered.com/steamrt4/images/4.0.20260805.254769/)
+provides the runtime manifests, source-required index and
+[corresponding sources](https://repo.steampowered.com/steamrt4/images/4.0.20260805.254769/sources/).
+Those source-availability and notice obligations remain applicable to that
+separately acquired component. The common archive preserves its own recorded
+component notices, licence exceptions, modification notices and corresponding
+source/build scripts, including the GPLv3-linked speech closure.
+
 WebView2 is intentionally absent from this engine build. The historical .37
 official archive URL and hash are now recovered and independently verified in
 `../runtime-dcomp/recipe.json`. The operator selected a managed setup dependency:

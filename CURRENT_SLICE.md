@@ -8,12 +8,12 @@ Best explanation: successful maintainer corrections diverged from tester deliver
 through separate runtime compositions and machine-local construction. Recover
 capabilities into one release, not more plug-in/campaign production pathways.
 
-Known basis: common source compiles both Wine architectures. Account-free PE64
-DComp/MSI and helper futex probes pass. Complete graphics/media assembly and final
-release-helper pairing remain in progress.
-Operator selected complete Wine/audio/graphics/services without Steam game/overlay
-or VR relay integrations; direct launch preserves prefix init and supervisor custody.
-Exact WebView2 is hash-verified and setup-owned; delivery/servicing remain outstanding.
+Built: both native Wine architectures and the approved full Wine/audio/graphics/
+services redist are complete, without Steam game/overlay or VR relay integrations.
+Fresh first-party fixtures: full launcher initialization in 7s; both PE architectures
+and cross-child, DComp/MSI/UIA/certificate tests pass. The exact paired helper passes
+1,000 bidirectional futex exchanges. Matching source/notices collection is complete.
+Exact WebView2 remains setup-owned; delivery/servicing remain outstanding.
 Live inventory and implementation ownership: [#430](https://github.com/kasselvania/Linux-VST-bridge/issues/430).
 
 Boundary: preserve the working Deck. Operator reports ~170 GB backup complete:
@@ -22,18 +22,16 @@ one growing log; licensed setups excluded, restoration untested. No wipe, licens
 state migration, private payload import or silent switch. Use disposable fixtures.
 
 Next changes:
-1. Finish pinned input/acquisition/licensing basis and the clean common recipe.
-   Choose Proton/GE by combined tests; no prebuilt DLL mixing across Wine bases.
-2. Build one coherent engine/component set including recovered common corrections,
-   with pinned source/toolchain, patch/composition inputs and verified output identity.
-3. Deliver that exact set through ordinary acquisition and a numbered package.
-   New work uses it; predecessors retain exact continuity/rollback bindings.
-4. Exercise combined patch cases and baseline install/play/state/editor/service
-   behavior through actual native DAWs on clean CachyOS and SteamOS fixtures.
+1. Produce the reviewed common archive with unchanged source/notices and exact
+   Wine declaration/SLR binding; preserve separately acquired Valve components.
+2. Exercise normal acquisition in Test205 and the first-party native DAW journey
+   on the fresh fixture. Main retains its existing recommendation.
+3. Check install/play/state/editor/service behavior and combined real cases on
+   clean CachyOS and SteamOS; real-vendor and clean-platform qualification stay open.
+4. Preserve exact predecessors and continuity through update and rollback.
 
-Source recovery is complete only for recovered/checked inputs; it is not a build,
-installed result or qualification claim. A future common tools/runtime/ entry
-feeds ordinary runtime delivery, not per-plug-in experimental selection.
+The common build and first-party mechanisms now pass; ordinary installed musical
+use and the combined real cases remain the completion boundary.
 
 Done: clean Git build → normal acquisition/install/discovery/publication → combined
 real cases. Play and save/reopen through full DAW exit, restart/reboot, update and

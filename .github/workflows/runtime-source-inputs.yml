@@ -50,6 +50,8 @@ jobs:
         run: python3 tools/runtime/redist-inputs.py --check-upstream
       - name: Check deterministic common build identity
         run: python3 tools/runtime/test_build_identity.py
+      - name: Check common WholeArchive producer and shared session binding
+        run: python3 tools/runtime/test_package.py
 
   mechanism-fixtures:
     runs-on: ubuntu-24.04
