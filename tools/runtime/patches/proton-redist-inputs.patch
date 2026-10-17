@@ -15,9 +15,9 @@
 @@ -15,7 +15,8 @@
  $$(OBJ)/.$(1)-$(3)-build:
  	@echo ":: building $(1)-$(3)..." >&2
++	# Linux VST Bridge modification, 2026-10-16: no build-time resolution.
  	cd $$($(2)_SRC) && env $$($(2)_$(3)_ENV) \
 -	cargo build $(--quiet?) --release \
-+	# Linux VST Bridge modification, 2026-10-16: no build-time resolution.
 +	cargo build --frozen $(--quiet?) --release \
  	      $$(filter -j%,$$(MAKEFLAGS)) \
  	      --target-dir $$($(2)_$(3)_OBJ) \

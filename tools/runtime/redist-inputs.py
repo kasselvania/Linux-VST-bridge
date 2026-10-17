@@ -12,6 +12,7 @@ from pathlib import Path
 import runpy
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import urllib.request
@@ -25,7 +26,7 @@ SOURCES = {
         "783d4e99871023aaf2a78fd622229d8d06ed3a30298319c96fb77f7f1a48eeec"),
     "make/rules-cargo.mk": (
         "178b08f2877677a0c2c404682af7b6fe1492f1b6bcaab0a95aa8a35ad84b5861",
-        "f2b4731263d71a18c72ddf9c0a8b5f16d270142fd999d9d0e4e96adf238e6520"),
+        "d2fc3ed4bd31e81e474da31bcae0d55c655431eca52ec7d66e744a53999ad5be"),
     "default_pfx.py": (
         "474c182df7ea0fa5c6b0a6495728b24655cc504848c45b638fb48c3b25a5b794",
         "14a5a426ad497b2624d1fbbef16b0f7ac011124f40a3ff9726c832cb51f42b90"),
@@ -49,7 +50,7 @@ def source_state(source):
 
 def patch_source(source):
     patch = ROOT / "patches/proton-redist-inputs.patch"
-    if hashlib.sha256(patch.read_bytes()).hexdigest() != "66413b6297bff7deabdd8a1b51dd1524cfc52f52724146debd558b7d48c5d21a":
+    if hashlib.sha256(patch.read_bytes()).hexdigest() != "59e5eb4c8c236e565633b47850982bee9328728dee60f339b4b7fe88432f6e2e":
         raise ValueError("redist build patch changed")
     if source_state(source) == 0:
         subprocess.run(["git", "apply", "--check", str(patch)], cwd=source, check=True)
@@ -158,7 +159,7 @@ def prepare(output):
 
 def check():
     with tempfile.TemporaryDirectory(prefix="lvb-redist-source-") as directory:
-        source = Path(directory)
+        source = Path(directory).resolve()
         for name in SOURCES:
             url = ("https://raw.githubusercontent.com/ValveSoftware/Proton/"
                    + RECIPE["proton"]["commit"] + "/" + name)
@@ -171,6 +172,31 @@ def check():
             target.write_bytes(data)
         patch_source(source)
         patch_source(source)  # Composition can resume after an acquisition failure.
+        package = source / "package"
+        package.mkdir()
+        obj = source / "obj"
+        obj.mkdir()
+        binary = source / "bin"
+        binary.mkdir()
+        cargo = binary / "cargo"
+        cargo.write_text("#!" + sys.executable + "\n"
+                         "import os,sys\n"
+                         "assert os.getcwd() == os.environ['LVB_EXPECT_PACKAGE']\n"
+                         "assert os.environ['LVB_CARGO_TEST'] == 'target-environment'\n"
+                         "assert sys.argv[1:3] == ['build', '--frozen']\n"
+                         "assert '--target' in sys.argv and 'x86_64-unknown-linux-gnu' in sys.argv\n")
+        cargo.chmod(0o755)
+        makefile = source / "fixture.mk"
+        makefile.write_text("OBJ := " + str(obj) + "\nARCHS := x86_64-unix\n"
+                            "PKG_SRC := " + str(package) + "\n"
+                            "PKG_x86_64_OBJ := " + str(obj / "target") + "\n"
+                            "PKG_x86_64_ENV := LVB_CARGO_TEST=target-environment PATH="
+                            + str(binary) + ":/usr/bin:/bin\n"
+                            "include " + str(source / "make/rules-cargo.mk") + "\n"
+                            "$(eval $(call create-rules-cargo,fixture,PKG,x86_64,unix))\n")
+        subprocess.run(["make", "--no-print-directory", "-f", str(makefile),
+                        str(obj / ".fixture-x86_64-build")], cwd=source,
+                       env={"PATH": os.defpath, "LVB_EXPECT_PACKAGE": str(package)}, check=True)
         drives = source / "prefix/dosdevices"
         drives.mkdir(parents=True)
         (drives / "c:").symlink_to(source, target_is_directory=True)
@@ -189,7 +215,7 @@ def check():
             pass
         else:
             raise ValueError("modified redist source was accepted")
-    print("Pinned redist source and generated-prefix regressions verified")
+    print("Pinned redist source, Cargo execution and generated-prefix regressions verified")
 
 
 if __name__ == "__main__":

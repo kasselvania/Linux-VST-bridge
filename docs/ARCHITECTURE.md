@@ -42,6 +42,14 @@ rollback. The common Wine engine remains independent of browser servicing. This
 classification does not accept publisher terms or settle acquisition versus
 redistribution, delivery APIs or the required servicing implementation.
 
+The setup owner owns the installed dependency set. The configuration owner binds
+an exact browser version for each launch purpose in the immutable applied
+configuration, as selected by the operator on 2026-10-16. The supervisor receives
+the resolved exact identity, folder and scope; it never selects or upgrades a
+browser, uses an implicit latest version, or rewrites configuration at launch.
+Keeper conflicts, browser-data compatibility and failed partial setup mutations
+require explicit transition semantics before implementation.
+
 Git owns original source/patches, pinned inputs/toolchain, build/composition recipes,
 tests and distribution notices. Build coherent components from one selected source
 and SDK basis, without transplanted prebuilt DLLs from different Wine bases or
