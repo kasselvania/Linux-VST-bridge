@@ -240,19 +240,20 @@ impl CurrentOverviewContext {
         class_inactive_reason(&self.snapshot.system, &self.owners, self.all_vendor_retired, class)
     }
 
-    fn live_installer_progress_paths(&self, m: &Manager) -> BTreeMap<PathBuf,PathBuf> {
+    fn live_installer_progress_paths(&self, m: &Manager) -> BTreeMap<PathBuf,Vec<PathBuf>> {
         let mut paths: BTreeMap<_,_> = self.snapshot.onboarding.iter().filter_map(|row| {
             let environment = row.environment.as_ref()?;
             let operation = row.details["installation"]["operation"].as_str()?;
             if self.installer_live.get(operation) != Some(&true) { return None; }
             let directory = m.root.join("onboarding").join(environment);
             let report = directory.join(format!("{operation}-result.json"));
-            Some((directory,report))
+            let observation = directory.join(format!("{operation}-transaction-private.json"));
+            Some((directory,vec![report,observation]))
         }).collect();
         for row in &self.snapshot.environment_installers {
             if let Some(op) = row.operation.as_ref().filter(|op|self.installer_live.get(*op) == Some(&true)) {
                 let dir = m.root.join("operator").join(op);
-                paths.insert(dir.clone(),dir.join("installation-result.json"));
+                paths.insert(dir.clone(),vec![dir.join("installation-result.json")]);
             }
         }
         paths
@@ -335,15 +336,15 @@ impl CurrentOverviewContext {
             let mut progress = self.live_installer_progress_paths(m);
             if let Some(vendor) = &self.vendor_progress {
                 require_live_vendor_report(vendor)?;
-                progress.insert(vendor.report.parent().ok_or("operator_vendor_report_directory")?.to_owned(),vendor.report.clone());
+                progress.insert(vendor.report.parent().ok_or("operator_vendor_report_directory")?.to_owned(),vec![vendor.report.clone()]);
             }
             let runtime_records: BTreeSet<_>=linux_vst_bridge::runtime_delivery::record_paths(m).into_iter().collect();
             for (path, before) in &self.watched {
-                // An active supervisor atomically replaces its progress report.
-                // Those bytes cannot authorize launch or retirement: both
-                // external rechecks require the same operation to remain live.
+                // An active supervisor atomically replaces its observations.
+                // While live, those bytes cannot authorize launch or retirement:
+                // both external rechecks require the same operation to remain live.
                 // Keep stable application/job/environment/record inputs watched.
-                if progress.values().any(|report| report == path) { continue; }
+                if progress.values().any(|reports| reports.contains(path)) { continue; }
                 let after = stamp(path).or_else(|error|
                     if runtime_records.contains(path) {Ok(None)} else {Err(error)})?;
                 let unchanged = if progress.contains_key(path) {
@@ -1553,6 +1554,10 @@ pub(super) mod tests {
             installation_operation:Some(operation.clone()),published:false,automatic:None,previous_attempt:None}).unwrap();
         let result=onboarding_dir.join(format!("{operation}-result.json"));
         fs::write(&result,b"old result").unwrap();
+        let private_report=onboarding_dir.join(format!("{operation}-transaction-private.json"));
+        let mut observation=json!({"schema":1,"operation":operation,
+            "durable_installation":{"application_registrations":[]},"diagnostics":{"progress":0}});
+        atomic_json(&private_report,&observation).unwrap();
         let inventory=m.root.join("inventory").join(format!("{environment_id}.json"));
         private_dir(inventory.parent().unwrap()).unwrap();
         fs::write(&inventory,b"old scan").unwrap();
@@ -1577,7 +1582,7 @@ pub(super) mod tests {
         assert_ne!(stamp(&installer_path).unwrap(),before_mode);
         assert!(context.recheck(m).is_err());
         for path in [&vendor,&installer_record,&installer_path,&presentation,&onboarding_record,
-            &result,&inventory,&pending,&performance,&workspace] {
+            &result,&private_report,&inventory,&pending,&performance,&workspace] {
             assert!(before.contains_key(path),"unwatched current input: {}",path.display());
             let context=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
             context.recheck(m).unwrap();
@@ -1606,9 +1611,9 @@ pub(super) mod tests {
         assert!(context.recheck(m).is_err());
         fs::remove_file(application).unwrap();
         fs::remove_dir(unregistered).unwrap();
-        // A live installer needs recovery controls while reports and private
-        // diagnostics change. Its stable record and directory custody still
-        // bind the exact operation; a retired report keeps the full byte watch.
+        // A live installer needs recovery controls while its observations change.
+        // The same file retains installation evidence after retirement, so that
+        // file remains covered by the retired-input checks above.
         let mut live=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
         live.installer_live.insert(operation.clone(),true);
         live.snapshot.onboarding.push(ui::Onboarding {failure:None,
@@ -1621,8 +1626,8 @@ pub(super) mod tests {
         live.recheck_with(m,||Ok(())).unwrap();
         atomic_json(&result,&json!({"schema":2,"operation":operation,
             "state":"running","owned_live":7,"cleanup_confirmed":false})).unwrap();
-        let private_report=onboarding_dir.join("diagnostic.private.json");
-        atomic_json(&private_report,&json!({"progress":1})).unwrap();
+        observation["diagnostics"]["progress"]=1.into();
+        atomic_json(&private_report,&observation).unwrap();
         live.recheck_with(m,||Ok(())).unwrap();
         // The real external recheck cannot accept our simulated live unit.
         assert!(live.recheck(m).is_err());
