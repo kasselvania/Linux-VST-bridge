@@ -57,6 +57,10 @@
     {
       "path": "runtime/patches/modification-notices.patch",
       "sha256": "53981cefa0cbb7b034896e34373d125ebbe02337c9285f050c26862e7d672565"
+    },
+    {
+      "path": "runtime/patches/wined3d-unused-predicate.patch",
+      "sha256": "a8b4e614d4f68082c888d676fe040ab1a8238df757eeb67440dc3536723dab29"
     }
   ],
   "fixtures": [
@@ -118,6 +122,10 @@
     "COPYING.LIB": {
       "before": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c",
       "after": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c"
+    },
+    "dlls/wined3d/texture_vk.c": {
+      "before": "5a0ac5f4ae0ed58553858b7bcb4db19d8826668562c75aaab563c06d1173de70",
+      "after": "b91541c57528075de4acb11fd1567c878c1714e12ffef172c368f0ebdfe5b83e"
     }
   }
 }
