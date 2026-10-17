@@ -187,3 +187,42 @@ The historical extracted Deck browser is never a build input.
 argument/valid-provider case and the signed/tampered crypt32 case as standalone
 PE32 and PE64 tests. It verifies pinned source headers and the complete prepared
 certificate test; `--prepared-wine PATH` reuses the common build source offline.
+
+### Test205 package input recipe (qualification branch only)
+
+This unmerged branch uses the ordinary compiled catalog and package builder for
+one disposable first-party CachyOS comparison. Main retains its prior recommendation.
+The fixed common archive includes matching source/notices and binds the original
+Wine construction declaration; it does not select a production base or qualify a
+real vendor. No registered beta or Deck setup is a test target.
+
+Build the native kit from this exact source using the existing `prebuilt_kit.py`
+with pinned Rust **1.95.0** and the VST3 SDK/submodule lock in
+`cmake/HP0Vst3SdkLock.cmake`. Use the common build's original declaration and its
+own `build/dst-wine-x86_64/bin/winebuild`, never a retained GE marker tool.
+
+| Input | Exact identity |
+| --- | --- |
+| Windows CI artifact | Run `38995788477`, artifact `12087465719`, ZIP SHA256 `c1c92694f9951dadc877f10d9326366235413c17ef5c0c10afa7a3f4458e24f4` |
+| Windows source | The artifact's `host-source-manifest.json` records its original build/toolchain; the normal kit builder verifies current host/shim source files and bytes before use. |
+| Wine declaration | SHA256 `bf0acc6ff79d1191dbb150fb18310be26715407993ae402c7e487e3f6c8ed504` |
+| Wine marker tool | SHA256 `9e120c41ca6c3788e52f25df2d2cc82cc0132e122d2483c14529f24a9259f79c` |
+| Common archive | `runtime-common-r6/Common-Proton-x86_64.tar.gz`, 1,682,743,460 bytes, SHA256 `6c0d09e1ed76cc2f33fa0117ab777da6128eb9e7473e85e08bedd0163848d58d` |
+| Source companion | The exact collector file-manifest SHA256 is `bd1bc9c5f1a0ca536fc0fae55f4750b8fa2601401902b50bcd5fabb53e5cb463`; its original recipe/configuration/declaration archives remain inside the runtime archive. |
+
+Extract only the source-verified Windows host/shim and the original first-party
+Reference installer/modules needed by `tools/beta/candidate_inputs.py`. Build the
+manager/frontend/installer from this branch with the established internal-test
+public trust root, then use the existing candidate input, PKG0 assembly and native
+user-package signing tools. Preserve signer custody. Generate checked-hash Python
+bytecode for the target guest's actual Python ABI from these exact supervisor
+sources. The reusable kit retains its normal source/byte validation; the installer
+launch component retains its existing separate provenance checks.
+
+Publish the resulting kit and signed release metadata with their exact output
+digests alongside the candidate package. Output digests belong to that existing
+release metadata, outside the source commit recorded by the output itself. Install
+only in the fresh unlicensed fixture. Acquire the common runtime through Setup,
+install/publish the original Reference modules through the manager, then verify
+changed Level/Colour, actual rendered audio and state after complete native DAW
+exit/restart. Stop at that working checkpoint for operator review.
