@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "status": "usb_midi_transport_acceptance_passed_rpi0_variable_velocity_pending",
+  "accepted_controller": {
+    "manufacturer": "Monolit",
+    "model": "Monolit",
+    "usb_vendor_id": "16c0",
+    "usb_product_id": "0490",
+    "serial_present": true,
+    "identity_class": "usb_vid_pid_serial",
+    "stable_raw_midi_alias": "/dev/snd/shieldxl-usb-midi",
+    "alsa_client_name": "Monolit",
+    "alsa_port_name": "Monolit MIDI 1",
+    "stable_jack_input_alias": "Monolit:midi/playback_1"
+  },
+  "event_campaign": {
+    "note_on_count": 58,
+    "note_off_count": 58,
+    "note_velocity_values": [64],
+    "note_channel_zero_based": 1,
+    "cc64_count": 792,
+    "cc64_value_range": [0, 127],
+    "cc64_crossed_sustain_threshold": true,
+    "cc123_count": 962,
+    "cc123_value_range": [0, 127],
+    "cc123_exact_zero_count": 2,
+    "unsupported_or_other_messages": "not promoted into the RPI0 note/control claim"
+  },
+  "hotplug": {
+    "disconnect": "USB, ALSA, JACK, and the stable raw-MIDI alias disappeared while JACK and OLED remained active",
+    "reconnect": "the same VID:PID and serial-qualified raw-MIDI alias returned",
+    "numeric_jack_port_before": "system:midi_capture_2",
+    "numeric_jack_port_after": "system:midi_capture_3",
+    "stable_jack_alias_after": "Monolit:midi/playback_1",
+    "post_reconnect_note_on_count": 1,
+    "post_reconnect_note_off_count": 1,
+    "post_reconnect_pitch": 48,
+    "post_reconnect_velocity": 64,
+    "post_reconnect_channel_zero_based": 0,
+    "result": "pass"
+  },
+  "other_observed_controllers": [
+    {"model": "AKT-0.1", "usb_id": "239a:cafe", "note_on_count": 428, "note_off_count": 560, "velocity_values": [100], "cc64": false, "cc123": false},
+    {"model": "omx-27", "usb_id": "16c0:0485", "note_on_count": 82, "note_off_count": 83, "velocity_values": [100], "observed_cc_numbers": [7, 21, 22, 23, 24], "cc64": false, "cc123": false}
+  ],
+  "thermal": {
+    "temperature_after_reconnect_capture_c": 44.4,
+    "throttling": "0x0"
+  },
+  "limitations": [
+    "All three available controllers emitted one fixed note-on velocity each; distinct physical velocities from one controller were not established.",
+    "SHIELDXL0 USB note/control transport passes, but the complete RPI0 sequence still requires two distinct physical velocities.",
+    "The accepted stable JACK selector is the Monolit alias, not the changing system:midi_capture_N number.",
+    "ShieldXL TRS/UART MIDI remains deferred."
+  ]
+}

@@ -1,0 +1,207 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * ShieldXL0 overlay for Raspberry Pi 5 / BCM2712 and RP1.
+ *
+ * Adapted 2026-09-18 from monome/linux commit
+ * 458e2253667a09bd01f1d50cc2b4063c14c491ec:
+ *   monome-snd-4270-overlay.dts
+ *   norns-buttons-encoders-overlay.dts
+ *   ssd1322-spi-overlay.dts
+ *
+ * Changes: current simple-audio-card property form; RP1 I2S clock-consumer DAI because
+ * the CS4270 owns bit/frame clocks; explicit RP1 I2C, GPIO, and SPI targets; fixed
+ * ShieldXL pins; non-deprecated encoder steps-per-period; stable input-device names;
+ * separate button devices; CS4270 reset moved to the current reset-gpios binding; SPI
+ * exposed to the bounded user-space OLED service instead of historical fbtft.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2712";
+
+	fragment@0 {
+		target = <&sound>;
+		__overlay__ {
+			compatible = "simple-audio-card";
+			simple-audio-card,name = "SHIELDXL";
+			simple-audio-card,format = "i2s";
+			simple-audio-card,bitclock-master = <&shieldxl_codec_dai>;
+			simple-audio-card,frame-master = <&shieldxl_codec_dai>;
+			status = "okay";
+
+			simple-audio-card,cpu {
+				sound-dai = <&i2s_clk_consumer>;
+				dai-tdm-slot-num = <2>;
+				dai-tdm-slot-width = <32>;
+			};
+
+			shieldxl_codec_dai: simple-audio-card,codec {
+				sound-dai = <&shieldxl_cs4270>;
+				system-clock-frequency = <12288000>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&i2s_clk_consumer>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@2 {
+		target = <&i2c_arm>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			shieldxl_cs4270: codec@48 {
+				compatible = "cirrus,cs4270";
+				reg = <0x48>;
+				#sound-dai-cells = <0>;
+				/*
+				 * GPIO_ACTIVE_HIGH is intentional. The codec pin itself is active-low,
+				 * but Linux cs4270.c uses descriptor value 0 to assert reset and 1 to
+				 * deassert it. ShieldXL wires GPIO17 directly to the codec /RST pin.
+				 */
+				reset-gpios = <&rp1_gpio 17 0>;
+				status = "okay";
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&rp1_gpio>;
+		__overlay__ {
+			shieldxl_encoder_1_pins: shieldxl-encoder-1-pins {
+				brcm,pins = <4 27>;
+				brcm,function = <0>;
+				brcm,pull = <2>;
+			};
+			shieldxl_encoder_2_pins: shieldxl-encoder-2-pins {
+				brcm,pins = <12 25>;
+				brcm,function = <0>;
+				brcm,pull = <2>;
+			};
+			shieldxl_encoder_3_pins: shieldxl-encoder-3-pins {
+				brcm,pins = <24 23>;
+				brcm,function = <0>;
+				brcm,pull = <2>;
+			};
+			shieldxl_button_1_pin: shieldxl-button-1-pin {
+				brcm,pins = <22>;
+				brcm,function = <0>;
+				brcm,pull = <2>;
+			};
+			shieldxl_button_2_pin: shieldxl-button-2-pin {
+				brcm,pins = <26>;
+				brcm,function = <0>;
+				brcm,pull = <2>;
+			};
+			shieldxl_button_3_pin: shieldxl-button-3-pin {
+				brcm,pins = <13>;
+				brcm,function = <0>;
+				brcm,pull = <2>;
+			};
+		};
+	};
+
+	fragment@4 {
+		target-path = "/";
+		__overlay__ {
+			shieldxl-encoder-1 {
+				compatible = "rotary-encoder";
+				pinctrl-names = "default";
+				pinctrl-0 = <&shieldxl_encoder_1_pins>;
+				gpios = <&rp1_gpio 4 1>, <&rp1_gpio 27 1>;
+				linux,axis = <0>;
+				rotary-encoder,relative-axis;
+				rotary-encoder,steps-per-period = <2>;
+			};
+
+			shieldxl-encoder-2 {
+				compatible = "rotary-encoder";
+				pinctrl-names = "default";
+				pinctrl-0 = <&shieldxl_encoder_2_pins>;
+				gpios = <&rp1_gpio 12 1>, <&rp1_gpio 25 1>;
+				linux,axis = <0>;
+				rotary-encoder,relative-axis;
+				rotary-encoder,steps-per-period = <2>;
+			};
+
+			shieldxl-encoder-3 {
+				compatible = "rotary-encoder";
+				pinctrl-names = "default";
+				pinctrl-0 = <&shieldxl_encoder_3_pins>;
+				gpios = <&rp1_gpio 24 1>, <&rp1_gpio 23 1>;
+				linux,axis = <0>;
+				rotary-encoder,relative-axis;
+				rotary-encoder,steps-per-period = <2>;
+			};
+
+			shieldxl-button-1 {
+				compatible = "gpio-keys";
+				label = "ShieldXL Button 1";
+				pinctrl-names = "default";
+				pinctrl-0 = <&shieldxl_button_1_pin>;
+				button {
+					label = "ShieldXL Button 1";
+					linux,code = <256>;
+					gpios = <&rp1_gpio 22 1>;
+					debounce-interval = <5>;
+				};
+			};
+
+			shieldxl-button-2 {
+				compatible = "gpio-keys";
+				label = "ShieldXL Button 2";
+				pinctrl-names = "default";
+				pinctrl-0 = <&shieldxl_button_2_pin>;
+				button {
+					label = "ShieldXL Button 2";
+					linux,code = <257>;
+					gpios = <&rp1_gpio 26 1>;
+					debounce-interval = <5>;
+				};
+			};
+
+			shieldxl-button-3 {
+				compatible = "gpio-keys";
+				label = "ShieldXL Button 3";
+				pinctrl-names = "default";
+				pinctrl-0 = <&shieldxl_button_3_pin>;
+				button {
+					label = "ShieldXL Button 3";
+					linux,code = <258>;
+					gpios = <&rp1_gpio 13 1>;
+					debounce-interval = <5>;
+				};
+			};
+		};
+	};
+
+	fragment@5 {
+		target = <&rp1_spi0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@6 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "okay";
+			spi-max-frequency = <16000000>;
+		};
+	};
+
+	fragment@7 {
+		target = <&spidev1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+};

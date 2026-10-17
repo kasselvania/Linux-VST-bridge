@@ -1,0 +1,18 @@
+[Unit]
+Description=ShieldXL bounded OLED status service for %i
+After=systemd-udevd.service
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+SupplementaryGroups=spi gpio
+RuntimeDirectory=shieldxl0
+RuntimeDirectoryMode=0750
+ExecStart=/usr/local/libexec/shieldxl0/oled_service.py --socket /run/shieldxl0/oled.sock --spi /dev/shieldxl-oled-spi --rotate 180 --idle-timeout 60
+Restart=on-failure
+RestartSec=2s
+TimeoutStopSec=5s
+
+[Install]
+WantedBy=multi-user.target
