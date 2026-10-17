@@ -34,7 +34,7 @@ an existing managed setup. The script refuses an existing output directory.
 
 Recursive gitlinks alone do not pin every input: the pinned Piper CMake recipe
 downloads a moving phonemizer branch and other unhashed archives. `build-inputs`
-pins its phonemizer, fmt, spdlog and espeak source commits/archives, Microsoft's
+pins its phonemizer, fmt, spdlog, espeak and Sonic source commits/archives, Microsoft's
 ONNXRuntime 1.14.1 Linux auxiliary and Wine's expected Vulkan registry 1.4.335.
 Nested CMake consumes those verified local inputs. Compilation has no network;
 an additional hidden download fails visibly. This closes the inputs of the Wine
@@ -74,7 +74,9 @@ alongside Valve's distribution notices. A successful build is not discharge of
 those obligations or qualification of this combination.
 
 WebView2 is intentionally absent from this engine build. The historical .37
-official archive provenance remains a gap. A newer official dependency can be
-tested in isolation; its placement in runtime versus setup, acquisition versus
-redistribution, user terms and servicing need explicit decisions before delivery.
+official archive URL and hash are now recovered and independently verified in
+`../runtime-dcomp/recipe.json`. The operator selected a managed setup dependency:
+its exact browser binding advances through an explicit setup revision, while the
+common Wine engine remains independent. Acquisition versus redistribution, user
+terms and servicing still need a valid delivery basis before implementation.
 The historical extracted Deck browser is never a build input.

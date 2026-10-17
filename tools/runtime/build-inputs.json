@@ -33,5 +33,10 @@
     "url": "https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/v1.4.335/xml/video.xml",
     "sha256": "20ed005acda47ead8a5d0d091735d6a57c3641b1d8171b36493ba39527a56c09",
     "size": 196809
+  },
+  "sonic.zip": {
+    "url": "https://codeload.github.com/waywardgeek/sonic/zip/fbf75c3d6d846bad3bb3d456cbc5d07d9fd8c104",
+    "sha256": "d7c5a715f574a4a2a5afe970f489d3950bcd5229f1bed3f0e010a5413957ec20",
+    "size": 5343518
   }
 }

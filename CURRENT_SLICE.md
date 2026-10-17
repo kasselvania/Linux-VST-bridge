@@ -8,15 +8,16 @@ Best explanation: successful maintainer corrections diverged from tester deliver
 through separate runtime compositions and machine-local construction. Recover
 capabilities into one release, not more plug-in/campaign production pathways.
 
-Known basis: PR439 recovered exact DComp/BG1 patches and launcher-template inputs
-with source checks under tools/runtime-dcomp/. A fresh runtime build is not proven.
-Complete pinned Proton composition/acquisition and WebView2 provenance/distribution
-obligations remain gaps. UIA/MSI/touch/certificate recipes exist but are not one set.
+Known basis: PR439 recovered DComp/BG1 inputs. PR440 integrates UIA/MSI/touch and
+certificate regression sources; the full Wine/dependency build is in progress.
+The exact official WebView2 archive is recovered and hash-verified. It belongs to
+setup revisions by operator decision; delivery terms/servicing remain outstanding.
 Live inventory and implementation ownership: [#430](https://github.com/kasselvania/Linux-VST-bridge/issues/430).
 
-Boundary: preserve the working Deck and existing other-system backup; restoration
-is unverified. No wipe, licensed-state migration, private payload import or silent
-setup/runtime switch. Experiments use disposable fixtures and declared limits.
+Boundary: preserve the working Deck. Operator reports ~170 GB backup complete:
+801,991 runtime/build/patch files and 180,431 bridge records match name/size except
+one growing log; licensed setups excluded, restoration untested. No wipe, licensed
+state migration, private payload import or silent switch. Use disposable fixtures.
 
 Next changes:
 1. Finish pinned input/acquisition/licensing basis and the clean common recipe.

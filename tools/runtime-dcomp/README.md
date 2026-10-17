@@ -78,19 +78,23 @@ identify every inherited auxiliary. Recover that acquisition/source/notices
 basis and the exact composition inputs before claiming a fresh reconstruction.
 Do not substitute customer-installed Steam as a product requirement.
 
-The BG1 browser record pins an extracted file roster and version, but does not
-establish the original official archive URL/hash or the applicable Microsoft
-terms. This directory contains no browser payload, download, redistribution or
-prefix-copy operation. Microsoft documents [Fixed Version packaging and
-servicing](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution)
-and provides its [official download and terms entrypoint](https://developer.microsoft.com/en-us/microsoft-edge/webview2/).
-Those pages are not a retained licence for this exact historical package or a
-determination of the Linux/Wine distribution basis. Before any payload delivery,
-obtain that official package's applicable terms and provenance, establish the
-permitted application/platform/distribution scope, retain required third-party
-notices and source offers, and establish the servicing responsibility. Until
-then, WebView2 acquisition and redistribution authority is a **gap**. Do not
-copy the Deck's extracted browser as a substitute.
+The exact official WebView2 154.0.4258.37 CAB URL and archive hash were recovered
+from Git `82bdf081:evidence/bg1/content-startup-attribution.sanitized.json`.
+An independent stream from the official Microsoft CDN on 2026-10-17 read
+307,889,499 bytes and matched SHA-256
+`143da7f7c4939fddd3875ed918e44022d7eb87063bf912fe3e32df37c6b0b8c3`.
+`recipe.json` now pins that acquisition input alongside the retained extracted
+roster. This closes the archive-provenance gap; it does not add payload delivery
+or an independent extraction comparison.
+
+The operator selected WebView2 as a managed setup dependency, independently
+serviced through setup revisions, rather than part of the common Wine engine.
+That decision does not accept Microsoft publisher terms. Before delivery, record
+the applicable [Fixed Version terms](https://developer.microsoft.com/microsoft-edge/api/eula/webview2?locale=en-us&fixed=true),
+protective application/distributor terms, notices, platform/distribution scope
+and [servicing responsibility](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution).
+Preserve exact predecessor bindings and browser user data; retained browser
+binaries alone do not demonstrate usable rollback. Do not copy the Deck browser.
 
 Wine/Proton and inherited components also require their corresponding source,
 licences, modification notices and distribution obligations before delivery.

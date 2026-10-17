@@ -47,13 +47,15 @@ def prepare(source):
                 out.write(block)
         if count != item["size"] or sha(target) != item["sha256"]:
             raise ValueError("build input identity differs: " + name)
+    for bundle in ("phonemize", "sonic"):
+        target = inputs / bundle
+        target.mkdir()
+        with zipfile.ZipFile(inputs / (bundle + ".zip")) as archive:
+            for name in archive.namelist():
+                if Path(name).is_absolute() or ".." in Path(name).parts:
+                    raise ValueError("unsafe source archive path")
+            archive.extractall(target)
     phonemize = inputs / "phonemize"
-    phonemize.mkdir()
-    with zipfile.ZipFile(inputs / "phonemize.zip") as archive:
-        for name in archive.namelist():
-            if Path(name).is_absolute() or ".." in Path(name).parts:
-                raise ValueError("unsafe source archive path")
-        archive.extractall(phonemize)
     phonemize = phonemize / "piper-phonemize-5ecbb9b59abcffe03a9775ae82491c9ac5037f4d"
     with tarfile.open(inputs / "onnxruntime.tgz") as archive:
         archive.extractall(inputs, filter="data")
@@ -79,6 +81,10 @@ def prepare(source):
                         'URL "https://github.com/rhasspy/espeak-ng/archive/0f65aa301e0d6bae5e172cc74197d32a6182200f.zip"',
                         'URL "/work/proton/external-inputs/espeak.zip"\n'
                         '        URL_HASH SHA256=' + INPUTS["espeak.zip"]["sha256"])
+    text = replace_once(text, 'CMAKE_ARGS -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=ON',
+                        'CMAKE_ARGS -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=ON\n'
+                        '        CMAKE_ARGS -DFETCHCONTENT_SOURCE_DIR_SONIC-GIT:PATH='
+                        '/work/proton/external-inputs/sonic/sonic-fbf75c3d6d846bad3bb3d456cbc5d07d9fd8c104')
     cmake.write_text(text)
     for name in ("vk.xml", "video.xml"):
         shutil.copyfile(inputs / name, source / "wine/dlls/winevulkan" / name)

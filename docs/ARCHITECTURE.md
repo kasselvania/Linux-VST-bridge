@@ -34,6 +34,14 @@ creates a runtime generation; a supported option creates a configuration change;
 a dependency installation changes a setup revision; discovery and qualification
 record observations. None substitutes for another.
 
+WebView2 is a managed setup dependency, as selected by the operator on 2026-10-16.
+Its exact browser dependency belongs to the setup revision and changes through
+an explicit owned transition. Preserve predecessor browser bindings and browser
+user data/account state; retaining browser binaries alone does not prove usable
+rollback. The common Wine engine remains independent of browser servicing. This
+classification does not accept publisher terms or settle acquisition versus
+redistribution, delivery APIs or the required servicing implementation.
+
 Git owns original source/patches, pinned inputs/toolchain, build/composition recipes,
 tests and distribution notices. Build coherent components from one selected source
 and SDK basis, without transplanted prebuilt DLLs from different Wine bases or

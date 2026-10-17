@@ -46,14 +46,17 @@
     "rendered_launcher_sha256": "3a3fe0c76e85057e99665ba5430821567464cd22b2ddbc82f75787c0e632b8ec",
     "browser_version": "154.0.4258.37",
     "browser_files_manifest_sha256": "6f892de44a5c7f0a2668c1bf85771722290794a4cfe41eaeda35cb5b8714864f",
-    "browser_acquisition": "Only the extracted file roster is retained in this basis; original official download URL, archive hash and applicable terms are not established here",
+    "browser_acquisition": "Recovered from Git 82bdf081:evidence/bg1/content-startup-attribution.sanitized.json; independently streamed from the official Microsoft CDN and verified on 2026-10-17. Distribution terms and servicing remain separate.",
     "native_command_session": {
       "schema": 1,
       "kind": "native_proton_command_session",
       "client_sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb",
       "service_sha256": "8e725fdf7d38c81abd846b7c7274245e3247b92fa741286a250ace8b386b9722"
     },
-    "native_command_session_sha256": "1fca37746647a975d80666f75f84c050770820b2c0f7de58352bbf7ed4f40c30"
+    "native_command_session_sha256": "1fca37746647a975d80666f75f84c050770820b2c0f7de58352bbf7ed4f40c30",
+    "browser_archive_url": "https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/b82d47e8-d146-4563-94d1-3a3176b25c0a/Microsoft.WebView2.FixedVersionRuntime.154.0.4258.37.x64.cab",
+    "browser_archive_sha256": "143da7f7c4939fddd3875ed918e44022d7eb87063bf912fe3e32df37c6b0b8c3",
+    "browser_archive_bytes": 307889499
   },
   "historical_composition": {
     "composition": {
