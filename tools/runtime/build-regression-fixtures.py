@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -21,6 +22,11 @@ SUPPORT = {
     "COPYING.LIB": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c",
 }
 MESSAGE = "dlls/crypt32/tests/msg.c"
+# Four documented Win32 API signatures, in i686 stdcall argument bytes.
+# Ubuntu MinGW provides their declarations without the import library.
+# https://learn.microsoft.com/windows/win32/api/uiautomationcoreapi/
+UIA_IMPORTS = {"UiaNodeFromProvider": 8, "UiaReturnRawElementProvider": 16,
+               "UiaGetPropertyValue": 12, "UiaNodeRelease": 4}
 
 
 def checked(path, expected):
@@ -93,6 +99,13 @@ def main():
         stage = Path(temporary)
         sources(stage, args.prepared_wine)
         for arch in ("i686", "x86_64"):
+            definition = stage / ("uiautomationcore-" + arch + ".def")
+            definition.write_text("LIBRARY uiautomationcore.dll\nEXPORTS\n" + "".join(
+                name + ("@" + str(size) if arch == "i686" else "") + "\n"
+                for name, size in UIA_IMPORTS.items()))
+            library = stage / "libuiautomationcore.a"
+            subprocess.run([arch + "-w64-mingw32-dlltool", "--kill-at", "--input-def",
+                            str(definition), "--output-lib", str(library)], check=True, timeout=30)
             for name, libraries in (
                     ("guard_provider", ("uiautomationcore", "ole32", "oleaut32", "uuid")),
                     ("signature_order", ("crypt32",))):
@@ -103,14 +116,20 @@ def main():
                 # Windows headers omit Wine's internal DECLSPEC_EXPORT spelling.
                 subprocess.run([arch + "-w64-mingw32-gcc", "-O2", "-static", "-DSTANDALONE",
                                 "-DDECLSPEC_EXPORT=",
-                                "-I" + str(stage / "include"), str(stage / (name + ".c")),
+                                "-I" + str(stage / "include"), "-L" + str(stage), str(stage / (name + ".c")),
                                 "-o", str(target), *["-l" + item for item in libraries]],
                                check=True, timeout=120)
+                if name == "guard_provider":
+                    table = subprocess.check_output([arch + "-w64-mingw32-objdump", "-p", str(target)], text=True)
+                    imports = set(re.findall(r"^\s*[0-9a-f]+\s+\d+\s+(Uia\w+(?:@\d+)?)\s*$", table, re.M))
+                    if imports != UIA_IMPORTS.keys():
+                        raise ValueError("UIA PE imports differ: " + str(sorted(imports)))
                 print(target.name + " " + hashlib.sha256(target.read_bytes()).hexdigest())
         # Accompany the LGPL standalone harness binaries with their exact
         # corresponding source, original notices, licence and rebuild commands.
         source_output.mkdir()
-        for name in (*SUPPORT, "signature_order.c", "guard_provider.c"):
+        for name in (*SUPPORT, "signature_order.c", "guard_provider.c",
+                     "uiautomationcore-i686.def", "uiautomationcore-x86_64.def"):
             target = source_output / name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(stage / name, target)
@@ -123,7 +142,9 @@ def main():
             "unchanged from the prepared Wine test, with a standalone entry point.\n\n"
             "Rebuild from this directory with MinGW Windows headers/import libraries:\n"
             "for arch in i686 x86_64; do\n"
-            "  $arch-w64-mingw32-gcc -O2 -static -DSTANDALONE -DDECLSPEC_EXPORT= -Iinclude "
+            "  $arch-w64-mingw32-dlltool --kill-at --input-def uiautomationcore-$arch.def "
+            "--output-lib libuiautomationcore.a\n"
+            "  $arch-w64-mingw32-gcc -O2 -static -DSTANDALONE -DDECLSPEC_EXPORT= -Iinclude -L. "
             "guard_provider.c -o guard_provider-$arch.exe -luiautomationcore -lole32 -loleaut32 -luuid\n"
             "  $arch-w64-mingw32-gcc -O2 -static -DSTANDALONE -DDECLSPEC_EXPORT= -Iinclude "
             "signature_order.c -o signature_order-$arch.exe -lcrypt32\n"
