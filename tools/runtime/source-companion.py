@@ -304,6 +304,9 @@ def build_context(output, repository):
 
 
 def collect(output, destination):
+    storage = Path("/mnt/Storage2")
+    if output.is_relative_to(storage) and not storage.is_mount():
+        raise ValueError("Storage2 must be mounted before source acquisition/collection")
     if destination.exists() or destination.parent != output:
         raise ValueError("source destination must be a new direct child of the build root")
     # A failed collection must not leave a complete-looking companion directory.
