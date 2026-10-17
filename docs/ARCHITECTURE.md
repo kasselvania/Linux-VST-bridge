@@ -26,6 +26,16 @@ its runtime, graphics and integration components. Configuration selects supporte
 behavior inside that set. Profiles cannot select private per-plug-in production
 engines, and several vendor engines in one archive/name do not satisfy the rule.
 
+The operator selected a common audio runtime without Steam game/overlay or VR
+relay integrations on 2026-10-16. Keep complete native Wine architectures,
+graphics/media, installers/services, recovered corrections and exactly paired
+product helpers. Omit lsteamclient, the Steam executable intermediary, OpenVR and
+wineopenxr relay components. After standard prefix initialization, `run` launches
+the requested program directly; `waitforexitandrun` retains its wineserver wait.
+`runinprefix`, path conversion and supervisor/command-session ownership remain.
+Remove only associated setup/build dependencies; preserve exact applied
+predecessors. This does not remove SteamOS support or forbid unfamiliar plug-ins.
+
 The release binds manager/control protocol, proxy, Windows host/scanner,
 supervisor protocol, runtime and shipped policy revisions as a tested combination.
 Choose Proton or GE-Proton by combined compatibility and regression results;

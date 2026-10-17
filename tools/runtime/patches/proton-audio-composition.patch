@@ -1,0 +1,418 @@
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -1,3 +1,4 @@
++# Linux VST Bridge modification, 2026-10-16: common audio composition; no Steam/game/VR relay.
+ # Enable secondary expansions, needed for font compilation rules
+ .SECONDEXPANSION:
+ 
+@@ -129,7 +130,6 @@
+ include $(SRC)/make/utility.mk
+ include $(SRC)/make/rules-source.mk
+ include $(SRC)/make/rules-common.mk
+-include $(SRC)/make/rules-makedep.mk
+ include $(SRC)/make/rules-meson.mk
+ include $(SRC)/make/rules-cmake.mk
+ include $(SRC)/make/rules-autoconf.mk
+@@ -410,64 +410,6 @@
+ $(eval $(call rules-cmake,glslang,i386,unix))
+ $(eval $(call rules-cmake,glslang,x86_64,unix))
+ $(eval $(call rules-cmake,glslang,aarch64,unix))
+-
+-
+-##
+-## lsteamclient
+-##
+-
+-LSTEAMCLIENT_DEPENDS = wine
+-
+-$(eval $(call rules-source,lsteamclient,$(SRCDIR)/lsteamclient))
+-$(eval $(call rules-makedep,lsteamclient,i386))
+-$(eval $(call rules-makedep,lsteamclient,x86_64))
+-$(eval $(call rules-makedep,lsteamclient,aarch64))
+-
+-
+-##
+-## openxr
+-## Note 32-bit is not supported by SteamVR, so we don't build it.
+-##
+-
+-OPENXR_CMAKE_ARGS = -DHAVE_FILESYSTEM_WITHOUT_LIB=0
+-
+-$(eval $(call rules-source,openxr,$(SRCDIR)/OpenXR-SDK))
+-# $(eval $(call rules-cmake,openxr,i386,unix))
+-$(eval $(call rules-cmake,openxr,x86_64,unix))
+-$(eval $(call rules-cmake,openxr,aarch64,unix))
+-
+-
+-##
+-## wineopenxr
+-## Note 32-bit is not supported by SteamVR, so we don't build it.
+-##
+-
+-WINEOPENXR_LDFLAGS = -lopenxr_loader
+-WINEOPENXR_DEPENDS = wine openxr
+-
+-WINEOPENXR_aarch64_PE_ARCHS = arm64ec x86_64
+-
+-$(eval $(call rules-source,wineopenxr,$(SRCDIR)/wineopenxr))
+-$(eval $(call rules-makedep,wineopenxr,x86_64))
+-$(eval $(call rules-makedep,wineopenxr,aarch64))
+-
+-WINEOPENXR64_JSON := $(DST_DIR)/share/openxr/wineopenxr64.json
+-$(WINEOPENXR_SRC)/wineopenxr64.json: wineopenxr
+-$(WINEOPENXR64_JSON): $(WINEOPENXR_SRC)/wineopenxr64.json
+-	mkdir -p $(dir $@)
+-	cp -a $< $@
+-
+-
+-##
+-## steam.exe
+-##
+-
+-STEAMEXE_DEPENDS = wine
+-
+-$(eval $(call rules-source,steamexe,$(SRCDIR)/steam_helper))
+-$(eval $(call rules-makedep,steamexe,i386))
+-$(eval $(call rules-makedep,steamexe,x86_64))
+-$(eval $(call rules-makedep,steamexe,aarch64))
+ 
+ 
+ ##
+@@ -678,18 +620,6 @@
+ 	touch $@
+ 
+ ##
+-## vrclient
+-##
+-
+-VRCLIENT_DEPENDS = vulkan-headers wine
+-
+-$(eval $(call rules-source,vrclient,$(SRCDIR)/vrclient_x64))
+-$(eval $(call rules-makedep,vrclient,i386))
+-$(eval $(call rules-makedep,vrclient,x86_64))
+-$(eval $(call rules-makedep,vrclient,aarch64))
+-
+-
+-##
+ ## dxvk
+ ##
+ 
+@@ -888,60 +818,6 @@
+ default_pfx: fex $(FEX_CONFIG_JSON)
+ endif
+ 
+-
+-##
+-## BattlEye Bridge
+-##
+-
+-
+-ifneq ($(wildcard $(SRCDIR)/battleye-bridge/.*),)
+-
+-BATTLEYE_DEPENDS = wine
+-
+-$(eval $(call rules-source,battleye,$(SRCDIR)/battleye-bridge))
+-$(eval $(call rules-makedep,battleye,i386))
+-$(eval $(call rules-makedep,battleye,x86_64))
+-
+-endif
+-
+-##
+-## EasyAntiCheat Bridge
+-##
+-
+-ifneq ($(wildcard $(SRCDIR)/eac-bridge/.*),)
+-
+-EAC_DEPENDS = wine
+-
+-$(eval $(call rules-source,eac,$(SRCDIR)/eac-bridge))
+-$(eval $(call create-rules-common,eac,EAC,x86_64,unix))
+-$(eval $(call create-rules-common,eac,EAC,i386,unix))
+-
+-
+-$(OBJ)/.eac-x86_64-build:
+-	@echo ":: building eac-x86_64..." >&2
+-	rsync -arx "$(EAC_SRC)/" "$(EAC_x86_64_OBJ)/"
+-	env $(EAC_x86_64_ENV) \
+-	$(MAKE) -C "$(EAC_x86_64_OBJ)" WINE_OBJ="$(WINE_x86_64_OBJ)" HOST="x86_64-w64-mingw32" CROSSCXX="x86_64-w64-mingw32-g++" BIT="64"
+-	mkdir -p $(OBJ)/dist-eac/v2/lib/x86_64-linux-gnu
+-	$(call install-strip,$(EAC_x86_64_OBJ)/easyanticheat.so,$(OBJ)/dist-eac/v2/lib/x86_64-linux-gnu)
+-	$(call install-strip,$(EAC_x86_64_OBJ)/easyanticheat.dll,$(OBJ)/dist-eac/v2/lib/x86_64-linux-gnu)
+-	cp $(OBJ)/dist-eac/v2/lib/x86_64-linux-gnu/easyanticheat.so $(OBJ)/dist-eac/v2/lib/x86_64-linux-gnu/easyanticheat_x64.so
+-	cp $(OBJ)/dist-eac/v2/lib/x86_64-linux-gnu/easyanticheat.dll $(OBJ)/dist-eac/v2/lib/x86_64-linux-gnu/easyanticheat_x64.dll
+-	touch $@
+-
+-$(OBJ)/.eac-i386-build:
+-	@echo ":: building eac-i386..." >&2
+-	rsync -arx "$(EAC_SRC)/" "$(EAC_i386_OBJ)/"
+-	env $(EAC_i386_ENV) \
+-	$(MAKE) -C "$(EAC_i386_OBJ)" WINE_OBJ="$(WINE_i386_OBJ)" HOST="i686-w64-mingw32" CROSSCXX="i686-w64-mingw32-g++" BIT="32"
+-	mkdir -p $(OBJ)/dist-eac/v2/lib32
+-	$(call install-strip,$(EAC_i386_OBJ)/easyanticheat.so,$(OBJ)/dist-eac/v2/lib32)
+-	$(call install-strip,$(EAC_i386_OBJ)/easyanticheat.dll,$(OBJ)/dist-eac/v2/lib32)
+-	mv $(OBJ)/dist-eac/v2/lib32/easyanticheat.so $(OBJ)/dist-eac/v2/lib32/easyanticheat_x86.so
+-	mv $(OBJ)/dist-eac/v2/lib32/easyanticheat.dll $(OBJ)/dist-eac/v2/lib32/easyanticheat_x86.dll
+-	touch $@
+-
+-endif
+ 
+ ##
+ ## Windows Symbol Store creation
+@@ -1309,37 +1185,10 @@
+ 
+ 
+ ##
+-## openvr
+-##
+-
+-OVR_i386_DIST := $(DST_LIBDIR)/wine/dxvk/i386-windows/openvr_api_dxvk.dll
+-$(OVR_i386_DIST): $(SRCDIR)/openvr/bin/win32/openvr_api.dll | $(DST_DIR)
+-	mkdir -p $(DST_LIBDIR)/wine/dxvk/i386-windows
+-	cp -af $< $@
+-
+-OVR_x86_64_DIST := $(DST_LIBDIR)/wine/dxvk/x86_64-windows/openvr_api_dxvk.dll
+-$(OVR_x86_64_DIST): $(SRCDIR)/openvr/bin/win64/openvr_api.dll | $(DST_DIR)
+-	mkdir -p $(DST_LIBDIR)/wine/dxvk/x86_64-windows
+-	cp -af $< $@
+-
+-all-dist: $(OVR_i386_DIST) $(OVR_x86_64_DIST)
+-
+-ifneq ($(findstring aarch64,$(unix_ARCHS)),)
+-OVR_aarch64_DIST := $(DST_LIBDIR)/wine/dxvk/aarch64-windows/openvr_api_dxvk.dll
+-
+-$(OVR_aarch64_DIST): $(SRCDIR)/openvr/bin/win64/openvr_api.dll | $(DST_DIR)
+-	mkdir -p $(DST_LIBDIR)/wine/dxvk/aarch64-windows
+-	cp -af $< $@
+-
+-all-dist: $(OVR_aarch64_DIST)
+-endif
+-
+-
+-##
+ ## default_pfx
+ ##
+ 
+-default_pfx: wine gst_good gst_bad gst_libav gst_plugins_rs lsteamclient steamexe vrclient wineopenxr $(WINEOPENXR64_JSON) dxvk dxvk-nvapi vkd3d-proton
++default_pfx: wine gst_good gst_bad gst_libav gst_plugins_rs dxvk dxvk-nvapi vkd3d-proton
+ 	find $(DST_LIBDIR)/wine -type f -execdir chmod a-w '{}' '+'
+ 	rm -rf $(abspath $(DIST_PREFIX))
+ 	rm -rf $(abspath $(DIST_PREFIX_ARM64))
+--- a/proton
++++ b/proton
+@@ -1,4 +1,5 @@
+ #!/usr/bin/env python3
++# Linux VST Bridge modification, 2026-10-16: common audio composition without Steam/game/VR relay.
+ 
+ #script to launch Wine with the correct environment
+ 
+@@ -296,12 +297,6 @@
+ 
+     return None
+ 
+-def try_get_steam_dir():
+-    if "STEAM_COMPAT_CLIENT_INSTALL_PATH" not in g_session.env:
+-        return None
+-
+-    return g_session.env["STEAM_COMPAT_CLIENT_INSTALL_PATH"]
+-
+ def setup_dir_drive(compat_option, drive_name, dest_dir):
+         drive_path = g_compatdata.prefix_dir + "dosdevices/" + drive_name
+         if compat_option in g_session.compat_config:
+@@ -321,59 +316,6 @@
+ 
+ def setup_game_dir_drive():
+         setup_dir_drive("gamedrive", "s:", try_get_game_library_dir())
+-
+-def setup_steam_dir_drive():
+-        setup_dir_drive("steamdrive", "t:", try_get_steam_dir())
+-
+-
+-def unix_to_nt_file_name(path):
+-    return '\\??\\unix' + path
+-
+-def setup_openvr_paths():
+-    if 'VR_PATHREG_OVERRIDE' in g_session.env:
+-        openvr_paths = g_session.env['VR_PATHREG_OVERRIDE']
+-        del g_session.env['VR_PATHREG_OVERRIDE']
+-    elif 'XDG_CONFIG_HOME' in g_session.env:
+-        openvr_paths = os.path.join(g_session.env['XDG_CONFIG_HOME'], 'openvr/openvrpaths.vrpath')
+-    elif 'HOME' in g_session.env:
+-        openvr_paths = os.path.join(g_session.env['HOME'], '.config/openvr/openvrpaths.vrpath')
+-    else:
+-        openvr_paths = None
+-
+-    if not openvr_paths or not file_exists(openvr_paths, follow_symlinks=True):
+-        return
+-
+-    with open(openvr_paths, 'r') as file:
+-        contents = json.load(file)
+-
+-    if 'runtime' not in contents or type(contents['runtime']) != list:
+-        contents['runtime'] = []
+-    if 'config' in contents and type(contents['config']) != list:
+-        del contents['config']
+-    if 'log' in contents and type(contents['log']) != list:
+-        del contents['log']
+-
+-    if 'VR_OVERRIDE' in g_session.env:
+-        g_session.env['PROTON_VR_RUNTIME'] = g_session.env['VR_OVERRIDE']
+-        del g_session.env['VR_OVERRIDE']
+-    elif len(contents['runtime']) > 0:
+-        g_session.env['PROTON_VR_RUNTIME'] = contents['runtime'][0]
+-
+-    contents['runtime'] = ["C:\\vrclient\\", "C:\\vrclient"]
+-
+-    for i, path in enumerate(contents.get('config', [])):
+-        contents['config'][i] = unix_to_nt_file_name(path)
+-    for i, path in enumerate(contents.get('log', [])):
+-        contents['log'][i] = unix_to_nt_file_name(path)
+-
+-    openvr_paths = os.path.join(g_compatdata.prefix_dir, "drive_c/users/steamuser/AppData/Local/openvr")
+-    makedirs(openvr_paths)
+-
+-    openvr_paths = os.path.join(openvr_paths, "openvrpaths.vrpath")
+-    with open(openvr_paths, 'w') as file:
+-        json.dump(contents, file, indent=3)
+-
+-
+ 
+ # Function to find the installed location of DLL files for use by Wine/Proton
+ # from the NVIDIA Linux driver
+@@ -993,7 +935,6 @@
+                 os.symlink("/", self.prefix_dir + "/dosdevices/z:")
+ 
+             # collect configuration info
+-            steamdir = os.environ["STEAM_COMPAT_CLIENT_INSTALL_PATH"]
+ 
+             use_wined3d = "wined3d" in g_session.compat_config
+             use_dxvk_dxgi = not use_wined3d and \
+@@ -1051,10 +992,6 @@
+                 CURRENT_PREFIX_VERSION,
+                 g_proton.fonts_dir,
+                 g_proton.lib_dir,
+-                steamdir,
+-                getmtimestr(steamdir, 'legacycompat', 'steamclient.dll'),
+-                getmtimestr(steamdir, 'legacycompat', 'steamclient64.dll'),
+-                getmtimestr(steamdir, 'legacycompat', 'Steam.dll'),
+                 g_proton.default_pfx_dir,
+                 getmtimestr(g_proton.default_pfx_dir, 'system.reg'),
+                 str(use_wined3d),
+@@ -1085,56 +1022,6 @@
+             self.create_fonts_symlinks()
+ 
+             with open(self.tracked_files_file, "a") as tracked_files:
+-                #copy steam files into place
+-                steam_dir = "drive_c/Program Files (x86)/Steam/"
+-                makedirs(self.prefix_dir + steam_dir)
+-                filestocopy = [("steamclient.dll", "steamclient.dll"),
+-                               ("steamclient64.dll", "steamclient64.dll"),
+-                               ("GameOverlayRenderer64.dll", "GameOverlayRenderer64.dll"),
+-                               ("SteamService.exe", "steam.exe"),
+-                               ("Steam.dll", "Steam.dll")]
+-                for (src,tgt) in filestocopy:
+-                    srcfile = steamdir + '/legacycompat/' + src
+-                    if os.path.isfile(srcfile):
+-                        try_copy(srcfile, steam_dir + tgt, prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
+-
+-                filestocopy = [("steamclient64.dll", "steamclient64.dll"),
+-                               ("GameOverlayRenderer.dll", "GameOverlayRenderer.dll"),
+-                               ("GameOverlayRenderer64.dll", "GameOverlayRenderer64.dll")]
+-                for (src,tgt) in filestocopy:
+-                    srcfile = g_proton.path(src)
+-                    if os.path.isfile(srcfile):
+-                        try_copy(srcfile, steam_dir + tgt, prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
+-
+-                # CW Bug 19152. IL-2 Sturmovik: Cliffs of Dover Blitz Edition needs user's localconfig.vdf
+-                if os.environ.get("SteamGameId", 0) == "754530":
+-                    srcdir = os.path.join(steamdir, 'userdata')
+-                    dstdir = os.path.join(self.prefix_dir, steam_dir, 'userdata')
+-                    # figuring out the current user is hard, so copy the config for all users
+-                    for userid in os.listdir(srcdir):
+-                        srcvdf = os.path.join(srcdir, userid, 'config', 'localconfig.vdf')
+-                        dstvdf = os.path.join(dstdir, userid, 'config', 'localconfig.vdf')
+-                        if not os.path.exists(srcvdf):
+-                            continue
+-                        os.makedirs(os.path.dirname(dstvdf), exist_ok=True)
+-                        shutil.copyfile(srcvdf, dstvdf)
+-
+-                #copy openvr files into place
+-                makedirs(self.prefix_dir + "/drive_c/vrclient/bin")
+-                try_copy(g_proton.arch_pe_dir("wine", True) + "vrclient.dll", "drive_c/vrclient/bin",
+-                        prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
+-                try_copy(g_proton.arch_pe_dir("wine", False) + "vrclient_x64.dll", "drive_c/vrclient/bin",
+-                        prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
+-
+-                try_copy(g_proton.arch_pe_dir("wine/dxvk", True) + "openvr_api_dxvk.dll", "drive_c/windows/syswow64",
+-                        prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
+-                try_copy(g_proton.arch_pe_dir("wine/dxvk", False) + "openvr_api_dxvk.dll", "drive_c/windows/system32",
+-                        prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
+-
+-                makedirs(self.prefix_dir + "/drive_c/openxr")
+-                try_copy(g_proton.dist_dir + "share/openxr/wineopenxr64.json", "drive_c/openxr",
+-                        prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
+-
+                 #copy contrib dlls
+                 try_copy(g_proton.contrib_dir + "amdxcffx64.dll", "drive_c/windows/system32",
+                         prefix=self.prefix_dir, track_file=tracked_files, link_debug=True,
+@@ -1232,11 +1119,7 @@
+                                  link_debug=True)
+ 
+             setup_game_dir_drive()
+-            setup_steam_dir_drive()
+-            setup_openvr_paths()
+-
+-            # add Steam ffmpeg libraries to path
+-            prepend_to_env_str(g_session.env, ld_path_var, steamdir + "/ubuntu12_64/video/:" + steamdir + "/ubuntu12_32/video/:" + steamdir + "/steamrtarm64/video/", ":")
++
+ 
+ def comma_escaped(s):
+     escaped = False
+@@ -1474,17 +1357,12 @@
+         self.log_file = None
+         self.env = dict(os.environ)
+         self.dlloverrides = {
+-                "steam.exe": "b", #always use our special built-in steam.exe
+                 "dotnetfx35.exe": "b", #replace the broken installer, as does Windows
+                 "dotnetfx35setup.exe": "b",
+                 "beclient.dll": "b,n",
+                 "beclient_x64.dll": "b,n",
+                 "winebth.sys": "d", #disable winebth.sys as it crashes winedevice.exe
+         }
+-
+-        # CW Bug 21737. Locoland executable happens to be steam.exe.
+-        if os.environ.get("SteamGameId", 0) == "352130":
+-            del self.dlloverrides["steam.exe"]
+ 
+         if os.environ.get("SteamGameId", 0) not in ["2767030", "2274200"]:
+             self.dlloverrides["opencl"] = "n,d"
+@@ -2067,20 +1945,8 @@
+         else:
+             remote_debug_proc = None
+ 
+-        # CoD: Black Ops 3 workaround
+-        if os.environ.get("SteamGameId", 0) in [
+-                    "311210",   # CoD: Black Ops 3
+-                    "1985810",  # CoD: Black Ops Cold War
+-                    "1549250",  # Undecember
+-                ]:
+-            argv = [g_proton.wine_bin, "c:\\Program Files (x86)\\Steam\\steam.exe"]
+-        else:
+-            if g_proton.host_pe_arch == "x86_64-windows":
+-                #run with winepreloader directly to avoid restart through start.exe
+-                self.env["WINELOADERNOEXEC"] = "1"
+-                argv = [g_proton.lib_dir + "/wine/x86_64-unix/wine-preloader", g_proton.lib_dir + "/wine/x86_64-unix/wine", "c:\\windows\\system32\\steam.exe"]
+-            else:
+-                argv = [g_proton.wine_bin, "c:\\windows\\system32\\steam.exe"]
++        # Linux VST Bridge: execute the requested program directly; no Steam intermediary.
++        argv = [g_proton.wine_bin]
+ 
+         rc = self.run_proc(adverb + argv + sys.argv[2:] + self.cmdlineappend)
+ 
+@@ -2121,7 +1987,6 @@
+     if sys.argv[1] == "run":
+         #start target app
+         setup_game_dir_drive()
+-        setup_steam_dir_drive()
+         rc = g_session.run()
+     elif sys.argv[1] == "waitforexitandrun":
+         #wait for wineserver to shut down

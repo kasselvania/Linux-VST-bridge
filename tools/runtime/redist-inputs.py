@@ -5,7 +5,9 @@ This prepares private build inputs. It does not publish a runtime or discharge
 the remaining notice/source distribution obligations.
 """
 import argparse
+import ast
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -15,6 +17,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+from types import SimpleNamespace
 import urllib.request
 
 ROOT = Path(__file__).resolve().parent
@@ -23,7 +26,10 @@ RECIPE = json.loads((ROOT / "source.json").read_bytes())
 SOURCES = {
     "Makefile.in": (
         "25d1250ece9fe6d406784237242e1f01548ac7449ba67e316d314356f3b5d1f5",
-        "5d015d2c44bb37ea9127e3c0ead6fde254974a13a5dcce3837b4f4af256564b1"),
+        "11757e1aeb6be60e3d0722a1a514221a35832cd8a6bbe5327fdf342337a83d59"),
+    "proton": (
+        "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+        "93a5031cfa3ce203822d3cb87848c1345e1327677fafef3a0b0ecc593187a277"),
     "make/rules-cargo.mk": (
         "178b08f2877677a0c2c404682af7b6fe1492f1b6bcaab0a95aa8a35ad84b5861",
         "d2fc3ed4bd31e81e474da31bcae0d55c655431eca52ec7d66e744a53999ad5be"),
@@ -49,12 +55,18 @@ def source_state(source):
 
 
 def patch_source(source):
-    patch = ROOT / "patches/proton-redist-inputs.patch"
-    if hashlib.sha256(patch.read_bytes()).hexdigest() != "d7948496aa7f68aafd6009bdbd18dd6a93319640dd3b824e2baa3ee1b9c30e08":
-        raise ValueError("redist build patch changed")
+    patches = (
+        ("proton-redist-inputs.patch", "d7948496aa7f68aafd6009bdbd18dd6a93319640dd3b824e2baa3ee1b9c30e08"),
+        ("proton-audio-composition.patch", "36d899c358766ac48b0ebba8766ef3d96a63745511309b0064cb17396d1e665a"),
+    )
+    for name, expected in patches:
+        if hashlib.sha256((ROOT / "patches" / name).read_bytes()).hexdigest() != expected:
+            raise ValueError("redist build patch changed: " + name)
     if source_state(source) == 0:
-        subprocess.run(["git", "apply", "--check", str(patch)], cwd=source, check=True)
-        subprocess.run(["git", "apply", str(patch)], cwd=source, check=True)
+        for name, _ in patches:
+            patch = ROOT / "patches" / name
+            subprocess.run(["git", "apply", "--check", str(patch)], cwd=source, check=True)
+            subprocess.run(["git", "apply", str(patch)], cwd=source, check=True)
     if source_state(source) != 1:
         raise ValueError("redist source postimages differ")
 
@@ -161,6 +173,75 @@ def prepare(output):
     print("Matching Mono, Gecko, Xalia and release-source inputs verified")
 
 
+def check_launch_composition(source):
+    """Execute the actual patched launcher dispatch without starting Wine.
+
+    This checks argument/exit forwarding and initialization/wait ordering.
+    Real prefix creation and descendant custody still require binary tests.
+    """
+    tree = ast.parse((source / "proton").read_text())
+    session = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "Session")
+    run = next(node for node in session.body if isinstance(node, ast.FunctionDef) and node.name == "run")
+    main = next(node for node in tree.body if isinstance(node, ast.If)
+                and ast.unparse(node.test) == "__name__ == '__main__'")
+    for anchored in (False, True):
+        for verb in ("run", "waitforexitandrun", "runinprefix", "getcompatpath", "getnativepath"):
+            calls = []
+            target = [r"C:\Program Files\fixture.exe", "two words", '--quoted="value"']
+            def proc(argv):
+                calls.append(("command", argv))
+                return 17
+            proton = SimpleNamespace(
+                wine_bin="/same-source/bin/wine", wineserver_bin="/same-source/bin/wineserver",
+                cleanup_legacy_dist=lambda: calls.append("cleanup"),
+                do_steampipe_fixups=lambda: calls.append("fixups"),
+                missing_default_prefix=lambda: True,
+                make_default_prefix=lambda: calls.append("default-prefix"))
+            current = SimpleNamespace(
+                remote_debug_cmd=None, env={}, cmdlineappend=["appended argument"], log_file=None,
+                run_proc=proc, init_wine=lambda: calls.append("init-wine"),
+                init_session=lambda prepare: calls.append(("init-session", prepare)))
+            def exit_code(code):
+                raise SystemExit(code)
+            def winepath(argv, **kwargs):
+                calls.append(("path", argv))
+                return b"converted path"
+            stdout = SimpleNamespace(buffer=io.BytesIO())
+            namespace = {
+                "__name__": "__main__",
+                "sys": SimpleNamespace(argv=[str(source / "proton"), verb, *target],
+                                       exit=exit_code, stdout=stdout),
+                "os": SimpleNamespace(environ={"STEAM_COMPAT_DATA_PATH": "/new-private-prefix"}, path=os.path),
+                "shutil": SimpleNamespace(which=lambda _: "anchor" if anchored else None),
+                "subprocess": SimpleNamespace(check_output=winepath),
+                "Proton": lambda _: proton, "CompatData": lambda _: SimpleNamespace(),
+                "Session": lambda: current,
+                "setup_game_dir_drive": lambda: calls.append("drive-setup"),
+            }
+            exec(compile(ast.Module(body=[run], type_ignores=[]), "patched-proton-run", "exec"), namespace)
+            current.run = lambda: namespace["run"](current)
+            try:
+                exec(compile(ast.Module(body=main.body, type_ignores=[]), "patched-proton-main", "exec"), namespace)
+            except SystemExit as result:
+                assert result.code == (0 if verb.endswith("path") else 17)
+            else:
+                raise ValueError("launcher did not return an exit status")
+            assert calls[:5] == ["cleanup", "fixups", "init-wine", "default-prefix",
+                                 ("init-session", verb != "runinprefix")]
+            remaining = calls[5:]
+            if verb in ("run", "waitforexitandrun"):
+                expected = ["drive-setup"] if verb == "run" else [("command", [proton.wineserver_bin, "-w"])]
+                adverb = ["steam-runtime-launcher-interface-0", "proton"] if anchored else []
+                expected.append(("command", adverb + [proton.wine_bin, *target, "appended argument"]))
+                assert remaining == expected
+            elif verb == "runinprefix":
+                assert remaining == [("command", [proton.wine_bin, *target])]
+            else:
+                conversion = "-w" if verb == "getcompatpath" else ""
+                args = [proton.wine_bin, "winepath"] + ([conversion] if conversion else []) + [target[0]]
+                assert remaining == [("path", args)] and stdout.buffer.getvalue() == b"converted path"
+
+
 def check():
     with tempfile.TemporaryDirectory(prefix="lvb-redist-source-") as directory:
         source = Path(directory).resolve()
@@ -176,6 +257,7 @@ def check():
             target.write_bytes(data)
         patch_source(source)
         patch_source(source)  # Composition can resume after an acquisition failure.
+        check_launch_composition(source)
         # Execute the pinned x64 post-install recipe with only c27's real file
         # layout. Obsolete wine64 aliases must not be required or cross-copied.
         installed = source / "installed-x64"
