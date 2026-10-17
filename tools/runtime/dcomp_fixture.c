@@ -12,7 +12,7 @@
 #include <wchar.h>
 
 typedef HRESULT (WINAPI *create_device)(void *, REFIID, void **);
-static const IID unknown_id = {0,0,0,{0xc0,0,0,0,0,0,0,0x46}};
+static const IID device_id = {0xc37ea93a,0xe7aa,0x450d,{0xb1,0x6f,0x97,0x46,0xcb,0x04,0x07,0xf3}};
 
 int wmain(int argc, WCHAR **argv)
 {
@@ -38,7 +38,7 @@ int wmain(int argc, WCHAR **argv)
         IUnknown *device = NULL;
         call.address = GetProcAddress(library, names[n]);
         if (!call.address) { printf("%s: missing export\n", names[n]); failed = 1; continue; }
-        hr = call.create(NULL, &unknown_id, (void **)&device);
+        hr = call.create(NULL, &device_id, (void **)&device);
         printf("%s: %#lx; object: %s\n", names[n], (unsigned long)hr, device ? "present" : "absent");
         if (hr != S_OK || !device) failed = 1;
         if (device) IUnknown_Release(device);
