@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Exercise fixed /usr intake with real root-owned files as an ordinary user."""
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import zipfile
 from assemble import declared_operator_schema
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -33,6 +35,17 @@ def fixture(base, case):
         path = usr / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         data = name.encode()
+        if name == "preparation-kit.zip":
+            members = {"runtime/" + n: (usr / FILES[n]).read_bytes()
+                       for n in ("host.exe", "host-source-manifest.json")}
+            recipe = {"schema": 1, "files": {n: hashlib.sha256(b).hexdigest()
+                                            for n, b in members.items()}}
+            archive = io.BytesIO()
+            with zipfile.ZipFile(archive, "w") as kit:
+                kit.writestr("recipe.json", json.dumps(recipe))
+                for member, content in members.items():
+                    kit.writestr(member, content)
+            data = archive.getvalue()
         path.write_bytes(data)
         path.chmod(0o444)
         roster.append({"name": name, "sha256": hashlib.sha256(data).hexdigest(),

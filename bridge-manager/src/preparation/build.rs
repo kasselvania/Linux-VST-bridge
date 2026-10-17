@@ -4,6 +4,8 @@ use std::{
     process::{Command, Stdio},
     time::{Duration, Instant},
 };
+mod package_host;
+pub use package_host::{stage_package_host, verify_package_host};
 pub fn recipe_available(m: &Manager) -> Result<Artifact> {
     let sw: crate::catalogue::Software = read_json(&m.root.join("software.json"))?;
     let kit=sw.preparation_kit.ok_or("Preparation support is missing. Install the complete manager package")?;
@@ -504,7 +506,7 @@ pub fn construct_with_runtime(
     prepared(s, i, native, host, manifest, kit.sha256)
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Runtime {
     pub kit: Artifact,
@@ -581,58 +583,13 @@ fn stage_runtime_with_kit(m: &Manager, kit: Artifact) -> Result<Runtime> {
     private_dir(dir.parent().ok_or("runtime_parent")?)?;
     let stage = dir.with_file_name(format!(".runtime-{}", random_id()?));
     private_dir(&stage)?;
-    let script = r#"import sys,json,zipfile,pathlib,hashlib
-kit,out=sys.argv[1:];out=pathlib.Path(out)
-with zipfile.ZipFile(kit) as z:
- assert z.getinfo('recipe.json').file_size<=65536
- recipe=json.loads(z.read('recipe.json'));assert recipe['schema'] in (1,2,3,4)
- names=[('runtime/host.exe','host.exe'),('runtime/host-source-manifest.json','host-source-manifest.json')]
- if recipe['schema'] in (2,3,4):names += [('tools/mf3/native_builder.py','native_builder.py'),('tools/ap8_descriptor.py','ap8_descriptor.py')]
- helpers=['lvb-direct-wait.dll','x86_64-windows/lvb-direct-wait.dll','x86_64-unix/lvb-direct-wait.so','direct-audio-helper.json']
- present=[('runtime/'+n) in recipe['files'] for n in helpers]
- assert not any(present) or all(present)
- if all(present):names += [('runtime/'+n,n) for n in helpers]
- launch=['installer-launch.exe','installer-launch-source.json']
- present=[('runtime/'+n) in recipe['files'] for n in launch]
- assert not any(present) or all(present)
- if all(present):names += [('runtime/'+n,n) for n in launch]
- for key,name in names:
-  i=z.getinfo(key);assert not i.is_dir() and i.file_size<=64*1024*1024
-  b=z.read(i);assert hashlib.sha256(b).hexdigest()==recipe['files'][key]
-  (out/name).parent.mkdir(parents=True,exist_ok=True,mode=0o700)
-  (out/name).write_bytes(b)
-"#;
-    let launch = Command::new("python3")
-        .args(["-I", "-c", script])
-        .arg(&kit.path)
-        .arg(&stage)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn();
-    let mut child = match launch {
-        Ok(c) => c,
-        Err(e) => {
-            fs::remove_dir_all(&stage)?;
-            return Err(e.into());
-        }
-    };
-    let deadline = Instant::now() + Duration::from_secs(30);
-    let status = loop {
-        if let Some(status) = child.try_wait()? {
-            break status;
-        }
-        if Instant::now() >= deadline {
-            child.kill()?;
-            child.wait()?;
-            fs::remove_dir_all(&stage)?;
-            return Err("preparation_runtime_unpack_deadline".into());
-        }
-        std::thread::sleep(Duration::from_millis(20));
-    };
-    if !status.success() {
+    let unpacked=(||->Result<()> {
+        package_host::unpack(&kit,Some(&stage),"preparation")?;
+        kit.verify()
+    })();
+    if let Err(error)=unpacked {
         fs::remove_dir_all(&stage)?;
-        return Err("preparation_runtime_package_incomplete".into());
+        return Err(error);
     }
     let artifact = |name: &str| -> Result<Artifact> {
         let p = stage.join(name);

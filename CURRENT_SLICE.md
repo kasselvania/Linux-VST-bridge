@@ -22,10 +22,10 @@ one growing log; licensed setups excluded, restoration untested. No wipe, licens
 state migration, private payload import or silent switch. Use disposable fixtures.
 
 Next changes:
-1. Produce the reviewed common archive with unchanged source/notices and exact
-   Wine declaration/SLR binding; preserve separately acquired Valve components.
-2. Exercise normal acquisition in Test205 and the first-party native DAW journey
-   on the fresh fixture. Main retains its existing recommendation.
+1. Common archive/source closure is published as an unqualified comparison;
+   ordinary Test205 acquisition sealed it in about 14.5 minutes on fresh CachyOS.
+2. Repair initial package-host helper staging, then test normal fresh Test206
+   install/discovery/DAW audio/state. Retain failed Test205; main recommendation stays.
 3. Check install/play/state/editor/service behavior and combined real cases on
    clean CachyOS and SteamOS; real-vendor and clean-platform qualification stay open.
 4. Preserve exact predecessors and continuity through update and rollback.

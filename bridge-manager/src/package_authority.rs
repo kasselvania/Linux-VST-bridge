@@ -870,6 +870,7 @@ fn verify_generation(m: &Manager, current: &Software) -> Result<Generation> {
         require(fs::metadata(&a.path)?.permissions().mode() & 0o222 == 0,
             "package_generation_catalogue_writable")?;
     }
+    if record.schema==2 {preparation::build::verify_package_host(current,true)?;}
     Ok(record)
 }
 fn validate_generation_record(m: &Manager, current: &Software) -> Result<Generation> {
@@ -943,6 +944,7 @@ fn validate_generation_record(m: &Manager, current: &Software) -> Result<Generat
         )?;
         current.catalogue_record(m)?;
     }
+    if record.schema==2 {preparation::build::verify_package_host(current,false)?;}
     Ok(record)
 }
 /// Only an executable in the canonical managed frontend slot is subject to
@@ -1135,6 +1137,12 @@ fn stage(m: &Manager, inputs: &Inputs, manifest: PackageManifest,
                     if matches!(file.name.as_str(), "linux-vst-bridge" | "linux-audio-compatibility-manager") {0o500} else {0o400}))?;
                 fs::File::open(target)?.sync_all()?;
             }
+            if record.schema==2 {
+                let kit=Artifact {path:scratch.join("preparation-kit.zip"),
+                    sha256:record.manifest.files[NAMES.len()].sha256.clone()};
+                preparation::build::stage_package_host(&kit,&scratch,&dest,
+                    &record.manifest.files[4].sha256,&record.manifest.files[5].sha256)?;
+            }
             if let Some(bytes) = &catalogue {
                 let target = scratch.join("native-catalogue.json");
                 fs::write(&target, bytes)?;
@@ -1185,6 +1193,7 @@ fn stage(m: &Manager, inputs: &Inputs, manifest: PackageManifest,
         native_catalogue,
     };
     if result.native_catalogue.is_some() { result.catalogue(m)?; }
+    if record.schema==2 {preparation::build::verify_package_host(&result,true)?;}
     Ok(result)
 }
 fn preflight(m: &Manager, service: &impl ServiceControl) -> Result<()> {
@@ -2940,8 +2949,53 @@ mod tests {
         fn add_kit(&self, data: &[u8]) {
             let path = self.inputs.path("preparation-kit.zip").unwrap();
             fs::create_dir_all(path.parent().unwrap()).unwrap();
-            fs::write(&path, data).unwrap();
-            fs::set_permissions(&path, fs::Permissions::from_mode(0o444)).unwrap();
+            if path.exists() {fs::set_permissions(&path,fs::Permissions::from_mode(0o600)).unwrap();}
+            let host_path=self.inputs.path("host.exe").unwrap();
+            let source_path=self.inputs.path("host-source-manifest.json").unwrap();
+            test_fixture::reusable_kit(&path,&Artifact {sha256:digest(&host_path).unwrap(),path:host_path},
+                &Artifact {sha256:digest(&source_path).unwrap(),path:source_path},std::str::from_utf8(data).unwrap());
+            self.write_manifest();
+        }
+        fn common_kit(&self, variant:&str) -> PathBuf {
+            self.add_kit(b"common package fixture");
+            let build=self.base.outer.join("wine-build.json");
+            atomic_json(&build,&serde_json::json!({"schema":1,"kind":"wine_build",
+                "helper_abi":1,"wine_revision":"22".repeat(20)})).unwrap();
+            let kit=self.inputs.path("preparation-kit.zip").unwrap();
+            fs::set_permissions(&kit,fs::Permissions::from_mode(0o600)).unwrap();
+            let script=r#"import sys,json,zipfile,hashlib,pathlib
+kit,build,variant=sys.argv[1:];sha=lambda b:hashlib.sha256(b).hexdigest()
+with zipfile.ZipFile(kit) as z:files={n:z.read(n) for n in z.namelist()}
+helper=json.loads(files['runtime/direct-audio-helper.json'])
+helper.update(schema=2,runner_build_sha256=sha(pathlib.Path(build).read_bytes()),runner_wine_revision='22'*20)
+if variant=='host':
+ files['runtime/host.exe']=b'other inspection host';helper['host_sha256']=sha(files['runtime/host.exe'])
+if variant=='source':files['runtime/host-source-manifest.json']=b'other inspection source'
+if variant=='legacy':
+ helper.pop('runner_build_sha256');helper['schema']=1;helper['runner_wine_revision']='46b29104e3741fe23bf5e2547196a253aab88c89'
+ files['runtime/host.exe']=b'legacy separate inspection host';helper['host_sha256']=sha(files['runtime/host.exe'])
+files['runtime/direct-audio-helper.json']=json.dumps(helper).encode()
+if variant=='partial':del files['runtime/x86_64-unix/lvb-direct-wait.so']
+recipe=json.loads(files['recipe.json']);recipe['files']={n:sha(b) for n,b in files.items() if n!='recipe.json'}
+files['recipe.json']=json.dumps(recipe).encode()
+for name in ['host','source']:
+ key='runtime/'+('host.exe' if name=='host' else 'host-source-manifest.json')
+ if variant=='missing-'+name:del files[key]
+ if variant=='changed-'+name:files[key]=b'actual member differs from claimed recipe'
+with zipfile.ZipFile(kit,'w') as z:
+ for n,b in files.items():z.writestr(n,b)
+"#;
+            assert!(Command::new("python3").args(["-I","-c",script]).arg(&kit).arg(&build)
+                .arg(variant).status().unwrap().success());
+            fs::set_permissions(&kit,fs::Permissions::from_mode(0o400)).unwrap();
+            self.write_manifest();build
+        }
+        fn add_kit_archive(&self, data:&[u8]) {
+            let path=self.inputs.path("preparation-kit.zip").unwrap();
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            if path.exists() {fs::set_permissions(&path,fs::Permissions::from_mode(0o600)).unwrap();}
+            fs::write(&path,data).unwrap();
+            fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();
             self.write_manifest();
         }
         fn current(&self) -> Software { software(&self.base.m).unwrap() }
@@ -2984,6 +3038,53 @@ mod tests {
             setup_install::commit(m, &self.home, &old, None, None).unwrap();
             self.service.reload().unwrap();
         }
+    }
+
+    #[test]
+    fn initial_common_package_host_passes_real_pair_preflight_and_never_repairs() {
+        let f=Fixture::new();let build=f.common_kit("valid");
+        f.adopt().unwrap();let sw=f.current();
+        let dir=sw.manager.path.parent().unwrap();
+        assert_eq!(sw.host.path,dir.join("host.exe"));
+        assert_eq!(sw.source_manifest.path,dir.join("host-source-manifest.json"));
+        assert_eq!(digest(&f.inputs.path("host.exe").unwrap()).unwrap(),sw.host.sha256);
+        let root=Path::new(env!("CARGO_MANIFEST_DIR")).join("runtime");
+        let script=r#"import sys,json,pathlib,hashlib
+sys.path.insert(0,sys.argv[1]);import session
+sw=json.loads(pathlib.Path(sys.argv[2]).read_text());build=pathlib.Path(sys.argv[3]);root=build.parent/'common';root.mkdir(mode=0o700)
+data=build.read_bytes();declaration=root/'wine-build.json';declaration.write_bytes(data);declaration.chmod(0o400)
+marker=root/'native-command-session.json';marker.write_text(json.dumps(dict(schema=2,kind='native_proton_command_session',client_sha256='33'*32,service_sha256='44'*32,wine_build_sha256=hashlib.sha256(data).hexdigest())));marker.chmod(0o400)
+artifact=lambda p:dict(path=str(p),sha256=hashlib.sha256(p.read_bytes()).hexdigest())
+reg=dict(host=sw['host'],environment=dict(runner=dict(proton=str(root/'proton'),files=[artifact(marker),artifact(declaration)])))
+env=session.direct_audio_environment(reg,dict(WINEDLLOVERRIDES='winebus.sys=d'))
+assert env['WINEDLLPATH']==str(pathlib.Path(sw['host']['path']).parent)
+assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
+"#;
+        assert!(Command::new("python3").args(["-I","-c",script]).arg(root)
+            .arg(f.base.m.root.join("software.json")).arg(build).status().unwrap().success());
+        let before=test_fixture::snapshot(&f.base.m.root);
+        validate_generation_record(&f.base.m,&sw).unwrap();verify_generation(&f.base.m,&sw).unwrap();
+        f.adopt().unwrap();assert_eq!(test_fixture::snapshot(&f.base.m.root),before);
+        fs::remove_file(dir.join("x86_64-unix/lvb-direct-wait.so")).unwrap();
+        let damaged=test_fixture::snapshot(&f.base.m.root);
+        assert!(f.adopt().is_err());assert!(validate_generation_record(&f.base.m,&sw).is_err());
+        assert_eq!(test_fixture::snapshot(&f.base.m.root),damaged);
+    }
+
+    #[test]
+    fn common_package_host_mismatch_and_partial_support_leave_current_software_intact() {
+        for variant in ["host","source","partial","missing-host","missing-source","changed-host","changed-source"] {
+            let f=Fixture::new();f.adopt().unwrap();
+            let before=fs::read(f.base.m.root.join("software.json")).unwrap();
+            f.common_kit(variant);assert!(f.adopt().is_err(),"{variant}");
+            assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(),before);
+            assert!(!fs::read_dir(f.base.m.root.join("software")).unwrap()
+                .any(|e|e.unwrap().file_name().to_string_lossy().starts_with("stage-")));
+        }
+        let f=Fixture::new();f.common_kit("legacy");f.adopt().unwrap();
+        let sw=f.current();assert_eq!(fs::read(&sw.host.path).unwrap(),b"host");
+        assert!(!sw.host.path.with_file_name("runtime.json").exists());
+        verify_generation(&f.base.m,&sw).unwrap();
     }
 
     fn owned_lease(f: &Fixture, session: &str, keeper: bool) -> PathBuf {
@@ -3945,7 +4046,7 @@ mod tests {
         let selected = f.current();
         let kit = selected.preparation_kit.as_ref().unwrap();
         assert_eq!(kit.path, selected.manager.path.parent().unwrap().join("preparation-kit.zip"));
-        assert_eq!(fs::read(&kit.path).unwrap(), b"source-owned native kit revision two");
+        assert_eq!(fs::read(&kit.path).unwrap(), fs::read(f.inputs.path("preparation-kit.zip").unwrap()).unwrap());
         assert_eq!(fs::metadata(&kit.path).unwrap().permissions().mode() & 0o222, 0);
         assert_eq!(verify_generation(&f.base.m, &selected).unwrap().schema, 2);
         let selected_bytes = fs::read(f.base.m.root.join("software.json")).unwrap();
@@ -3971,7 +4072,7 @@ mod tests {
         f.replace("preparation-kit.zip", b"changed without manifest", false);
         assert!(f.adopt().is_err());
         assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), before);
-        f.write_manifest();
+        f.add_kit(b"valid replacement kit");
         f.adopt().unwrap();
         let selected = f.current();
         let kit = selected.preparation_kit.unwrap();
@@ -4177,7 +4278,7 @@ mod tests {
         f.replace("host-source-manifest.json", b"successor source", true);
         f.replace("session.pyc", b"successor supervisor", true);
         f.replace("ownership.pyc", b"successor ownership", true);
-        f.replace("preparation-kit.zip", b"successor preparation kit", true);
+        f.add_kit(b"successor preparation kit");
         f.adopt().unwrap();
         let next = f.current();
         let retained = paired_components(&f.base.m, &next, &registration).unwrap();
@@ -4607,7 +4708,7 @@ mod tests {
         f.adopt().unwrap();
         let kit = f.base.outer.join("update-kit.zip");
         test_fixture::reusable_kit(&kit, &retained.host, &retained.source_manifest, "updated-engine");
-        f.add_kit(&fs::read(kit).unwrap());
+        f.add_kit_archive(&fs::read(kit).unwrap());
         let template = serde_json::to_string(&serde_json::to_string(&report).unwrap()).unwrap();
         let supervisor = f.base.outer.join("update-supervisor.py");
         fs::write(&supervisor, format!(r#"import json,sys,pathlib
