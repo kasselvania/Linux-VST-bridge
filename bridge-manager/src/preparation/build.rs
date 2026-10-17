@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 mod package_host;
-pub(crate) use package_host::{stage_package_host, verify_package_host};
+pub use package_host::{stage_package_host, verify_package_host};
 pub fn recipe_available(m: &Manager) -> Result<Artifact> {
     let sw: crate::catalogue::Software = read_json(&m.root.join("software.json"))?;
     let kit=sw.preparation_kit.ok_or("Preparation support is missing. Install the complete manager package")?;

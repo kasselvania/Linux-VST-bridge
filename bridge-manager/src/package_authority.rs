@@ -2978,6 +2978,10 @@ files['runtime/direct-audio-helper.json']=json.dumps(helper).encode()
 if variant=='partial':del files['runtime/x86_64-unix/lvb-direct-wait.so']
 recipe=json.loads(files['recipe.json']);recipe['files']={n:sha(b) for n,b in files.items() if n!='recipe.json'}
 files['recipe.json']=json.dumps(recipe).encode()
+for name in ['host','source']:
+ key='runtime/'+('host.exe' if name=='host' else 'host-source-manifest.json')
+ if variant=='missing-'+name:del files[key]
+ if variant=='changed-'+name:files[key]=b'actual member differs from claimed recipe'
 with zipfile.ZipFile(kit,'w') as z:
  for n,b in files.items():z.writestr(n,b)
 "#;
@@ -3047,7 +3051,7 @@ with zipfile.ZipFile(kit,'w') as z:
         let root=Path::new(env!("CARGO_MANIFEST_DIR")).join("runtime");
         let script=r#"import sys,json,pathlib,hashlib
 sys.path.insert(0,sys.argv[1]);import session
-sw=json.loads(pathlib.Path(sys.argv[2]).read_text());build=pathlib.Path(sys.argv[3]);root=build.parent()/'common';root.mkdir(mode=0o700)
+sw=json.loads(pathlib.Path(sys.argv[2]).read_text());build=pathlib.Path(sys.argv[3]);root=build.parent/'common';root.mkdir(mode=0o700)
 data=build.read_bytes();declaration=root/'wine-build.json';declaration.write_bytes(data);declaration.chmod(0o400)
 marker=root/'native-command-session.json';marker.write_text(json.dumps(dict(schema=2,kind='native_proton_command_session',client_sha256='33'*32,service_sha256='44'*32,wine_build_sha256=hashlib.sha256(data).hexdigest())));marker.chmod(0o400)
 artifact=lambda p:dict(path=str(p),sha256=hashlib.sha256(p.read_bytes()).hexdigest())
@@ -3069,7 +3073,7 @@ assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
 
     #[test]
     fn common_package_host_mismatch_and_partial_support_leave_current_software_intact() {
-        for variant in ["host","source","partial"] {
+        for variant in ["host","source","partial","missing-host","missing-source","changed-host","changed-source"] {
             let f=Fixture::new();f.adopt().unwrap();
             let before=fs::read(f.base.m.root.join("software.json")).unwrap();
             f.common_kit(variant);assert!(f.adopt().is_err(),"{variant}");

@@ -23,7 +23,7 @@ with zipfile.ZipFile(kit) as z:
  present=[('runtime/'+n) in recipe['files'] for n in helpers]
  assert not any(present) or all(present)
  result=None
- if purpose in ('package','package-record'):
+ if purpose in ('package','package-record','package-verify'):
   if not all(present):print('null');sys.exit(0)
   key='runtime/direct-audio-helper.json';assert z.getinfo(key).file_size<=65536
   data=z.read(key);assert sha(data)==recipe['files'][key]
@@ -37,9 +37,12 @@ with zipfile.ZipFile(kit) as z:
   assert helper['host_sha256']==result['host_sha256']
   assert all(re.fullmatch('[a-f0-9]{64}',v) for v in [result['host_sha256'],result['source_sha256'],*result['files'].values()])
   if purpose=='package-record':print(json.dumps(result));sys.exit(0)
-  # The signed package host/source stay canonical. A kit cannot replace them.
+  # Verify the kit's actual members, not just its claimed recipe hashes.
+  # The signed package host/source stay canonical and are never replaced.
   for name,key in [('host.exe','host_sha256'),('host-source-manifest.json','source_sha256')]:
-   assert sha((out/name).read_bytes())==result[key]
+   member=z.getinfo('runtime/'+name);assert not member.is_dir() and member.file_size<=64*1024*1024
+   assert sha(z.read(member))==result[key]
+   if purpose=='package':assert sha((out/name).read_bytes())==result[key]
   names=[('runtime/'+n,n) for n in helpers]
  else:
   assert purpose=='preparation'
@@ -53,8 +56,9 @@ with zipfile.ZipFile(kit) as z:
  for key,name in names:
   i=z.getinfo(key);assert not i.is_dir() and i.file_size<=64*1024*1024
   b=z.read(i);assert sha(b)==recipe['files'][key]
-  (out/name).parent.mkdir(parents=True,exist_ok=True,mode=0o700)
-  with (out/name).open('xb') as f:f.write(b)
+  if purpose!='package-verify':
+   (out/name).parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+   with (out/name).open('xb') as f:f.write(b)
  print(json.dumps(result))
 "#;
     let mut child=Command::new("python3").args(["-I","-c",script]).arg(&kit.path)
@@ -88,7 +92,7 @@ fn package_runtime(kit:Artifact, host:Artifact, source_manifest:Artifact,
 
 /// Called only while the package generation is still unpublished. The common
 /// helper is derived from the sealed kit, never a second execution selection.
-pub(crate) fn stage_package_host(kit:&Artifact, stage:&Path, final_root:&Path,
+pub fn stage_package_host(kit:&Artifact, stage:&Path, final_root:&Path,
     host_sha:&str, source_sha:&str) -> Result<()> {
     let Some(recipe)=unpack(kit,Some(stage),"package")? else {return Ok(());};
     kit.verify()?;
@@ -106,9 +110,9 @@ pub(crate) fn stage_package_host(kit:&Artifact, stage:&Path, final_root:&Path,
 
 /// Recheck support against the sealed kit. Readback checks bounded records,
 /// exact paths and modes without hashing/unpacking the runtime payload.
-pub(crate) fn verify_package_host(software:&crate::catalogue::Software, full:bool) -> Result<()> {
+pub fn verify_package_host(software:&crate::catalogue::Software, full:bool) -> Result<()> {
     let Some(kit)=software.preparation_kit.as_ref() else {return Ok(());};
-    let Some(recipe)=unpack(kit,None,"package-record")? else {return Ok(());};
+    let Some(recipe)=unpack(kit,None,if full {"package-verify"} else {"package-record"})? else {return Ok(());};
     let expected=package_runtime(kit.clone(),software.host.clone(),software.source_manifest.clone(),recipe)?;
     let dir=software.host.path.parent().ok_or("package_host_runtime_path")?;
     let record=dir.join("runtime.json");
