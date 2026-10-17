@@ -26,11 +26,14 @@ handoff, settled by 220.7 ms; every later frame matches .49. Stopped-only proces
 also accumulates expirations, so the earlier totals did not establish audio drops.
 TyrellN6 16976 now completes ordinary common-runtime install/discovery/publication,
 Windows editor, 16-note playback and Output .37 save/full exit/reopen with the same
-FX identity. Cold acquisition takes about 14.5 minutes; failed Test205 is preserved.
+FX identity. Cold guest boot now preserves both projects' parameters/FX identities;
+Reference's full render and Tyrell's editor/16-note capture pass again. Cold
+acquisition takes about 14.5 minutes; failed Test205 is preserved.
 
 Next: one combined real case at a time; fix the first demonstrated blocker and
 repeat its installed journey. Graphics/touch and installer/services cases, SteamOS,
-reboot, explicit update/rollback and browser delivery remain open. PR453 stays
+explicit update/rollback and browser delivery remain open. NI/Kontakt fresh authorization is allowed; Blackhole must reuse its existing
+Deck activation, pending an approved preservation plan. Browser transitions remain unresolved. PR453 stays
 draft/unmerged; main's runtime recommendation is unchanged. #430 remains open.
 
 Done: clean Git build → normal acquisition/install/discovery/publication → combined
