@@ -242,19 +242,23 @@ impl CurrentOverviewContext {
 
     fn live_installer_progress_paths(&self, m: &Manager) -> Result<BTreeMap<PathBuf,Vec<PathBuf>>> {
         let mut paths = BTreeMap::new();
+        let in_progress = |receipt: &Value| matches!(receipt["state"].as_str(),
+            Some("queued" | "starting" | "running" | "unknown"))
+            && receipt["cleanup_confirmed"] != true;
         for row in &self.snapshot.onboarding {
             let Some(environment) = row.environment.as_ref() else {continue};
             let installation = &row.details["installation"];
             let Some(operation) = installation["operation"].as_str() else {continue};
             if self.installer_live.get(operation) != Some(&true)
-                || installation["state"] != "running" { continue; }
+                || !in_progress(installation) { continue; }
             let directory = m.root.join("onboarding").join(environment);
             let report = directory.join(format!("{operation}-result.json"));
+            require(file(&report)?.metadata()?.len() <= 16384,"installer_result_bound")?;
             let current: Value = read_json(&report)?;
             // A terminal receipt can precede service exit. Its observations can
             // already authorize application selection, so require a refresh.
-            require(current["operation"] == operation && current["state"] == "running"
-                && !onboarding::retired(&current),"operator_installer_state_changed_refresh")?;
+            require(current["schema"] == 2 && current["operation"] == operation
+                && in_progress(&current),"operator_installer_state_changed_refresh")?;
             let observation = directory.join(format!("{operation}-transaction-private.json"));
             paths.insert(directory,vec![report,observation]);
         }
@@ -1640,6 +1644,15 @@ pub(super) mod tests {
         observation["diagnostics"]["progress"]=1.into();
         atomic_json(&private_report,&observation).unwrap();
         live.recheck_with(m,||Ok(())).unwrap();
+        for state in ["queued","starting","running","unknown"] {
+            live.snapshot.onboarding[0].details["installation"]["state"]=state.into();
+            atomic_json(&result,&json!({"schema":2,"operation":operation,
+                "state":state,"owned_live":7,"cleanup_confirmed":false})).unwrap();
+            observation["diagnostics"]["state"]=state.into();
+            atomic_json(&private_report,&observation).unwrap();
+            live.recheck_with(m,||Ok(())).unwrap();
+        }
+        live.snapshot.onboarding[0].details["installation"]["state"]="running".into();
         let running=fs::read(&result).unwrap();
         let terminal=json!({"schema":2,"operation":operation,"state":"completed",
             "raw_exit":0,"owned_live":0,"cleanup_confirmed":true});
@@ -1670,6 +1683,8 @@ pub(super) mod tests {
         // The real external recheck cannot accept our simulated live unit.
         assert!(live.recheck(m).is_err());
         live.installer_live.insert(operation.clone(),false);
+        observation["diagnostics"]["progress"]=2.into();
+        atomic_json(&private_report,&observation).unwrap();
         assert!(live.recheck_with(m,||Ok(())).is_err());
         live.installer_live.insert(operation.clone(),true);
         let original_record=fs::read(&onboarding_record).unwrap();
