@@ -68,6 +68,16 @@ in Git, with [Unicode provenance and hashes](https://github.com/ValveSoftware/Pr
 OpenVR auxiliaries come from the pinned official submodule; vrclient is rebuilt.
 These official upstream auxiliaries are distinct from transplanted Wine DLLs.
 
+c27's [native loader dispatch](https://github.com/giang17/wine/blob/c27f058814b402a5709e073adccd42baa66810b9/dlls/ntdll/unix/loader.c#L479)
+uses `wine` and `wine-preloader` in each architecture's own library directory.
+The pinned Proton launcher already uses those paths. Its two additional
+Valve-specific `wine64` compatibility copies are removed before the Wine target;
+c27 lacks the matching cross-directory alias dispatch. Both native library trees,
+the x64 public `bin/wine` dispatcher and server remain in the common composition.
+No loader is renamed, taken from another build or moved into the other
+architecture's directory. Normal dual-architecture and forced new-WoW64 launches
+are distinct smoke tests; source layout alone does not qualify either execution.
+
 `build.sh` builds Wine and its dependencies. `complete.sh` uses the same source
 and object tree for upstream's complete `redist` target, including graphics,
 vrclient, integration, fonts and an unlicensed generated default prefix. It

@@ -1,7 +1,15 @@
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -1427,7 +1427,8 @@
- all-dist: $(DIST_COPY_TARGETS)
+@@ -660,7 +660,5 @@
+ 	$(call install-strip,$(WINE_x86_64_DST)/bin/wine,$(DST_DIR)/bin)
+ 	$(call install-strip,$(WINE_x86_64_DST)/bin/wineserver,$(DST_DIR)/bin)
+-	mkdir -p $(DST_DIR)/lib/wine/i386-unix
+-	$(call install-strip,$(WINE_x86_64_DST)/lib/wine/x86_64-unix/wine64,$(DST_DIR)/lib/wine/i386-unix)
+-	$(call install-strip,$(WINE_x86_64_DST)/lib/wine/x86_64-unix/wine64-preloader,$(DST_DIR)/lib/wine/i386-unix)
++	# Linux VST Bridge modification, 2026-10-16: c27 keeps native loaders in each arch tree.
+ 	cp -a $(WINE_x86_64_DST)/bin/msidb $(DST_DIR)/bin/
+ 
+@@ -1428,5 +1426,6 @@
  
  all-dist:
 -	echo `date '+%s'` `GIT_DIR=$(abspath $(SRCDIR)/.git) git describe --tags` > $(DIST_VERSION)
@@ -9,10 +17,9 @@
 +	printf '%s %s\n' '$(SOURCE_DATE_EPOCH)' 'proton-11.0-2c+$(BUILD_NAME)' > $(DIST_VERSION)
  
  
- ##
 --- a/make/rules-cargo.mk
 +++ b/make/rules-cargo.mk
-@@ -15,7 +15,8 @@
+@@ -15,6 +15,7 @@
  $$(OBJ)/.$(1)-$(3)-build:
  	@echo ":: building $(1)-$(3)..." >&2
 +	# Linux VST Bridge modification, 2026-10-16: no build-time resolution.
@@ -21,11 +28,9 @@
 +	cargo build --frozen $(--quiet?) --release \
  	      $$(filter -j%,$$(MAKEFLAGS)) \
  	      --target-dir $$($(2)_$(3)_OBJ) \
- 	      $$($(3)-$(4)_CARGO_ARGS) \
 --- a/default_pfx.py
 +++ b/default_pfx.py
-@@ -113,9 +113,11 @@
- #and restore them in the proton script
+@@ -114,7 +114,9 @@
  def fixup_drive_links(default_pfx_dir):
      for walk_dir, dirs, files in os.walk(os.path.join(default_pfx_dir, "dosdevices")):
 -        for dir_ in dirs:
@@ -38,4 +43,3 @@
 +                os.unlink(path)
  
  def make_default_pfx(default_pfx_dir, dist_dir, arm64):
-     local_env = dict(os.environ)
