@@ -31,6 +31,81 @@
       "url": "https://dl.winehq.org/wine/wine-gecko/2.47.4/wine-gecko-2.47.4-src.tar.xz",
       "size": 197407844,
       "sha256": "bf31b6619570ce289f07298bdd670081635cd12104010050f06c16e44ccd153f"
+    },
+    "onnxruntime-src.tar.gz": {
+      "url": "https://codeload.github.com/microsoft/onnxruntime/tar.gz/c57cf374b67f72575546d7b4c69a1af4972e2b54",
+      "size": 199532134,
+      "sha256": "cc34e612b93063f50a4094b9b4f85e2fdf4f4fc4bf7da0fe75ffbefde7e27620"
+    },
+    "abseil-src.zip": {
+      "url": "https://codeload.github.com/abseil/abseil-cpp/zip/8c0b94e793a66495e0b1f34a5eb26bd7dc672db0",
+      "size": 2865433,
+      "sha256": "b9f490fae1c0d89a19073a081c3c588452461e5586e4ae31bc50a8f36339135e"
+    },
+    "re2-src.zip": {
+      "url": "https://codeload.github.com/google/re2/zip/5723bb8950318135ed9cf4fc76bed988a087f536",
+      "size": 446654,
+      "sha256": "3990b26afc4593f188272bd615ec61f855de98a4b6fe4f1123637b5d33f4c3d8"
+    },
+    "nsync-src.zip": {
+      "url": "https://codeload.github.com/google/nsync/zip/436617053d0f39a1019a371c3a9aa599b3cb2cea",
+      "size": 367068,
+      "sha256": "99806a1b5d4f6d7d7a54ceb7f25ddf4a2c4a24df887ebb55f8504715deccbdea"
+    },
+    "flatbuffers-src.zip": {
+      "url": "https://codeload.github.com/google/flatbuffers/zip/6df40a2471737b27271bdd9b900ab5f3aec746c7",
+      "size": 1554012,
+      "sha256": "66eb89b58d7de19d49a585779813c6ee658f838b1bba059dc7e20125a70f37fe"
+    },
+    "protobuf-src.zip": {
+      "url": "https://codeload.github.com/protocolbuffers/protobuf/zip/a20c65f2cd549445fda907f7b83894c8eb7427d6",
+      "size": 7764813,
+      "sha256": "aee682826c7dc7e830303cdbf55cead2dda75f56473d14ec373d040d4e9c04ff"
+    },
+    "date-src.zip": {
+      "url": "https://codeload.github.com/HowardHinnant/date/zip/e7e1482087f58913b80a20b04d5c58d9d6d90155",
+      "size": 914711,
+      "sha256": "37428a0552fbbd52ce2f2d84b8394c3878ebc12c86addacba5f68715419accee"
+    },
+    "mp11-src.zip": {
+      "url": "https://codeload.github.com/boostorg/mp11/zip/7bc4e1ae9b36ec8ee635c3629b59ec525bbe82b9",
+      "size": 247723,
+      "sha256": "f08b5aa40955e578644ea96a66383056f0d426c9c268cb0912c0f7cf403ac928"
+    },
+    "json-src.zip": {
+      "url": "https://codeload.github.com/nlohmann/json/zip/4f8fba14066156b73f1189a2b8bd568bde5284c5",
+      "size": 7446592,
+      "sha256": "fe6b388ce7576b0bfb66b18c84b90b3c5ca040007d4f907e462f965e5a268b3b"
+    },
+    "cpuinfo-src.zip": {
+      "url": "https://codeload.github.com/pytorch/cpuinfo/zip/5916273f79a21551890fd3d56fc5375a78d1598d",
+      "size": 3787933,
+      "sha256": "2a160c527d3c58085ce260f34f9e2b161adc009b34186a2baf24e74376e89e6d"
+    },
+    "gsl-src.zip": {
+      "url": "https://codeload.github.com/microsoft/GSL/zip/a3534567187d2edc428efd3f13466ff75fe5805c",
+      "size": 82730,
+      "sha256": "5895ee0a5528a1d8a1690e03befb3a43774bd2f40237b91274b67269a0f665e2"
+    },
+    "safeint-src.zip": {
+      "url": "https://codeload.github.com/dcleblanc/SafeInt/zip/ff15c6ada150a5018c5ef2172401cb4529eac9c0",
+      "size": 599164,
+      "sha256": "f5c50f35aed63c9ddab90cb74be31e2ef0d9377452df0265546e8a8afe7d5f2f"
+    },
+    "onnx-src.zip": {
+      "url": "https://codeload.github.com/onnx/onnx/zip/1ba785612a79fe749aa1e478336e534743372639",
+      "size": 14164216,
+      "sha256": "60cc3be7c625516e22597527a8d21375b6d9a96bdf99bfbe86047438eb5eb90b"
+    },
+    "eigen-src.zip": {
+      "url": "https://gitlab.com/libeigen/eigen/-/archive/d10b27fe37736d2944630ecd7557cefa95cf87c9/eigen-d10b27fe37736d2944630ecd7557cefa95cf87c9.zip",
+      "size": 3756979,
+      "sha256": "ef863ed0b22b10b46a0eb15f6aac51a7d05fbba100aad8024a864c908ed3030e"
+    },
+    "wil-configure-src.zip": {
+      "url": "https://codeload.github.com/microsoft/wil/zip/5f4caba4e7a9017816e47becdd918fcc872039ba",
+      "size": 520483,
+      "sha256": "e6193cc2910d66ce94e373ad37d60bf434a40144e36cd91e2c4fc75fb01896e7"
     }
   },
   "notices": {
@@ -83,6 +158,21 @@
       "url": "https://raw.githubusercontent.com/dotnet/dotnet/b16286c2284fecf303dbc12a0bb152476d662e44/src/runtime/THIRD-PARTY-NOTICES.TXT",
       "size": 76623,
       "sha256": "66f1d4e44973185519bb4aa8a9718eb22fc7af2cc532e3ae9cfc4c127ee7fc54"
+    },
+    "icu-68.2.txt": {
+      "url": "https://raw.githubusercontent.com/unicode-org/icu/84e1f26ea77152936e70d53178a816dbfbf69989/icu4c/LICENSE",
+      "size": 21025,
+      "sha256": "7915b19db903070778581ae05d8bf4ea241b34a05deb51ca4f5cbb15ea1cbba3"
+    },
+    "libtashkeel.txt": {
+      "url": "https://raw.githubusercontent.com/mush42/libtashkeel/ce8bbbd4bbf916fc9b0b88b3ee1a3c3eb6f6b1e5/LICENSE",
+      "size": 1066,
+      "sha256": "98dbc9a6a01badb391f2b64161742cb9cd8fcdc5cfc97486be0d49c47e98d1a8"
+    },
+    "shakkala.txt": {
+      "url": "https://raw.githubusercontent.com/Barqawiz/Shakkala/a01b2e81a2816ba65b57e5cfc01356abf9453b2c/LICENSE.md",
+      "size": 621,
+      "sha256": "e365cd1a828dadd448c5a8711c05a0c8983cef7cb6a792d2c863eab3f8901fd5"
     }
   },
   "xalia_notice_bindings": {
@@ -165,5 +255,33 @@
         "sha256": "18412e6665fd12c854c85aef601a564bda44363845828b158e7e93e0c2d8f177"
       }
     }
+  },
+  "local_notices": {
+    "fonts/liberation-fonts/LICENSE": {
+      "name": "font-liberation.txt",
+      "size": 4414,
+      "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+    },
+    "fonts/source-han-sans/LICENSE.txt": {
+      "name": "font-source-han-sans.txt",
+      "size": 4463,
+      "sha256": "0983abed9371adc8958c321bf8d8036324b4a2e8cc324682b0fe0c699e63a009"
+    },
+    "fonts/noto/LICENSE": {
+      "name": "font-noto.txt",
+      "size": 4377,
+      "sha256": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb"
+    },
+    "fonts/ume/license.html": {
+      "name": "font-ume.html",
+      "size": 2139,
+      "sha256": "88d5d5a1bf928ff316e3f80d2e665b1a3ab0f46af80ae7d1ec0046b16ea64cdb"
+    }
+  },
+  "source_scope": {
+    "onnxruntime": "Linux x64 CPU shared Release 1.14.1, c57cf374b67f72575546d7b4c69a1af4972e2b54; native inference dependencies from that revision cmake/deps.txt and external/eigen.cmake. WIL is an unconditional configure input. No GPU, WASM, training, XNNPACK, extension or test dependency closure. These commit ZIPs preserve the selected sources but differ in archive bytes from tag ZIPs; do not substitute them under unchanged upstream SHA1 checks.",
+    "speech": "Piper and piper-phonemize link GPLv3 eSpeak. Preserve that linked source closure and build scripts, including matching ONNX sources, rather than describing the combined speech payload as MIT-only. General tools and System Libraries are excluded under GPLv3 section 1.",
+    "model": "Shipped libtashkeel_model.ort SHA2569f27090af3e0f661913af048a739632a3f577b3233512551d8c90580ccad4aa8 matches upstream ce8bbbd4bbf916fc9b0b88b3ee1a3c3eb6f6b1e5 model blob7bd74ebd8d9408d85884b6cb68cb89edb218629b. Preserve libtashkeel and credited Shakkala model notices.",
+    "collection": "source-companion.py exports selected prepared source components, recipes, patches, Wine configurations and compiler-selected Cargo sources. Extra corresponding_source acquisitions happen only in that explicit command. Normal redist preparation acquires only source_notices archives."
   }
 }
