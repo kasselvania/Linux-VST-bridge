@@ -759,12 +759,13 @@ mod tests {
                 let operation=readiness::with_unit_state_fixture(&units,"inactive",||test_submit_offered(&f.m,&chosen)).unwrap();
                 let (environment,installer,_)=chosen.environment_installer_start().unwrap();
                 let binding=reserve_with(&f.m,environment,installer,&operation,||Ok(true),|_|Ok(false)).unwrap();
-                let imported=installer_import::load(&f.m,&selected).unwrap();
-                let mut ordinary=json!({"format":imported.format,"installer":imported.artifact,
-                    "environment":binding.environment});
+                let input=launch_input(&f.m,&binding).unwrap();
+                // Reuse the complete owned launch facts to check the ordinary
+                // advice discriminator independently of the explicit choice.
+                let mut ordinary=input.clone();ordinary["schema"]=json!(2);
+                ordinary.as_object_mut().unwrap().remove("installer_capability");
                 linux_vst_bridge::installer_policy::bind_for_launch(&f.m,&mut ordinary,&software(&f.m).unwrap(),None).unwrap();
                 assert_eq!(ordinary.get("installer_capability").is_some(),matched);
-                let input=launch_input(&f.m,&binding).unwrap();
                 assert_eq!(input["installer_capability"]["windows_scripting"]["powershell"],serde_json::to_value(powershell).unwrap());
                 assert_eq!(input["installer_capability"]["operation"],operation);
                 assert_eq!(input["installer_capability"]["environment"],serde_json::to_value(&binding.environment).unwrap());
