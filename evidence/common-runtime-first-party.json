@@ -1,0 +1,68 @@
+{
+  "test": 206,
+  "platform": "Fresh CachyOS / kernel 7.2.9-2-cachyos / KDE Wayland",
+  "daw": "REAPER 7.82",
+  "package_source": "83e0b563382b7d075552d4e33ded2550d427fa30",
+  "runner": "managed-common-audio-slr4-20260805-r6",
+  "wine_build_sha256": "bf0acc6ff79d1191dbb150fb18310be26715407993ae402c7e487e3f6c8ed504",
+  "host_sha256": "456d18f8a48b34e71219a6bada6f60e6303c2f08aa54a14de529618b92039ce4",
+  "native_proxy_sha256": "7bb462ef6f608da918407b9832ed205305a1e9dd17b236f4c966b7bb2292bd04",
+  "connected_reference_classes": 2,
+  "cold_acquisition_minutes_approx": 14.5,
+  "normal_daw_exits_before_reopen": 1,
+  "saved_level": 0.699999988079071,
+  "reopened_level": 0.699999988079071,
+  "saved_colour": 0.20000000298023224,
+  "reopened_colour": 0.20000000298023224,
+  "saved_and_reopened_fx_guid": "{D2083E7E-3E78-7A7F-24C3-AF0CECCDD917}",
+  "project_sha256": "a504fb8f019ec6b69b7dfed39aed1741842a1526232bee633c8f5dd55eee43f0",
+  "input_sha256": "eba6f64ef4eb21cb996468efcb02702389574eef6e880546b6169d521cb04a0d",
+  "render_sha256": "10559f82c1e4b83a85f9a25e6edbce6890346c8604c5f3f867c427f994f820f5",
+  "render_frames": 96000,
+  "sample_rate": 48000,
+  "channels": 2,
+  "render_bits": 24,
+  "analysis_frame_range": [
+    4800,
+    91200
+  ],
+  "expected_gain": 0.49,
+  "left": {
+    "gain": 0.4900000076592657,
+    "correlation": 0.9999999999999237,
+    "residual_rms": 3.304878554199397e-08,
+    "output_rms": 0.08459002689140978
+  },
+  "right": {
+    "gain": 0.49000000178144315,
+    "correlation": 0.9999999999998538,
+    "residual_rms": 3.430996944470448e-08,
+    "output_rms": 0.06344323289384592
+  },
+  "lifecycle_counters": [
+    {
+      "phase": "create",
+      "requested_mode": 0,
+      "requested_rate": 48000,
+      "frames": 1476096,
+      "expired_output_frames": 0,
+      "clean": true
+    },
+    {
+      "phase": "reopen",
+      "requested_mode": 0,
+      "requested_rate": 48000,
+      "frames": 986624,
+      "expired_output_frames": 6656,
+      "clean": true
+    },
+    {
+      "phase": "render",
+      "requested_mode": 2,
+      "requested_rate": 48000,
+      "frames": 111104,
+      "expired_output_frames": 1536,
+      "clean": true
+    }
+  ]
+}

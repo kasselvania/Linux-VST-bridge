@@ -21,17 +21,17 @@ Boundary: preserve the working Deck. Operator reports ~170 GB backup complete:
 one growing log; licensed setups excluded, restoration untested. No wipe, licensed
 state migration, private payload import or silent switch. Use disposable fixtures.
 
-Next changes:
-1. Common archive/source closure is published as an unqualified comparison;
-   ordinary Test205 acquisition sealed it in about 14.5 minutes on fresh CachyOS.
-2. Repair initial package-host helper staging, then test normal fresh Test206
-   install/discovery/DAW audio/state. Retain failed Test205; main recommendation stays.
-3. Check install/play/state/editor/service behavior and combined real cases on
-   clean CachyOS and SteamOS; real-vendor and clean-platform qualification stay open.
-4. Preserve exact predecessors and continuity through update and rollback.
+Checkpoint: fresh CachyOS Test206 completes ordinary install/acquisition, original
+Reference installer, discovery/preparation/publication and native REAPER play/save/
+full exit/reopen. Effect Level .7 / Colour .2 and instance identity survive; the
+2s stereo render measures .490000008 / .490000002 gain (expected .49).
+Cold acquisition takes about 14.5 minutes. Failed Test205 remains preserved.
+Reopened real-time/offline logs retain expired-output counts; continuity is open.
 
-The common build and first-party mechanisms now pass; ordinary installed musical
-use and the combined real cases remain the completion boundary.
+Paused at the operator's working checkpoint. PR453 stays draft/unmerged and the
+main runtime recommendation stays unchanged. Remaining: real-vendor combined cases,
+SteamOS, reboot, explicit update/rollback, and setup-owned browser delivery.
+Resume only on operator instruction; preserve the working Deck and licensed state.
 
 Done: clean Git build → normal acquisition/install/discovery/publication → combined
 real cases. Play and save/reopen through full DAW exit, restart/reboot, update and
