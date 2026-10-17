@@ -1012,6 +1012,11 @@ fn setup_posture(current: &ui::Onboarding, ambiguous: bool, discovered: usize)
     let durable = installation["transaction"]["durable_installation"].as_str();
     let outcome = installation["transaction"]["outcome"].as_str();
     let result = installation["state"].as_str();
+    if installation["transaction"]["root_completion"]["status"] == "unconfirmed"
+        || installation["error"] == "installer_completion_unconfirmed" {
+        return (Phase::SetupNeedsAttention,
+            "Installer completion could not be confirmed. Installed files may be present; review the result before opening the application or finding plug-ins.".into(), SetupNext::None);
+    }
     if matches!(result, Some("failed" | "cancelled"))
         || (result == Some("completed") && outcome != Some("installed")) {
         return match durable {
@@ -1038,7 +1043,7 @@ fn setup_posture(current: &ui::Onboarding, ambiguous: bool, discovered: usize)
             "The compatibility space is ready. Running the vendor installer is a separate step.".into(), SetupNext::Start),
         "needs_attention" => (Phase::SetupNeedsAttention, current.required_human_action.clone(), SetupNext::Scan),
         "completed" => (Phase::InstallerRetired,
-            "Installer retired with a durable installation. Ready to find installed plug-ins.".into(), SetupNext::Scan),
+            "Installer finished successfully and installed files were verified. Opening the application and checking its plug-ins in your DAW are separate steps.".into(), SetupNext::Scan),
         _ => (Phase::ScanReady, current.required_human_action.clone(), SetupNext::Scan),
     }
 }
@@ -1242,6 +1247,21 @@ pub(crate) mod tests {
     }
     fn offered(action: ui::Action) -> ui::AvailableAction {
         ui::AvailableAction { label: "Manager offer".into(), action, disabled_reason: None }
+    }
+    #[test]
+    fn installer_completion_does_not_claim_application_or_daw_readiness() {
+        let mut row=setup_row();
+        row.details=json!({"installation":{"state":"completed","transaction":{
+            "outcome":"installed","durable_installation":"installed","root_completion":{"status":"succeeded"}}}});
+        let (phase,status,_)=setup_posture(&row,false,0);
+        assert_eq!(phase,ui::SetupPhase::InstallerRetired);
+        assert!(status.contains("installed files were verified") && status.contains("separate steps"));
+        for status in ["unconfirmed","failed"] {
+            row.details["installation"]["state"]="failed".into();
+            row.details["installation"]["transaction"]["root_completion"]["status"]=status.into();
+            let (phase,_,_)=setup_posture(&row,false,0);
+            assert_eq!(phase,ui::SetupPhase::SetupNeedsAttention);
+        }
     }
     #[test]
     fn setup_guidance_follows_durable_installer_result_and_exact_offers() {

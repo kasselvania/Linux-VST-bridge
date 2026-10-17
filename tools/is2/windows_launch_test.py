@@ -12,11 +12,11 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def run(adapter, image, directory, expected=None, wrapper=None, depth=0):
+def run(adapter, image, directory, expected=None, wrapper=None, depth=0,version=1):
     operation, token = os.urandom(16).hex(), os.urandom(32).hex()
     digest = expected or sha(image)
     request = directory / 'request.private'
-    request.write_bytes(('\n'.join(('IS2_LAUNCH_V1', operation, token, '2', digest,
+    request.write_bytes(('\n'.join((f'IS2_LAUNCH_V{version}', operation, token, '2', digest,
                                   str(image.stat().st_size), str(image), ''))).encode('utf-16le'))
     argv = [str(wrapper), "--adapter", str(depth), str(adapter), str(request)] if wrapper else [str(adapter), str(request)]
     result = subprocess.run(argv, cwd=directory,
@@ -26,6 +26,13 @@ def run(adapter, image, directory, expected=None, wrapper=None, depth=0):
         assert len(frames) == 1
         assert frames[0][1:6] == [operation, token, '2', digest, str(image.stat().st_size)]
         assert len(frames[0]) == 10 and int(frames[0][6]) != int(frames[0][8])
+    exits=[v.split() for v in result.stderr.decode().splitlines() if v.startswith('IS2_EXIT_V1 ')]
+    if version==2 and frames:
+        assert len(exits)==1 and exits[0][1:10]==frames[0][1:10],result.stderr
+        began,ended,status=map(int,exits[0][10:])
+        assert 0<=began<=ended<2**32 and ended-began<=3600000
+        assert status==result.returncode
+    else:assert not exits
     request.unlink()
     return result, frames
 
@@ -46,10 +53,12 @@ def main(directory):
         bound, frames = run(adapter, target, root)
         assert bound.returncode == 0 and len(frames) == 1
         assert contract.read_bytes() == before, 'adapter changed cwd/environment/elevation'
-        for test, code in (('exit23', 23), ('wrapper1', 0), ('wrapper3', 0)):
+        for test, code in (('exit23', 23), ('wrapper1', 0), ('wrapper3', 0),('external_zero',0),('exit259',259)):
             case.write_text(test + '\n')
             result, frames = run(adapter, target, root)
             assert result.returncode == code and len(frames) == 1, (test, result.returncode, len(frames))
+            result,frames=run(adapter,target,root,version=2)
+            assert result.returncode==code and len(frames)==1,(test,result.returncode,len(frames))
         case.write_text('exit23\n')
         for depth in (1, 3):
             result, frames = run(adapter, target, root, wrapper=source, depth=depth)

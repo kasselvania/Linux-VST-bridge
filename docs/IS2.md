@@ -53,6 +53,37 @@ existing same-user Wine environment, not a security boundary against malicious
 same-user code. It grants no permission to signal a process. All actual termination
 still belongs to the exact cgroup or source-owned fixture's retained process handle.
 
+## Installer completion (operator-selected 2026-10-17)
+
+New owned EXE installs request `IS2_LAUNCH_V2`. Completion requires one
+`IS2_EXIT_V1` on the same retained stderr channel, emitted only after the original
+root handle signals and GetExitCodeProcess succeeds. Its operation, nonce, epoch,
+installer digest/size, root PID/creation and adapter PID/creation must match the
+accepted root frame; the supervisor also retains the verified adapter artifact.
+The final fields are pre-resume tick, observed-end tick and unsigned exit status.
+Status zero is successful installer termination, not voluntary/self-exit proof:
+an external TerminateProcess with status zero can satisfy this contract. Legacy
+self-exit observations stay separate; disagreement refuses completion. Signaled
+status 259 is a terminal nonzero result. V1 and application launch semantics stay
+unchanged, and V2 never falls back to outer zero, self-exit trace or installed files.
+
+Internal GetTickCount64 samples bracket creation, resume and successful wait/query.
+Clock reversal, a high-word change or elapsed time beyond the existing one-hour
+bound suppresses the exit frame. The transmitted low words share Wine's trace
+clock. Application closing additionally requires exact integer-millisecond trace
+root start R, pre-resume B, observed end E and app creation C: R <= B <= E and
+C >= max(R, E - 60000). There is no C <= E condition. Missing/ambiguous root timing
+or any older/unknown live same-file launch blocks closing that file. Existing
+file/resource proof and Linux generation/cgroup custody still guard every signal.
+
+Cancellation and deadline failure are checked before success or application close
+and remain unsuccessful through draining/cleanup, even after a later zero. Missing,
+malformed, duplicate, conflicting, reused-generation or unmatched exit evidence
+stays unconfirmed. A later empty-process census confirms cleanup only; it cannot
+supply completion. Durable installation witnesses remain required for installed
+classification. Installer success, verified files, a usable application and DAW
+plug-in readiness are distinct results; the absent Native Access window is open.
+
 ## Presence and close records
 
 A bounded strict grammar classifies observed PowerShell/CIM operations; it does

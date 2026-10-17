@@ -56,8 +56,18 @@ static int nad1_runtime_request(const std::vector<std::wstring>& lines,const std
 // Installer timeout is unchanged; an owned application has no normal-use cap.
 static constexpr DWORD target_wait(bool renderer){return renderer?INFINITE:3600000;}
 static_assert(target_wait(true)==INFINITE&&target_wait(false)==3600000);
+// Low words are comparable with Wine's shared tick trace only when every
+// bracketing 64-bit sample stays ordered, in one high word and within one hour.
+static bool completion_clock(const std::array<ULONGLONG,5>& ticks){
+    for(size_t i=1;i<ticks.size();++i)
+        if(ticks[i]<ticks[i-1]||(ticks[i]>>32)!=(ticks[0]>>32))return false;
+    return ticks.back()-ticks.front()<=target_wait(false);
+}
 int wmain(int argc,wchar_t** argv){
-    if(argc==2 && std::wstring(argv[1])==L"--self-test")return hex(L"0123456789abcdef",16)&&!hex(L"g",1)&&callback_uri("native-access:fixture%20code")&&!callback_uri("native-access:x --no-sandbox")&&!callback_uri("native-access:%00")?0:1;
+    if(argc==2 && std::wstring(argv[1])==L"--self-test")return hex(L"0123456789abcdef",16)&&!hex(L"g",1)&&callback_uri("native-access:fixture%20code")&&!callback_uri("native-access:x --no-sandbox")&&!callback_uri("native-access:%00")
+        &&completion_clock({1,2,3,4,3600001})&&!completion_clock({1,2,3,4,3600002})
+        &&!completion_clock({1,2,3,2,4})&&!completion_clock({0xfffffffeULL,0xffffffffULL,0x100000000ULL,0x100000001ULL,0x100000002ULL})
+        &&!completion_clock({1,2,3,4,0x1000003e9ULL})?0:1;
     if(argc!=2)return 120;
     HANDLE request=CreateFileW(argv[1],GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
     if(request==INVALID_HANDLE_VALUE)return 121;
@@ -71,7 +81,8 @@ int wmain(int argc,wchar_t** argv){
     if(!lines.empty()&&(lines[0]==L"NAD1_SERVICE_V1"||lines[0]==L"NAD1_STOP_REQUEST_V2"||lines[0]==L"NAD1_SERVICE_V2"||lines[0]==L"NAD1_STOP_REQUEST_V3"))return pos==all.size()?nad1_service_request(lines,argv[1]):123;
     const bool callback=lines.size()==8&&lines[0]==L"NAUI2_AUTH_LAUNCH_V1";
     const bool renderer=lines.size()==8&&(lines[0]==L"NAUI2_LAUNCH_V1"||callback);
-    if(pos!=all.size()||(!renderer&&(lines.size()!=7||lines[0]!=L"IS2_LAUNCH_V1"))||!hex(lines[1],32)||!hex(lines[2],64)||lines[3]!=L"2"||!hex(lines[4],64))return 123;
+    const bool completion=lines.size()==7&&lines[0]==L"IS2_LAUNCH_V2";
+    if(pos!=all.size()||(!renderer&&(lines.size()!=7||(!completion&&lines[0]!=L"IS2_LAUNCH_V1")))||!hex(lines[1],32)||!hex(lines[2],64)||lines[3]!=L"2"||!hex(lines[4],64))return 123;
     if(renderer&&lines[7]!=L"inherited"&&lines[7]!=L"software_rendering")return 123;
     wchar_t* end=nullptr;auto expected_size=wcstoull(lines[5].c_str(),&end,10);
     if(!end||*end||!expected_size||expected_size>2147483648ULL||lines[6].empty()||lines[6].find(L'"')!=std::wstring::npos)return 124;
@@ -86,9 +97,11 @@ int wmain(int argc,wchar_t** argv){
     if(renderer&&lines[7]==L"software_rendering")command+=L" --disable-gpu";
     // Environment and current directory are inherited unchanged. No shell, extra
     // installer arguments, token in child environment, or manifest bypass.
+    std::array<ULONGLONG,5> ticks{};ticks[0]=GetTickCount64();
     if(!CreateProcessW(lines[6].c_str(),command.data(),nullptr,nullptr,FALSE,CREATE_SUSPENDED,nullptr,nullptr,&si,&pi)){
         DWORD error=GetLastError();std::fprintf(stderr,"IS2_REFUSED_V1 %ls %ls 2 %lu\n",lines[1].c_str(),lines[2].c_str(),error);std::fflush(stderr);CloseHandle(image);return 127;
     }
+    ticks[1]=GetTickCount64();
     std::array<wchar_t,32768> actual{};DWORD length=static_cast<DWORD>(actual.size());
     ok=QueryFullProcessImageNameW(pi.hProcess,0,actual.data(),&length)!=FALSE;
     HANDLE opened=ok?CreateFileW(actual.data(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr):INVALID_HANDLE_VALUE;
@@ -102,14 +115,25 @@ int wmain(int argc,wchar_t** argv){
     // frame precedes ResumeThread and therefore all target-driven child activity.
     char frame[512]{};int n=std::snprintf(frame,sizeof(frame),"IS2_ROOT_V1 %ls %ls 2 %s %llu %lu %llu %lu %llu\n",lines[1].c_str(),lines[2].c_str(),expected.c_str(),expected_size,pi.dwProcessId,created,GetCurrentProcessId(),own_created);
     DWORD written=0;ok=n>0&&n<static_cast<int>(sizeof(frame))&&WriteFile(GetStdHandle(STD_ERROR_HANDLE),frame,static_cast<DWORD>(n),&written,nullptr)&&written==static_cast<DWORD>(n);
+    ticks[2]=GetTickCount64();
     if(!ok||ResumeThread(pi.hThread)==static_cast<DWORD>(-1)){TerminateProcess(pi.hProcess,129);WaitForSingleObject(pi.hProcess,5000);CloseHandle(pi.hThread);CloseHandle(pi.hProcess);CloseHandle(image);return 129;}
+    ticks[3]=GetTickCount64();
     CloseHandle(pi.hThread);
     DWORD result=130;
     if(callback){
         NativeAccessCallback returns(image,pi.hProcess,lines[6],lines[1],lines[7]);
         while(WaitForSingleObject(pi.hProcess,50)==WAIT_TIMEOUT)returns.tick();
         GetExitCodeProcess(pi.hProcess,&result);
-    }else if(WaitForSingleObject(pi.hProcess,target_wait(renderer))==WAIT_OBJECT_0)GetExitCodeProcess(pi.hProcess,&result);
+    }else if(WaitForSingleObject(pi.hProcess,target_wait(renderer))==WAIT_OBJECT_0){
+        if(GetExitCodeProcess(pi.hProcess,&result)){
+            ticks[4]=GetTickCount64();
+            if(completion&&completion_clock(ticks)){
+                n=std::snprintf(frame,sizeof(frame),"IS2_EXIT_V1 %ls %ls 2 %s %llu %lu %llu %lu %llu %lu %lu %lu\n",lines[1].c_str(),lines[2].c_str(),expected.c_str(),expected_size,pi.dwProcessId,created,GetCurrentProcessId(),own_created,static_cast<DWORD>(ticks[2]),static_cast<DWORD>(ticks[4]),result);
+                written=0;
+                if(!(n>0&&n<static_cast<int>(sizeof(frame))&&WriteFile(GetStdHandle(STD_ERROR_HANDLE),frame,static_cast<DWORD>(n),&written,nullptr)&&written==static_cast<DWORD>(n)))result=131;
+            }
+        }
+    }
     CloseHandle(image);
     CloseHandle(pi.hProcess);return static_cast<int>(result);
 }

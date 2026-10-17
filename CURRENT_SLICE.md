@@ -20,11 +20,12 @@ discovery/publication without prefix repair → editor/MIDI/audio → changed
 instrument/state full DAW exit/reopen → cold-boot recall → cleanup and second load.
 Record exact vendor builds privately. Test208's ordinary update, explicit typed
 installer choices, exact adapter binding and live diagnostic-write readback passed.
-NI copied its app without a usable window; installer-root completion is unproved.
-Common r6 emits no self-exit trace required by the existing completion owner.
-Ordinary Stop retired the cohort cleanly; no sign-in occurred. Decide its proof
-before changing it: exact process-handle exit status differs from voluntary
-self-exit. Keep r6 frozen while that contract boundary is resolved. Short Test208
+NI copied its app without a usable window; no sign-in occurred. The operator
+delegated completion semantics; the selected IS2 V2 contract accepts exact retained
+root-handle terminal status zero, with durable files, cancellation/deadline exclusion
+and conflict refusal. This proves status, not voluntary exit or a usable app.
+Implement/test/review the bounded repair, then repeat ordinary NI on frozen r6.
+Short Test208
 audio/state/full-reopen checks pass; Reference parameter UI and Tyrell editor open/close.
 
 Preserved CR3: Reference full .49-gain renders and 60 s delivered-output capture
