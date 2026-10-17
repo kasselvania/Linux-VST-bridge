@@ -14,13 +14,24 @@ A source patch, build, candidate, or publication is not a physical support claim
 Test206 / fresh CachyOS / REAPER 7.82, **supported for this first-party checkpoint**:
 normal install/acquisition/discovery/publication connects both Reference classes.
 Effect Level .7 / Colour .2 and instance identity survive full DAW exit/reopen;
-the 2s, 48 kHz stereo render measures .490000008 / .490000002 gain (expected .49)
-over its 0.1–1.9s interior.
+the original and fresh complete 2s, 48 kHz stereo renders match expected .49 gain
+across all 96,000 frames, including both edges (maximum sample error 6.2e-8).
+Fresh captured playback of a 60s fixed signal has one permitted startup dry/handoff,
+settled by 220.7 ms. Every subsequent frame, including the tail, matches .49 gain
+(2,869,409 frames; maximum error 5.1e-9); no later gap or dry transition appears.
 [Scoped measurements](../evidence/common-runtime-first-party.json).
-Reopened real-time / offline lifecycles report 6,656 / 1,536 expired output frames;
-their sample placement and audible impact remain unresolved. Dropout-free playback
-is unqualified. Cold acquisition takes about 14.5 minutes. Real vendors, SteamOS,
-reboot and update/rollback remain unqualified; the candidate stays unmerged.
+Stopped-only processing also accumulates expired frames; lifetime totals alone
+do not establish playback loss. Longer endurance remains unqualified.
+Cold acquisition takes about 14.5 minutes. SteamOS, reboot, update/rollback and
+combined vendor cases remain unqualified; the candidate stays unmerged.
+
+Test206 / fresh CachyOS / REAPER 7.82 / common runtime, **supported for this
+TyrellN6 3.0.0 (16976), Windows VST3 x64 checkpoint**: the original public installer
+completes ordinary Install and connect, discovery and publication alongside the
+two Reference classes. The Windows editor opens; changed Output .37, the same FX
+instance and 16 MIDI notes survive full DAW exit/reopen. Native PipeWire capture
+contains the full eight-second phrase and all four expected pitches repeated four
+times. [Scoped measurements](../evidence/common-runtime-tyrell.json).
 
 In-app beta update (#400), **unqualified**: CachyOS VM Test146 → Test148 via Download and update, then
 Restore previous setup back to Test146, from a loopback test feed; the final hand-over code awaits a VM pass.
