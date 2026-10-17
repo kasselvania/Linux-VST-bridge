@@ -51,6 +51,8 @@ def integrate(source):
 
 
 def check(source=None):
+    if source is not None:
+        verify_sources(source, "before")
     with tempfile.TemporaryDirectory(prefix="lvb-common-source-") as directory:
         stage = Path(directory)
         for name, hashes in RECIPE["sources"].items():

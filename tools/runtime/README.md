@@ -8,7 +8,7 @@ only; it is not an installed runtime catalogue, configuration or support record.
 ```sh
 python3 tools/runtime/prepare.py --check-upstream
 python3 tools/runtime/prepare.py --check-source /private/pristine-wine-c27f058
-# Linux builder, under the shared heavy-build lock and resource limits:
+# Reserved homelab builder (takes the shared lock and resource limits):
 bash tools/runtime/build.sh /mnt/Storage2/LinuxPluginBridge/runtime-430-clean
 ```
 
@@ -24,13 +24,13 @@ timestamp prevents the upstream default of using the current time. A pinned
 [crane release](https://github.com/google/go-containerregistry/releases/tag/v0.22.1)
 exports the exact SDK image directly under the output directory. Bubblewrap uses
 that read-only SDK root; a transient user systemd scope caps the build at three
-CPUs and 6 GiB, including a zero swap allowance. There is no global Docker image
+CPUs and 6 GiB, including a zero swap allowance, throughout acquisition and build.
+The outer wrapper requires mounted Storage2 and an output under the project root
+before any large write, and holds the shared build lock throughout. There is no global Docker image
 cache write or daemon change. These host tools must already be available; the
 recipe does not install system packages. Build logs and outputs stay outside Git. This
 does not execute a vendor program, create a prefix, install into Steam or change
-an existing managed setup. Callers must hold the shared heavy-build lock on the
-homelab; the script acquires that lock before compilation. The script refuses an
-existing output directory.
+an existing managed setup. The script refuses an existing output directory.
 
 ## Integrated source behavior
 
