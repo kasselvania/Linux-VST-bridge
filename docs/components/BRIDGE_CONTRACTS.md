@@ -217,6 +217,13 @@ exclusion until narrower resource contracts are implemented and proven.
 
 ## Publication and revision transitions
 
+Owned EXE installation completion uses the operator-selected
+[IS2 V2 retained-root-handle status contract](../IS2.md#installer-completion-operator-selected-2026-10-17).
+A signaled original handle plus status zero proves successful termination, not
+voluntary exit or application usability. Cancellation/deadline/conflicting or
+missing completion evidence cannot become success through outer zero, durable
+files or a later cleanup census. Legacy trace observations remain separate.
+
 Keep immutable publication/predecessor history and stable native class identity.
 Changes bind an expected current revision, affected users and a real successor;
 changed module bytes require observation/refresh, not execution under an old receipt.

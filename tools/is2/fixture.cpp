@@ -30,6 +30,11 @@ static bool close_exact(const std::string& test,PROCESS_INFORMATION p,HWND hwnd,
 static std::string case_file(){FILE* f=nullptr;_wfopen_s(&f,(image()+L".case").c_str(),L"rb");if(!f)return {};char b[80]{};auto n=fread(b,1,79,f);fclose(f);std::string s(b,n);while(!s.empty()&&(s.back()=='\n'||s.back()=='\r'))s.pop_back();return s;}
 int wmain(int argc,wchar_t** argv){
  if(argc==2&&std::wstring(argv[1])==L"--self-test")return born(GetCurrentProcess())?0:1;
+ if(argc==3&&std::wstring(argv[1])==L"--kill"){
+  HANDLE target=OpenProcess(PROCESS_TERMINATE,FALSE,wcstoul(argv[2],nullptr,10));
+  if(!target)return 251;
+  BOOL ended=TerminateProcess(target,0);CloseHandle(target);return ended?0:252;
+ }
  if(argc==3&&std::wstring(argv[1])==L"--app"){
   ignore_close=std::wstring(argv[2])==L"ignore";WNDCLASSW c{};c.lpfnWndProc=window;c.hInstance=GetModuleHandleW(nullptr);c.lpszClassName=L"IS2SourceOwned";if(!RegisterClassW(&c))return 241;
   HWND h=CreateWindowW(c.lpszClassName,L"IS2 source-owned",WS_OVERLAPPED,0,0,100,100,nullptr,nullptr,c.hInstance,nullptr);if(!h)return 242;
@@ -47,6 +52,12 @@ int wmain(int argc,wchar_t** argv){
  if(test=="wrapper1"&&argc==1)return static_cast<int>(join(spawn(L"--wrap 0")));
  if(test=="wrapper3"&&argc==1)return static_cast<int>(join(spawn(L"--wrap 2")));
  if(test=="exit23")return 23;
+ if(test=="exit259")return 259;
+ if(test=="external_zero"){
+  auto killer=spawn(L"--kill "+std::to_wstring(GetCurrentProcessId()));
+  if(!killer.hProcess)return 249;
+  CloseHandle(killer.hThread);CloseHandle(killer.hProcess);Sleep(10000);return 250;
+ }
  if(test=="contract"){
   wchar_t cwd[32768]{};GetCurrentDirectoryW(32768,cwd);
   FILE* file=nullptr;_wfopen_s(&file,(image()+L".contract").c_str(),L"wb");if(!file)return 246;

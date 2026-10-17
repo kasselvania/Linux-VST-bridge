@@ -119,7 +119,14 @@ class PolicyLaunchTests(unittest.TestCase):
                 def launch_owned(args,**kwargs):
                     calls.append((args,dict(kwargs['env'])))
                     if len(calls)==2 and fail:raise OSError('source-owned target creation failure')
-                    p=real_popen([sys.executable,'-c','print("source-owned ready")'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+                    code='print("source-owned ready")'
+                    if len(calls)==2:
+                        request=(root/(spec['operation']+'-launch-request.private')).read_bytes().decode('utf-16le').splitlines()
+                        self.assertEqual(request[0],'IS2_LAUNCH_V2')
+                        common=' '.join([*request[1:6],'32','100','16','99'])
+                        frames=f'IS2_ROOT_V1 {common}\nIS2_EXIT_V1 {common} 10000 11000 0\n'
+                        code=f'import sys;sys.stderr.write({frames!r})'
+                    p=real_popen([sys.executable,'-c',code],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
                     children.append(p);return p
                 old=[signal.getsignal(s) for s in (signal.SIGTERM,signal.SIGINT)]
                 try:

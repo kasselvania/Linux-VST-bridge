@@ -522,7 +522,7 @@ pub fn result(m: &Manager, r: &Record) -> Result<Value> {
 pub(super) fn validate_installer_transaction(v: &Value, op: &str) -> Result<()> {
     let Some(t) = v.get("transaction") else { return Ok(()) }; // retained MF2
     require(t["schema"] == 1 && t["operation"] == op, "installer_transaction_identity")?;
-    require(matches!(t["outcome"].as_str(), Some("in_progress" | "completed" | "not_installed" | "partial_installation" | "installed" | "installed_dependency_failed" | "installed_postlaunch_failed" | "child_failed" | "outer_nonzero_stage_unknown" | "cancelled" | "cleanup_unconfirmed")), "installer_transaction_outcome")?;
+    require(matches!(t["outcome"].as_str(), Some("in_progress" | "completed" | "failed" | "installer_completion_unconfirmed" | "not_installed" | "partial_installation" | "installed" | "installed_dependency_failed" | "installed_postlaunch_failed" | "child_failed" | "outer_nonzero_stage_unknown" | "cancelled" | "cleanup_unconfirmed")), "installer_transaction_outcome")?;
     require(matches!(t["durable_installation"].as_str(), Some("installed" | "partial_installation" | "not_installed" | "indeterminate" | "unavailable")), "installer_transaction_witness")?;
     if let Some(b)=t.get("launch_binding").filter(|b|!b.is_null()) {
         require(b["schema"]==1 && b["operation"]==op && b["epoch"]==2, "installer_launch_binding_identity")?;
@@ -1012,6 +1012,11 @@ fn setup_posture(current: &ui::Onboarding, ambiguous: bool, discovered: usize)
     let durable = installation["transaction"]["durable_installation"].as_str();
     let outcome = installation["transaction"]["outcome"].as_str();
     let result = installation["state"].as_str();
+    if installation["transaction"]["root_completion"]["status"] == "unconfirmed"
+        || installation["error"] == "installer_completion_unconfirmed" {
+        return (Phase::SetupNeedsAttention,
+            "Installer completion could not be confirmed. Installed files may be present; review the result before opening the application or finding plug-ins.".into(), SetupNext::None);
+    }
     if matches!(result, Some("failed" | "cancelled"))
         || (result == Some("completed") && outcome != Some("installed")) {
         return match durable {
@@ -1038,7 +1043,7 @@ fn setup_posture(current: &ui::Onboarding, ambiguous: bool, discovered: usize)
             "The compatibility space is ready. Running the vendor installer is a separate step.".into(), SetupNext::Start),
         "needs_attention" => (Phase::SetupNeedsAttention, current.required_human_action.clone(), SetupNext::Scan),
         "completed" => (Phase::InstallerRetired,
-            "Installer retired with a durable installation. Ready to find installed plug-ins.".into(), SetupNext::Scan),
+            "Installer finished successfully and installed files were verified. Opening the application and checking its plug-ins in your DAW are separate steps.".into(), SetupNext::Scan),
         _ => (Phase::ScanReady, current.required_human_action.clone(), SetupNext::Scan),
     }
 }
@@ -1244,6 +1249,21 @@ pub(crate) mod tests {
         ui::AvailableAction { label: "Manager offer".into(), action, disabled_reason: None }
     }
     #[test]
+    fn installer_completion_does_not_claim_application_or_daw_readiness() {
+        let mut row=setup_row();
+        row.details=json!({"installation":{"state":"completed","transaction":{
+            "outcome":"installed","durable_installation":"installed","root_completion":{"status":"succeeded"}}}});
+        let (phase,status,_)=setup_posture(&row,false,0);
+        assert_eq!(phase,ui::SetupPhase::InstallerRetired);
+        assert!(status.contains("installed files were verified") && status.contains("separate steps"));
+        for status in ["unconfirmed","failed"] {
+            row.details["installation"]["state"]="failed".into();
+            row.details["installation"]["transaction"]["root_completion"]["status"]=status.into();
+            let (phase,_,_)=setup_posture(&row,false,0);
+            assert_eq!(phase,ui::SetupPhase::SetupNeedsAttention);
+        }
+    }
+    #[test]
     fn setup_guidance_follows_durable_installer_result_and_exact_offers() {
         let mut row = setup_row();
         let env = row.environment.clone().unwrap();
@@ -1399,6 +1419,21 @@ pub(crate) mod tests {
             Some("Existing managed configuration"));
         assert!(compatibility_label(true, Some(&standard), Some(&default), true).is_none());
         assert!(compatibility_label(false, None, None, false).is_none());
+    }
+    #[test]
+    fn terminal_completion_failures_survive_initial_installer_result_readback() {
+        let (f,i)=fixture();
+        let created=create_exact(&f.m,&i,f.r.environment.runner.clone(),&"ab".repeat(16),&f.m.lock("registry.lock").unwrap(),None).unwrap();
+        let id=created["onboarding"].as_str().unwrap();let op="cd".repeat(16);let r=reserve(&f.m,id,&op).unwrap();
+        let path=directory(&f.m,id).unwrap().join(format!("{op}-result.json"));
+        for (outcome,error) in [("failed","installer_time_bound"),("failed","installer_owner_RuntimeError"),
+            ("installer_completion_unconfirmed","installer_completion_unconfirmed")] {
+            let value=json!({"schema":2,"operation":op,"state":"failed","error":error,
+                "cleanup_confirmed":true,"owned_live":0,"transaction":{"schema":1,"operation":op,
+                    "outcome":outcome,"durable_installation":"installed","root_completion":{"status":"unconfirmed"}}});
+            atomic_json(&path,&value).unwrap();
+            let read=result(&f.m,&r).unwrap();assert_eq!(read,value);assert!(retired(&read));
+        }
     }
     #[test]
     fn installer_transaction_is_operation_bound_and_legacy_stays_readable() {

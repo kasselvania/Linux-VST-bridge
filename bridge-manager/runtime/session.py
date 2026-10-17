@@ -2548,11 +2548,42 @@ class InstallerWindowsTrace:
     HEADER=re.compile(r'^(\d+\.\d+):([0-9a-fA-F]+):([0-9a-fA-F]+):(trace|warn|err|fixme):([a-z0-9_]+):([A-Za-z0-9_]+) (.*)$')
     def __init__(self,artifact,root):
         self.artifact=artifact;self.root=pathlib.Path(root);self.epoch=0;self.pending={};self.rows=[];self.current={};self.seen=set();self.dropped=0;self.first_failure=None;self.cancelled=False;self.image_budget=256*1024*1024;self.service_results=[];self.binding=None;self.presence=InstallerPresence()
-    def arm_root(self,operation,token,size):
+    def arm_root(self,operation,token,size,*,completion=False,adapter_sha256=None):
         if not re.fullmatch('[0-9a-f]{32}',operation) or not re.fullmatch('[0-9a-f]{64}',token):raise ValueError('installer binding identity')
         self.binding={'schema':1,'operation':operation,'epoch':2,'token_sha256':hashlib.sha256(token.encode()).hexdigest(),'artifact_sha256':self.artifact['sha256'],'size':size,'status':'unavailable','reason':'launch_record_not_observed','root_ordinal':None}
         self.binding_token=token;self.binding_frames=0
+        self.binding['completion_contract']='retained_handle_status_v1' if completion else 'legacy_self_exit'
+        if adapter_sha256 is not None:self.binding['adapter_artifact_sha256']=adapter_sha256
+        self.completion_required=completion;self.exit_frames=0;self.handle_exit=None;self.exit_error=None;self.terminal_error=None
+    def bound_root(self):
+        b=self.binding
+        return next((r for r in self.rows if b and (r['epoch'],r['creation_ordinal'])==(b['epoch'],b['root_ordinal'])),None)
+    def exit_frame(self,line):
+        if not line.startswith(b'IS2_EXIT_'):return False
+        if not getattr(self,'completion_required',False):return True
+        self.exit_frames+=1;b=self.binding;row=self.bound_root()
+        m=re.fullmatch(rb'IS2_EXIT_V1 ([0-9a-f]{32}) ([0-9a-f]{64}) 2 ([0-9a-f]{64}) ([0-9]{1,10}) ([0-9]{1,10}) ([0-9]{1,20}) ([0-9]{1,10}) ([0-9]{1,20}) ([0-9]{1,10}) ([0-9]{1,10}) ([0-9]{1,10})\r?\n',line)
+        if not m or self.exit_frames!=1 or b['status']!='bound' or self.epoch!=b['epoch'] or row is None:
+            self.exit_error='malformed_duplicate_or_unbound_exit';return True
+        op,token,digest,*numbers=[x.decode() for x in m.groups()]
+        size,pid,created,adapter,adapter_created,began,ended,status=map(int,numbers)
+        if (op,token,digest,size,pid,created,adapter,adapter_created)!=(b['operation'],self.binding_token,b['artifact_sha256'],b['size'],b['windows_pid'],b['windows_creation_time'],b['adapter_windows_pid'],b['adapter_windows_creation_time']):
+            self.exit_error='exit_binding_mismatch';return True
+        if not 0<=began<=ended<2**32 or ended-began>3600000 or not 0<=status<2**32:
+            self.exit_error='exit_clock_or_status_invalid';return True
+        self.handle_exit={'domain':'retained_handle_signaled_exit_status','status':status,'pre_resume_tick':began,'observed_end_tick':ended,'epoch':row['epoch'],'root_ordinal':row['creation_ordinal']}
+        self.retire(pid)
+        if row.get('exit_conflict') or (row['self_exit'] is not None and row['self_exit']['status']!=status):self.exit_error='root_exit_status_conflict'
+        if status and self.first_failure is None and not self.cancelled:
+            self.first_failure={'role':'installer_root','phase':'target_runner','relationship':'root','domain':self.handle_exit['domain'],'status':status,'cause':'unestablished','epoch':row['epoch'],'creation_ordinal':row['creation_ordinal']}
+        return True
+    def completion(self):
+        if not getattr(self,'completion_required',False):return None
+        available=self.binding['status']=='bound' and self.epoch==self.binding['epoch'] and self.handle_exit is not None and self.exit_error is None
+        return {'contract':'retained_handle_status_v1','status':'cancelled' if self.cancelled else 'failed' if self.terminal_error else 'unconfirmed' if not available else 'succeeded' if self.handle_exit['status']==0 else 'failed',
+                'exit_status':self.handle_exit['status'] if self.handle_exit else None,'reason':self.terminal_error or self.exit_error or (None if available else 'root_exit_not_observed')}
     def root_frame(self,line):
+        if self.exit_frame(line):return True
         if line.startswith(b'IS2_REFUSED_V1 ') and self.binding is not None:
             m=re.fullmatch(rb'IS2_REFUSED_V1 ([0-9a-f]{32}) ([0-9a-f]{64}) 2 ([0-9]{1,10})\r?\n',line)
             if m and m[1].decode()==self.binding['operation'] and m[2].decode()==self.binding_token and int(m[3])<2**32 and self.binding_frames==0 and self.epoch==2:
@@ -2644,6 +2675,8 @@ class InstallerWindowsTrace:
             request=self.pending.pop(key,None)
             if len(self.rows)>=512:self.dropped+=1;return True
             child=int(created[1],16);parent=self.active(pid)
+            if getattr(self,'completion_required',False) and self.binding.get('windows_pid')==child:
+                self.exit_error='root_generation_reused'
             # Creation completion belongs to the same still-active creator that
             # issued the request, not whichever generation now has its PID.
             if not (request and request['epoch']==self.epoch and parent and request['parent_ordinal']==parent['creation_ordinal']):parent=None
@@ -2673,10 +2706,18 @@ class InstallerWindowsTrace:
         exited=re.fullmatch(r'handle (0xffffffffffffffff|0xffffffff), exit_code (-?\d+), process_exiting (1)\.',body) if function=='NtTerminateProcess' else None
         if exited:
             code=int(exited[2]);row=self.active(pid)
+            # A legacy self-exit retires the active row. Keep later conflicting
+            # evidence bound to the retained root generation, never to PID alone.
+            retained=self.bound_root() if getattr(self,'completion_required',False) else None
+            if row is None and retained and retained['epoch']==self.epoch and retained['windows_pid']==pid and pid not in self.current:row=retained
             if not row or not -(1<<31)<=code<(1<<32):return True
             value={'domain':'wine_self_exit_observation','status':code&0xffffffff,'timestamp':ts,'source':'Wine NtTerminateProcess self pseudo-handle','process_exiting':int(exited[3])}
             if row['self_exit'] is None:row['self_exit']=value
-            elif row['self_exit']['status']!=value['status']:row['exit_conflict']=True;return True
+            elif row['self_exit']['status']!=value['status']:
+                row['exit_conflict']=True
+                if row is retained:self.exit_error='root_exit_status_conflict'
+                return True
+            if row is retained and self.handle_exit is not None and self.handle_exit['status']!=value['status']:self.exit_error='root_exit_status_conflict'
             if value['status'] and row['target_tree'] and (self.binding is None or self.binding['status']=='bound') and not row['target_root'] and self.first_failure is None and not self.cancelled:
                 self.first_failure={'role':row['role'],'phase':'target_runner','relationship':'descendant','domain':value['domain'],'status':value['status'],
                     'cause':'unestablished','epoch':self.epoch,'creation_ordinal':row['creation_ordinal'],'timestamp':ts,'windows_pid':pid}
@@ -2685,12 +2726,20 @@ class InstallerWindowsTrace:
             return True
         return True # exclude other process lines/arguments from private log projection
     def root_success(self):
-        """The installer's own root process ended by itself with status 0:
-        its traced start and exit times (Wine timestamps, seconds), else None.
+        """Exact installer-root success with ordered application-close timing.
+
+        V2 observes terminal status, not termination origin. Legacy self-exit
+        trace observations retain their original meaning.
 
         The runner (and its container) can outlive the installer while anything
         the installer started keeps running, so its exit is not this signal.
         """
+        if self.cancelled:return None
+        if getattr(self,'completion_required',False):
+            if self.completion()['status']!='succeeded':return None
+            root=self.bound_root();started=self.tick(root.get('created_timestamp'))
+            ended=self.handle_exit['observed_end_tick'];began=self.handle_exit['pre_resume_tick']
+            return {'started':started,'ended':ended,'milliseconds':True} if started is not None and started<=began<=ended else None
         if self.binding is not None and self.binding['status']!='bound':return None
         roots=[row for row in self.rows if row['target_root'] and row['epoch']==self.epoch]
         if len(roots)!=1:return None
@@ -2702,7 +2751,15 @@ class InstallerWindowsTrace:
         ended=seconds(root['self_exit'].get('timestamp'))
         return None if ended is None else {'started':seconds(root.get('created_timestamp')),'ended':ended}
     def root_succeeded(self):return self.root_success() is not None
-    def value(self):return {'schema':1,'processes':self.rows,'dropped_observations':self.dropped,'first_failure':self.first_failure,'service_results':self.service_results,'launch_binding':self.binding,'presence_close':self.presence.value()}
+    @staticmethod
+    def tick(value):
+        # Wine's timestamp is the shared tick low word in seconds. Refuse
+        # fractional milliseconds and out-of-domain values instead of rounding.
+        m=re.fullmatch(r'([0-9]+)\.([0-9]{1,3})',value or '')
+        if not m:return None
+        tick=int(m[1])*1000+int(m[2].ljust(3,'0'))
+        return tick if tick<2**32 else None
+    def value(self):return {'schema':1,'processes':self.rows,'dropped_observations':self.dropped,'first_failure':self.first_failure,'service_results':self.service_results,'launch_binding':self.binding,'root_completion':self.completion(),'presence_close':self.presence.value()}
 
 class InstallerTransaction:
     def __init__(self,op,root,report,artifact=None):
@@ -2738,6 +2795,7 @@ class InstallerTransaction:
                 if complete:discard=False
                 continue
             if len(part)>4096:
+                if stream=='stderr' and part.startswith(b'IS2_EXIT_') and getattr(self.windows_trace,'completion_required',False):self.windows_trace.exit_error='oversized_exit_frame'
                 self.line_drops+=1;discard=not complete;continue
             if not complete:pending=part;continue
             pending=b''
@@ -2790,6 +2848,8 @@ class InstallerTransaction:
                     row['image_observation']='observed'
             except (OSError,ValueError):continue
     def finish(self):
+        pending=self.line_pending.get('stderr',(b'',False))[0]
+        if pending.startswith(b'IS2_EXIT_') and getattr(self.windows_trace,'completion_required',False):self.windows_trace.exit_error='truncated_exit_frame'
         self.after=self.witness.snapshot()
         self.durable=InstallerWitnesses.compare(self.before or {'incomplete':['baseline_unavailable']},self.after)
         # Keep changed log tails private and bounded. Nothing is copied publicly.
@@ -2815,19 +2875,26 @@ class InstallerTransaction:
                     f.flush();os.fsync(f.fileno())
             except OSError:self.private_errors+=1
         if self.ledger:self.ledger.commit()
-    def summary(self,outer,clean,cancelled,ongoing=False):
+    def summary(self,outer,clean,cancelled,ongoing=False,error=None):
+        if error is not None and getattr(self.windows_trace,'terminal_error',None) is None:self.windows_trace.terminal_error=error
+        if cancelled:self.windows_trace.cancelled=True
+        cancelled=cancelled or self.windows_trace.cancelled
+        error=getattr(self.windows_trace,'terminal_error',None)
+        completion=self.windows_trace.completion()
         ledger=self.ledger;failure=(self.windows_trace.first_failure if self.windows_trace.binding is None or self.windows_trace.binding['status']=='bound' else None) or (ledger.first_failure if ledger else None)
         durable=self.durable['classification'] if self.durable else 'unavailable'
         if ongoing:outcome='in_progress'
         elif not clean:outcome='cleanup_unconfirmed'
         elif cancelled:outcome='cancelled'
+        elif error and error!='outer_nonzero_stage_unknown':outcome='failed'
+        elif completion is not None and completion['status']!='succeeded':outcome='installer_completion_unconfirmed' if completion['status']=='unconfirmed' else 'child_failed'
         elif outer not in (None,0) and failure and failure['relationship']=='descendant':outcome='installed_dependency_failed' if durable=='installed' and failure['role']=='service_dependency' else 'child_failed'
         elif outer not in (None,0):outcome='outer_nonzero_stage_unknown'
         elif durable=='installed':outcome='installed'
         elif durable in ('partial_installation','not_installed'):outcome=durable
         else:outcome='completed'
         return {'schema':1,'operation':self.op,'outcome':outcome,'outer_launcher_exit':outer,
-            'durable_installation':durable,'installation_completeness':'unproved',
+            'durable_installation':durable,'installation_completeness':'unproved','root_completion':completion,
             'first_failure':None if failure is None else {k:failure[k] for k in ('role','phase','relationship','domain','status','cause')},
             'process_count':len(ledger.records) if ledger else 0,
             'windows_self_exit_count':sum(r['self_exit'] is not None for r in self.windows_trace.rows),
@@ -3057,9 +3124,9 @@ def installer_started_profiled_images(trace,profiles,window=FIRST_LAUNCH_WINDOW_
         if row.get('self_exit') is not None or row.get('target_root'):continue
         path=trace.path(row.get('image_request'))
         if path is None or not path.is_relative_to(drive):continue
-        try:created=float(row.get('created_timestamp'))
+        try:created=trace.tick(row.get('created_timestamp')) if run.get('milliseconds') else float(row.get('created_timestamp'))
         except (TypeError,ValueError):created=None
-        inside=created is not None and not ((run['started'] is not None and created<run['started']) or created<run['ended']-window)
+        inside=created is not None and not ((run['started'] is not None and created<run['started']) or created<run['ended']-window*(1000 if run.get('milliseconds') else 1))
         launches.setdefault(str(path).casefold(),[path,True])[1]&=inside
     for path,inside in launches.values():
         if not inside or path in seen:continue
@@ -3166,7 +3233,7 @@ def managed_install(spec, *, source_owned_is3=None):
     def value(state,live):
         result={'schema':2,'operation':op,'state':state,'raw_exit':outer_exit(),
                 'owned_live':live,'cleanup_confirmed':clean,'error':error,'discarded_diagnostic_bytes':diagnostics.dropped_bytes,'retained_diagnostic_bytes':diagnostics.bytes,'private_diagnostics_written':private_report_written,
-                'startup':startup.value(),'transaction':transaction.summary(outer_exit(),clean,stop,state in ('starting','running','unknown')),'focus_result':focus_result,'human_action':'installer_ui' if state in ('running','unknown') else None,
+                'startup':startup.value(),'transaction':transaction.summary(outer_exit(),clean,stop,state in ('starting','running','unknown'),error),'focus_result':focus_result,'human_action':'installer_ui' if state in ('running','unknown') else None,
                 'started_application':started_application}
         if spec.get('installer_capability') is not None:
             result['installer_capability']={'schema':1,'requested':policy['windows_scripting'] if policy is not None else None,
@@ -3191,9 +3258,9 @@ def managed_install(spec, *, source_owned_is3=None):
             if adapter is None:argv.append(spec['installer']['path']) # retained schema-2 direct route, no new binding claim
             else:
                 verify(adapter);token=os.urandom(32).hex();size=pathlib.Path(spec['installer']['path']).stat().st_size
-                transaction.windows_trace.arm_root(op,token,size)
+                transaction.windows_trace.arm_root(op,token,size,completion=True,adapter_sha256=adapter['sha256'])
                 launch_request=report.parent/(op+'-launch-request.private')
-                content='\n'.join(['IS2_LAUNCH_V1',op,token,'2',spec['installer']['sha256'],str(size),windows(spec['installer']['path'],root/'compatdata/pfx'),''])
+                content='\n'.join(['IS2_LAUNCH_V2',op,token,'2',spec['installer']['sha256'],str(size),windows(spec['installer']['path'],root/'compatdata/pfx'),''])
                 with os.fdopen(os.open(launch_request,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'wb') as f:f.write(content.encode('utf-16le'));f.flush();os.fsync(f.fileno())
                 argv.extend([adapter['path'],windows(launch_request,root/'compatdata/pfx')])
         elif spec['format']=='msi_compound':
@@ -3257,6 +3324,9 @@ def managed_install(spec, *, source_owned_is3=None):
         last=0;first_launch_checked=0;first_launch_signalled=set();first_launch_first=None
         while not stop:
             live=reap();startup.observe(live);transaction.images()
+            if stop:break
+            if time.monotonic()-start>3600:
+                error='installer_time_bound';transaction.windows_trace.terminal_error=error;break
             state=vendor_operation_state(child.returncode,len(live))
             if state in ('completed','failed'):
                 clean=True
@@ -3269,8 +3339,14 @@ def managed_install(spec, *, source_owned_is3=None):
             # installer, a helper) keeps the session waiting as before.
             if first_launch and time.monotonic()-first_launch_checked>.25:
                 first_launch_checked=time.monotonic()
+                if stop:break
+                if time.monotonic()-start>3600:
+                    error='installer_time_bound';transaction.windows_trace.terminal_error=error;break
                 # Empty until the installer's own root has exited 0.
                 images=installer_started_profiled_images(transaction.windows_trace,first_launch)
+                if stop:break
+                if time.monotonic()-start>3600:
+                    error='installer_time_bound';transaction.windows_trace.terminal_error=error;break
                 # Wine ends a process on SIGTERM; one that is still there
                 # 10 s after the first request is ended outright.
                 forced=first_launch_first is not None and time.monotonic()-first_launch_first>10
@@ -3297,7 +3373,6 @@ def managed_install(spec, *, source_owned_is3=None):
                     result=vendor_focus(scope,None,installer=True)
                 except Exception:result='refused_exact_window_unavailable'
                 focus_result={'request':req.get('request') if isinstance(req,dict) else None,'result':result}
-            if time.monotonic()-start>3600:error='installer_time_bound';break
             if time.monotonic()-last>.5:atomic(report,value(state,len(live)));last=time.monotonic()
             drain(.05)
     except Exception as exc:
@@ -3313,6 +3388,8 @@ def managed_install(spec, *, source_owned_is3=None):
         if child:
             for _ in range(64):drain(0)
             child.stdout.close();child.stderr.close()
+        # Final pipe draining may add a conflict, but cannot clear an earlier
+        # timeout/cancellation or manufacture completion from outer exit zero.
         if msi_fd is not None:os.close(msi_fd)
         if msi_fifo is not None:
             try:msi_fifo.unlink()
@@ -3323,6 +3400,8 @@ def managed_install(spec, *, source_owned_is3=None):
             except FileNotFoundError:pass
         try:transaction.finish()
         except (OSError,ValueError):transaction.private_errors+=1
+        if not stop and error is None and time.monotonic()-start>3600:error='installer_time_bound'
+        if getattr(transaction.windows_trace,'completion_required',False) and not stop and error is None and transaction.windows_trace.completion()['status']!='succeeded':error='installer_completion_unconfirmed'
         state='cleanup_unconfirmed' if not clean else 'cancelled' if stop else 'failed' if error else 'completed'
         try:
             with (report.parent/(op+'-private.log')).open('xb') as private:
@@ -3334,7 +3413,7 @@ def managed_install(spec, *, source_owned_is3=None):
         if is3_capture is not None:atomic(report.parent/(op+'-is3-observation.private.json'),is3_capture.value())
         startup.stage('cohort_retired' if clean else 'cleanup_unconfirmed',outer_exit=outer_exit())
         atomic(report,value(state,0 if clean else None));lock.close()
-    return clean and error is None
+    return clean and error is None and not stop
 
 def vendor_operation_state(launcher_exit, owned_live):
     if launcher_exit is None:return 'running'

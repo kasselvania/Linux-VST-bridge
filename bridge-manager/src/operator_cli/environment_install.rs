@@ -289,6 +289,8 @@ pub(crate) fn confirm_closed(m: &Manager, operation: &str,
 fn closed(v: &mut Value) {
     if matches!(v["state"].as_str(), Some("completed" | "failed" | "cancelled")) { return; }
     let exited = v["state"] == "cleanup_unconfirmed" && v["raw_exit"] == 0 && v["error"].is_null()
+        && (v["transaction"]["launch_binding"]["completion_contract"] != "retained_handle_status_v1"
+            || v["transaction"]["root_completion"]["status"] == "succeeded")
         && !matches!(v["transaction"]["outcome"].as_str(), Some("cancelled" | "child_failed"
             | "outer_nonzero_stage_unknown" | "installed_dependency_failed"));
     v["state"] = if exited { "completed" } else { "failed" }.into();
@@ -922,5 +924,45 @@ mod tests {
         assert!(!onboarding::all_retired(&f.m).unwrap());
         let rows=projection(&f.m,&[],None,|_|Ok(false)).unwrap();
         assert!(rows[0].choices.iter().all(|a|a.disabled_reason.is_some()));
+    }
+    #[test]
+    fn terminal_completion_failures_survive_existing_setup_result_readback() {
+        let (f,installer)=fixture();let op=job(&f.m,&f.r.environment.id,&installer.id);
+        let r=reserve_with(&f.m,&f.r.environment.id,&installer.id,&op,||Ok(true),|_|Ok(false)).unwrap();
+        let path=job_dir(&f.m,&op).unwrap().join("installation-result.json");
+        for (outcome,error) in [("failed","installer_time_bound"),("failed","installer_owner_RuntimeError"),
+            ("installer_completion_unconfirmed","installer_completion_unconfirmed")] {
+            let value=json!({"schema":2,"operation":op,"state":"failed","error":error,
+                "cleanup_confirmed":true,"owned_live":0,"transaction":{"schema":1,"operation":op,
+                    "outcome":outcome,"durable_installation":"installed","root_completion":{"status":"unconfirmed"}}});
+            atomic_json(&path,&value).unwrap();
+            let read=result(&f.m,&r).unwrap();assert_eq!(read,value);assert!(onboarding::retired(&read));
+        }
+    }
+    #[test]
+    fn close_census_cannot_supply_missing_or_conflicting_root_completion() {
+        for status in [None,Some("unconfirmed"),Some("failed"),Some("cancelled"),Some("succeeded")] {
+            let mut value=json!({"state":"cleanup_unconfirmed","raw_exit":0,"error":null,
+                "transaction":{"outcome":"cleanup_unconfirmed","durable_installation":"installed",
+                    "launch_binding":{"completion_contract":"retained_handle_status_v1"}}});
+            if let Some(status)=status {value["transaction"]["root_completion"]=json!({"status":status});}
+            closed(&mut value);
+            assert_eq!(value["state"],if status==Some("succeeded") {"completed"} else {"failed"});
+            if status!=Some("succeeded") {assert_ne!(value["transaction"]["outcome"],"installed");}
+        }
+        for reason in ["root_exit_not_observed","root_exit_status_conflict"] {
+            let (f,installer)=fixture();let op=job(&f.m,&f.r.environment.id,&installer.id);
+            reserve_with(&f.m,&f.r.environment.id,&installer.id,&op,||Ok(true),|_|Ok(false)).unwrap();
+            atomic_json(&job_dir(&f.m,&op).unwrap().join("installation-result.json"),&json!({
+                "schema":2,"operation":op,"state":"cleanup_unconfirmed","cleanup_confirmed":false,
+                "raw_exit":0,"error":null,"transaction":{"outcome":"cleanup_unconfirmed",
+                    "durable_installation":"installed","launch_binding":{"completion_contract":"retained_handle_status_v1"},
+                    "root_completion":{"status":"unconfirmed","reason":reason}}})).unwrap();
+            let value=confirm_closed(&f.m,&op,&|_|Ok(false)).unwrap();
+            assert_eq!(value["cleanup_confirmed"],true);assert_eq!(value["owned_live"],0);
+            assert_eq!(value["closing_confirmed_by"],"census");assert_eq!(value["state"],"failed");
+            assert_eq!(value["transaction"]["root_completion"]["reason"],reason);
+            assert_ne!(value["transaction"]["outcome"],"installed");
+        }
     }
 }
