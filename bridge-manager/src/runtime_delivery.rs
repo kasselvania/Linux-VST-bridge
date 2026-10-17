@@ -46,12 +46,30 @@ const MSI_READER: Correction = Correction {root:"msi-reader",
     artifacts:&["source","recipe","build_record","staging_cabinet_patch","upstream_padding_patch",
         "upstream_strref_width_patch","ambiguous_strref_patch","modification_notice_patch",
         "notices","license"]};
+#[derive(Clone, Copy)]
+enum Layout {
+    RetainedGeCorrections(&'static [Correction]),
+    // The format is implemented before selecting/publishing a new release.
+    #[allow(dead_code)]
+    WholeArchive { root: &'static str },
+}
 #[derive(Clone)]
 struct Revision {
     id: &'static str,
     version: &'static str,
     downloads: Vec<Download>,
-    components: &'static [Correction],
+    layout: Layout,
+}
+impl Revision {
+    fn engine_root(&self) -> &'static str {
+        match self.layout {Layout::RetainedGeCorrections(_) => GE, Layout::WholeArchive {root} => root}
+    }
+    fn corrections(&self) -> &'static [Correction] {
+        match self.layout {Layout::RetainedGeCorrections(items) => items, Layout::WholeArchive {..} => &[]}
+    }
+    fn command_session(&self) -> bool {
+        match self.layout {Layout::RetainedGeCorrections(items) => !items.is_empty(), Layout::WholeArchive {..} => true}
+    }
 }
 fn revisions() -> Vec<Revision> {
     let mut corrected=downloads();
@@ -68,13 +86,13 @@ fn revisions() -> Vec<Revision> {
     });
     vec![Revision { id:ID,
         version:"GE-Proton11-7; SLR 4.0.20260805.254769; managed download v3",
-        downloads:downloads(),components:&[] },
+        downloads:downloads(),layout:Layout::RetainedGeCorrections(&[]) },
         Revision {id:"managed-ge-proton11-7-slr4-20260805-r4",
             version:"GE-Proton11-7; SLR 4.0.20260805.254769; managed UIA guard v4",
-            downloads:corrected,components:&[UIA_GUARD]},
+            downloads:corrected,layout:Layout::RetainedGeCorrections(&[UIA_GUARD])},
         Revision {id:"managed-ge-proton11-7-slr4-20260805-r5",
             version:"GE-Proton11-7; SLR 4.0.20260805.254769; managed UIA guard + MSI reader v5",
-            downloads:msi_reader,components:&[UIA_GUARD,MSI_READER]}]
+            downloads:msi_reader,layout:Layout::RetainedGeCorrections(&[UIA_GUARD,MSI_READER])}]
 }
 fn recommended() -> Revision {
     // Recommendations apply to acquisition and new environments. Retained
@@ -87,7 +105,7 @@ pub fn recommended_id() -> &'static str {recommended().id}
 pub fn delivered_revision(m: &Manager, runner: &Runner) -> bool {
     revisions().iter().any(|revision| {
         let base=m.root.join("runners").join(revision.id);
-        revision.id==runner.id && runner.proton==base.join(GE).join("proton")
+        revision.id==runner.id && runner.proton==base.join(revision.engine_root()).join("proton")
             && runner.entry_point==base.join(SLR).join("_v2-entry-point")
     })
 }
@@ -109,7 +127,7 @@ pub fn selected_record_path(m: &Manager, runner: &Runner) -> Result<Option<PathB
         else {return Ok(None)};
     let path=revision_record_path(m,&revision);
     let base=path.parent().ok_or("runtime_parent")?;
-    if runner.proton!=base.join(GE).join("proton")
+    if runner.proton!=base.join(revision.engine_root()).join("proton")
         || runner.entry_point!=base.join(SLR).join("_v2-entry-point") {return Ok(None)}
     let retained=identity_record(m,&revision)?.ok_or("managed_runtime_selected_record_missing")?;
     require(&retained==runner,"managed_runtime_selected_record_changed")?;
@@ -212,11 +230,13 @@ fn verify_guard_artifact(root: &Path, artifact: &GuardArtifact) -> Result<()> {
 /// Compose only an unpublished revision. Each component archive binds the exact
 /// upstream preimages and retains corresponding source, build recipe and notices.
 fn compose_components(stage: &Path, revision: &Revision, rows: &mut Vec<TreeEntry>) -> Result<PathBuf> {
+    require(matches!(revision.layout, Layout::RetainedGeCorrections(_)),
+        "runtime_correction_layout")?;
     let mut selected=BTreeSet::new();
     let mut planned=Vec::new();
     // Establish every component and every preimage before changing any staged
     // byte. Components may not replace the same file.
-    for component in revision.components {
+    for component in revision.corrections() {
         require(revision.downloads.iter().filter(|download|download.root==component.root).count()==1,
             "runtime_guard_component_binding")?;
         let root=stage.join(component.root);
@@ -269,6 +289,32 @@ fn compose_components(stage: &Path, revision: &Revision, rows: &mut Vec<TreeEntr
     rows.push(TreeEntry {path:relative.clone(),sha256:Some(digest(&stage.join(&relative))?),
         target:None,size:file(&stage.join(&relative))?.metadata()?.len(),mode:0o400,directory:false});
     Ok(relative)
+}
+#[derive(Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct CommandSession {
+    schema: u32, kind: String, client_sha256: String, service_sha256: String,
+}
+/// A complete archive supplies its shared protocol declaration. Validate it
+/// against the paired SLR; never manufacture or repair an archive's capability.
+fn command_component(stage: &Path, revision: &Revision, rows: &mut Vec<TreeEntry>) -> Result<Option<PathBuf>> {
+    let Layout::WholeArchive {root} = revision.layout else {
+        return if revision.command_session() {compose_components(stage,revision,rows).map(Some)} else {Ok(None)};
+    };
+    require(revision.downloads.iter().filter(|download|download.root==root).count()==1,
+        "runtime_archive_root_binding")?;
+    let relative=Path::new(root).join("native-command-session.json");
+    let entry=rows.iter().find(|entry|entry.path==relative)
+        .ok_or("runtime_command_component_missing")?;
+    require(!entry.directory && entry.target.is_none()
+        && entry.sha256.as_deref()==Some(digest(&stage.join(&relative))?.as_str()),
+        "runtime_command_component_changed")?;
+    let actual:CommandSession=read_json(&stage.join(&relative))?;
+    let expected=CommandSession {schema:1,kind:"native_proton_command_session".into(),
+        client_sha256:digest(&stage.join(SLR).join("pressure-vessel/bin/steam-runtime-launch-client"))?,
+        service_sha256:digest(&stage.join(SLR).join("pressure-vessel/libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service"))?};
+    require(actual==expected,"runtime_command_component_tool_binding")?;
+    Ok(Some(relative))
 }
 /// An observation cache, never launch authority. Only a completed full byte
 /// verification writes it; readback matches every file's inode and change times.
@@ -342,15 +388,15 @@ fn validate_identity_record(path: &Path, revision: &Revision, record: &Record) -
     let dir = path.parent().ok_or("runtime_parent")?;
     require(record.schema == 1 && record.id == revision.id && record.downloads == revision.downloads
         && record.runner.id == revision.id
-        && record.runner.proton == dir.join(GE).join("proton")
+        && record.runner.proton == dir.join(revision.engine_root()).join("proton")
         && record.runner.entry_point == dir.join(SLR).join("_v2-entry-point")
         && record.runner.policy.is_none(), "managed_runtime_binding")?;
     require(record.runner.files.iter().filter(|artifact|artifact.path==dir.join(TREE)).count()==1
         && record.runner.files.iter().all(|artifact|artifact.path.starts_with(dir)),
         "managed_runtime_tree_binding")?;
-    if !revision.components.is_empty() {
+    if revision.command_session() {
         require(record.runner.files.iter().filter(|artifact|
-            artifact.path==dir.join(GE).join("native-command-session.json")).count()==1,
+            artifact.path==dir.join(revision.engine_root()).join("native-command-session.json")).count()==1,
             "managed_runtime_command_component_binding")?;
     }
     require(file(path)?.metadata()?.mode() & 0o222 == 0,
@@ -536,6 +582,38 @@ fn fetch(spec: &Download, path: &Path) -> Result<()> {
         std::thread::sleep(Duration::from_millis(50));
     }
 }
+/// Seal the acquired bytes before the existing installation owner publishes them.
+fn seal_stage(stage: &Path, dest: &Path, revision: &Revision, mut rows: Vec<TreeEntry>) -> Result<Runner> {
+    let command_component=command_component(stage,revision,&mut rows)?;
+    for (path,directory) in tree_inventory(stage)? {
+        if directory { rows.push(TreeEntry {path,sha256:None,target:None,size:0,mode:0o700,directory:true}); }
+    }
+    atomic_json(&stage.join(TREE), &rows)?;
+    fs::set_permissions(stage.join(TREE), fs::Permissions::from_mode(0o400))?;
+    let mut files = Vec::new();
+    for relative in [PathBuf::from(TREE), Path::new(revision.engine_root()).join("proton"),
+        Path::new(revision.engine_root()).join("files/bin/wine"), Path::new(SLR).join("_v2-entry-point"),
+        Path::new(SLR).join("pressure-vessel/bin/pressure-vessel-wrap")] {
+        files.push(Artifact {path:dest.join(&relative), sha256:digest(&stage.join(&relative))?});
+    }
+    if let Some(relative)=command_component {
+        files.push(Artifact {path:dest.join(&relative),sha256:digest(&stage.join(relative))?});
+    }
+    let runner = Runner {id:revision.id.into(),
+        version:revision.version.into(),
+        proton:dest.join(revision.engine_root()).join("proton"), entry_point:dest.join(SLR).join("_v2-entry-point"),
+        files, policy:None};
+    let mut staged_runner=runner.clone();
+    staged_runner.proton=stage.join(runner.proton.strip_prefix(dest)?);
+    staged_runner.entry_point=stage.join(runner.entry_point.strip_prefix(dest)?);
+    for artifact in &mut staged_runner.files {artifact.path=stage.join(artifact.path.strip_prefix(dest)?);}
+    staged_runner.verify()?;
+    atomic_json(&stage.join("runtime.json"), &Record {schema:1,id:revision.id.into(),
+        downloads:revision.downloads.clone(),runner:runner.clone()})?;
+    fs::set_permissions(stage.join("runtime.json"), fs::Permissions::from_mode(0o400))?;
+    Ok(runner)
+}
+
 /// Selected immutable version only; failed staging never replaces a runtime.
 pub fn install(m: &Manager) -> Result<Runner> {
     require(cfg!(all(target_os="linux", target_arch="x86_64")),
@@ -557,34 +635,7 @@ pub fn install(m: &Manager) -> Result<Runner> {
             rows.extend(unpack(&archive, spec, &stage)?);
             fs::remove_file(archive)?;
         }
-        let command_component=if revision.components.is_empty() {None}
-            else {Some(compose_components(&stage,&revision,&mut rows)?)};
-        for (path,directory) in tree_inventory(&stage)? {
-            if directory { rows.push(TreeEntry {path,sha256:None,target:None,size:0,mode:0o700,directory:true}); }
-        }
-        atomic_json(&stage.join(TREE), &rows)?;
-        fs::set_permissions(stage.join(TREE), fs::Permissions::from_mode(0o400))?;
-        let mut files = Vec::new();
-        for relative in [TREE, "GE-Proton11-7-x86_64/proton",
-            "GE-Proton11-7-x86_64/files/bin/wine", "SteamLinuxRuntime_4/_v2-entry-point",
-            "SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-wrap"] {
-            files.push(Artifact {path:dest.join(relative), sha256:digest(&stage.join(relative))?});
-        }
-        if let Some(relative)=command_component {
-            files.push(Artifact {path:dest.join(&relative),sha256:digest(&stage.join(relative))?});
-        }
-        let runner = Runner {id:revision.id.into(),
-            version:revision.version.into(),
-            proton:dest.join(GE).join("proton"), entry_point:dest.join(SLR).join("_v2-entry-point"),
-            files, policy:None};
-        let mut staged_runner=runner.clone();
-        staged_runner.proton=stage.join(runner.proton.strip_prefix(&dest)?);
-        staged_runner.entry_point=stage.join(runner.entry_point.strip_prefix(&dest)?);
-        for artifact in &mut staged_runner.files {artifact.path=stage.join(artifact.path.strip_prefix(&dest)?);}
-        staged_runner.verify()?;
-        atomic_json(&stage.join("runtime.json"), &Record {schema:1,id:revision.id.into(),
-            downloads:revision.downloads.clone(),runner:runner.clone()})?;
-        fs::set_permissions(stage.join("runtime.json"), fs::Permissions::from_mode(0o400))?;
+        seal_stage(&stage,&dest,&revision,rows)?;
         fs::rename(&stage, &dest)?;
         File::open(&base)?.sync_all()?;
         installed(m)?.ok_or_else(|| "managed_runtime_install_missing".into())
@@ -631,7 +682,7 @@ mod tests {
             fs::set_permissions(&path,fs::Permissions::from_mode(0o500)).unwrap();
             files.push(Artifact {sha256:digest(&path).unwrap(),path});
         }
-        if !revision.components.is_empty() {
+        if revision.command_session() {
             let path=base.join(GE).join("native-command-session.json");
             atomic_json(&path,&serde_json::json!({"schema":1,
                 "kind":"native_proton_command_session","client_sha256":"ab".repeat(32),
@@ -657,6 +708,76 @@ mod tests {
             downloads:revision.downloads.clone(),runner:runner.clone()}).unwrap();
         fs::set_permissions(record,fs::Permissions::from_mode(0o400)).unwrap();
         runner
+    }
+    const COMMON: &str = "Common-Proton-x86_64";
+    fn supplied_command_marker() -> serde_json::Value {
+        serde_json::json!({"schema":1,"kind":"native_proton_command_session",
+            "client_sha256":hex(&Sha256::digest(b"client")),"service_sha256":hex(&Sha256::digest(b"service"))})
+    }
+    fn whole_archive_fixture(tmp: &Scratch, marker: Option<serde_json::Value>) -> (PathBuf,Revision,Vec<TreeEntry>) {
+        let stage=tmp.0.join("whole-stage");
+        fs::DirBuilder::new().mode(0o700).create(&stage).unwrap();
+        let mut payloads=vec![(format!("{COMMON}/proton"),b"source launcher".to_vec()),
+            (format!("{COMMON}/files/bin/wine"),b"source engine".to_vec()),
+            (format!("{COMMON}/files/lib/wine/x86_64-windows/msi.dll"),b"integrated MSI".to_vec()),
+            (format!("{COMMON}/LICENSE"),b"source notices".to_vec())];
+        if let Some(marker)=marker {
+            payloads.push((format!("{COMMON}/native-command-session.json"),serde_json::to_vec(&marker).unwrap()));
+        }
+        let entries=payloads.iter().map(|(name,data)|(name.as_str(),data.as_slice())).collect::<Vec<_>>();
+        let (archive,mut engine)=tmp.archive(&entries);engine.root=COMMON.into();
+        let mut rows=unpack(&archive,&engine,&stage).unwrap();
+        let (archive,mut slr)=tmp.archive(&[
+            ("SteamLinuxRuntime_4/_v2-entry-point",b"entry"),
+            ("SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-wrap",b"wrap"),
+            ("SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client",b"client"),
+            ("SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service",b"service")]);
+        slr.root=SLR.into();rows.extend(unpack(&archive,&slr,&stage).unwrap());
+        (stage,Revision {id:"whole-archive-test",version:"source archive fixture",
+            downloads:vec![engine,slr],layout:Layout::WholeArchive {root:COMMON}},rows)
+    }
+    #[test]
+    fn whole_archive_seals_exact_marker_and_engine_without_ge_overlays() {
+        let tmp=Scratch::new();let (stage,revision,rows)=whole_archive_fixture(&tmp,Some(supplied_command_marker()));
+        let before=fs::read(stage.join(COMMON).join("files/lib/wine/x86_64-windows/msi.dll")).unwrap();
+        let marker_before=fs::read(stage.join(COMMON).join("native-command-session.json")).unwrap();
+        let mut overlay_rows=rows.clone();
+        assert!(compose_components(&stage,&revision,&mut overlay_rows).unwrap_err().to_string().contains("correction_layout"));
+        let m=Manager {root:tmp.0.clone(),publications:tmp.0.join("publications")};
+        let dest=revision_record_path(&m,&revision).parent().unwrap().to_owned();
+        fs::DirBuilder::new().mode(0o700).create(dest.parent().unwrap()).unwrap();
+        let runner=seal_stage(&stage,&dest,&revision,rows).unwrap();
+        fs::rename(stage,&dest).unwrap();
+        assert_eq!(runner.proton,dest.join(COMMON).join("proton"));
+        assert_eq!(identity_record(&m,&revision).unwrap(),Some(runner.clone()));
+        runner.verify().unwrap();
+        assert!(!dest.join(GE).exists());
+        assert_eq!(fs::read(dest.join(COMMON).join("files/lib/wine/x86_64-windows/msi.dll")).unwrap(),before);
+        assert_eq!(fs::read(dest.join(COMMON).join("native-command-session.json")).unwrap(),marker_before);
+        assert_eq!(runner.files.iter().filter(|artifact|artifact.path==dest.join(COMMON).join("native-command-session.json")).count(),1);
+        let mut changed=runner.clone();changed.files.retain(|artifact|artifact.path.file_name().unwrap()!="native-command-session.json");
+        let path=revision_record_path(&m,&revision);
+        let record=Record {schema:1,id:revision.id.into(),downloads:revision.downloads.clone(),runner:changed};
+        assert!(validate_identity_record(&path,&revision,&record).unwrap_err().to_string().contains("command_component_binding"));
+        changed=runner;changed.proton=dest.join(GE).join("proton");
+        let record=Record {schema:1,id:revision.id.into(),downloads:revision.downloads.clone(),runner:changed};
+        assert!(validate_identity_record(&path,&revision,&record).unwrap_err().to_string().contains("managed_runtime_binding"));
+    }
+    #[test]
+    fn whole_archive_missing_or_mismatched_command_marker_never_seals_or_repairs() {
+        for marker in [None,Some(serde_json::json!({"schema":1,"kind":"native_proton_command_session",
+            "client_sha256":"ab".repeat(32),"service_sha256":hex(&Sha256::digest(b"service"))})),
+            Some(serde_json::json!({"schema":2,"kind":"native_proton_command_session",
+                "client_sha256":hex(&Sha256::digest(b"client")),"service_sha256":hex(&Sha256::digest(b"service"))}))] {
+            let tmp=Scratch::new();let (stage,revision,rows)=whole_archive_fixture(&tmp,marker);
+            let path=stage.join(COMMON).join("native-command-session.json");
+            let original=fs::read(&path).ok();
+            assert!(seal_stage(&stage,&tmp.0.join("unpublished"),&revision,rows).is_err());
+            assert_eq!(fs::read(path).ok(),original);
+            assert!(!stage.join(TREE).exists());assert!(!stage.join("runtime.json").exists());
+        }
+        assert!(revisions().iter().all(|revision|matches!(revision.layout,Layout::RetainedGeCorrections(_))));
+        assert_eq!(recommended_id(),"managed-ge-proton11-7-slr4-20260805-r5");
     }
     #[test]
     fn retained_revisions_coexist_without_substitution_when_old_payload_is_missing() {
@@ -806,10 +927,33 @@ mod tests {
             rows.extend(unpack(&archive,&spec,&stage).unwrap());
             downloads.push(spec);
         }
-        (stage,Revision {id,version:"component fixture",downloads,components},rows)
+        (stage,Revision {id,version:"component fixture",downloads,layout:Layout::RetainedGeCorrections(components)},rows)
     }
     fn guard_fixture(tmp: &Scratch) -> (PathBuf,Revision,Vec<TreeEntry>) {
         composition_fixture(tmp,"managed-uia-test",&[UIA_GUARD])
+    }
+    #[test]
+    fn retained_layout_sealing_preserves_command_bytes_and_artifact_order() {
+        let cases:[&'static [Correction];3]=[&[],&[UIA_GUARD],&[UIA_GUARD,MSI_READER]];
+        for components in cases {
+            let tmp=Scratch::new();let (stage,revision,rows)=composition_fixture(&tmp,"retained-test",components);
+            let dest=tmp.0.join("destination");
+            let runner=seal_stage(&stage,&dest,&revision,rows).unwrap();
+            let mut expected=vec![PathBuf::from(TREE),Path::new(GE).join("proton"),
+                Path::new(GE).join("files/bin/wine"),Path::new(SLR).join("_v2-entry-point"),
+                Path::new(SLR).join("pressure-vessel/bin/pressure-vessel-wrap")];
+            if !components.is_empty() {
+                let marker=Path::new(GE).join("native-command-session.json");
+                let expected_bytes=format!("{{\"client_sha256\":\"{}\",\"kind\":\"native_proton_command_session\",\"schema\":1,\"service_sha256\":\"{}\"}}\n",
+                    hex(&Sha256::digest(b"client")),hex(&Sha256::digest(b"service")));
+                assert_eq!(fs::read(stage.join(&marker)).unwrap(),expected_bytes.as_bytes());
+                expected.push(marker);
+            }
+            assert_eq!(runner.files.iter().map(|artifact|artifact.path.strip_prefix(&dest).unwrap().to_owned()).collect::<Vec<_>>(),expected);
+            let record:Record=read_json(&stage.join("runtime.json")).unwrap();
+            assert_eq!(record.schema,1);assert_eq!(record.downloads,revision.downloads);
+            assert_eq!(record.runner,runner);
+        }
     }
     fn seal_composed(stage: &Path, revision: &Revision, mut rows: Vec<TreeEntry>, component: &Path) -> Runner {
         for (path,directory) in tree_inventory(stage).unwrap() {
@@ -951,12 +1095,12 @@ mod tests {
         let declared=revisions();
         assert_eq!(declared.iter().map(|revision|revision.id).collect::<Vec<_>>(),[ID,
             "managed-ge-proton11-7-slr4-20260805-r4","managed-ge-proton11-7-slr4-20260805-r5"]);
-        assert_eq!(declared[0].downloads,downloads());assert!(declared[0].components.is_empty());
+        assert_eq!(declared[0].downloads,downloads());assert!(declared[0].corrections().is_empty());
         assert_eq!(declared[1].version,"GE-Proton11-7; SLR 4.0.20260805.254769; managed UIA guard v4");
-        assert_eq!(declared[1].components,[UIA_GUARD]);
+        assert_eq!(declared[1].corrections(),[UIA_GUARD]);
         assert_eq!(declared[1].downloads.last().unwrap().sha256,
             "988fb967608a8c116022c27822647b7a7eda50a283a9e53ee2f22fe299b60f6c");
-        assert_eq!(declared[2].components,[UIA_GUARD,MSI_READER]);
+        assert_eq!(declared[2].corrections(),[UIA_GUARD,MSI_READER]);
         assert_eq!(declared[2].downloads[..3],declared[1].downloads[..]);
         let msi=declared[2].downloads.last().unwrap();
         assert_eq!((msi.root.as_str(),msi.compression.as_str()),("msi-reader","gzip"));
