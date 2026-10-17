@@ -926,6 +926,20 @@ mod tests {
         assert!(rows[0].choices.iter().all(|a|a.disabled_reason.is_some()));
     }
     #[test]
+    fn terminal_completion_failures_survive_existing_setup_result_readback() {
+        let (f,installer)=fixture();let op=job(&f.m,&f.r.environment.id,&installer.id);
+        let r=reserve_with(&f.m,&f.r.environment.id,&installer.id,&op,||Ok(true),|_|Ok(false)).unwrap();
+        let path=job_dir(&f.m,&op).unwrap().join("installation-result.json");
+        for (outcome,error) in [("failed","installer_time_bound"),("failed","installer_owner_RuntimeError"),
+            ("installer_completion_unconfirmed","installer_completion_unconfirmed")] {
+            let value=json!({"schema":2,"operation":op,"state":"failed","error":error,
+                "cleanup_confirmed":true,"owned_live":0,"transaction":{"schema":1,"operation":op,
+                    "outcome":outcome,"durable_installation":"installed","root_completion":{"status":"unconfirmed"}}});
+            atomic_json(&path,&value).unwrap();
+            let read=result(&f.m,&r).unwrap();assert_eq!(read,value);assert!(onboarding::retired(&read));
+        }
+    }
+    #[test]
     fn close_census_cannot_supply_missing_or_conflicting_root_completion() {
         for status in [None,Some("unconfirmed"),Some("failed"),Some("cancelled"),Some("succeeded")] {
             let mut value=json!({"state":"cleanup_unconfirmed","raw_exit":0,"error":null,

@@ -522,7 +522,7 @@ pub fn result(m: &Manager, r: &Record) -> Result<Value> {
 pub(super) fn validate_installer_transaction(v: &Value, op: &str) -> Result<()> {
     let Some(t) = v.get("transaction") else { return Ok(()) }; // retained MF2
     require(t["schema"] == 1 && t["operation"] == op, "installer_transaction_identity")?;
-    require(matches!(t["outcome"].as_str(), Some("in_progress" | "completed" | "not_installed" | "partial_installation" | "installed" | "installed_dependency_failed" | "installed_postlaunch_failed" | "child_failed" | "outer_nonzero_stage_unknown" | "cancelled" | "cleanup_unconfirmed")), "installer_transaction_outcome")?;
+    require(matches!(t["outcome"].as_str(), Some("in_progress" | "completed" | "failed" | "installer_completion_unconfirmed" | "not_installed" | "partial_installation" | "installed" | "installed_dependency_failed" | "installed_postlaunch_failed" | "child_failed" | "outer_nonzero_stage_unknown" | "cancelled" | "cleanup_unconfirmed")), "installer_transaction_outcome")?;
     require(matches!(t["durable_installation"].as_str(), Some("installed" | "partial_installation" | "not_installed" | "indeterminate" | "unavailable")), "installer_transaction_witness")?;
     if let Some(b)=t.get("launch_binding").filter(|b|!b.is_null()) {
         require(b["schema"]==1 && b["operation"]==op && b["epoch"]==2, "installer_launch_binding_identity")?;
@@ -1419,6 +1419,21 @@ pub(crate) mod tests {
             Some("Existing managed configuration"));
         assert!(compatibility_label(true, Some(&standard), Some(&default), true).is_none());
         assert!(compatibility_label(false, None, None, false).is_none());
+    }
+    #[test]
+    fn terminal_completion_failures_survive_initial_installer_result_readback() {
+        let (f,i)=fixture();
+        let created=create_exact(&f.m,&i,f.r.environment.runner.clone(),&"ab".repeat(16),&f.m.lock("registry.lock").unwrap(),None).unwrap();
+        let id=created["onboarding"].as_str().unwrap();let op="cd".repeat(16);let r=reserve(&f.m,id,&op).unwrap();
+        let path=directory(&f.m,id).unwrap().join(format!("{op}-result.json"));
+        for (outcome,error) in [("failed","installer_time_bound"),("failed","installer_owner_RuntimeError"),
+            ("installer_completion_unconfirmed","installer_completion_unconfirmed")] {
+            let value=json!({"schema":2,"operation":op,"state":"failed","error":error,
+                "cleanup_confirmed":true,"owned_live":0,"transaction":{"schema":1,"operation":op,
+                    "outcome":outcome,"durable_installation":"installed","root_completion":{"status":"unconfirmed"}}});
+            atomic_json(&path,&value).unwrap();
+            let read=result(&f.m,&r).unwrap();assert_eq!(read,value);assert!(retired(&read));
+        }
     }
     #[test]
     fn installer_transaction_is_operation_bound_and_legacy_stays_readable() {
