@@ -22,8 +22,10 @@ settled by 220.7 ms. Every subsequent frame, including the tail, matches .49 gai
 [Scoped measurements](../evidence/common-runtime-first-party.json).
 Stopped-only processing also accumulates expired frames; lifetime totals alone
 do not establish playback loss. Longer endurance remains unqualified.
-Cold acquisition takes about 14.5 minutes. SteamOS, reboot, update/rollback and
-combined vendor cases remain unqualified; the candidate stays unmerged.
+Cold acquisition takes about 14.5 minutes. A cold guest boot preserves the same
+Reference parameters/instance; a fresh complete render again matches .49 gain.
+SteamOS, update/rollback and combined vendor cases remain unqualified; the
+candidate stays unmerged.
 
 Test206 / fresh CachyOS / REAPER 7.82 / common runtime, **supported for this
 TyrellN6 3.0.0 (16976), Windows VST3 x64 checkpoint**: the original public installer
@@ -31,7 +33,9 @@ completes ordinary Install and connect, discovery and publication alongside the
 two Reference classes. The Windows editor opens; changed Output .37, the same FX
 instance and 16 MIDI notes survive full DAW exit/reopen. Native PipeWire capture
 contains the full eight-second phrase and all four expected pitches repeated four
-times. [Scoped measurements](../evidence/common-runtime-tyrell.json).
+times. A cold guest boot preserves the exact saved project, Output .37, instance
+and 16 notes; its editor and full captured phrase pass again.
+[Scoped measurements](../evidence/common-runtime-tyrell.json).
 
 In-app beta update (#400), **unqualified**: CachyOS VM Test146 → Test148 via Download and update, then
 Restore previous setup back to Test146, from a loopback test feed; the final hand-over code awaits a VM pass.

@@ -43,5 +43,35 @@
     155.27,
     184.57,
     219.73
-  ]
+  ],
+  "cold_boot_recall": {
+    "date": "2026-10-17",
+    "output": 0.37000000476837,
+    "same_fx_guid": true,
+    "midi_notes": 16,
+    "editor_visible": true,
+    "project_bytes_unchanged": true,
+    "capture_frames": 618496,
+    "nonzero_span_seconds": 8.045,
+    "peak": 0.16212989389896393,
+    "capture_rms_including_stopped_time": 0.056382932088092884,
+    "dominant_hz_per_note": [
+      130.37,
+      155.27,
+      184.57,
+      219.73,
+      130.37,
+      155.27,
+      184.57,
+      219.73,
+      130.37,
+      155.27,
+      184.57,
+      219.73,
+      130.37,
+      155.27,
+      184.57,
+      219.73
+    ]
+  }
 }

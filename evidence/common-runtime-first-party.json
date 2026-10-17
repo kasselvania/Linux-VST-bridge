@@ -82,5 +82,14 @@
     ],
     "later_incorrect_frames": 0,
     "comparison_absolute_tolerance": 1e-05
+  },
+  "cold_boot_recall": {
+    "date": "2026-10-17",
+    "saved_level": 0.699999988079071,
+    "saved_colour": 0.20000000298023224,
+    "same_fx_guid": true,
+    "render_frames": 96000,
+    "expected_gain": 0.49,
+    "maximum_sample_error": 6.19888305686267e-08
   }
 }
