@@ -14,7 +14,8 @@ def common_helper_binding(declaration,winebuild):
     build=json.loads(data)
     names=('linux_wait.h','linux_wait.rs','shim.cpp')
     expected={'tools/direct-audio-handoff/'+name:sha((ROOT/'tools/direct-audio-handoff'/name).read_bytes()) for name in names}
-    if (build.get('schema')!=1 or build.get('kind')!='wine_build' or build.get('helper_abi')!=1
+    if (type(build.get('schema')) is not int or build['schema']!=1 or build.get('kind')!='wine_build'
+        or type(build.get('helper_abi')) is not int or build['helper_abi']!=1
         or build.get('helper_sources')!=expected):raise ValueError('Wine build helper source/ABI binding differs')
     tool=winebuild.read_bytes()
     if sha(tool)!=build.get('winebuild_sha256'):raise ValueError('Wine build marker tool binding differs')

@@ -211,7 +211,7 @@ def command_declaration(runner):
     component=json.loads(data)
     keys={'schema','kind','client_sha256','service_sha256'}
     if component.get('schema')==2:keys.add('wine_build_sha256')
-    if (set(component)!=keys or component.get('schema') not in (1,2)
+    if (set(component)!=keys or type(component.get('schema')) is not int or component['schema'] not in (1,2)
         or component.get('kind')!='native_proton_command_session'):
         raise RuntimeError('native command component unsupported')
     return component
@@ -233,7 +233,8 @@ def selected_wine_build(runner,component=None):
     build=json.loads(data)
     # Rust runtime delivery owns declaration semantics. This is a mechanical
     # comparison of the selected immutable pair, never source-policy selection.
-    if build.get('schema')!=1 or build.get('kind')!='wine_build' or build.get('helper_abi')!=1:
+    if (type(build.get('schema')) is not int or build['schema']!=1 or build.get('kind')!='wine_build'
+        or type(build.get('helper_abi')) is not int or build['helper_abi']!=1):
         raise RuntimeError('direct helper build ABI differs')
     return build,build_digest
 
@@ -263,7 +264,7 @@ def direct_audio_environment(reg,env):
     if build is None:
         paired=(helper.get('schema')==1 and helper.get('runner_wine_revision')=='46b29104e3741fe23bf5e2547196a253aab88c89')
     else:
-        paired=(helper.get('schema')==2 and helper.get('runner_build_sha256')==build_digest
+        paired=(type(helper.get('schema')) is int and helper['schema']==2 and helper.get('runner_build_sha256')==build_digest
             and helper.get('runner_wine_revision')==build.get('wine_revision'))
     if (not paired or helper.get('abi')!=1 or helper.get('host_sha256')!=reg['host']['sha256']
         or set(helper.get('files',{}))!=set(names[:3])):raise RuntimeError('direct helper manifest binding differs')

@@ -194,6 +194,8 @@ class SelectionTests(unittest.TestCase):
   with self.assertRaises(FileNotFoundError):s.NativeProtonSession.selected(self.spec)
   self.component['schema']=3;self.declare()
   with self.assertRaisesRegex(RuntimeError,'component unsupported'):s.NativeProtonSession.selected(self.spec)
+  self.component['schema']=2.0;self.declare()
+  with self.assertRaisesRegex(RuntimeError,'component unsupported'):s.NativeProtonSession.selected(self.spec)
  def test_native_launch_uses_the_preserved_or_owned_home_without_relocation(self):
   self.declare();self.spec['registration']['compatibility']={'disable_windows_accessibility':False}
   real_popen=s.subprocess.Popen

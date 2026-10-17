@@ -1,5 +1,7 @@
 //! Release-builder construction identity, not runtime policy or qualification.
 //! The release catalog seals this declaration; consumers compare selected bytes.
+//! Helper ABI1 is the existing Linux x86-64 Unix-call adapter, independently of
+//! the two native Wine architectures used for Windows program compatibility.
 use super::*;
 
 pub(super) const NAME: &str = "wine-build.json";
