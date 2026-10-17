@@ -72,6 +72,8 @@ jobs:
             "$compiler" -municode -static -Wall -Wextra -Werror \
               tools/runtime/loader_fixture.c -o "$output/loader-$arch.exe"
           done
+          python3 tools/runtime/build-regression-fixtures.py \
+            --output "$RUNNER_TEMP/runtime-mechanism-fixtures"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: runtime-mechanism-fixtures
