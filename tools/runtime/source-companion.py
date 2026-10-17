@@ -211,6 +211,20 @@ def copy_archive_notices(path, destination):
                     save(member.name, member.size, lambda: archive.extractfile(member).read())
 
 
+def cargo_dependency_path(source, name):
+    """Rust include_str! paths may retain src/../ beside tracked source names."""
+    normalized = posixpath.normpath(name)
+    if (Path(name).is_absolute() or normalized in (".", "..")
+            or normalized.startswith("../")):
+        raise ValueError("Cargo compiler source path escapes its checkout: " + name)
+    if normalized != name:
+        actual = (source / name).resolve(strict=True)
+        if (actual != (source / normalized).resolve(strict=True)
+                or not actual.is_relative_to(source.resolve(strict=True))):
+            raise ValueError("Cargo compiler source path changes through a link: " + name)
+    return normalized
+
+
 def cargo_sources(output, destination):
     """Compiler .d files select sources; Cargo.lock owns registry/Git identity."""
     lock = tomllib.loads((output / "proton/gst-plugins-rs/Cargo.lock").read_text())
@@ -233,7 +247,8 @@ def cargo_sources(output, destination):
                 if len(parts) < 4:
                     raise ValueError("Cargo source path differs: " + relative)
                 root = Path(*parts[:4])
-                roots.setdefault(root, set()).add(str(Path(*parts[4:])))
+                name = cargo_dependency_path(output / "cargo" / root, str(Path(*parts[4:])))
+                roots.setdefault(root, set()).add(name)
     if not roots:
         raise ValueError("no compiler-selected Cargo sources")
     destination.mkdir()
@@ -476,12 +491,67 @@ def collect_into(output, destination, construction_source):
     print("Selected prepared source, build context, source archives and dependency notices collected")
 
 
+def check_cargo_git_paths(output):
+    source = output / "cargo/git/checkouts/fixture/revision"
+    (source / "library/src").mkdir(parents=True)
+    (source / "library/README.md").write_text("tracked package documentation")
+    (source / "library/src/lib.rs").write_text('#![doc = include_str!("../README.md")]\n')
+    (source / "LICENSE").write_text("fixture Git notice")
+    git(source, "init", "-q")
+    git(source, "add", ".")
+    git(source, "-c", "user.name=Source fixture", "-c", "user.email=fixture@example.invalid",
+        "commit", "-qm", "Pinned source fixture")
+    revision = git(source, "rev-parse", "HEAD").decode().strip()
+    lock = output / "proton/gst-plugins-rs/Cargo.lock"
+    lock.parent.mkdir(parents=True)
+    lock.write_text('version=3\n[[package]]\nname="fixture"\nversion="1.0.0"\n'
+                    'source="git+https://example.invalid/fixture#' + revision + '"\n')
+    dependencies = []
+    for arch in ("i386", "x86_64"):
+        path = output / ("build/obj-gst_plugins_rs-" + arch + "/fixture.d")
+        path.parent.mkdir(parents=True)
+        dependencies.append(path)
+    def compiler_path(name):
+        for path in dependencies:
+            path.write_text("target: /work/cargo/git/checkouts/fixture/revision/" + name + "\n")
+    def reject(name, message):
+        try:
+            cargo_sources(output, output / name)
+        except ValueError as failure:
+            assert message in str(failure), str(failure)
+        else:
+            raise AssertionError("invalid Cargo Git source was collected: " + name)
+    compiler_path("library/src/../README.md")
+    cargo_sources(output, output / "selected")
+    with tarfile.open(output / ("selected/fixture-" + revision + ".tar.gz")) as archive:
+        assert archive.extractfile("cargo/git/checkouts/fixture/revision/library/README.md").read() == b"tracked package documentation"
+    (source / "library/README.md").write_text("changed source")
+    reject("changed", "Cargo Git source differs")
+    git(source, "checkout", "--", "library/README.md")
+    (source / "library/untracked.rs").write_text("untracked code")
+    compiler_path("library/src/../untracked.rs")
+    reject("untracked", "Cargo compiler used untracked Git source")
+    compiler_path("library/src/../../../LICENSE")
+    reject("escape", "Cargo compiler source path escapes")
+    external = output / "external"
+    (external / "child").mkdir(parents=True)
+    (external / "LICENSE").write_text("outside source")
+    (source / "redirect").symlink_to(external / "child", target_is_directory=True)
+    compiler_path("redirect/../LICENSE")
+    reject("linked", "Cargo compiler source path changes through a link")
+    compiler_path("library/src/../README.md")
+    lock.write_text(lock.read_text().replace(revision, "0" * 40))
+    reject("unlocked", "Cargo Git source differs")
+
+
 def check():
     """Reject changed/missing selected inputs and avoid copying cache-only crates."""
     with tempfile.TemporaryDirectory(prefix="lvb-source-companion-") as temporary:
         output = Path(temporary)
+        check_cargo_git_paths(output / "git-paths")
         crate = output / "cargo/registry/src/test-registry/selected-1.0.0"
         crate.mkdir(parents=True)
+        (crate / "src").mkdir()
         (crate / "Cargo.toml").write_text('[package]\nname="selected"\nversion="1.0.0"\n')
         (crate / "LICENSE").write_text("fixture notice")
         cache = output / "cargo/registry/cache/test-registry/selected-1.0.0.crate"
@@ -499,7 +569,7 @@ def check():
         for arch in ("i386", "x86_64"):
             objects = output / ("build/obj-gst_plugins_rs-" + arch)
             objects.mkdir(parents=True)
-            (objects / "selected.d").write_text("target: /work/cargo/registry/src/test-registry/selected-1.0.0/LICENSE\n"
+            (objects / "selected.d").write_text("target: /work/cargo/registry/src/test-registry/selected-1.0.0/src/../LICENSE\n"
                 "# env-dep:CARGO_MANIFEST_DIR=/work/cargo/registry/src/test-registry/selected-1.0.0\n")
         destination = output / "selected"
         cargo_sources(output, destination)
