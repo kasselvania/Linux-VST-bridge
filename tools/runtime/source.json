@@ -61,6 +61,10 @@
     {
       "path": "runtime/patches/wined3d-unused-predicate.patch",
       "sha256": "a8b4e614d4f68082c888d676fe040ab1a8238df757eeb67440dc3536723dab29"
+    },
+    {
+      "path": "runtime/patches/xdamage-state-guard.patch",
+      "sha256": "27eca06ca2949ae074201275ea538011d2145f0ade832ae6dd51404397a5d280"
     }
   ],
   "fixtures": [
@@ -126,6 +130,10 @@
     "dlls/wined3d/texture_vk.c": {
       "before": "5a0ac5f4ae0ed58553858b7bcb4db19d8826668562c75aaab563c06d1173de70",
       "after": "b91541c57528075de4acb11fd1567c878c1714e12ffef172c368f0ebdfe5b83e"
+    },
+    "dlls/winex11.drv/vd_compositor.c": {
+      "before": "0593258e583a8bd30187a4a638e9e3c3e9b35166bfb34ac83289e0489f789da1",
+      "after": "1c395c21fbb3a1769117b4009b4c7809759da64e520451ea63d6c6ce4f67f5f1"
     }
   }
 }
