@@ -6437,24 +6437,42 @@ pub(crate) mod tests {
         use std::{collections::BTreeMap,os::unix::fs::MetadataExt};
         let (id,downloads)=if legacy {(runtime_delivery::ID,runtime_delivery::downloads())}
             else {(runtime_delivery::recommended_id(),runtime_delivery::recommended_downloads())};
+        let engine_root=downloads[0].root.clone();
+        let common=id=="managed-common-audio-slr4-20260805-r6";
         let base=m.root.join("runners").join(id);private_dir(&base).unwrap();
         let mut artifacts=Vec::new();
         for (relative,bytes) in [
-            ("GE-Proton11-7-x86_64/proton",b"fixture proton".as_slice()),
-            ("SteamLinuxRuntime_4/_v2-entry-point",b"fixture entry".as_slice()),
-            ("GE-Proton11-7-x86_64/files/lib/wine/x86_64-windows/uiautomationcore.dll",
+            (format!("{engine_root}/proton"),b"fixture proton".as_slice()),
+            ("SteamLinuxRuntime_4/_v2-entry-point".into(),b"fixture entry".as_slice()),
+            (format!("{engine_root}/files/lib/wine/x86_64-windows/uiautomationcore.dll"),
                 if legacy {b"original UIA fixture".as_slice()} else {b"corrected UIA fixture".as_slice()}),
-            ("SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client",b"fixture client".as_slice()),
-            ("SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service",b"fixture service".as_slice()),
+            ("SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client".into(),b"fixture client".as_slice()),
+            ("SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service".into(),b"fixture service".as_slice()),
         ] {
             let path=base.join(relative);private_dir(path.parent().unwrap()).unwrap();
             fs::write(&path,bytes).unwrap();fs::set_permissions(&path,fs::Permissions::from_mode(0o500)).unwrap();
             artifacts.push(Artifact {sha256:digest(&path).unwrap(),path});
         }
         if !legacy {
-            let path=base.join("GE-Proton11-7-x86_64/native-command-session.json");
-            atomic_json(&path,&json!({"schema":1,"kind":"native_proton_command_session",
-                "client_sha256":artifacts[3].sha256,"service_sha256":artifacts[4].sha256})).unwrap();
+            let path=base.join(&engine_root).join("native-command-session.json");
+            let mut marker=json!({"schema":if common {2} else {1},"kind":"native_proton_command_session",
+                "client_sha256":artifacts[3].sha256,"service_sha256":artifacts[4].sha256});
+            if common {
+                let build=base.join(&engine_root).join("wine-build.json");
+                atomic_json(&build,&json!({"schema":1,"kind":"wine_build","recipe_sha256":"11".repeat(32),
+                    "wine_revision":"22".repeat(20),"sdk_image":format!("registry/sdk@sha256:{}","33".repeat(32)),
+                    "configuration_sha256":{"i386":"44".repeat(32),"x86_64":"55".repeat(32)},
+                    "invocation":{"target":"wine","source_date_epoch":1,"base_source_date_epoch":1,
+                        "build_name":"source-fixture","make_arguments":["-j3","J=3","CONTAINER=1"]},
+                    "helper_abi":1,"helper_sources":{"tools/direct-audio-handoff/linux_wait.h":"66".repeat(32),
+                        "tools/direct-audio-handoff/linux_wait.rs":"77".repeat(32),
+                        "tools/direct-audio-handoff/shim.cpp":"88".repeat(32)},"winebuild_sha256":"99".repeat(32)})).unwrap();
+                fs::set_permissions(&build,fs::Permissions::from_mode(0o400)).unwrap();
+                let artifact=Artifact {sha256:digest(&build).unwrap(),path:build};
+                marker["wine_build_sha256"]=artifact.sha256.clone().into();
+                artifacts.push(artifact);
+            }
+            atomic_json(&path,&marker).unwrap();
             fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();
             artifacts.push(Artifact {sha256:digest(&path).unwrap(),path});
         }
@@ -6472,7 +6490,7 @@ pub(crate) mod tests {
         let tree=base.join("runtime-tree.json");atomic_json(&tree,&rows.into_values().collect::<Vec<_>>()).unwrap();
         fs::set_permissions(&tree,fs::Permissions::from_mode(0o400)).unwrap();
         let mut files=vec![artifacts[0].clone(),artifacts[1].clone(),Artifact {sha256:digest(&tree).unwrap(),path:tree}];
-        if !legacy {files.push(artifacts.last().unwrap().clone());}
+        if !legacy {files.extend_from_slice(&artifacts[5..]);}
         let runner=Runner {id:id.into(),version:"sealed managed fixture".into(),
             proton:artifacts[0].path.clone(),entry_point:artifacts[1].path.clone(),files,policy:None};
         runner.verify().unwrap();

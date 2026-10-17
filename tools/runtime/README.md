@@ -204,7 +204,7 @@ own `build/dst-wine-x86_64/bin/winebuild`, never a retained GE marker tool.
 | Input | Exact identity |
 | --- | --- |
 | Windows CI artifact | Run `38995788477`, artifact `12087465719`, ZIP SHA256 `c1c92694f9951dadc877f10d9326366235413c17ef5c0c10afa7a3f4458e24f4` |
-| Windows source | The artifact's `host-source-manifest.json` records its original build/toolchain; the normal kit builder verifies current host/shim source files and bytes before use. |
+| Windows source | The artifact's `host-source-manifest.json` binds its original source commit, source-file hashes and host/shim byte hashes. The referenced CI run/workflow records the build context separately; the normal kit builder verifies current source files and bytes before use. |
 | Wine declaration | SHA256 `bf0acc6ff79d1191dbb150fb18310be26715407993ae402c7e487e3f6c8ed504` |
 | Wine marker tool | SHA256 `9e120c41ca6c3788e52f25df2d2cc82cc0132e122d2483c14529f24a9259f79c` |
 | Common archive | `runtime-common-r6/Common-Proton-x86_64.tar.gz`, 1,682,743,460 bytes, SHA256 `6c0d09e1ed76cc2f33fa0117ab777da6128eb9e7473e85e08bedd0163848d58d` |
