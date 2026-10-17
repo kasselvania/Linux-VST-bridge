@@ -1,0 +1,73 @@
+--- a/dlls/winex11.drv/mouse.c
++++ b/dlls/winex11.drv/mouse.c
+@@ -1,6 +1,7 @@
+ /*
+  * X11 mouse driver
+  *
++ * Modified 2026-10-17: route XI touch to its registered window and clear released contact.
+  * Copyright 1998 Ulrich Weigand
+  * Copyright 2007 Henri Verbeet
+  *
+@@ -54,6 +55,7 @@
+ #include "winreg.h"
+ #include "wine/server.h"
+ #include "wine/debug.h"
++#include "touch_message_flags.h"
+ 
+ WINE_DEFAULT_DEBUG_CHANNEL(cursor);
+ 
+@@ -1819,12 +1821,20 @@
+     XIDeviceEvent *event = xev->data;
+     int flags = 0;
+     POINT pos;
+-
+-    input.mi.dx = event->event_x;
+-    input.mi.dy = event->event_y;
+-    map_event_coords( hwnd, event->event, event->root, event->root_x, event->root_y, &input );
+-    pos.x = input.mi.dx * 65535 / (virtual.right - virtual.left);
+-    pos.y = input.mi.dy * 65535 / (virtual.bottom - virtual.top);
++    HWND target = 0;
++
++    /* GenericEvent has no HWND in event.c. Resolve the actual XI window,
++     * including transient popups, instead of using focus or a null target. */
++    if (XFindContext( xev->display, event->event, winContext, (char **)&target )) return FALSE;
++    hwnd = target;
++    if (!hwnd || virtual.right <= virtual.left || virtual.bottom <= virtual.top) return FALSE;
++    input.mi.dx = round( event->event_x );
++    input.mi.dy = round( event->event_y );
++    map_event_coords( hwnd, event->event, event->root, round( event->root_x ), round( event->root_y ), &input );
++    pos.x = max( 0, min( 65535, (LONGLONG)(input.mi.dx - virtual.left) * 65535 /
++                              (virtual.right - virtual.left) ) );
++    pos.y = max( 0, min( 65535, (LONGLONG)(input.mi.dy - virtual.top) * 65535 /
++                              (virtual.bottom - virtual.top) ) );
+ 
+     switch (event->evtype)
+     {
+@@ -1844,7 +1854,7 @@
+     }
+ 
+     input.hi.wParamL = event->detail;
+-    input.hi.wParamH = POINTER_MESSAGE_FLAG_INRANGE | POINTER_MESSAGE_FLAG_INCONTACT | flags;
++    input.hi.wParamH = x11drv_touch_message_flags( event->evtype, flags );
+     NtUserSendHardwareInput( hwnd, 0, &input, MAKELPARAM( pos.x, pos.y ) );
+ 
+     return TRUE;
+--- /dev/null
++++ b/dlls/winex11.drv/touch_message_flags.h
+@@ -0,0 +1,16 @@
++/* XInput2 touch contact state for the Win32 pointer message.
++ * Modified 2026-10-17: preserve both raw and window-event release semantics.
++ * Derived from the original LVB touch-routing helper, LGPL-2.1-or-later.
++ */
++#ifndef __WINE_X11_TOUCH_MESSAGE_FLAGS_H
++#define __WINE_X11_TOUCH_MESSAGE_FLAGS_H
++
++static inline unsigned int x11drv_touch_message_flags( int evtype, unsigned int flags )
++{
++    if (evtype != XI_RawTouchEnd && evtype != XI_TouchEnd)
++        flags |= POINTER_MESSAGE_FLAG_INCONTACT;
++
++    return POINTER_MESSAGE_FLAG_INRANGE | flags;
++}
++
++#endif

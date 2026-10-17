@@ -1,0 +1,41 @@
+--- a/dlls/crypt32/tests/msg.c
++++ b/dlls/crypt32/tests/msg.c
+@@ -1,6 +1,7 @@
+ /*
+  * Unit test suite for crypt32.dll's CryptMsg functions
+  *
++ * Modified 2026-10-17: reject tampered unsorted-attribute signatures.
+  * Copyright 2007 Juan Lang
+  *
+  * This library is free software; you can redistribute it and/or
+@@ -3795,6 +3796,7 @@
+     HCRYPTMSG msg;
+     DWORD size;
+     BOOL bret;
++    BYTE tampered[sizeof(msg_signed_unsorted_attrs)];
+ 
+     msg = CryptMsgOpenToDecode(PKCS_7_ASN_ENCODING, 0, 0, 0, NULL, NULL);
+     ok(!!msg, "failed, error %#lx.\n", GetLastError());
+@@ -3814,6 +3816,22 @@
+     bret = CryptMsgControl(msg, 0, CMSG_CTRL_VERIFY_SIGNATURE, cert->pCertInfo);
+     ok(bret, "failed, error %#lx.\n", GetLastError());
+ 
++    CryptMsgClose(msg);
++
++    /* The order-preserving path must still verify the signature. Corrupt one
++     * signature byte, leaving the ASN.1 and embedded certificate unchanged. */
++    memcpy(tampered, msg_signed_unsorted_attrs, sizeof(tampered));
++    tampered[sizeof(tampered) - 1] ^= 1;
++    msg = CryptMsgOpenToDecode(PKCS_7_ASN_ENCODING, 0, 0, 0, NULL, NULL);
++    ok(!!msg, "failed, error %#lx.\n", GetLastError());
++    bret = CryptMsgUpdate(msg, tampered, sizeof(tampered), TRUE);
++    ok(bret, "failed, error %#lx.\n", GetLastError());
++    SetLastError(0xdeadbeef);
++    bret = CryptMsgControl(msg, 0, CMSG_CTRL_VERIFY_SIGNATURE, cert->pCertInfo);
++    ok(!bret && GetLastError() == NTE_BAD_SIGNATURE,
++       "expected NTE_BAD_SIGNATURE for tampered unsorted attributes, got %d/%#lx.\n",
++       bret, GetLastError());
++
+     free(cert_info);
+     CertFreeCertificateContext(cert);
+     CertCloseStore(store, 0);
