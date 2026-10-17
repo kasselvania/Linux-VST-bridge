@@ -23,8 +23,9 @@ instrument/state full DAW exit/reopen → cold-boot recall → cleanup and secon
 Record exact vendor builds privately. The first attempt exposed live status
 invalidation during installer observation writes; the bounded existing-readback
 repair is merged, retaining terminal evidence/configuration/identity watches.
-Verify it through the failed NI journey and short Reference/Tyrell
-editor/state smoke. No other compatibility case starts during CR4.
+Restore the packaged installer's existing typed policy offers, keeping exact
+launch verification. Repeat NI and short Reference/Tyrell editor/state smoke.
+No other compatibility case starts during CR4.
 
 Preserved CR3: Reference full .49-gain renders and 60 s delivered-output capture
 pass (sole permitted startup handoff settled by 220.7 ms, all later frames correct).

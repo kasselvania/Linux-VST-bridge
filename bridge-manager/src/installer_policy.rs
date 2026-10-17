@@ -96,6 +96,15 @@ fn with_launch_component(spec: &mut Value, software: &Software,
 
 pub use crate::operator_model::Powershell;
 
+/// An explicit choice is an installer-operation request, not execution admission.
+/// Packaged software resolves its optional adapter from the selected sealed kit
+/// at launch. Readback must neither unpack that kit nor hide the implemented
+/// choices merely because its launch bytes have not been staged yet.
+pub fn can_resolve_adapter_record(format: &str, software: &Software) -> bool {
+    format == "pe_executable" && (software.installer_launch.as_ref()
+        .or(software.preparation_kit.as_ref()).is_some_and(|artifact| artifact.validate_record().is_ok()))
+}
+
 /// The production policy is qualified only for the exact PE/IS2 adapter route.
 pub fn eligible_adapter<'a>(format: &str, software: &'a Software) -> Result<&'a Artifact> {
     let adapter = eligible_adapter_record(format, software)?;
@@ -137,6 +146,22 @@ pub fn bind(spec: &mut Value, software: &Software, powershell: Powershell) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn packaged_choices_do_not_grant_missing_adapter_execution() {
+        let (_f,mut software,mut spec)=fixture();
+        assert!(can_resolve_adapter_record("pe_executable",&software));
+        assert!(!can_resolve_adapter_record("msi",&software));
+        let adapter=software.installer_launch.take().unwrap();
+        assert!(!can_resolve_adapter_record("pe_executable",&software));
+        software.preparation_kit=Some(adapter);
+        assert!(can_resolve_adapter_record("pe_executable",&software));
+        let before=spec.clone();
+        let error=bind_for_launch_resolving(&mut spec,&software,Some(Powershell::Inherited),
+            |_|panic!("explicit choice does not select advice"),
+            ||Err("fixture_selected_kit_has_no_launch_component".into())).unwrap_err();
+        assert!(error.to_string().contains("fixture_selected_kit_has_no_launch_component"));
+        assert_eq!(spec,before);
+    }
     #[test]
     fn only_closed_capabilities_and_actions_deserialize() {
         for mode in ["inherited","intentionally_unavailable"] {

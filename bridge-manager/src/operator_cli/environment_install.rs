@@ -427,7 +427,7 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
         }).collect::<Result<Vec<_>>>()?;
         let selected_software = software_record(m)?;
         for installer in &installers {
-            if linux_vst_bridge::installer_policy::eligible_adapter_record(&installer.format, &selected_software).is_err() { continue; }
+            if !linux_vst_bridge::installer_policy::can_resolve_adapter_record(&installer.format, &selected_software) { continue; }
             let label = installer_import::presentation(m,installer)?.display_label;
             let missing = installer_import::load_record(m,&installer.id).err();
             let disabled = reason.as_deref().or(missing.as_ref().map(|_|"Imported installer file is unavailable. Import the original file again."));
