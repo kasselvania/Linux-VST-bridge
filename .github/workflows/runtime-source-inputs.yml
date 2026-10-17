@@ -46,3 +46,5 @@ jobs:
                           '--wine-source', str(source)], check=True)
       - name: Check combined common Wine source inputs
         run: python3 tools/runtime/prepare.py --check-upstream
+      - name: Check complete Proton build inputs and generated prefix
+        run: python3 tools/runtime/redist-inputs.py --check-upstream

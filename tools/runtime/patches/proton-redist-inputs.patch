@@ -1,0 +1,41 @@
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -1427,7 +1427,8 @@
+ all-dist: $(DIST_COPY_TARGETS)
+ 
+ all-dist:
+-	echo `date '+%s'` `GIT_DIR=$(abspath $(SRCDIR)/.git) git describe --tags` > $(DIST_VERSION)
++	# Linux VST Bridge modification, 2026-10-16: pinned build identity.
++	printf '%s %s\n' '$(SOURCE_DATE_EPOCH)' 'proton-11.0-2c+$(BUILD_NAME)' > $(DIST_VERSION)
+ 
+ 
+ ##
+--- a/make/rules-cargo.mk
++++ b/make/rules-cargo.mk
+@@ -15,7 +15,8 @@
+ $$(OBJ)/.$(1)-$(3)-build:
+ 	@echo ":: building $(1)-$(3)..." >&2
++	# Linux VST Bridge modification, 2026-10-16: no build-time resolution.
+ 	cd $$($(2)_SRC) && env $$($(2)_$(3)_ENV) \
+-	cargo build $(--quiet?) --release \
++	cargo build --frozen $(--quiet?) --release \
+ 	      $$(filter -j%,$$(MAKEFLAGS)) \
+ 	      --target-dir $$($(2)_$(3)_OBJ) \
+ 	      $$($(3)-$(4)_CARGO_ARGS) \
+--- a/default_pfx.py
++++ b/default_pfx.py
+@@ -113,9 +113,11 @@
+ #and restore them in the proton script
+ def fixup_drive_links(default_pfx_dir):
+     for walk_dir, dirs, files in os.walk(os.path.join(default_pfx_dir, "dosdevices")):
+-        for dir_ in dirs:
+-            if ":" in dir_:
+-                os.remove(os.path.join(walk_dir, dir_))
++        # Linux VST Bridge modification, 2026-10-16: include device/file links.
++        for name in dirs + files:
++            path = os.path.join(walk_dir, name)
++            if ":" in name and os.path.islink(path):
++                os.unlink(path)
+ 
+ def make_default_pfx(default_pfx_dir, dist_dir, arm64):
+     local_env = dict(os.environ)
