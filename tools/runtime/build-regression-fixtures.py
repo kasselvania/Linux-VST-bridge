@@ -15,9 +15,10 @@ import urllib.request
 
 HERE = Path(__file__).resolve().parent
 RECIPE = json.loads((HERE / "source.json").read_bytes())
-HEADERS = {
+SUPPORT = {
     "include/wine/test.h": "2a8b0cb6dcf26a4affc21ffa6423e2ae79f5c2b2fa15a0e016d5b73d663bb81d",
     "include/wine/debug.h": "6b511fb8c5cd6374fef611afc1ed42839fb303c946e05f9855a2e5f9e30bb36a",
+    "COPYING.LIB": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c",
 }
 MESSAGE = "dlls/crypt32/tests/msg.c"
 
@@ -49,7 +50,7 @@ def acquire(stage, relative, expected, prepared):
 
 
 def sources(stage, prepared):
-    for relative, expected in HEADERS.items():
+    for relative, expected in SUPPORT.items():
         acquire(stage, relative, expected, prepared)
     state = "after" if prepared is not None else "before"
     message = acquire(stage, MESSAGE, RECIPE["sources"][MESSAGE][state], prepared)
@@ -67,7 +68,8 @@ def sources(stage, prepared):
     # test body. No test result or assertion is removed from the selected case.
     header = text[:text.index("*/") + 2]
     signature = stage / "signature_order.c"
-    signature.write_text(header + "\n#include <windows.h>\n#include <wincrypt.h>\n"
+    signature.write_text(header + "\n/* Isolated unchanged signed/tampered test case, 2026-10-16. */\n"
+                         "#include <windows.h>\n#include <wincrypt.h>\n"
                          "#include <stdlib.h>\n#include <string.h>\n#include \"wine/test.h\"\n"
                          + text[start:end]
                          + "\nSTART_TEST(signature_order) { test_verify_unsorted_auth_attrs(); }\n")
@@ -84,6 +86,9 @@ def main():
     parser.add_argument("--prepared-wine", type=Path)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
+    source_output = args.output / "source"
+    if source_output.exists() or source_output.is_symlink():
+        raise ValueError("Fixture source output already exists")
     with tempfile.TemporaryDirectory(prefix="fixture-source-", dir=args.output) as temporary:
         stage = Path(temporary)
         sources(stage, args.prepared_wine)
@@ -94,11 +99,35 @@ def main():
                 target = args.output / (name + "-" + arch + ".exe")
                 if target.exists() or target.is_symlink():
                     raise ValueError("Fixture output already exists: " + str(target))
+                # The standalone tests export no Wine debug library. MinGW's
+                # Windows headers omit Wine's internal DECLSPEC_EXPORT spelling.
                 subprocess.run([arch + "-w64-mingw32-gcc", "-O2", "-static", "-DSTANDALONE",
+                                "-DDECLSPEC_EXPORT=",
                                 "-I" + str(stage / "include"), str(stage / (name + ".c")),
                                 "-o", str(target), *["-l" + item for item in libraries]],
                                check=True, timeout=120)
                 print(target.name + " " + hashlib.sha256(target.read_bytes()).hexdigest())
+        # Accompany the LGPL standalone harness binaries with their exact
+        # corresponding source, original notices, licence and rebuild commands.
+        source_output.mkdir()
+        for name in (*SUPPORT, "signature_order.c", "guard_provider.c"):
+            target = source_output / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(stage / name, target)
+        (source_output / "README.txt").write_text(
+            "UIA and certificate regression fixture source\n"
+            "Wine support headers and certificate case: " + RECIPE["wine"]["commit"] + "\n"
+            "UIA case: Linux VST Bridge contributors, tools/runtime-uia-guard/guard_provider.c\n"
+            "These sources and the included harness are LGPL 2.1 or later; see COPYING.LIB\n"
+            "and the retained copyright/licence headers. The certificate case is extracted\n"
+            "unchanged from the prepared Wine test, with a standalone entry point.\n\n"
+            "Rebuild from this directory with MinGW Windows headers/import libraries:\n"
+            "for arch in i686 x86_64; do\n"
+            "  $arch-w64-mingw32-gcc -O2 -static -DSTANDALONE -DDECLSPEC_EXPORT= -Iinclude "
+            "guard_provider.c -o guard_provider-$arch.exe -luiautomationcore -lole32 -loleaut32 -luuid\n"
+            "  $arch-w64-mingw32-gcc -O2 -static -DSTANDALONE -DDECLSPEC_EXPORT= -Iinclude "
+            "signature_order.c -o signature_order-$arch.exe -lcrypt32\n"
+            "done\n")
 
 
 if __name__ == "__main__":
