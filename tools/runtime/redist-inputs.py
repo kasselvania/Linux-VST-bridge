@@ -139,6 +139,21 @@ def notices(output):
             wanted.remove(name)
     if wanted:
         raise ValueError("ONNX auxiliary notices missing")
+    for name, spec in INPUTS["local_notices"].items():
+        path = output / "proton" / name
+        if (path.is_symlink() or not path.is_file() or path.stat().st_size != spec["size"]
+                or hashlib.sha256(path.read_bytes()).hexdigest() != spec["sha256"]):
+            raise ValueError("local component notice differs: " + name)
+        shutil.copyfile(path, destination / spec["name"])
+    companion = runpy.run_path(str(ROOT / "source-companion.py"))
+    companion["copy_component_notices"](output)
+    build_inputs = json.loads((ROOT / "build-inputs.json").read_bytes())
+    for name in ("fmt.zip", "spdlog.zip", "phonemize.zip", "espeak.zip"):
+        path = output / "proton/external-inputs" / name
+        spec = build_inputs[name]
+        if path.stat().st_size != spec["size"] or companion["sha"](path) != spec["sha256"]:
+            raise ValueError("external source notice archive differs: " + name)
+        companion["copy_archive_notices"](path, destination / "external" / name)
     shutil.copyfile(ROOT / "redist-inputs.json", destination / "inputs.json")
 
 
@@ -169,6 +184,11 @@ def prepare(output):
                              ("notices", output / "third-party-notices")):
         directory.mkdir(exist_ok=True)
         for name, spec in INPUTS[group].items():
+            # Remaining release source is acquired only by the explicit source
+            # companion command, after compilation. Keep ordinary build inputs
+            # unchanged when that optional source collection is not requested.
+            if group == "corresponding_source" and name not in INPUTS["source_notices"]:
+                continue
             acquire(directory / name, spec)
     patch_source(source)
     notices(output)
@@ -431,6 +451,7 @@ def check():
         else:
             raise ValueError("modified redist source was accepted")
     print("Pinned source, audio launch/prefix composition, native loader, Cargo and generated-prefix regressions verified")
+    runpy.run_path(str(ROOT / "source-companion.py"))["check"]()
 
 
 if __name__ == "__main__":
