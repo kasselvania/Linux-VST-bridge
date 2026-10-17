@@ -48,7 +48,7 @@ class WholeArchiveTests(unittest.TestCase):
         (self.redist / "files/share/empty").mkdir(parents=True)
         (self.redist / "files/bin/wine32").symlink_to("wine")
         self.source.mkdir()
-        (self.source / "README.md").write_text("original source collection")
+        (self.source / "README.txt").write_text("original source collection")
         prepared = self.source / "prepared-source"
         prepared.mkdir()
         for name in companion["COMPONENTS"]:
@@ -161,6 +161,10 @@ class WholeArchiveTests(unittest.TestCase):
             self.make_package()
 
     def test_refuses_incomplete_source_and_forged_original_declaration(self):
+        (self.source / "README.txt").rename(self.source / "README.md")
+        with self.assertRaisesRegex(ValueError, "root roster differs"):
+            self.make_package()
+        (self.source / "README.md").rename(self.source / "README.txt")
         missing = self.source / "upstream-source/onnxruntime-src.tar.gz"
         missing.unlink()
         with self.assertRaisesRegex(ValueError, "upstream-source roster"):

@@ -131,7 +131,7 @@ def member_bytes(path):
 
 def source_context(source, declaration, manifest):
     """Read original construction bytes, never reconstruct a declaration."""
-    if {p.name for p in source.iterdir()} != {"README.md", "prepared-source", "upstream-source",
+    if {p.name for p in source.iterdir()} != {"README.txt", "prepared-source", "upstream-source",
                                             "cargo", "third-party-notices"}:
         raise ValueError("Source companion root roster differs")
     companion = runpy.run_path(str(HERE / "source-companion.py"))
