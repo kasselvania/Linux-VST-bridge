@@ -1,0 +1,169 @@
+{
+  "packages": {
+    "wine-mono-10.4.1-x86.tar.xz": {
+      "url": "https://github.com/wine-mono/wine-mono/releases/download/wine-mono-10.4.1/wine-mono-10.4.1-x86.tar.xz",
+      "size": 39590692,
+      "sha256": "a16606ef0724202e6a6848ece6e0cbba64d11e2f11aefe744af1d93c6d9f99bb"
+    },
+    "wine-gecko-2.47.4-x86.tar.xz": {
+      "url": "https://dl.winehq.org/wine/wine-gecko/2.47.4/wine-gecko-2.47.4-x86.tar.xz",
+      "size": 43025064,
+      "sha256": "2cfc8d5c948602e21eff8a78613e1826f2d033df9672cace87fed56e8310afb6"
+    },
+    "wine-gecko-2.47.4-x86_64.tar.xz": {
+      "url": "https://dl.winehq.org/wine/wine-gecko/2.47.4/wine-gecko-2.47.4-x86_64.tar.xz",
+      "size": 41935496,
+      "sha256": "fd88fc7e537d058d7a8abf0c1ebc90c574892a466de86706a26d254710a82814"
+    },
+    "xalia-0.4.9-net48-mono.zip": {
+      "url": "https://github.com/madewokherd/xalia/releases/download/xalia-0.4.9/xalia-0.4.9-net48-mono.zip",
+      "size": 2230466,
+      "sha256": "e2c94a40f68f63660cc06405a641bc4e5a2e9b9320b9608e01a21feb6f6709c5"
+    }
+  },
+  "corresponding_source": {
+    "wine-mono-10.4.1-src.tar.xz": {
+      "url": "https://github.com/wine-mono/wine-mono/releases/download/wine-mono-10.4.1/wine-mono-10.4.1-src.tar.xz",
+      "size": 373786652,
+      "sha256": "128e335396689e466dff5e1aa0770a714dbe3d16397fc4ddbb8a80999c67323b"
+    },
+    "wine-gecko-2.47.4-src.tar.xz": {
+      "url": "https://dl.winehq.org/wine/wine-gecko/2.47.4/wine-gecko-2.47.4-src.tar.xz",
+      "size": 197407844,
+      "sha256": "bf31b6619570ce289f07298bdd670081635cd12104010050f06c16e44ccd153f"
+    }
+  },
+  "notices": {
+    "xalia.txt": {
+      "url": "https://raw.githubusercontent.com/madewokherd/xalia/6d946216c29052c29c660ad4cac950a6bd08a2b4/LICENSE",
+      "size": 1068,
+      "sha256": "727bfd71e8c18a1e57e37b4b5cdaacdfe163488e2c326b3bca1151feeb4acfe8"
+    },
+    "sdl3cs.txt": {
+      "url": "https://raw.githubusercontent.com/flibitijibibo/SDL3-CS/e26a111c1b90301e37475a4dfb6f5ce47447d677/LICENSE",
+      "size": 982,
+      "sha256": "d74e84b52f55918052edd1eb807afad0e296b7cf8b9d968b2e0a92b02a74b97f"
+    },
+    "sdl3.txt": {
+      "url": "https://raw.githubusercontent.com/libsdl-org/SDL/a962f40bbba175e9716557a25d5d7965f134a3d3/LICENSE.txt",
+      "size": 884,
+      "sha256": "97f35b302b361680ec1e891e95d2d52097bb95abff361434916d99dc1305f127"
+    },
+    "superpower.txt": {
+      "url": "https://raw.githubusercontent.com/datalust/superpower/69a175031a1fc609a0577b1c676f5721af84a5ac/LICENSE",
+      "size": 11357,
+      "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"
+    },
+    "tmds.txt": {
+      "url": "https://raw.githubusercontent.com/tmds/Tmds.DBus/282acebca8d4e4e3ba211646ac650911ee94edfd/COPYING",
+      "size": 1151,
+      "sha256": "aca3b49277abcc7886ccb2f115603a9f5b15fc3f96019a10c00f2974098b210c"
+    },
+    "dotnet-mit.txt": {
+      "url": "https://raw.githubusercontent.com/dotnet/runtime/5535e31a712343a63f5d7d796cd874e563e5ac14/LICENSE.TXT",
+      "size": 1116,
+      "sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310"
+    },
+    "dotnet8-notices.txt": {
+      "url": "https://raw.githubusercontent.com/dotnet/runtime/5535e31a712343a63f5d7d796cd874e563e5ac14/THIRD-PARTY-NOTICES.TXT",
+      "size": 67639,
+      "sha256": "7238e7fd468427aa3fe45b1d0cee1c3e2d93ff96692820768521e9780225d473"
+    },
+    "corefx-notices.txt": {
+      "url": "https://raw.githubusercontent.com/dotnet/corefx/7601f4f6225089ffb291dc7d58293c7bbf5c5d4f/THIRD-PARTY-NOTICES.TXT",
+      "size": 15526,
+      "sha256": "06cf69d8c3f1170895d57ce881d3e0ab22676fc2cfa41459d035c4f699f2fa83"
+    },
+    "dotnet5-notices.txt": {
+      "url": "https://raw.githubusercontent.com/dotnet/runtime/cf258a14b70ad9069470a108f13765e0e5988f51/THIRD-PARTY-NOTICES.TXT",
+      "size": 43395,
+      "sha256": "723c221df67cb638f983d38e01c30a8975a8c184d2351bb874b5b1e05e01d4fc"
+    },
+    "dotnet10-notices.txt": {
+      "url": "https://raw.githubusercontent.com/dotnet/dotnet/b16286c2284fecf303dbc12a0bb152476d662e44/src/runtime/THIRD-PARTY-NOTICES.TXT",
+      "size": 76623,
+      "sha256": "66f1d4e44973185519bb4aa8a9718eb22fc7af2cc532e3ae9cfc4c127ee7fc54"
+    }
+  },
+  "xalia_notice_bindings": {
+    "Xalia 0.4.9": [
+      "xalia"
+    ],
+    "SDL3-CS": [
+      "sdl3cs"
+    ],
+    "SDL3 3.4.0": [
+      "sdl3"
+    ],
+    "Superpower 3.1.0": [
+      "superpower"
+    ],
+    "Tmds.DBus.Protocol 0.92.0": [
+      "tmds"
+    ],
+    "Microsoft.Bcl.AsyncInterfaces 8.0.0": [
+      "dotnet-mit",
+      "dotnet8-notices"
+    ],
+    "System.IO.Pipelines 8.0.0": [
+      "dotnet-mit",
+      "dotnet8-notices"
+    ],
+    "System.Threading.Channels 8.0.0": [
+      "dotnet-mit",
+      "dotnet8-notices"
+    ],
+    "System.Buffers 4.5.1": [
+      "dotnet-mit",
+      "corefx-notices"
+    ],
+    "System.Memory 4.5.5": [
+      "dotnet-mit",
+      "corefx-notices"
+    ],
+    "System.Numerics.Vectors 4.5.0": [
+      "dotnet-mit",
+      "corefx-notices"
+    ],
+    "System.Security.Principal.Windows 5.0.0": [
+      "dotnet-mit",
+      "dotnet5-notices"
+    ],
+    "System.CodeDom 10.0.7": [
+      "dotnet-mit",
+      "dotnet10-notices"
+    ],
+    "System.Runtime.CompilerServices.Unsafe 6.1.2": [
+      "dotnet-mit"
+    ],
+    "System.Threading.Tasks.Extensions 4.6.3": [
+      "dotnet-mit"
+    ]
+  },
+  "source_notices": {
+    "wine-mono-10.4.1-src.tar.xz": {
+      "wine-mono-10.4.1/COPYING": {
+        "name": "wine-mono-COPYING.txt",
+        "size": 2423,
+        "sha256": "0265443ffc97c9450dbcf402c2430bf9fe87d7a6c92d5d7684fcecfe749bf75d"
+      },
+      "wine-mono-10.4.1/mono/LICENSE": {
+        "name": "wine-mono-component-LICENSE.txt",
+        "size": 73470,
+        "sha256": "844242559dbdb96cb9cbe103b06c2bc8a349f19ad0b89d5c3cf830a8914333f6"
+      },
+      "wine-mono-10.4.1/mono/PATENTS.TXT": {
+        "name": "wine-mono-PATENTS.txt",
+        "size": 2303,
+        "sha256": "4d764e3d098f8aad23f70f29e34165c7836b7e1cc49ced2a73b175edb89e4891"
+      }
+    },
+    "wine-gecko-2.47.4-src.tar.xz": {
+      "wine-gecko-2.47.4/toolkit/content/license.html": {
+        "name": "wine-gecko-license.html",
+        "size": 252621,
+        "sha256": "18412e6665fd12c854c85aef601a564bda44363845828b158e7e93e0c2d8f177"
+      }
+    }
+  }
+}

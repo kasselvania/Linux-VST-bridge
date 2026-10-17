@@ -97,8 +97,12 @@ def main():
                       help="Check pristine source without modifying it")
     mode.add_argument("--prepare-source", type=Path,
                       help="Apply to a pristine pinned build checkout")
+    mode.add_argument("--verify-prepared-source", type=Path,
+                      help="Check integrated source postimages before composition")
     args = parser.parse_args()
-    if args.prepare_source:
+    if args.verify_prepared_source:
+        verify_sources(args.verify_prepared_source.resolve(), "after")
+    elif args.prepare_source:
         prepare(args.prepare_source.resolve())
     else:
         check(args.check_source.resolve() if args.check_source else None)

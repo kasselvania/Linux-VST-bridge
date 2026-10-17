@@ -49,13 +49,4 @@ cp -- "$recipe_dir/build-inner.sh" "$output/build-inner.sh"
 # This is the entire Wine engine
 # with its source-built dependencies, not make redist: browser/Mono packaging
 # and production distribution remain separate decisions and later work.
-bwrap --unshare-user --uid 0 --gid 0 --unshare-pid --unshare-net --die-with-parent \
-    --ro-bind "$output/sdk-rootfs" / --ro-bind "$source_dir" /work/proton \
-    --bind "$build_dir" /work/build --bind "$output/cargo" /work/cargo \
-    --bind "$output/cache" /work/cache \
-    --ro-bind "$output/build-inner.sh" /work/build-inner.sh \
-    --ro-bind /etc/resolv.conf /etc/resolv.conf --proc /proc --dev /dev --tmpfs /tmp \
-    --setenv PATH /usr/lib/ccache:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-    --setenv CARGO_HOME /work/cargo --setenv XDG_CACHE_HOME /work/cache \
-    --setenv CCACHE_DISABLE 1 --chdir /work/build \
-    /bin/bash /work/build-inner.sh "$epoch"
+bash "$recipe_dir/sdk.sh" "$output" offline /bin/bash /work/build-inner.sh "$epoch"

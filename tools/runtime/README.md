@@ -8,8 +8,11 @@ only; it is not an installed runtime catalogue, configuration or support record.
 ```sh
 python3 tools/runtime/prepare.py --check-upstream
 python3 tools/runtime/prepare.py --check-source /private/pristine-wine-c27f058
+python3 tools/runtime/redist-inputs.py --check-upstream
 # Reserved homelab builder (takes the shared lock and resource limits):
 bash tools/runtime/build.sh /mnt/Storage2/LinuxPluginBridge/runtime-430-clean
+# After both Wine architectures complete, finish the same private component set:
+bash tools/runtime/complete.sh /mnt/Storage2/LinuxPluginBridge/runtime-430-clean
 ```
 
 The checker copies only the named pristine source files to a temporary directory.
@@ -65,13 +68,33 @@ in Git, with [Unicode provenance and hashes](https://github.com/ValveSoftware/Pr
 OpenVR auxiliaries come from the pinned official submodule; vrclient is rebuilt.
 These official upstream auxiliaries are distinct from transplanted Wine DLLs.
 
-This command builds the Wine engine and its dependencies, not a distributable
-runtime. Upstream `redist` separately acquires Gecko, Mono and Xalia. Its Mono
-11.2.0 differs from this Wine source's expected 10.4.1; composition must pin
-the matching dependency and all archive hashes before delivery. Preserve each
-component's licences, modification notices and required corresponding source,
-alongside Valve's distribution notices. A successful build is not discharge of
-those obligations or qualification of this combination.
+`build.sh` builds Wine and its dependencies. `complete.sh` uses the same source
+and object tree for upstream's complete `redist` target, including graphics,
+vrclient, integration, fonts and an unlicensed generated default prefix. It
+pins matching Mono 10.4.1, both Gecko 2.47.4 packages and Xalia 0.4.9, and retains
+the corresponding Mono/Gecko release-source archives outside Git. Cargo first
+fetches the unchanged upstream workspace with `--locked`, then compilation runs
+`--frozen` in the network-isolated SDK. Cache-only workspace sources do not add
+extra runtime components. The build timestamp/version is explicit.
+
+The upstream generated-prefix cleanup is extended to remove device and broken
+drive symlinks as well as directory links. This runs only on the disposable build
+prefix. Its regression preserves unrelated files and links; no user-prefix
+cleanup or lifecycle changes are included.
+
+This remains a private comparison. The recipe preserves exact Xalia and bundled
+dependency notices, Mono's inventory/component licence and patent notice,
+Gecko's aggregate licence, and the ONNX auxiliary's original notices beside the
+redist output. `redist-inputs.json` maps those texts to the exact inputs. The
+complete Mono/Gecko source archives retain additional component licences and
+exceptions, including SharpZipLib's classpath exception. Wine Mono is not one
+uniform licence. MIT notices, Apache attribution (including Superpower, Datalust
+and Sprache contributors), and zlib source notices must be preserved as applicable.
+Each component's licences, modification notices and required corresponding
+source must accompany distribution, alongside Valve's notices. A completed
+`redist` directory alone does not discharge those obligations, publish a runtime
+or qualify this combination. The broader source/distribution package is separate
+from this private build.
 
 WebView2 is intentionally absent from this engine build. The historical .37
 official archive URL and hash are now recovered and independently verified in
