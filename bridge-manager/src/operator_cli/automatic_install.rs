@@ -3319,10 +3319,13 @@ with zipfile.ZipFile(kit,'w') as z:
             assert_eq!(intent.owner,operation);assert_eq!(intent.installer_policy,policy);
             assert_eq!(intent.journey.daw,ui::DawChoice::Reaper);
             let spec:Value=read_json(&onboarding::directory(&f.m,&record.id).unwrap().join(format!("{operation}-spec.json"))).unwrap();
-            assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],
-                serde_json::to_value(policy.unwrap_or(ui::Powershell::IntentionallyUnavailable)).unwrap());
-            assert_eq!(spec["installer_capability"]["operation"],operation);
-            assert_eq!(spec["installer_capability"]["environment"],serde_json::to_value(&record.environment).unwrap());
+            assert_eq!(spec["operation"],operation);
+            assert_eq!(spec["environment"],serde_json::to_value(&record.environment).unwrap());
+            if let Some(policy)=policy {
+                assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],serde_json::to_value(policy).unwrap());
+                assert_eq!(spec["installer_capability"]["operation"],operation);
+                assert_eq!(spec["installer_capability"]["environment"],serde_json::to_value(&record.environment).unwrap());
+            } else {assert!(spec.get("installer_capability").is_none(),"untested common runtime must not inherit GE advice");}
             if policy.is_none() {assert!(serde_json::to_value(&intent).unwrap().get("installer_policy").is_none());}
         }
     }
@@ -3423,8 +3426,9 @@ with zipfile.ZipFile(kit,'w') as z:
             assert_eq!(intent.journey.daw,ui::DawChoice::Reaper);
             assert_eq!(fs::read(failed_home.join("record.json")).unwrap(),failed_bytes);
             let spec:Value=read_json(&onboarding::directory(&f.m,&current.id).unwrap().join(format!("{launched}-spec.json"))).unwrap();
-            assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],
-                serde_json::to_value(policy.unwrap_or(ui::Powershell::IntentionallyUnavailable)).unwrap());
+            if let Some(policy)=policy {
+                assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],serde_json::to_value(policy).unwrap());
+            } else {assert!(spec.get("installer_capability").is_none(),"untested common runtime must not inherit GE advice");}
             assert_eq!(spec["environment"],serde_json::to_value(&current.environment).unwrap());
         }
     }
@@ -3464,8 +3468,9 @@ with zipfile.ZipFile(kit,'w') as z:
         assert_eq!(intent.journey.daw,ui::DawChoice::Reaper);
         let spec:Value=read_json(&onboarding::directory(&f.m,&current.id).unwrap().join(format!("{launched}-spec.json"))).unwrap();
         assert_eq!(spec["environment"],serde_json::to_value(&current.environment).unwrap());
-        assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],
-            serde_json::to_value(policy.unwrap_or(ui::Powershell::IntentionallyUnavailable)).unwrap());
+        if let Some(policy)=policy {
+            assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],serde_json::to_value(policy).unwrap());
+        } else {assert!(spec.get("installer_capability").is_none(),"untested common runtime must not inherit GE advice");}
         current
     }
     #[test]
