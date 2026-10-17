@@ -8,8 +8,9 @@ Best explanation: successful maintainer corrections diverged from tester deliver
 through separate runtime compositions and machine-local construction. Recover
 capabilities into one release, not more plug-in/campaign production pathways.
 
-Known basis: PR439 recovered DComp/BG1 inputs. PR440 integrates UIA/MSI/touch and
-certificate regression sources; the full Wine/dependency build is in progress.
+Known basis: common source compiles both Wine architectures. Account-free PE64
+DComp/MSI and helper futex probes pass. Complete graphics/media assembly and final
+release-helper pairing remain in progress.
 Operator selected complete Wine/audio/graphics/services without Steam game/overlay
 or VR relay integrations; direct launch preserves prefix init and supervisor custody.
 Exact WebView2 is hash-verified and setup-owned; delivery/servicing remain outstanding.

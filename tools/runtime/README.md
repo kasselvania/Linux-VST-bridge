@@ -148,3 +148,8 @@ configuration owner binds an exact version for each resolved launch. The common
 Wine engine remains independent. Acquisition versus redistribution, user
 terms and servicing still need a valid delivery basis before implementation.
 The historical extracted Deck browser is never a build input.
+
+`build-regression-fixtures.py --output NEW_DIRECTORY` builds the existing UIA
+argument/valid-provider case and the signed/tampered crypt32 case as standalone
+PE32 and PE64 tests. It verifies pinned source headers and the complete prepared
+certificate test; `--prepared-wine PATH` reuses the common build source offline.
