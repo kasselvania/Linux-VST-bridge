@@ -188,7 +188,7 @@ argument/valid-provider case and the signed/tampered crypt32 case as standalone
 PE32 and PE64 tests. It verifies pinned source headers and the complete prepared
 certificate test; `--prepared-wine PATH` reuses the common build source offline.
 
-### Test205 package input recipe (qualification branch only)
+### Test206 package input recipe (qualification branch only)
 
 This unmerged branch uses the ordinary compiled catalog and package builder for
 one disposable first-party CachyOS comparison. Main retains its prior recommendation.
@@ -222,7 +222,8 @@ launch component retains its existing separate provenance checks.
 Publish the resulting kit and signed release metadata with their exact output
 digests alongside the candidate package. Output digests belong to that existing
 release metadata, outside the source commit recorded by the output itself. Install
-only in the fresh unlicensed fixture. Acquire the common runtime through Setup,
+only in the clean Test206 account on the fresh unlicensed fixture; retain failed
+Test205 state unchanged. Acquire the common runtime through Setup,
 install/publish the original Reference modules through the manager, then verify
 changed Level/Colour, actual rendered audio and state after complete native DAW
 exit/restart. Stop at that working checkpoint for operator review.
