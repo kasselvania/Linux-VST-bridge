@@ -2439,7 +2439,7 @@ fn project_early(setup:&mut ui::InstallerSetup,early:Option<&(ui::Request,ui::In
 const OLDER_RUNTIME: &str = "This setup is on an older compatibility runtime. Retry installs again in a new setup on the current compatibility runtime.";
 fn push_policy_choices(m:&Manager,setup:&mut ui::InstallerSetup,busy:Option<&str>,daw:ui::DawChoice,
     offered:Option<ui::Powershell>) {
-    if software_record(m).is_ok_and(|sw|linux_vst_bridge::installer_policy::eligible_adapter_record(&setup.format,&sw).is_ok()) {
+    if software_record(m).is_ok_and(|sw|linux_vst_bridge::installer_policy::can_resolve_adapter_record(&setup.format,&sw)) {
         for powershell in [ui::Powershell::Inherited,ui::Powershell::IntentionallyUnavailable]
             .into_iter().filter(|choice|Some(*choice)!=offered) {
             setup.secondary.push(action(match powershell {
@@ -3236,6 +3236,62 @@ mod tests {
                 .is_none(),
             "Restoration clears the display fact"
         );
+    }
+    #[test]
+    fn packaged_launch_component_keeps_explicit_installer_choices_available() {
+        let (f,installer,_)=onboarding::tests::close_policy_imported_fixture();
+        let mut selected=software_record(&f.m).unwrap();
+        let adapter=selected.installer_launch.take().unwrap();
+        let kit=selected.manager.path.with_file_name("preparation-kit.zip");
+        test_fixture::reusable_kit(&kit,&selected.host,&selected.source_manifest,"packaged installer choices");
+        let script=r#"import sys,json,zipfile,hashlib,pathlib
+kit,adapter=sys.argv[1:]
+with zipfile.ZipFile(kit) as z:files={n:z.read(n) for n in z.namelist()}
+files['runtime/installer-launch.exe']=pathlib.Path(adapter).read_bytes()
+files['runtime/installer-launch-source.json']=json.dumps(dict(schema=1,component='installer_launch',artifact_sha256=hashlib.sha256(files['runtime/installer-launch.exe']).hexdigest())).encode()
+r=json.loads(files['recipe.json']);r['files']={n:hashlib.sha256(b).hexdigest() for n,b in files.items() if n!='recipe.json'};files['recipe.json']=json.dumps(r).encode()
+with zipfile.ZipFile(kit,'w') as z:
+ for n,b in files.items():z.writestr(n,b)
+"#;
+        fs::set_permissions(&kit,fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(Command::new("python3").args(["-I","-c",script]).arg(&kit).arg(&adapter.path)
+            .status().unwrap().success());
+        fs::set_permissions(&kit,fs::Permissions::from_mode(0o400)).unwrap();
+        selected.preparation_kit=Some(Artifact {sha256:digest(&kit).unwrap(),path:kit});
+        atomic_json(&f.m.root.join("software.json"),&selected).unwrap();
+        // The selected package keeps the adapter in its exact kit, rather than
+        // rewriting the selected software record when launch support is staged.
+        let before=fs::read(f.m.root.join("software.json")).unwrap();
+        let kit_before=fs::read(&selected.preparation_kit.as_ref().unwrap().path).unwrap();
+        assert!(linux_vst_bridge::preparation::build::launch_software_record(&f.m).is_err());
+        assert!(!f.m.root.join("software/preparation-kits").exists());
+        let server=super::super::tests::overview_service_reply_with_counts(&f.m,
+            super::super::tests::capacity_json(false,0,0),(1,1));
+        let snapshot=current::capture(&f.m).unwrap().snapshot;
+        server.join().unwrap();
+        for policy in [ui::Powershell::Inherited,ui::Powershell::IntentionallyUnavailable] {
+            let action=ui::Action::software_install_action(installer.id.clone(),ui::DawChoice::Reaper,Some(policy));
+            let offer=available(&snapshot).into_iter().find(|offer|preparation_cli::offered(&action,&offer.action))
+                .expect("The exact packaged launch component must expose the existing typed choice");
+            assert!(offer.disabled_reason.is_none());
+        }
+        assert_eq!(fs::read(f.m.root.join("software.json")).unwrap(),before);
+        assert_eq!(fs::read(&selected.preparation_kit.as_ref().unwrap().path).unwrap(),kit_before);
+        assert!(!f.m.root.join("software/preparation-kits").exists());
+        assert!(onboarding::history_records(&f.m).unwrap().is_empty());
+        let action=ui::Action::software_install_action(installer.id.clone(),ui::DawChoice::Reaper,
+            Some(ui::Powershell::IntentionallyUnavailable));
+        let operation=test_submit_offered(&f.m,&action).unwrap();
+        let error=readiness::with_unit_state_fixture(&[onboarding::unit(&operation).unwrap()],"inactive",||
+            onboarding::with_installer_unit_refusal(||execute(&f.m,&action,&operation,
+                &idle_capacity_test,Duration::from_secs(1),&mut vec![]))).unwrap_err();
+        assert!(error.to_string().contains("fixture_installer_unit_refusal"),"{error}");
+        let records=onboarding::history_records(&f.m).unwrap();assert_eq!(records.len(),1);
+        let spec:Value=read_json(&onboarding::directory(&f.m,&records[0].id).unwrap()
+            .join(format!("{operation}-spec.json"))).unwrap();
+        assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],"intentionally_unavailable");
+        assert_eq!(spec["installer_capability"]["operation"],operation);
+        assert_eq!(spec["installer_capability"]["installer_launch"]["sha256"],adapter.sha256);
     }
     #[test]
     fn fresh_import_policy_offer_admission_creation_and_launch_keep_the_original_choice() {

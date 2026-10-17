@@ -911,7 +911,7 @@ pub(super) fn projection_current(m: &Manager, busy: Option<&str>,
                     disabled_reason: busy.map(Into::into),
                 });
             }
-            if r.installation_operation.is_none() && linux_vst_bridge::installer_policy::eligible_adapter_record(&installer.format, sw).is_ok() {
+            if r.installation_operation.is_none() && linux_vst_bridge::installer_policy::can_resolve_adapter_record(&installer.format, sw) {
                 for (label, powershell) in [
                     ("Run installer with normal PowerShell behavior", linux_vst_bridge::installer_policy::Powershell::Inherited),
                     ("Run installer with PowerShell intentionally unavailable", linux_vst_bridge::installer_policy::Powershell::IntentionallyUnavailable),
