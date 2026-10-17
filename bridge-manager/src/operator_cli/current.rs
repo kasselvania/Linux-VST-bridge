@@ -240,22 +240,35 @@ impl CurrentOverviewContext {
         class_inactive_reason(&self.snapshot.system, &self.owners, self.all_vendor_retired, class)
     }
 
-    fn live_installer_progress_paths(&self, m: &Manager) -> BTreeMap<PathBuf,PathBuf> {
-        let mut paths: BTreeMap<_,_> = self.snapshot.onboarding.iter().filter_map(|row| {
-            let environment = row.environment.as_ref()?;
-            let operation = row.details["installation"]["operation"].as_str()?;
-            if self.installer_live.get(operation) != Some(&true) { return None; }
+    fn live_installer_progress_paths(&self, m: &Manager) -> Result<BTreeMap<PathBuf,Vec<PathBuf>>> {
+        let mut paths = BTreeMap::new();
+        let in_progress = |receipt: &Value| matches!(receipt["state"].as_str(),
+            Some("queued" | "starting" | "running" | "unknown"))
+            && receipt["cleanup_confirmed"] != true;
+        for row in &self.snapshot.onboarding {
+            let Some(environment) = row.environment.as_ref() else {continue};
+            let installation = &row.details["installation"];
+            let Some(operation) = installation["operation"].as_str() else {continue};
+            if self.installer_live.get(operation) != Some(&true)
+                || !in_progress(installation) { continue; }
             let directory = m.root.join("onboarding").join(environment);
             let report = directory.join(format!("{operation}-result.json"));
-            Some((directory,report))
-        }).collect();
+            require(file(&report)?.metadata()?.len() <= 16384,"installer_result_bound")?;
+            let current: Value = read_json(&report)?;
+            // A terminal receipt can precede service exit. Its observations can
+            // already authorize application selection, so require a refresh.
+            require(current["schema"] == 2 && current["operation"] == operation
+                && in_progress(&current),"operator_installer_state_changed_refresh")?;
+            let observation = directory.join(format!("{operation}-transaction-private.json"));
+            paths.insert(directory,vec![report,observation]);
+        }
         for row in &self.snapshot.environment_installers {
             if let Some(op) = row.operation.as_ref().filter(|op|self.installer_live.get(*op) == Some(&true)) {
                 let dir = m.root.join("operator").join(op);
-                paths.insert(dir.clone(),dir.join("installation-result.json"));
+                paths.insert(dir.clone(),vec![dir.join("installation-result.json")]);
             }
         }
-        paths
+        Ok(paths)
     }
     fn recheck_external(&self, m: &Manager) -> Result<()> {
         // These fixed, bounded service observations are independent. Run at
@@ -320,6 +333,7 @@ impl CurrentOverviewContext {
         // Both external observations occur without registry.lock. Manager-owned
         // bytes and owner records are compared between them under the guard.
         external()?;
+        let installer_progress = self.live_installer_progress_paths(m)?;
         #[cfg(feature = "pb0-c0-audit")]
         let external_before_ms = started.elapsed().as_millis();
         #[cfg(feature = "pb0-c0-audit")]
@@ -332,18 +346,18 @@ impl CurrentOverviewContext {
                 && self.owners == capacity::owners(m)?
                 && self.snapshot.system.pending_transactions == pending_transactions(m)?,
                 "operator_state_changed_refresh")?;
-            let mut progress = self.live_installer_progress_paths(m);
+            let mut progress = installer_progress.clone();
             if let Some(vendor) = &self.vendor_progress {
                 require_live_vendor_report(vendor)?;
-                progress.insert(vendor.report.parent().ok_or("operator_vendor_report_directory")?.to_owned(),vendor.report.clone());
+                progress.insert(vendor.report.parent().ok_or("operator_vendor_report_directory")?.to_owned(),vec![vendor.report.clone()]);
             }
             let runtime_records: BTreeSet<_>=linux_vst_bridge::runtime_delivery::record_paths(m).into_iter().collect();
             for (path, before) in &self.watched {
-                // An active supervisor atomically replaces its progress report.
-                // Those bytes cannot authorize launch or retirement: both
-                // external rechecks require the same operation to remain live.
+                // An active supervisor atomically replaces its observations.
+                // While live, those bytes cannot authorize launch or retirement:
+                // both external rechecks require the same operation to remain live.
                 // Keep stable application/job/environment/record inputs watched.
-                if progress.values().any(|report| report == path) { continue; }
+                if progress.values().any(|reports| reports.contains(path)) { continue; }
                 let after = stamp(path).or_else(|error|
                     if runtime_records.contains(path) {Ok(None)} else {Err(error)})?;
                 let unchanged = if progress.contains_key(path) {
@@ -360,6 +374,8 @@ impl CurrentOverviewContext {
         #[cfg(feature = "pb0-c0-audit")]
         let external_after_at = Instant::now();
         external()?;
+        require(self.live_installer_progress_paths(m)? == installer_progress,
+            "operator_installer_state_changed_refresh")?;
         #[cfg(feature = "pb0-c0-audit")]
         eprintln!("PB0_PHASE {}",json!({"token_after_ms":started.elapsed().as_millis(),
             "external_before_ms":external_before_ms,"registry_ms":registry_ms,
@@ -1553,6 +1569,10 @@ pub(super) mod tests {
             installation_operation:Some(operation.clone()),published:false,automatic:None,previous_attempt:None}).unwrap();
         let result=onboarding_dir.join(format!("{operation}-result.json"));
         fs::write(&result,b"old result").unwrap();
+        let private_report=onboarding_dir.join(format!("{operation}-transaction-private.json"));
+        let mut observation=json!({"schema":1,"operation":operation,
+            "durable_installation":{"application_registrations":[]},"diagnostics":{"progress":0}});
+        atomic_json(&private_report,&observation).unwrap();
         let inventory=m.root.join("inventory").join(format!("{environment_id}.json"));
         private_dir(inventory.parent().unwrap()).unwrap();
         fs::write(&inventory,b"old scan").unwrap();
@@ -1577,7 +1597,7 @@ pub(super) mod tests {
         assert_ne!(stamp(&installer_path).unwrap(),before_mode);
         assert!(context.recheck(m).is_err());
         for path in [&vendor,&installer_record,&installer_path,&presentation,&onboarding_record,
-            &result,&inventory,&pending,&performance,&workspace] {
+            &result,&private_report,&inventory,&pending,&performance,&workspace] {
             assert!(before.contains_key(path),"unwatched current input: {}",path.display());
             let context=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
             context.recheck(m).unwrap();
@@ -1606,27 +1626,65 @@ pub(super) mod tests {
         assert!(context.recheck(m).is_err());
         fs::remove_file(application).unwrap();
         fs::remove_dir(unregistered).unwrap();
-        // A live installer needs recovery controls while reports and private
-        // diagnostics change. Its stable record and directory custody still
-        // bind the exact operation; a retired report keeps the full byte watch.
+        // A live installer needs recovery controls while its observations change.
+        // The same file retains installation evidence after retirement, so that
+        // file remains covered by the retired-input checks above.
         let mut live=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
         live.installer_live.insert(operation.clone(),true);
         live.snapshot.onboarding.push(ui::Onboarding {failure:None,
             installer:installer.id.clone(),name:"Fixture".into(),byte_size:9,
             format:"pe_executable".into(),environment:Some(environment_id.clone()),
             state:"running".into(),required_human_action:"Use exact Stop".into(),
-            details:json!({"installation":{"operation":operation}}),actions:vec![]});
+            details:json!({"installation":{"operation":operation,"state":"running"}}),actions:vec![]});
         atomic_json(&result,&json!({"schema":2,"operation":operation,
             "state":"running","owned_live":2,"cleanup_confirmed":false})).unwrap();
         live.recheck_with(m,||Ok(())).unwrap();
         atomic_json(&result,&json!({"schema":2,"operation":operation,
             "state":"running","owned_live":7,"cleanup_confirmed":false})).unwrap();
-        let private_report=onboarding_dir.join("diagnostic.private.json");
-        atomic_json(&private_report,&json!({"progress":1})).unwrap();
+        observation["diagnostics"]["progress"]=1.into();
+        atomic_json(&private_report,&observation).unwrap();
         live.recheck_with(m,||Ok(())).unwrap();
+        for state in ["queued","starting","running","unknown"] {
+            live.snapshot.onboarding[0].details["installation"]["state"]=state.into();
+            atomic_json(&result,&json!({"schema":2,"operation":operation,
+                "state":state,"owned_live":7,"cleanup_confirmed":false})).unwrap();
+            observation["diagnostics"]["state"]=state.into();
+            atomic_json(&private_report,&observation).unwrap();
+            live.recheck_with(m,||Ok(())).unwrap();
+        }
+        live.snapshot.onboarding[0].details["installation"]["state"]="running".into();
+        let running=fs::read(&result).unwrap();
+        let terminal=json!({"schema":2,"operation":operation,"state":"completed",
+            "raw_exit":0,"owned_live":0,"cleanup_confirmed":true});
+        // Retirement may be published before the same live unit exits. Once
+        // terminal, durable installation observations are authoritative.
+        atomic_json(&result,&terminal).unwrap();
+        live.snapshot.onboarding[0].details["installation"]["state"]="completed".into();
+        live.watched=watch_paths(m,&sw,&db).unwrap();
+        observation["durable_installation"]["application_registrations"]=json!([{"changed":true}]);
+        atomic_json(&private_report,&observation).unwrap();
+        assert!(live.recheck_with(m,||Ok(())).is_err());
+        // A running snapshot cannot exempt a receipt that retired during
+        // capture, even if its new file stamp was captured afterward.
+        live.snapshot.onboarding[0].details["installation"]["state"]="running".into();
+        live.watched=watch_paths(m,&sw,&db).unwrap();
+        assert!(live.recheck_with(m,||Ok(())).is_err());
+        fs::write(&result,&running).unwrap();
+        live.watched=watch_paths(m,&sw,&db).unwrap();
+        let mut checks=0;
+        assert!(live.recheck_with(m,|| {
+            checks+=1;
+            if checks==2 {atomic_json(&result,&terminal)?;}
+            Ok(())
+        }).is_err());
+        assert_eq!(checks,2,"receipt transition must also be checked after the watch");
+        fs::write(&result,&running).unwrap();
+        live.watched=watch_paths(m,&sw,&db).unwrap();
         // The real external recheck cannot accept our simulated live unit.
         assert!(live.recheck(m).is_err());
         live.installer_live.insert(operation.clone(),false);
+        observation["diagnostics"]["progress"]=2.into();
+        atomic_json(&private_report,&observation).unwrap();
         assert!(live.recheck_with(m,||Ok(())).is_err());
         live.installer_live.insert(operation.clone(),true);
         let original_record=fs::read(&onboarding_record).unwrap();
