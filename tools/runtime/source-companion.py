@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Collect matching source beside a completed private common runtime.
 
-Run after redist: source-companion.py --build-root OUTPUT --destination NEW_DIR.
+Run after redist: source-companion.py --build-root OUTPUT --destination NEW_DIR
+    --construction-source ORIGINAL_PROJECT_CHECKOUT_OR_SNAPSHOT
+The construction input defaults to this checkout and must match the retained
+declaration recipe hash. A later collector checkout does not replace that input.
 This acquires the pinned source archives, without extracting or executing them.
 Unpack the generated prepared-source tarballs into one directory; they retain
 the proton/ and tools/ layout, applied changes, build recipes and configurations.
@@ -285,12 +288,35 @@ def cargo_sources(output, destination):
             shutil.copyfile(source / name, target)
 
 
+def construction_recipe(repository):
+    """Use the builder's canonical hash over the explicit original file roster."""
+    repository = repository.resolve(strict=True)
+    builder = runpy.run_path(str(ROOT / "build-identity.py"))
+    recipe = json.loads((repository / "tools/runtime/source.json").read_bytes())
+    names = {"tools/runtime/" + name for name in builder["RECIPE_FILES"]}
+    names.update("tools/" + item["path"] for item in (*recipe["patches"], *recipe["fixtures"]))
+    names.update("tools/runtime/patches/" + name for name in
+                 ("proton-redist-inputs.patch", "proton-audio-composition.patch"))
+    for name in names:
+        path = repository / name
+        if Path(name).is_absolute() or ".." in Path(name).parts or not path.resolve().is_relative_to(repository):
+            raise ValueError("construction recipe path escapes its snapshot: " + name)
+    identity = builder["recipe_identity"]
+    identity.__globals__.update(ROOT=repository, HERE=repository / "tools/runtime")
+    return identity(), sorted(names), recipe
+
+
 def build_context(output, repository):
     """Read existing construction facts; never regenerate them at collection."""
     path = output / "build/redist/wine-build.json"
     if path.stat().st_size > 65536 or path.is_symlink():
         raise ValueError("construction declaration missing or changed")
     declaration = json.loads(path.read_bytes())
+    recipe_sha256, _, recipe = construction_recipe(repository)
+    if declaration.get("recipe_sha256") != recipe_sha256:
+        raise ValueError("original construction recipe hash differs from retained declaration")
+    if recipe != RECIPE:
+        raise ValueError("collector and construction source basis differ")
     expected = {name: sha(repository / name) for name in HELPER_SOURCES}
     configurations = {arch: sha(output / ("build/obj-wine-" + arch + "/Makefile"))
                       for arch in ("i386", "x86_64")}
@@ -303,7 +329,23 @@ def build_context(output, repository):
     return path
 
 
-def collect(output, destination):
+def archive_construction(target, repository, declaration):
+    recipe_hash, names, _ = construction_recipe(repository)
+    if recipe_hash != declaration["recipe_sha256"]:
+        raise ValueError("original construction recipe changed before collection")
+    original_names = sorted(set(names) | set(HELPER_SOURCES) | set(HELPER_RECIPES))
+    archive_files(target, [(repository / name, name) for name in original_names])
+    with tarfile.open(target) as archive:
+        archived = {member.name: hashlib.sha256(archive.extractfile(member).read()).hexdigest()
+                    for member in archive if member.isfile()}
+    canonical = runpy.run_path(str(ROOT / "build-identity.py"))["canonical"]
+    recipe_hash = hashlib.sha256(canonical({name: archived[name] for name in names})).hexdigest()
+    if (recipe_hash != declaration["recipe_sha256"]
+            or {name: archived[name] for name in HELPER_SOURCES} != declaration["helper_sources"]):
+        raise ValueError("archived original construction bytes differ from retained declaration")
+
+
+def collect(output, destination, construction_source=None):
     storage = Path("/mnt/Storage2")
     if output.is_relative_to(storage) and not storage.is_mount():
         raise ValueError("Storage2 must be mounted before source acquisition/collection")
@@ -312,11 +354,11 @@ def collect(output, destination):
     # A failed collection must not leave a complete-looking companion directory.
     with tempfile.TemporaryDirectory(dir=output, prefix=destination.name + ".") as temporary:
         stage = Path(temporary)
-        collect_into(output, stage)
+        collect_into(output, stage, construction_source or ROOT.parent.parent)
         stage.rename(destination)
 
 
-def collect_into(output, destination):
+def collect_into(output, destination, construction_source):
     redist = runpy.run_path(str(ROOT / "redist-inputs.py"))
     proton = output / "proton"
     redist["verify_commits"](proton)
@@ -329,7 +371,7 @@ def collect_into(output, destination):
     if actual != wine_changes:
         raise ValueError("prepared Wine source changes differ from the recorded patches")
     repository = ROOT.parent.parent
-    construction = build_context(output, repository)
+    construction = build_context(output, construction_source)
     for arch in ("i386", "x86_64"):
         if not (output / ("build/.wine-" + arch + "-build")).is_file():
             raise ValueError("Wine build incomplete: " + arch)
@@ -363,15 +405,15 @@ def collect_into(output, destination):
         archive_files(prepared / ((relative or "proton-build").replace("/", "_") + ".tar.gz"),
                       [(source / name, str(Path("proton") / relative / name)) for name in sorted(set(names))],
                       allow_links=True)
-    recipes = [(repository / name, name) for name in tracked(repository, ("tools/runtime",))]
-    recipes += [(repository / name, name) for name in (*HELPER_SOURCES, *HELPER_RECIPES)]
-    for item in (*RECIPE["patches"], *RECIPE["fixtures"]):
-        path = ROOT.parent / item["path"]
-        if sha(path) != item["sha256"]:
-            raise ValueError("source recipe input differs: " + item["path"])
-        if not path.is_relative_to(ROOT):
-            recipes.append((path, "tools/" + item["path"]))
-    archive_files(prepared / "bridge-build-recipes.tar.gz", recipes)
+    original_declaration = json.loads(construction.read_bytes())
+    archive_construction(prepared / "original-construction-recipes.tar.gz", construction_source, original_declaration)
+    # The later collector is useful packaging source, with a distinct member
+    # prefix so unpacking it cannot overwrite the original construction files.
+    _, collector_names, _ = construction_recipe(repository)
+    collector_names = sorted(set(collector_names) | set(tracked(repository, ("tools/runtime",)))
+                             | set(HELPER_SOURCES) | set(HELPER_RECIPES))
+    collector_files = [(repository / name, "collector/" + name) for name in collector_names]
+    archive_files(prepared / "collector-source.tar.gz", collector_files)
     configs = [(output / "build/Makefile", "build/Makefile"),
                (output / "build-inner.sh", "build-inner.sh"),
                (construction, "build/redist/wine-build.json")]
@@ -406,20 +448,24 @@ def collect_into(output, destination):
         "Engine source basis: Proton " + RECIPE["proton"]["commit"] + ", Wine " + RECIPE["wine"]["commit"] + ".\n"
         "Engine SDK: " + RECIPE["sdk"] + ".\n"
         "Original construction declaration SHA256: " + sha(construction) + ".\n"
+        "Original construction recipe SHA256: " + original_declaration["recipe_sha256"] + ".\n"
         "Collector/packaging Git base: " + collector_revision + ".\n"
         "The original declaration is retained verbatim; the later collector revision\n"
         "identifies packaging source and does not replace the engine construction facts.\n\n"
         "prepared-source/*.tar.gz retain the prepared proton/, tools/ and build/ paths.\n"
+        "original-construction-recipes.tar.gz contains the recipe bytes authenticated\n"
+        "by the retained declaration. collector-source.tar.gz is separately prefixed\n"
+        "under collector/ and contains the later source/notice packaging code.\n"
         "Unpack them together into one working directory. They contain the applied Wine\n"
         "and Proton changes, recipes/patches, both Wine configurations and local Piper\n"
         "CMake configuration. upstream-source/ retains the original source archives;\n"
-        "the build-inputs.py recipe records their extraction locations and adaptations.\n"
+        "the original build-inputs.py records their extraction locations and adaptations.\n"
         "cargo/ contains only compiler-selected registry packages and Git workspaces.\n"
         "Keep the original Cargo workspace manifests and lockfile unchanged.\n\n"
         "The original direct-audio helper source, CMake/MSVC recipe, paired native\n"
         "builder and Windows build workflow are included under their tools/ paths.\n"
         "No installed host or vendor payload is part of this source collection.\n\n"
-        "tools/runtime/source.json pins the original Git bases and SDK. The source\n"
+        "The original tools/runtime/source.json pins the Git bases and SDK. The source\n"
         "exports omit Git metadata; identity-checked build.sh acquisition starts from\n"
         "those original Git revisions. tools/runtime/build-inner.sh and proton/Makefile.in\n"
         "preserve the invocation and component build graph.\n"
@@ -488,6 +534,13 @@ def check():
             path = repository / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("original helper source " + name)
+        _, recipe_names, _ = construction_recipe(ROOT.parent.parent)
+        for name in sorted(set(recipe_names) | set(HELPER_RECIPES)):
+            path = repository / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT.parent.parent / name, path)
+        original_recipe = repository / "tools/runtime/redist-inputs.json"
+        original_recipe.write_bytes(original_recipe.read_bytes() + b"\n")
         configs = {}
         for arch in ("i386", "x86_64"):
             path = output / ("build/obj-wine-" + arch + "/Makefile")
@@ -497,9 +550,26 @@ def check():
         construction = output / "build/redist/wine-build.json"
         construction.parent.mkdir(parents=True)
         construction.write_text(json.dumps(dict(schema=1, kind="wine_build", wine_revision=RECIPE["wine"]["commit"], sdk_image=RECIPE["sdk"],
+            recipe_sha256=construction_recipe(repository)[0],
             helper_sources={name: sha(repository / name) for name in HELPER_SOURCES}, configuration_sha256=configs)))
         original = construction.read_bytes()
         assert build_context(output, repository) == construction
+        assert construction.read_bytes() == original
+        later = output / "later-collector"
+        shutil.copytree(repository, later)
+        later_recipe = later / "tools/runtime/redist-inputs.json"
+        later_recipe.write_bytes(later_recipe.read_bytes() + b"\n")
+        for mismatched in (later, ROOT.parent.parent):
+            try:
+                build_context(output, mismatched)
+            except ValueError as failure:
+                assert "construction recipe hash" in str(failure)
+            else:
+                raise AssertionError("later/default collector recipes replaced the original construction")
+        archive_construction(output / "original-context.tar.gz", repository, json.loads(original))
+        with tarfile.open(output / "original-context.tar.gz") as archive:
+            assert archive.extractfile("tools/runtime/redist-inputs.json").read() == original_recipe.read_bytes()
+            assert archive.extractfile("tools/runtime/redist-inputs.json").read() != later_recipe.read_bytes()
         assert construction.read_bytes() == original
         (repository / HELPER_SOURCES[0]).write_text("different helper")
         try:
@@ -531,11 +601,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build-root", type=Path)
     parser.add_argument("--destination", type=Path)
+    parser.add_argument("--construction-source", type=Path,
+                        help="Original project checkout/snapshot matching wine-build.json recipe_sha256; defaults to this checkout")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
     if args.self_test:
         check()
     elif args.build_root and args.destination:
-        collect(args.build_root.resolve(strict=True), args.destination.resolve())
+        construction_source = args.construction_source.resolve(strict=True) if args.construction_source else None
+        collect(args.build_root.resolve(strict=True), args.destination.resolve(), construction_source)
     else:
         parser.error("provide --build-root and --destination, or --self-test")
