@@ -1,0 +1,37 @@
+{
+  "fmt.zip": {
+    "url": "https://codeload.github.com/fmtlib/fmt/zip/a0b8a92e3d1532361c2f7feb63babc5c18d00ef2",
+    "sha256": "ccf872fd4aa9ab3d030d62cffcb258ca27f021b2023a0244b2cf476f984be955",
+    "size": 936783
+  },
+  "spdlog.zip": {
+    "url": "https://codeload.github.com/gabime/spdlog/zip/7e635fca68d014934b4af8a1cf874f63989352b7",
+    "sha256": "5283a8c2cc8b0447a878654cf1648b9d11f5421264fc52ec78d06817d0c86f68",
+    "size": 343860
+  },
+  "phonemize.zip": {
+    "url": "https://codeload.github.com/shaunren/piper-phonemize/zip/5ecbb9b59abcffe03a9775ae82491c9ac5037f4d",
+    "sha256": "cd89aff6c3728776ffbf382bd6574876cc67d13402140fc5e3ec8c2bc813335f",
+    "size": 9802961
+  },
+  "espeak.zip": {
+    "url": "https://codeload.github.com/rhasspy/espeak-ng/zip/0f65aa301e0d6bae5e172cc74197d32a6182200f",
+    "sha256": "150fc955926a084a77ebe25c9e8287bde2e2a17bbf9b23a25c147b556837949f",
+    "size": 18003706
+  },
+  "onnxruntime.tgz": {
+    "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.14.1/onnxruntime-linux-x64-1.14.1.tgz",
+    "sha256": "010585f534d822bf02d54c7cfc53b57aa3eb0cf34f8fb7503ee519ed18e25d29",
+    "size": 6233648
+  },
+  "vk.xml": {
+    "url": "https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/v1.4.335/xml/vk.xml",
+    "sha256": "7cf3d7ec74371f4395d221c05aa23d994a5e03d0ccfb6269c60399d333551bcd",
+    "size": 3077825
+  },
+  "video.xml": {
+    "url": "https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/v1.4.335/xml/video.xml",
+    "sha256": "20ed005acda47ead8a5d0d091735d6a57c3641b1d8171b36493ba39527a56c09",
+    "size": 196809
+  }
+}

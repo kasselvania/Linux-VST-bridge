@@ -29,6 +29,7 @@ git -C "$source_dir/wine" remote add lvb-comparison "$(read_recipe wine reposito
 git -C "$source_dir/wine" fetch --no-tags --depth=1 lvb-comparison "$wine_commit"
 git -C "$source_dir/wine" checkout --detach FETCH_HEAD
 python3 "$recipe_dir/prepare.py" --prepare-source "$source_dir/wine"
+python3 "$recipe_dir/build-inputs.py" --proton-source "$source_dir"
 
 # Acquire the image directly into the output tree, without Docker's global
 # image cache. The acquisition helper is an exact upstream release artifact.
@@ -48,7 +49,7 @@ cp -- "$recipe_dir/build-inner.sh" "$output/build-inner.sh"
 # This is the entire Wine engine
 # with its source-built dependencies, not make redist: browser/Mono packaging
 # and production distribution remain separate decisions and later work.
-bwrap --unshare-user --uid 0 --gid 0 --unshare-pid --die-with-parent \
+bwrap --unshare-user --uid 0 --gid 0 --unshare-pid --unshare-net --die-with-parent \
     --ro-bind "$output/sdk-rootfs" / --ro-bind "$source_dir" /work/proton \
     --bind "$build_dir" /work/build --bind "$output/cargo" /work/cargo \
     --bind "$output/cache" /work/cache \
@@ -58,4 +59,3 @@ bwrap --unshare-user --uid 0 --gid 0 --unshare-pid --die-with-parent \
     --setenv CARGO_HOME /work/cargo --setenv XDG_CACHE_HOME /work/cache \
     --setenv CCACHE_DISABLE 1 --chdir /work/build \
     /bin/bash /work/build-inner.sh "$epoch"
-

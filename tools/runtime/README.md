@@ -32,6 +32,15 @@ recipe does not install system packages. Build logs and outputs stay outside Git
 does not execute a vendor program, create a prefix, install into Steam or change
 an existing managed setup. The script refuses an existing output directory.
 
+Recursive gitlinks alone do not pin every input: the pinned Piper CMake recipe
+downloads a moving phonemizer branch and other unhashed archives. `build-inputs`
+pins its phonemizer, fmt, spdlog and espeak source commits/archives, Microsoft's
+ONNXRuntime 1.14.1 Linux auxiliary and Wine's expected Vulkan registry 1.4.335.
+Nested CMake consumes those verified local inputs. Compilation has no network;
+an additional hidden download fails visibly. This closes the inputs of the Wine
+target, not every optional upstream `redist` target. ONNXRuntime is an upstream
+prebuilt auxiliary, not a Wine DLL or a local source-build claim.
+
 ## Integrated source behavior
 
 The original Steamuser, D3D11 interface, UIA guard and MSI reader patches are
