@@ -302,6 +302,12 @@ class PackageAssembly(unittest.TestCase):
                        {"runner_wine_revision":"unselected"}):
             with self.subTest(binding=change),self.assertRaisesRegex(ValueError,"direct helper binding"):
                 verify_helpers({**helpers,"runtime/direct-audio-helper.json":json.dumps({**binding,**change}).encode()})
+        common={**binding,"schema":2,"runner_wine_revision":"c"*40,"runner_build_sha256":"d"*64}
+        verify_helpers({**helpers,"runtime/direct-audio-helper.json":json.dumps(common).encode()})
+        for change in ({"runner_build_sha256":"latest"},{"runner_build_sha256":None},
+                       {"runner_wine_revision":"unselected"},{"runner_wine_revision":True}):
+            with self.subTest(common=change),self.assertRaisesRegex(ValueError,"direct helper binding"):
+                verify_helpers({**helpers,"runtime/direct-audio-helper.json":json.dumps({**common,**change}).encode()})
 
     def test_operator_pair_uses_exact_source_and_retained_predecessor(self):
         current = assemble.declared_operator_schema()

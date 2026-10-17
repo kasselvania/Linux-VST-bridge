@@ -128,6 +128,18 @@ source must accompany distribution, alongside Valve's notices. A completed
 or qualify this combination. The broader source/distribution package is separate
 from this private build.
 
+The completed composition emits `wine-build.json`. Its release-builder facts bind
+the prepared recipe/patch roster, pinned SDK, generated compiler configuration for
+both native architectures, explicit invocation and separate original helper
+source/ABI identities. The recorded `winebuild` is that build's own executable.
+`tools/mf3/prebuilt_kit.py --runtime-build ... --winebuild ...` checks these exact
+helper sources and marker bytes before executing any build tool, then binds the
+declaration digest in its schema2 helper manifest. Shared command-session schema2
+also binds that digest; runtime delivery seals both declarations. Launch verifies
+the selected pair and refuses missing/mismatched facts rather than selecting a
+substitute. Retained schema1 predecessors keep their existing interpretation.
+The declaration has no qualification or readiness meaning.
+
 WebView2 is intentionally absent from this engine build. The historical .37
 official archive URL and hash are now recovered and independently verified in
 `../runtime-dcomp/recipe.json`. The operator selected a managed setup dependency:

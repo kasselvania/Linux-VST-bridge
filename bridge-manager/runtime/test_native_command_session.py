@@ -6,6 +6,54 @@ import session as s
 import ownership as o
 
 class DirectAudioEnvironmentTests(unittest.TestCase):
+ def test_common_pair_requires_selected_build_and_rejects_legacy_or_missing_helpers(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp).resolve();host=root/'host.exe';host.write_bytes(b'host')
+   declaration=root/'wine-build.json'
+   build={'schema':1,'kind':'wine_build','helper_abi':1,'wine_revision':'c'*40,
+    'configuration_sha256':{'i386':'1'*64,'x86_64':'2'*64}}
+   declaration.write_text(json.dumps(build));declaration.chmod(0o400)
+   selected={'path':str(declaration),'sha256':hashlib.sha256(declaration.read_bytes()).hexdigest()}
+   reg={'host':{'path':str(host),'sha256':hashlib.sha256(b'host').hexdigest()},
+    'environment':{'runner':{'proton':str(root/'proton'),'files':[selected]}}}
+   marker=root/'native-command-session.json'
+   def seal_component():
+    if marker.exists():marker.chmod(0o600)
+    marker.write_text(json.dumps({'schema':2,'kind':'native_proton_command_session',
+     'client_sha256':'4'*64,'service_sha256':'5'*64,'wine_build_sha256':selected['sha256']}));marker.chmod(0o400)
+    reg['environment']['runner']['files']=[selected,{'path':str(marker),'sha256':hashlib.sha256(marker.read_bytes()).hexdigest()}]
+   seal_component()
+   with self.assertRaisesRegex(RuntimeError,'helper missing'):s.direct_audio_environment(reg,{})
+   names=['lvb-direct-wait.dll','x86_64-windows/lvb-direct-wait.dll','x86_64-unix/lvb-direct-wait.so']
+   records=[];digests={}
+   for name in names:
+    path=root/name;path.parent.mkdir(exist_ok=True);path.write_bytes(name.encode());path.chmod(0o400)
+    digests[name]=hashlib.sha256(path.read_bytes()).hexdigest();records.append({'path':str(path),'sha256':digests[name]})
+   helper={'schema':2,'abi':1,'host_sha256':reg['host']['sha256'],
+    'runner_wine_revision':build['wine_revision'],'runner_build_sha256':selected['sha256'],'files':digests}
+   manifest=root/'direct-audio-helper.json'
+   def seal_helper():
+    if manifest.exists():manifest.chmod(0o600)
+    manifest.write_text(json.dumps(helper));manifest.chmod(0o400)
+    artifacts=[*records,{'path':str(manifest),'sha256':hashlib.sha256(manifest.read_bytes()).hexdigest()}]
+    (root/'runtime.json').write_text(json.dumps({'host':reg['host'],'direct_audio_helpers':artifacts}))
+   seal_helper()
+   self.assertEqual(s.direct_audio_environment(reg,{})['WINEDLLPATH'],str(root))
+   # The Wine commit is unchanged, but a different effective build is not this pair.
+   declaration.chmod(0o600);build['configuration_sha256']['x86_64']='3'*64
+   declaration.write_text(json.dumps(build));declaration.chmod(0o400)
+   selected['sha256']=hashlib.sha256(declaration.read_bytes()).hexdigest()
+   seal_component()
+   with self.assertRaisesRegex(RuntimeError,'manifest binding differs'):s.direct_audio_environment(reg,{})
+   helper.update(schema=1,runner_wine_revision='46b29104e3741fe23bf5e2547196a253aab88c89')
+   helper.pop('runner_build_sha256');seal_helper()
+   with self.assertRaisesRegex(RuntimeError,'manifest binding differs'):s.direct_audio_environment(reg,{})
+   helper.update(schema=2,runner_wine_revision=build['wine_revision'],runner_build_sha256=selected['sha256']);seal_helper()
+   reg['environment']['runner']['files'].remove(selected)
+   with self.assertRaisesRegex(RuntimeError,'declaration binding missing'):s.direct_audio_environment(reg,{})
+   seal_component();declaration.unlink()
+   with self.assertRaises(FileNotFoundError):s.direct_audio_environment(reg,{})
+
  def test_legacy_runtime_keeps_environment_and_paired_runtime_is_bound(self):
   with tempfile.TemporaryDirectory() as tmp:
    root=pathlib.Path(tmp).resolve();host=root/'host.exe';host.write_bytes(b'host')
@@ -132,6 +180,20 @@ class SelectionTests(unittest.TestCase):
   with self.assertRaisesRegex(RuntimeError,'changed'):s.NativeProtonSession.selected(self.spec)
  def test_ambient_component_never_selects_execution(self):
   self.declare();self.runner['files']=[];self.assertIsNone(s.NativeProtonSession.selected(self.spec))
+ def test_schema2_positively_requires_build_binding_and_unknown_versions_refuse(self):
+  declaration=self.root/'wine-build.json'
+  declaration.write_text(json.dumps({'schema':1,'kind':'wine_build','helper_abi':1,'wine_revision':'c'*40}))
+  declaration.chmod(0o400)
+  artifact={'path':str(declaration),'sha256':hashlib.sha256(declaration.read_bytes()).hexdigest()}
+  self.component.update(schema=2,wine_build_sha256=artifact['sha256'])
+  self.declare();self.runner['files'].append(artifact)
+  self.assertIsNotNone(s.NativeProtonSession.selected(self.spec))
+  self.runner['files'].remove(artifact)
+  with self.assertRaisesRegex(RuntimeError,'declaration binding missing'):s.NativeProtonSession.selected(self.spec)
+  self.runner['files'].append(artifact);declaration.unlink()
+  with self.assertRaises(FileNotFoundError):s.NativeProtonSession.selected(self.spec)
+  self.component['schema']=3;self.declare()
+  with self.assertRaisesRegex(RuntimeError,'component unsupported'):s.NativeProtonSession.selected(self.spec)
  def test_native_launch_uses_the_preserved_or_owned_home_without_relocation(self):
   self.declare();self.spec['registration']['compatibility']={'disable_windows_accessibility':False}
   real_popen=s.subprocess.Popen

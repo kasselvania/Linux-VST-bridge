@@ -200,14 +200,54 @@ def graphical_environment(graphical,proc_root=pathlib.Path('/proc'),runtime_root
         result['DBUS_SESSION_BUS_ADDRESS']='unix:path='+denied_graphical_endpoint('dbus')
     return result
 
+def command_declaration(runner):
+    if 'proton' not in runner:return None
+    path=pathlib.Path(runner['proton']).parent/'native-command-session.json'
+    rows=[a for a in runner.get('files',[]) if a['path']==str(path)]
+    if not rows:return None
+    if len(rows)!=1:raise RuntimeError('native command component ambiguous')
+    data=private_file_bytes(path,'native command component')
+    if hashlib.sha256(data).hexdigest()!=rows[0]['sha256']:raise RuntimeError('native command component changed')
+    component=json.loads(data)
+    keys={'schema','kind','client_sha256','service_sha256'}
+    if component.get('schema')==2:keys.add('wine_build_sha256')
+    if (set(component)!=keys or component.get('schema') not in (1,2)
+        or component.get('kind')!='native_proton_command_session'):
+        raise RuntimeError('native command component unsupported')
+    return component
+
+def selected_wine_build(runner,component=None):
+    component=command_declaration(runner) if component is None else component
+    declaration=pathlib.Path(runner['proton']).parent/'wine-build.json' if 'proton' in runner else None
+    declared=[a for a in runner.get('files',[]) if declaration is not None and a['path']==str(declaration)]
+    if component is None or component['schema']==1:
+        if declared:raise RuntimeError('Wine build declaration needs shared command schema2')
+        return None,None
+    if len(declared)!=1:raise RuntimeError('direct helper build declaration binding missing or ambiguous')
+    if declaration.resolve()!=declaration or declaration.stat().st_mode&0o222:
+        raise RuntimeError('direct helper build declaration mutability differs')
+    data=private_file_bytes(declaration,'Wine build declaration',65536)
+    build_digest=hashlib.sha256(data).hexdigest()
+    if build_digest!=declared[0]['sha256'] or build_digest!=component['wine_build_sha256']:
+        raise RuntimeError('direct helper build declaration changed')
+    build=json.loads(data)
+    # Rust runtime delivery owns declaration semantics. This is a mechanical
+    # comparison of the selected immutable pair, never source-policy selection.
+    if build.get('schema')!=1 or build.get('kind')!='wine_build' or build.get('helper_abi')!=1:
+        raise RuntimeError('direct helper build ABI differs')
+    return build,build_digest
+
 def direct_audio_environment(reg,env):
-    # Only an immutable preparation runtime declaring the paired helper can
-    # select it. Older retained hosts keep their original launch environment,
-    # as does a registration that carries no host record at all.
+    # Older retained hosts keep their original launch environment, as does an
+    # installer registration carrying no Windows host. New common host launches
+    # are positively identified by the selected schema2 command declaration.
     if 'host' not in reg:return env
+    build,build_digest=selected_wine_build(reg.get('environment',{}).get('runner',{}))
     root=pathlib.Path(reg['host']['path']).parent
     manifest=root/'direct-audio-helper.json'
-    if not manifest.exists():return env
+    if not manifest.exists():
+        if build is not None:raise RuntimeError('common runtime direct helper missing')
+        return env
     runtime=json.loads((root/'runtime.json').read_bytes())
     names=['lvb-direct-wait.dll','x86_64-windows/lvb-direct-wait.dll',
            'x86_64-unix/lvb-direct-wait.so','direct-audio-helper.json']
@@ -220,8 +260,12 @@ def direct_audio_environment(reg,env):
         verify(artifact)
     if manifest.stat().st_size>65536:raise RuntimeError('direct helper manifest extent')
     helper=json.loads(manifest.read_bytes())
-    if (helper.get('schema')!=1 or helper.get('abi')!=1 or helper.get('host_sha256')!=reg['host']['sha256']
-        or helper.get('runner_wine_revision')!='46b29104e3741fe23bf5e2547196a253aab88c89'
+    if build is None:
+        paired=(helper.get('schema')==1 and helper.get('runner_wine_revision')=='46b29104e3741fe23bf5e2547196a253aab88c89')
+    else:
+        paired=(helper.get('schema')==2 and helper.get('runner_build_sha256')==build_digest
+            and helper.get('runner_wine_revision')==build.get('wine_revision'))
+    if (not paired or helper.get('abi')!=1 or helper.get('host_sha256')!=reg['host']['sha256']
         or set(helper.get('files',{}))!=set(names[:3])):raise RuntimeError('direct helper manifest binding differs')
     for name,artifact in zip(names,records):
         if name in helper['files'] and helper['files'][name]!=artifact['sha256']:
@@ -1221,18 +1265,11 @@ class NativeProtonSession:
     def selected(cls,spec):
         if not spec.get('shared_runtime'):return None
         runner=spec['registration']['environment']['runner']
-        path=pathlib.Path(runner['proton']).parent/cls.COMPONENT
-        rows=[a for a in runner['files'] if a['path']==str(path)]
-        if not rows:
+        data=command_declaration(runner)
+        if data is None:
             component=cls.managed_component(runner)
             return None if component is None else cls(spec,component)
-        if len(rows)!=1:raise RuntimeError('native command component ambiguous')
-        component_bytes=private_file_bytes(path,'native command component')
-        if hashlib.sha256(component_bytes).hexdigest()!=rows[0]['sha256']:
-            raise RuntimeError('native command component changed')
-        data=json.loads(component_bytes)
-        if set(data)!={'schema','kind','client_sha256','service_sha256'} or data['schema']!=1 or data['kind']!='native_proton_command_session':
-            raise RuntimeError('native command component unsupported')
+        if data['schema']==2:selected_wine_build(runner,data)
         return cls(spec,data)
     def verify_tools(self):
         for key,path in [('client_sha256',self.client),('service_sha256',self.service)]:

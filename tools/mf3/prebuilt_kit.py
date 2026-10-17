@@ -8,6 +8,17 @@ SOURCES=('CMakeLists.txt','cmake/HP0Vst3SdkLock.cmake','cmake/HP0ModernGcc.cmake
          'native-vst3-proxy','vst-state','native-audio-client','plugin-descriptor')
 def sha(data):return hashlib.sha256(data).hexdigest()
 def git(*args):return subprocess.check_output(['git','-C',str(ROOT),*args],text=True).strip()
+def common_helper_binding(declaration,winebuild):
+    data=declaration.read_bytes()
+    if len(data)>65536:raise ValueError('Wine build declaration extent')
+    build=json.loads(data)
+    names=('linux_wait.h','linux_wait.rs','shim.cpp')
+    expected={'tools/direct-audio-handoff/'+name:sha((ROOT/'tools/direct-audio-handoff'/name).read_bytes()) for name in names}
+    if (build.get('schema')!=1 or build.get('kind')!='wine_build' or build.get('helper_abi')!=1
+        or build.get('helper_sources')!=expected):raise ValueError('Wine build helper source/ABI binding differs')
+    tool=winebuild.read_bytes()
+    if sha(tool)!=build.get('winebuild_sha256'):raise ValueError('Wine build marker tool binding differs')
+    return build,sha(data),tool
 def source_roster():
     return {name:sha((ROOT/name).read_bytes()) for name in git('ls-files',*SOURCES).splitlines()}
 def compile_proxy(source,sdk,backend,target):
@@ -24,8 +35,10 @@ def main():
     parser.add_argument('--windows-package',type=pathlib.Path,required=True)
     parser.add_argument('--output',type=pathlib.Path,required=True)
     parser.add_argument('--winebuild',type=pathlib.Path,required=True,help='Maintainer builtin-marker tool; never required on customer machines')
+    parser.add_argument('--runtime-build',type=pathlib.Path,help='Exact release-builder Wine declaration; required for a common helper pair')
     a=parser.parse_args()
     if git('status','--porcelain'):raise SystemExit('Commit the exact build inputs first')
+    pairing=None if a.runtime_build is None else common_helper_binding(a.runtime_build,a.winebuild)
     subprocess.run(['cargo','+1.95.0','build','--manifest-path',str(ROOT/'native-vst3-proxy/backend/Cargo.toml'),
         '--release','--locked','--target','x86_64-unknown-linux-gnu','--features','registered'],
         env={**os.environ,'RUSTFLAGS':'-C relocation-model=pic'},check=True,timeout=600)
@@ -49,7 +62,10 @@ def main():
         shim=a.windows_package/'lvb-direct-wait.dll'
         assert sha(shim.read_bytes())==manifest['direct_wait_shim_sha256'],'Windows helper differs'
         marked=temp/'lvb-direct-wait.dll';marked.write_bytes(shim.read_bytes())
-        subprocess.run([str(a.winebuild.resolve()),'--builtin',str(marked)],check=True,timeout=30)
+        marker=a.winebuild.resolve()
+        if pairing is not None:
+            marker=temp/'winebuild';marker.write_bytes(pairing[2]);marker.chmod(0o500)
+        subprocess.run([str(marker),'--builtin',str(marked)],check=True,timeout=30)
         assert b'Wine builtin DLL' in marked.read_bytes()[:128],'Builtin marker absent'
         elf=temp/'lvb-direct-wait.so'
         subprocess.run(['rustc','+1.95.0','--edition','2024','--crate-type','cdylib',
@@ -61,6 +77,8 @@ def main():
         helper=dict(schema=1,host_sha256=manifest['host_sha256'],abi=1,
             runner_wine_revision='46b29104e3741fe23bf5e2547196a253aab88c89',
             files={n.removeprefix('runtime/'):sha(b) for n,b in files.items() if 'lvb-direct-wait.' in n})
+        if pairing is not None:
+            helper.update(schema=2,runner_wine_revision=pairing[0]['wine_revision'],runner_build_sha256=pairing[1])
         files['runtime/direct-audio-helper.json']=json.dumps(helper,sort_keys=True).encode()
 
     files['prebuilt/engine.so']=native
