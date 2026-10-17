@@ -53,6 +53,12 @@ PROTON_PATHS = ("Makefile.in", "configure.sh", "make", "proton", "default_pfx.py
                 "compatibilitytool.vdf.template", "toolmanifest_x86_64.vdf",
                 "dist.LICENSE", "LICENSE", ".gitmodules", "fonts", "media",
                 "icu/README.md")
+HELPER_SOURCES = ("tools/direct-audio-handoff/linux_wait.rs",
+                  "tools/direct-audio-handoff/linux_wait.h",
+                  "tools/direct-audio-handoff/shim.cpp")
+HELPER_RECIPES = ("tools/direct-audio-handoff/CMakeLists.txt",
+                  "tools/direct-audio-handoff/probe.cpp", "tools/mf3/prebuilt_kit.py",
+                  "tools/mf3/native_builder.py", ".github/workflows/ap8-windows.yml")
 NOTICE = re.compile(r"^(?:licen[cs]e|copying|notice|third.party.notices|patents|authors)(?:$|[._-])", re.I)
 
 
@@ -236,12 +242,26 @@ def cargo_sources(output, destination):
             checksum = json.loads((source / ".cargo-checksum.json").read_bytes())
             if checksum["package"] != expected:
                 raise ValueError("Cargo registry source differs: " + str(relative))
-            for name, digest in checksum["files"].items():
-                if Path(name).is_absolute() or ".." in Path(name).parts or sha(source / name) != digest:
-                    raise ValueError("Cargo registry source changed: " + str(relative / name))
             cache = output / "cargo/registry/cache" / relative.parts[2] / (relative.name + ".crate")
             if sha(cache) != expected:
                 raise ValueError("Cargo crate archive differs: " + relative.name)
+            # Authenticate the extracted file map against the lock-verified
+            # archive, rather than trusting mutable cache metadata by itself.
+            original = {}
+            with tarfile.open(cache, "r|gz") as archive:
+                for member in archive:
+                    if not member.isfile():
+                        continue
+                    parts = Path(member.name).parts
+                    name = str(Path(*parts[1:]))
+                    if not parts or parts[0] != relative.name or name in original or ".." in parts:
+                        raise ValueError("Cargo source archive layout differs")
+                    original[name] = hashlib.file_digest(archive.extractfile(member), "sha256").hexdigest()
+            if original != checksum["files"] or not roots[relative].issubset(original):
+                raise ValueError("Cargo source file inventory differs from its original archive")
+            for name, digest in checksum["files"].items():
+                if Path(name).is_absolute() or ".." in Path(name).parts or sha(source / name) != digest:
+                    raise ValueError("Cargo registry source changed: " + str(relative / name))
             shutil.copyfile(cache, destination / cache.name)
             names = [name for name in checksum["files"] if is_notice(name)]
         else:
@@ -261,6 +281,23 @@ def cargo_sources(output, destination):
             target = notices / relative.name / name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source / name, target)
+
+
+def build_context(output, repository):
+    """Read existing construction facts; never regenerate them at collection."""
+    path = output / "build/redist/wine-build.json"
+    if path.stat().st_size > 65536 or path.is_symlink():
+        raise ValueError("construction declaration missing or changed")
+    declaration = json.loads(path.read_bytes())
+    expected = {name: sha(repository / name) for name in HELPER_SOURCES}
+    configurations = {arch: sha(output / ("build/obj-wine-" + arch + "/Makefile"))
+                      for arch in ("i386", "x86_64")}
+    if (declaration.get("wine_revision") != RECIPE["wine"]["commit"]
+            or declaration.get("sdk_image") != RECIPE["sdk"]
+            or declaration.get("helper_sources") != expected
+            or declaration.get("configuration_sha256") != configurations):
+        raise ValueError("construction source/configuration context differs")
+    return path
 
 
 def collect(output, destination):
@@ -285,9 +322,13 @@ def collect_into(output, destination):
     actual = set(git(proton / "wine", "diff", "--name-only", "HEAD").decode().splitlines())
     if actual != wine_changes:
         raise ValueError("prepared Wine source changes differ from the recorded patches")
+    repository = ROOT.parent.parent
+    construction = build_context(output, repository)
     for arch in ("i386", "x86_64"):
         if not (output / ("build/.wine-" + arch + "-build")).is_file():
             raise ValueError("Wine build incomplete: " + arch)
+        if not (output / ("build/.gst_plugins_rs-" + arch + "-build")).is_file():
+            raise ValueError("selected Rust build incomplete: " + arch)
     sources = output / "corresponding-source"
     sources.mkdir(exist_ok=True)
     for name, spec in INPUTS["corresponding_source"].items():
@@ -316,8 +357,8 @@ def collect_into(output, destination):
         archive_files(prepared / ((relative or "proton-build").replace("/", "_") + ".tar.gz"),
                       [(source / name, str(Path("proton") / relative / name)) for name in sorted(set(names))],
                       allow_links=True)
-    repository = ROOT.parent.parent
     recipes = [(repository / name, name) for name in tracked(repository, ("tools/runtime",))]
+    recipes += [(repository / name, name) for name in (*HELPER_SOURCES, *HELPER_RECIPES)]
     for item in (*RECIPE["patches"], *RECIPE["fixtures"]):
         path = ROOT.parent / item["path"]
         if sha(path) != item["sha256"]:
@@ -326,7 +367,8 @@ def collect_into(output, destination):
             recipes.append((path, "tools/" + item["path"]))
     archive_files(prepared / "bridge-build-recipes.tar.gz", recipes)
     configs = [(output / "build/Makefile", "build/Makefile"),
-               (output / "build-inner.sh", "build-inner.sh")]
+               (output / "build-inner.sh", "build-inner.sh"),
+               (construction, "build/redist/wine-build.json")]
     for arch in ("i386", "x86_64"):
         for name in ("Makefile", "include/config.h"):
             relative = "build/obj-wine-" + arch + "/" + name
@@ -352,8 +394,15 @@ def collect_into(output, destination):
             raise ValueError("source build input differs: " + name)
         shutil.copyfile(path, archives / name)
     shutil.copytree(output / "third-party-notices", destination / "third-party-notices")
+    collector_revision = git(repository, "rev-parse", "HEAD").decode().strip()
     (destination / "README.txt").write_text(
         "Matching source for the common Wine/audio/graphics/services build.\n\n"
+        "Engine source basis: Proton " + RECIPE["proton"]["commit"] + ", Wine " + RECIPE["wine"]["commit"] + ".\n"
+        "Engine SDK: " + RECIPE["sdk"] + ".\n"
+        "Original construction declaration SHA256: " + sha(construction) + ".\n"
+        "Collector/packaging Git base: " + collector_revision + ".\n"
+        "The original declaration is retained verbatim; the later collector revision\n"
+        "identifies packaging source and does not replace the engine construction facts.\n\n"
         "prepared-source/*.tar.gz retain the prepared proton/, tools/ and build/ paths.\n"
         "Unpack them together into one working directory. They contain the applied Wine\n"
         "and Proton changes, recipes/patches, both Wine configurations and local Piper\n"
@@ -361,6 +410,9 @@ def collect_into(output, destination):
         "the build-inputs.py recipe records their extraction locations and adaptations.\n"
         "cargo/ contains only compiler-selected registry packages and Git workspaces.\n"
         "Keep the original Cargo workspace manifests and lockfile unchanged.\n\n"
+        "The original direct-audio helper source, CMake/MSVC recipe, paired native\n"
+        "builder and Windows build workflow are included under their tools/ paths.\n"
+        "No installed host or vendor payload is part of this source collection.\n\n"
         "tools/runtime/source.json pins the original Git bases and SDK. The source\n"
         "exports omit Git metadata; identity-checked build.sh acquisition starts from\n"
         "those original Git revisions. tools/runtime/build-inner.sh and proton/Makefile.in\n"
@@ -381,7 +433,9 @@ def check():
         (crate / "LICENSE").write_text("fixture notice")
         cache = output / "cargo/registry/cache/test-registry/selected-1.0.0.crate"
         cache.parent.mkdir(parents=True)
-        cache.write_bytes(b"fixture source archive")
+        with tarfile.open(cache, "w:gz") as archive:
+            for name in ("Cargo.toml", "LICENSE"):
+                archive.add(crate / name, arcname="selected-1.0.0/" + name)
         (crate / ".cargo-checksum.json").write_text(json.dumps({
             "package": sha(cache), "files": {name: sha(crate / name) for name in ("Cargo.toml", "LICENSE")}}))
         lock = output / "proton/gst-plugins-rs/Cargo.lock"
@@ -398,6 +452,9 @@ def check():
         assert [path.name for path in destination.iterdir()] == [cache.name]
         assert (output / "third-party-notices/cargo/selected-1.0.0/LICENSE").read_text() == "fixture notice"
         (crate / "LICENSE").write_text("changed")
+        checksums = json.loads((crate / ".cargo-checksum.json").read_bytes())
+        checksums["files"]["LICENSE"] = sha(crate / "LICENSE")
+        (crate / ".cargo-checksum.json").write_text(json.dumps(checksums))
         try:
             cargo_sources(output, output / "changed")
         except ValueError:
@@ -419,6 +476,31 @@ def check():
         assert (output / "notices/source/LICENSE").read_text() == "copyright fixture"
         assert (output / "notices/source/LICENSES/MIT.txt").read_text() == "full license fixture"
         assert not (output / "notices/source/payload.exe").exists()
+        repository = output / "helper-repository"
+        for name in HELPER_SOURCES:
+            path = repository / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("original helper source " + name)
+        configs = {}
+        for arch in ("i386", "x86_64"):
+            path = output / ("build/obj-wine-" + arch + "/Makefile")
+            path.parent.mkdir(parents=True)
+            path.write_text("native " + arch)
+            configs[arch] = sha(path)
+        construction = output / "build/redist/wine-build.json"
+        construction.parent.mkdir(parents=True)
+        construction.write_text(json.dumps(dict(wine_revision=RECIPE["wine"]["commit"], sdk_image=RECIPE["sdk"],
+            helper_sources={name: sha(repository / name) for name in HELPER_SOURCES}, configuration_sha256=configs)))
+        original = construction.read_bytes()
+        assert build_context(output, repository) == construction
+        assert construction.read_bytes() == original
+        (repository / HELPER_SOURCES[0]).write_text("different helper")
+        try:
+            build_context(output, repository)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("a different paired helper source was accepted")
         for arch in ("i386", "x86_64"):
             (output / ("build/obj-gst_plugins_rs-" + arch) / "selected.d").unlink()
         try:
