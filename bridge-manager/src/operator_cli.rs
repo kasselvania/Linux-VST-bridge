@@ -6434,9 +6434,25 @@ pub(crate) mod tests {
     }
     pub(crate) fn retained_managed_runtime(m: &Manager, legacy: bool) -> Runner {
         use linux_vst_bridge::runtime_delivery;
-        use std::{collections::BTreeMap,os::unix::fs::MetadataExt};
         let (id,downloads)=if legacy {(runtime_delivery::ID,runtime_delivery::downloads())}
             else {(runtime_delivery::recommended_id(),runtime_delivery::recommended_downloads())};
+        retained_runtime_fixture(m,id,downloads,legacy)
+    }
+    pub(crate) fn retained_corrected_runtime(m: &Manager) -> Runner {
+        use linux_vst_bridge::runtime_delivery::{self,Download};
+        let mut downloads=runtime_delivery::downloads();
+        downloads.extend([
+            Download {url:"https://github.com/kasselvania/Linux-VST-bridge/releases/download/runtime-uia-r4/uia-guard.tar.gz".into(),
+                sha256:"988fb967608a8c116022c27822647b7a7eda50a283a9e53ee2f22fe299b60f6c".into(),
+                size:57040019,root:"uia-guard".into(),compression:"gzip".into()},
+            Download {url:"https://github.com/kasselvania/Linux-VST-bridge/releases/download/runtime-msi-r5/msi-reader.tar.gz".into(),
+                sha256:"4ca51dec54f6085bd2050d8714018c3ba95bae7c00277de31e66d2c3ec7c9058".into(),
+                size:59653803,root:"msi-reader".into(),compression:"gzip".into()},
+        ]);
+        retained_runtime_fixture(m,"managed-ge-proton11-7-slr4-20260805-r5",downloads,false)
+    }
+    fn retained_runtime_fixture(m: &Manager,id:&str,downloads:Vec<linux_vst_bridge::runtime_delivery::Download>,legacy:bool) -> Runner {
+        use std::{collections::BTreeMap,os::unix::fs::MetadataExt};
         let engine_root=downloads[0].root.clone();
         let common=id=="managed-common-audio-slr4-20260805-r6";
         let base=m.root.join("runners").join(id);private_dir(&base).unwrap();
