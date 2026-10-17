@@ -11,6 +11,17 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Test206 / fresh CachyOS / REAPER 7.82, **supported for this first-party checkpoint**:
+normal install/acquisition/discovery/publication connects both Reference classes.
+Effect Level .7 / Colour .2 and instance identity survive full DAW exit/reopen;
+the 2s, 48 kHz stereo render measures .490000008 / .490000002 gain (expected .49)
+over its 0.1–1.9s interior.
+[Scoped measurements](../evidence/common-runtime-first-party.json).
+Reopened real-time / offline lifecycles report 6,656 / 1,536 expired output frames;
+their sample placement and audible impact remain unresolved. Dropout-free playback
+is unqualified. Cold acquisition takes about 14.5 minutes. Real vendors, SteamOS,
+reboot and update/rollback remain unqualified; the candidate stays unmerged.
+
 In-app beta update (#400), **unqualified**: CachyOS VM Test146 → Test148 via Download and update, then
 Restore previous setup back to Test146, from a loopback test feed; the final hand-over code awaits a VM pass.
 

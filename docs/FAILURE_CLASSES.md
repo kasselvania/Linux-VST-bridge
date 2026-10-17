@@ -12,10 +12,17 @@ Open-program suggestions exclude installer-witnessed uninstallers and service
 images; unknown support-installer/redistributable roles still need authoritative
 metadata. Explicit program choice remains available (#417).
 
-Initial common-runtime discovery (#430): Test205 acquires/seals the runtime and
-completes the first-party installer, then refuses before readiness because its flat
-package host lacks the kit-owned adjacent helper. The staging repair is under review;
-ordinary fresh Test206 acceptance remains open. Preserve Test205's failed setup.
+Initial common-runtime discovery (#430), resolved for fresh Test206: signed package
+staging supplies the exact kit-owned adjacent helper; ordinary discovery connects
+both Reference classes. Failed Test205 remains preserved; this is fresh-account
+acceptance, not recovery of that failed setup.
+
+Test206 Reference expired-output totals: initial real-time 0 / 1,476,096 frames;
+reopened real-time 6,656 / 986,624 (138.7 ms at 48 kHz); offline render 1,536 /
+111,104 (32 ms), despite `clean=true`. These cover whole instance lifetimes,
+including stopped time; sample placement and audible impact remain unresolved.
+Only the render's 0.1–1.9s interior was compared. Dropout-free real-time behavior
+and endurance remain unqualified (#430).
 
 Xalia's display initialization remains open (#430): intact GE 11-7 on the Test204
 CachyOS Wayland fixture reports `No displays available` through SLR from SSH,
