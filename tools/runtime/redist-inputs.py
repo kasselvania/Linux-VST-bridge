@@ -23,7 +23,7 @@ RECIPE = json.loads((ROOT / "source.json").read_bytes())
 SOURCES = {
     "Makefile.in": (
         "25d1250ece9fe6d406784237242e1f01548ac7449ba67e316d314356f3b5d1f5",
-        "783d4e99871023aaf2a78fd622229d8d06ed3a30298319c96fb77f7f1a48eeec"),
+        "5d015d2c44bb37ea9127e3c0ead6fde254974a13a5dcce3837b4f4af256564b1"),
     "make/rules-cargo.mk": (
         "178b08f2877677a0c2c404682af7b6fe1492f1b6bcaab0a95aa8a35ad84b5861",
         "d2fc3ed4bd31e81e474da31bcae0d55c655431eca52ec7d66e744a53999ad5be"),
@@ -50,7 +50,7 @@ def source_state(source):
 
 def patch_source(source):
     patch = ROOT / "patches/proton-redist-inputs.patch"
-    if hashlib.sha256(patch.read_bytes()).hexdigest() != "59e5eb4c8c236e565633b47850982bee9328728dee60f339b4b7fe88432f6e2e":
+    if hashlib.sha256(patch.read_bytes()).hexdigest() != "d7948496aa7f68aafd6009bdbd18dd6a93319640dd3b824e2baa3ee1b9c30e08":
         raise ValueError("redist build patch changed")
     if source_state(source) == 0:
         subprocess.run(["git", "apply", "--check", str(patch)], cwd=source, check=True)
@@ -128,13 +128,17 @@ def notices(output):
     shutil.copyfile(ROOT / "redist-inputs.json", destination / "inputs.json")
 
 
-def prepare(output):
-    source = output / "proton"
+def verify_commits(source):
     for name in ("proton", "wine"):
         path = source if name == "proton" else source / "wine"
         actual = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=path, text=True).strip()
         if actual != RECIPE[name]["commit"]:
             raise ValueError("redist source commit differs: " + name)
+
+
+def prepare(output):
+    source = output / "proton"
+    verify_commits(source)
     status = subprocess.check_output(["git", "submodule", "status", "--recursive"],
                                      cwd=source, text=True)
     for line in status.splitlines():
@@ -172,6 +176,28 @@ def check():
             target.write_bytes(data)
         patch_source(source)
         patch_source(source)  # Composition can resume after an acquisition failure.
+        # Execute the pinned x64 post-install recipe with only c27's real file
+        # layout. Obsolete wine64 aliases must not be required or cross-copied.
+        installed = source / "installed-x64"
+        (installed / "bin").mkdir(parents=True)
+        (installed / "share/wine").mkdir(parents=True)
+        for name in ("wine", "wineserver", "msidb"):
+            (installed / "bin" / name).write_text("x86_64 " + name)
+        (installed / "share/wine/wine.inf").write_text("same-source metadata")
+        distribution = source / "distribution"
+        (source / "post-obj").mkdir()
+        target = "$(OBJ)/.wine-x86_64-post-build:"
+        make_source = (source / "Makefile.in").read_text()
+        recipe = make_source[make_source.index(target):make_source.index("$(OBJ)/.wine-aarch64-post-build:")]
+        post_makefile = source / "post-install.mk"
+        post_makefile.write_text("OBJ := " + str(source / "post-obj") + "\n"
+                                "WINE_x86_64_DST := " + str(installed) + "\n"
+                                "DST_DIR := " + str(distribution) + "\n"
+                                "install-strip = cp $(1) $(2)/\n" + recipe)
+        subprocess.run(["make", "--no-print-directory", "-f", str(post_makefile)],
+                       cwd=source, env={"PATH": os.defpath}, check=True)
+        if (distribution / "bin/wine").read_text() != "x86_64 wine" or (distribution / "lib/wine/i386-unix").exists():
+            raise ValueError("native loader post-install layout differs")
         package = source / "package"
         package.mkdir()
         obj = source / "obj"
@@ -215,16 +241,21 @@ def check():
             pass
         else:
             raise ValueError("modified redist source was accepted")
-    print("Pinned redist source, Cargo execution and generated-prefix regressions verified")
+    print("Pinned source, native loader layout, Cargo execution and generated-prefix regressions verified")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--build-root", type=Path)
+    mode.add_argument("--prepare-build-source", type=Path,
+                      help="Apply pinned Proton integration before the Wine target")
     mode.add_argument("--check-upstream", action="store_true")
     args = parser.parse_args()
     if args.check_upstream:
         check()
+    elif args.prepare_build_source:
+        verify_commits(args.prepare_build_source.resolve())
+        patch_source(args.prepare_build_source.resolve())
     else:
         prepare(args.build_root.resolve())

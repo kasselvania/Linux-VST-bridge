@@ -30,6 +30,7 @@ git -C "$source_dir/wine" fetch --no-tags --depth=1 lvb-comparison "$wine_commit
 git -C "$source_dir/wine" checkout --detach FETCH_HEAD
 python3 "$recipe_dir/prepare.py" --prepare-source "$source_dir/wine"
 python3 "$recipe_dir/build-inputs.py" --proton-source "$source_dir"
+python3 "$recipe_dir/redist-inputs.py" --prepare-build-source "$source_dir"
 
 # Acquire the image directly into the output tree, without Docker's global
 # image cache. The acquisition helper is an exact upstream release artifact.
