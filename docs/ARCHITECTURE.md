@@ -67,6 +67,20 @@ machine-local construction steps. Customer installers, plug-ins, presets, conten
 credentials and activation material are never Git build inputs or diagnostic exports.
 Record acquisition, licences, notices and servicing obligations before distribution.
 
+The release builder alone writes the common Wine construction declaration. It
+binds the prepared recipe/patch inputs, pinned SDK, effective compiler/target
+configuration and invocation, Wine source and separate product-helper ABI/source
+identity. Ordinary runtime delivery seals it in the selected runner's immutable
+artifacts. The helper builder consumes that exact declaration and its verified
+Wine marker tool; the helper manifest binds the declaration digest and existing
+host/helper byte identities. The supervisor mechanically verifies that already
+selected pair before dispatch. It neither selects a helper nor resolves source
+policy. The shared command-session declaration's schema2 binds this construction
+digest and positively identifies the new contract independently of missing payload
+files; predecessor schema1 interpretation remains exact. Unknown versions refuse.
+New common archives cannot fall back to predecessor helper interpretation
+when facts are missing. This declaration records construction, not qualification.
+
 Retain exact immutable predecessors for continuity, migration and rollback. Do not
 silently switch working setups or delete predecessors to shorten the runtime list.
 Lab generations remain isolated from ordinary selection and confer no support

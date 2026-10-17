@@ -6,6 +6,7 @@ use std::path::Component;
 use std::os::unix::fs::DirBuilderExt;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
+mod wine_build;
 
 pub const ID: &str = "managed-ge-proton11-7-slr4-20260805-r3";
 const PLATFORM_FILES: &str = "SteamLinuxRuntime_4/steamrt4_platform_4.0.20260805.254769/files";
@@ -294,6 +295,8 @@ fn compose_components(stage: &Path, revision: &Revision, rows: &mut Vec<TreeEntr
 #[serde(deny_unknown_fields)]
 struct CommandSession {
     schema: u32, kind: String, client_sha256: String, service_sha256: String,
+    #[serde(default)]
+    wine_build_sha256: Option<String>,
 }
 /// A complete archive supplies its shared protocol declaration. Validate it
 /// against the paired SLR; never manufacture or repair an archive's capability.
@@ -310,9 +313,16 @@ fn command_component(stage: &Path, revision: &Revision, rows: &mut Vec<TreeEntry
         && entry.sha256.as_deref()==Some(digest(&stage.join(&relative))?.as_str()),
         "runtime_command_component_changed")?;
     let actual:CommandSession=read_json(&stage.join(&relative))?;
-    let expected=CommandSession {schema:1,kind:"native_proton_command_session".into(),
+    let build=Path::new(root).join(wine_build::NAME);
+    let entry=rows.iter().find(|entry|entry.path==build).ok_or("runtime_build_declaration_missing")?;
+    let build_digest=digest(&stage.join(&build))?;
+    require(!entry.directory && entry.target.is_none()
+        && entry.sha256.as_deref()==Some(build_digest.as_str()),"runtime_build_declaration_changed")?;
+    wine_build::validate(&stage.join(build))?;
+    let expected=CommandSession {schema:2,kind:"native_proton_command_session".into(),
         client_sha256:digest(&stage.join(SLR).join("pressure-vessel/bin/steam-runtime-launch-client"))?,
-        service_sha256:digest(&stage.join(SLR).join("pressure-vessel/libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service"))?};
+        service_sha256:digest(&stage.join(SLR).join("pressure-vessel/libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service"))?,
+        wine_build_sha256:Some(build_digest)};
     require(actual==expected,"runtime_command_component_tool_binding")?;
     Ok(Some(relative))
 }
@@ -398,6 +408,11 @@ fn validate_identity_record(path: &Path, revision: &Revision, record: &Record) -
         require(record.runner.files.iter().filter(|artifact|
             artifact.path==dir.join(revision.engine_root()).join("native-command-session.json")).count()==1,
             "managed_runtime_command_component_binding")?;
+    }
+    if matches!(revision.layout,Layout::WholeArchive {..}) {
+        require(record.runner.files.iter().filter(|artifact|
+            artifact.path==dir.join(revision.engine_root()).join(wine_build::NAME)).count()==1,
+            "managed_runtime_build_declaration_binding")?;
     }
     require(file(path)?.metadata()?.mode() & 0o222 == 0,
         "managed_runtime_record_writable")?;
@@ -599,6 +614,10 @@ fn seal_stage(stage: &Path, dest: &Path, revision: &Revision, mut rows: Vec<Tree
     if let Some(relative)=command_component {
         files.push(Artifact {path:dest.join(&relative),sha256:digest(&stage.join(relative))?});
     }
+    if matches!(revision.layout,Layout::WholeArchive {..}) {
+        let relative=Path::new(revision.engine_root()).join(wine_build::NAME);
+        files.push(Artifact {path:dest.join(&relative),sha256:digest(&stage.join(relative))?});
+    }
     let runner = Runner {id:revision.id.into(),
         version:revision.version.into(),
         proton:dest.join(revision.engine_root()).join("proton"), entry_point:dest.join(SLR).join("_v2-entry-point"),
@@ -711,8 +730,9 @@ mod tests {
     }
     const COMMON: &str = "Common-Proton-x86_64";
     fn supplied_command_marker() -> serde_json::Value {
-        serde_json::json!({"schema":1,"kind":"native_proton_command_session",
-            "client_sha256":hex(&Sha256::digest(b"client")),"service_sha256":hex(&Sha256::digest(b"service"))})
+        serde_json::json!({"schema":2,"kind":"native_proton_command_session",
+            "client_sha256":hex(&Sha256::digest(b"client")),"service_sha256":hex(&Sha256::digest(b"service")),
+            "wine_build_sha256":hex(&Sha256::digest(serde_json::to_vec(&wine_build::fixture()).unwrap()))})
     }
     fn whole_archive_fixture(tmp: &Scratch, marker: Option<serde_json::Value>) -> (PathBuf,Revision,Vec<TreeEntry>) {
         let stage=tmp.0.join("whole-stage");
@@ -720,6 +740,7 @@ mod tests {
         let mut payloads=vec![(format!("{COMMON}/proton"),b"source launcher".to_vec()),
             (format!("{COMMON}/files/bin/wine"),b"source engine".to_vec()),
             (format!("{COMMON}/files/lib/wine/x86_64-windows/msi.dll"),b"integrated MSI".to_vec()),
+            (format!("{COMMON}/wine-build.json"),serde_json::to_vec(&wine_build::fixture()).unwrap()),
             (format!("{COMMON}/LICENSE"),b"source notices".to_vec())];
         if let Some(marker)=marker {
             payloads.push((format!("{COMMON}/native-command-session.json"),serde_json::to_vec(&marker).unwrap()));
@@ -755,6 +776,11 @@ mod tests {
         assert_eq!(fs::read(dest.join(COMMON).join("files/lib/wine/x86_64-windows/msi.dll")).unwrap(),before);
         assert_eq!(fs::read(dest.join(COMMON).join("native-command-session.json")).unwrap(),marker_before);
         assert_eq!(runner.files.iter().filter(|artifact|artifact.path==dest.join(COMMON).join("native-command-session.json")).count(),1);
+        assert_eq!(runner.files.iter().filter(|artifact|artifact.path==dest.join(COMMON).join(wine_build::NAME)).count(),1);
+        let mut missing=runner.clone();missing.files.retain(|artifact|artifact.path.file_name().unwrap()!=wine_build::NAME);
+        let path=revision_record_path(&m,&revision);
+        let record=Record {schema:1,id:revision.id.into(),downloads:revision.downloads.clone(),runner:missing};
+        assert!(validate_identity_record(&path,&revision,&record).unwrap_err().to_string().contains("build_declaration_binding"));
         let mut changed=runner.clone();changed.files.retain(|artifact|artifact.path.file_name().unwrap()!="native-command-session.json");
         let path=revision_record_path(&m,&revision);
         let record=Record {schema:1,id:revision.id.into(),downloads:revision.downloads.clone(),runner:changed};
@@ -768,7 +794,9 @@ mod tests {
         for marker in [None,Some(serde_json::json!({"schema":1,"kind":"native_proton_command_session",
             "client_sha256":"ab".repeat(32),"service_sha256":hex(&Sha256::digest(b"service"))})),
             Some(serde_json::json!({"schema":2,"kind":"native_proton_command_session",
-                "client_sha256":hex(&Sha256::digest(b"client")),"service_sha256":hex(&Sha256::digest(b"service"))}))] {
+                "client_sha256":hex(&Sha256::digest(b"client")),"service_sha256":hex(&Sha256::digest(b"service"))})),
+            Some({let mut value=supplied_command_marker();value["schema"]=3.into();value}),
+            Some({let mut value=supplied_command_marker();value["wine_build_sha256"]="00".repeat(32).into();value})] {
             let tmp=Scratch::new();let (stage,revision,rows)=whole_archive_fixture(&tmp,marker);
             let path=stage.join(COMMON).join("native-command-session.json");
             let original=fs::read(&path).ok();
@@ -778,6 +806,24 @@ mod tests {
         }
         assert!(revisions().iter().all(|revision|matches!(revision.layout,Layout::RetainedGeCorrections(_))));
         assert_eq!(recommended_id(),"managed-ge-proton11-7-slr4-20260805-r5");
+    }
+    #[test]
+    fn whole_archive_missing_or_malformed_build_declaration_never_seals_or_falls_back() {
+        for invalid in [None,Some(serde_json::json!({"schema":1,"kind":"wine_build"})),
+            Some({let mut value=wine_build::fixture();value["qualified"]=true.into();value}),
+            Some({let mut value=wine_build::fixture();value["helper_abi"]=2.into();value})] {
+            let tmp=Scratch::new();let (stage,revision,mut rows)=whole_archive_fixture(&tmp,Some(supplied_command_marker()));
+            let relative=Path::new(COMMON).join(wine_build::NAME);let path=stage.join(&relative);
+            fs::set_permissions(&path,fs::Permissions::from_mode(0o600)).unwrap();
+            if let Some(value)=invalid {
+                fs::write(&path,serde_json::to_vec(&value).unwrap()).unwrap();
+                let entry=rows.iter_mut().find(|entry|entry.path==relative).unwrap();
+                entry.sha256=Some(digest(&path).unwrap());entry.size=file(&path).unwrap().metadata().unwrap().len();
+                fs::set_permissions(&path,fs::Permissions::from_mode(entry.mode)).unwrap();
+            } else {fs::remove_file(&path).unwrap();rows.retain(|entry|entry.path!=relative);}
+            assert!(seal_stage(&stage,&tmp.0.join("unpublished"),&revision,rows).is_err());
+            assert!(!stage.join(TREE).exists());assert!(!stage.join("runtime.json").exists());
+        }
     }
     #[test]
     fn retained_revisions_coexist_without_substitution_when_old_payload_is_missing() {

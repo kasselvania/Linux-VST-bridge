@@ -120,7 +120,18 @@ def applied_launch(registration, report):
                  and not path.stat().st_mode & 0o222 and sha(path) == artifact["sha256"],
                  "paired_helper_artifact_binding")
         manifest = read(manifest_path)
-        need(manifest.get("schema") == 1 and manifest.get("abi") == 1
+        paired=manifest.get("schema")==1
+        if manifest.get("schema")==2:
+            runner=registration["environment"]["runner"]
+            declaration=Path(runner["proton"]).parent/"wine-build.json"
+            selected=[a for a in runner["files"] if a["path"]==str(declaration)]
+            need(len(selected)==1 and declaration.resolve(strict=True)==declaration
+                 and not declaration.stat().st_mode&0o222 and sha(declaration)==selected[0]["sha256"],
+                 "paired_helper_build_binding")
+            build=read(declaration)
+            paired=(manifest.get("runner_build_sha256")==selected[0]["sha256"]
+                    and manifest.get("runner_wine_revision")==build.get("wine_revision"))
+        need(paired and manifest.get("abi") == 1
              and manifest.get("host_sha256") == host["sha256"]
              and manifest.get("files") == {name: artifact["sha256"]
                                           for name, artifact in zip(names[:3], artifacts[:3])},
