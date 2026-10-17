@@ -1,0 +1,123 @@
+{
+  "purpose": "Source integration comparison only; not a selected or qualified release/runtime catalog",
+  "proton": {
+    "repository": "https://github.com/ValveSoftware/Proton.git",
+    "commit": "5b89db940e0ebe3a137a6009a3589232fe084c09",
+    "tree": "326c978ba22ac9e508fd9364dde94443e04017c6",
+    "source_date_epoch": 1788504814
+  },
+  "wine": {
+    "repository": "https://github.com/giang17/wine.git",
+    "commit": "c27f058814b402a5709e073adccd42baa66810b9",
+    "tree": "622801bdffacb23188c29958c620cc12bf658843",
+    "archive_sha256": "21bcb77ea8ea35c09c4a1476468c2d81488f1eb972e7122a301b5aded786cca5"
+  },
+  "sdk": "registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:97526b794ce1a9bed5f891084462260b3a02399569f7438a3a57b5a253001db9",
+  "patches": [
+    {
+      "path": "runtime-dcomp/patches/proton-steamuser-policy.patch",
+      "sha256": "0378cfb251de1c2ad944473c5f2f7024ab5bab19fe2d1695340d03bd77dc46d1"
+    },
+    {
+      "path": "runtime-dcomp/patches/wine-video-interface-coherence.patch",
+      "sha256": "f0391edca81873d2a70aaec21610442ffa6d35c6a3dcd2e27afc3c9dc99fb5a2"
+    },
+    {
+      "path": "runtime-uia-guard/uia-null-provider.patch",
+      "sha256": "9c1a38d9d7363be02e9e03159ba3fcfa6e2bc266c5dd5ce42d4439c12842da8d"
+    },
+    {
+      "path": "runtime-msi-reader/0000-staging-msi-cabinet.patch",
+      "sha256": "24e2a1f32b96f2e377038333027469aabc5bbdda69a72848e62de00df1609ace"
+    },
+    {
+      "path": "runtime-msi-reader/0001-upstream-24bbf46-table-stream-padding.patch",
+      "sha256": "63d9d4f5968e502186b9a3711d6daa03fc67394e892bf485496097f5080965e5"
+    },
+    {
+      "path": "runtime-msi-reader/0002-upstream-e013097-mismatched-strref-widths.patch",
+      "sha256": "ae67f622483e2de851393e5542afca9ff1478e2f8e79f2399d7cbeb46a8a3a47"
+    },
+    {
+      "path": "runtime-msi-reader/0003-kontakt-msi-ambiguous-strrefs.patch",
+      "sha256": "ed4a47d3b167f711088251f56f6377347a8539d4c308281c55f92825a174d979"
+    },
+    {
+      "path": "runtime-msi-reader/0004-lgpl-modification-notices.patch",
+      "sha256": "6e9258da9e5b6a8b0bdba44939d2dd95009f77f1ac53076a2691ccebafc4ec11"
+    },
+    {
+      "path": "runtime/patches/dcomp-touch-routing.patch",
+      "sha256": "8c2923b8289a117d1ef182941c4c7efdafcf5f4d5f6214cb69be88822a43f803"
+    },
+    {
+      "path": "runtime/patches/dcomp-crypt32-regression.patch",
+      "sha256": "39c2c327bb9f1daa25ff5e0d93a536e9205617d008b295c570a3d8e05227e7ff"
+    },
+    {
+      "path": "runtime/patches/modification-notices.patch",
+      "sha256": "53981cefa0cbb7b034896e34373d125ebbe02337c9285f050c26862e7d672565"
+    }
+  ],
+  "fixtures": [
+    {
+      "path": "runtime-uia-guard/guard_provider.c",
+      "target": "dlls/uiautomationcore/tests/guard_provider.c",
+      "sha256": "89d3f94d3f508f04192242d41512c010ea77e9c7d3324ac1f1af0df0fb42c025"
+    }
+  ],
+  "sources": {
+    "dlls/advapi32/advapi.c": {
+      "before": "32596dc0199df85498b2ea0cfe974e4f831ec78c0385641fdaf3c5a1e6286d5d",
+      "after": "c659635e8d8d7e053459bffc0c2daf19ccda94860d8c009c662fc5991c5b64db"
+    },
+    "dlls/d3d11/device.c": {
+      "before": "9b90db696a8d49fb22b4b0c29fb25e56b76f5a76775b199d301406916a13c5f9",
+      "after": "16ceb2f5693d458eae0825a174b26ebef991b28a1399571a214dc3ff1f74e362"
+    },
+    "dlls/uiautomationcore/uia_client.c": {
+      "before": "0f8a1cd1feb8925ffc4b058c3044f2608d8bebbe73e266367e470bf6b0d10683",
+      "after": "4e6835aba41980fb428171bfe8c2eb605522eba341cbae2d8dc9c4bf7f0c28e5"
+    },
+    "dlls/uiautomationcore/tests/Makefile.in": {
+      "before": "dee0d359b51f83d317d651e50a5c3dd4f6fe383c9b03b6db30f699315b1edad8",
+      "after": "0d44b81c06928899fbbbba23e778af48d7b2d57cf9cbbece39cbb78bb5e818ca"
+    },
+    "dlls/uiautomationcore/tests/guard_provider.c": {
+      "before": null,
+      "after": "89d3f94d3f508f04192242d41512c010ea77e9c7d3324ac1f1af0df0fb42c025"
+    },
+    "dlls/msi/files.c": {
+      "before": "a3e3a424354c83071a13900100fcedca73ffc32f5a09c46acab2a2abe67dc6f6",
+      "after": "c42f5a0f2c3af0f20478661f354212a561184481352023ad17bf5cc1e588dada"
+    },
+    "dlls/msi/table.c": {
+      "before": "2e3b4abeeb52bd1c6bf875df409cc94c0392e0b7e3cc6de9fb70420415a2b9a8",
+      "after": "c45725e1553e9e4deff6ed9bc4ddfa0a09ce5363d774bcc186be056b1527226a"
+    },
+    "dlls/winex11.drv/mouse.c": {
+      "before": "6984539b6f95da51dfa19385a532f8fcb382a23dccb52a67077fc8f1608d68b4",
+      "after": "0955ce90f99174e4fef21da81fee9741036e9113e18a325f49d0f3edc40aa6ea"
+    },
+    "dlls/winex11.drv/touch_message_flags.h": {
+      "before": null,
+      "after": "054a6ca21b8f5a0d4605ea386aaebe2c6aa2ea20cc2a93d2e0b2ebba9647bd8b"
+    },
+    "dlls/crypt32/tests/msg.c": {
+      "before": "915f494370ec279b6e840715a29df371652d376ddd324e8878a711a37dba9aa0",
+      "after": "58b8d48c892d5ce636c58f77edb1dc970e88e5f471759ae3147b0c75c1bab775"
+    },
+    "dlls/crypt32/msg.c": {
+      "before": "34678060b1fa240f59a640466574aa1483e017086d3cbeb2c597eb1dec0d088b",
+      "after": "34678060b1fa240f59a640466574aa1483e017086d3cbeb2c597eb1dec0d088b"
+    },
+    "dlls/appwiz.cpl/addons.c": {
+      "before": "f9dac8c0a2b1c9f3d8ae598cf1597ba6cde6d90274f578a8b36569d106b70f4a",
+      "after": "f9dac8c0a2b1c9f3d8ae598cf1597ba6cde6d90274f578a8b36569d106b70f4a"
+    },
+    "COPYING.LIB": {
+      "before": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c",
+      "after": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c"
+    }
+  }
+}

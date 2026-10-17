@@ -1,0 +1,16 @@
+--- a/dlls/advapi32/advapi.c
++++ b/dlls/advapi32/advapi.c
+@@ -1,4 +1,5 @@
+ /*
++ * Modified 2026-10-17: retain the Proton steamuser policy.
+  * Win32 advapi functions
+  *
+  * Copyright 1995 Sven Verdoolaege
+--- a/dlls/d3d11/device.c
++++ b/dlls/d3d11/device.c
+@@ -1,4 +1,5 @@
+ /*
++ * Modified 2026-10-17: advertise only the implemented video interface contract.
+  * Copyright 2008-2012 Henri Verbeet for CodeWeavers
+  *
+  * This library is free software; you can redistribute it and/or

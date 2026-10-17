@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'tools/runtime-dcomp/**'
+      - 'tools/runtime/**'
+      - 'tools/runtime-uia-guard/**'
+      - 'tools/runtime-msi-reader/**'
       - '.github/workflows/runtime-source-inputs.yml'
   workflow_dispatch:
 
@@ -41,3 +44,5 @@ jobs:
               target.write_bytes(data)
           subprocess.run(['python3', 'tools/runtime-dcomp/check.py',
                           '--wine-source', str(source)], check=True)
+      - name: Check combined common Wine source inputs
+        run: python3 tools/runtime/prepare.py --check-upstream
