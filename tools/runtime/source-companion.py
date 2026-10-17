@@ -62,6 +62,7 @@ HELPER_SOURCES = ("tools/direct-audio-handoff/linux_wait.rs",
 HELPER_RECIPES = ("tools/direct-audio-handoff/CMakeLists.txt",
                   "tools/direct-audio-handoff/probe.cpp", "tools/mf3/prebuilt_kit.py",
                   "tools/mf3/native_builder.py", ".github/workflows/ap8-windows.yml")
+ORIGINAL_SUPPORT = ("tools/runtime/build.sh", "tools/runtime/complete.sh", "tools/runtime/README.md")
 NOTICE = re.compile(r"^(?:licen[cs]e|copying|notice|third.party.notices|patents|authors)(?:$|[._-])", re.I)
 
 
@@ -333,7 +334,7 @@ def archive_construction(target, repository, declaration):
     recipe_hash, names, _ = construction_recipe(repository)
     if recipe_hash != declaration["recipe_sha256"]:
         raise ValueError("original construction recipe changed before collection")
-    original_names = sorted(set(names) | set(HELPER_SOURCES) | set(HELPER_RECIPES))
+    original_names = sorted(set(names) | set(HELPER_SOURCES) | set(HELPER_RECIPES) | set(ORIGINAL_SUPPORT))
     archive_files(target, [(repository / name, name) for name in original_names])
     with tarfile.open(target) as archive:
         archived = {member.name: hashlib.sha256(archive.extractfile(member).read()).hexdigest()
@@ -535,7 +536,7 @@ def check():
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("original helper source " + name)
         _, recipe_names, _ = construction_recipe(ROOT.parent.parent)
-        for name in sorted(set(recipe_names) | set(HELPER_RECIPES)):
+        for name in sorted(set(recipe_names) | set(HELPER_RECIPES) | set(ORIGINAL_SUPPORT)):
             path = repository / name
             path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT.parent.parent / name, path)
@@ -559,6 +560,9 @@ def check():
         shutil.copytree(repository, later)
         later_recipe = later / "tools/runtime/redist-inputs.json"
         later_recipe.write_bytes(later_recipe.read_bytes() + b"\n")
+        for name in ORIGINAL_SUPPORT:
+            path = later / name
+            path.write_bytes(path.read_bytes() + b"\nlater collector support revision\n")
         for mismatched in (later, ROOT.parent.parent):
             try:
                 build_context(output, mismatched)
@@ -570,6 +574,9 @@ def check():
         with tarfile.open(output / "original-context.tar.gz") as archive:
             assert archive.extractfile("tools/runtime/redist-inputs.json").read() == original_recipe.read_bytes()
             assert archive.extractfile("tools/runtime/redist-inputs.json").read() != later_recipe.read_bytes()
+            for name in ORIGINAL_SUPPORT:
+                assert archive.extractfile(name).read() == (repository / name).read_bytes()
+                assert archive.extractfile(name).read() != (later / name).read_bytes()
         assert construction.read_bytes() == original
         (repository / HELPER_SOURCES[0]).write_text("different helper")
         try:
