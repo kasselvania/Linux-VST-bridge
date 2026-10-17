@@ -1485,11 +1485,6 @@ pub(crate) mod tests {
         let r = load(&f.m, created["onboarding"].as_str().unwrap()).unwrap();
         (f, r)
     }
-    pub(crate) fn close_policy_fixture() -> (test_fixture::Fixture, Record) {
-        let (f,r) = close_policy_unstarted_fixture();
-        let r = reserve(&f.m, &r.id, &"cd".repeat(16)).unwrap();
-        (f,r)
-    }
     pub(crate) fn close_policy_advice_fixture() -> (test_fixture::Fixture,Record) {
         let (f,installer,runner)=close_policy_imported_with(operator_cli::tests::retained_corrected_runtime);
         let created=create_exact(&f.m,&installer,runner,&"ab".repeat(16),
