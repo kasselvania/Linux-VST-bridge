@@ -70,6 +70,10 @@ the historical reader defect. It refuses to overwrite fixture databases.
 
 ## Acquisition and delivery boundary
 
+The virtual-desktop compositor's optional XDamage state uses the same feature
+guard as its call sites. This preserves builds whose SDK architecture omits
+XDamage without weakening compiler warnings or changing the enabled path.
+
 Valve's [pinned source instructions](https://github.com/ValveSoftware/Proton/blob/5b89db940e0ebe3a137a6009a3589232fe084c09/README.md)
 support recursive acquisition and rebuilding changed components. The SDK digest
 is the pinned Proton tree's own default SDK tag. Its ICU tarballs are tracked

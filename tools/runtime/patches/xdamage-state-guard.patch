@@ -1,0 +1,19 @@
+--- a/dlls/winex11.drv/vd_compositor.c
++++ b/dlls/winex11.drv/vd_compositor.c
+@@ -1,4 +1,5 @@
+ /*
++ * Modified 2026-10-16: guard optional XDamage state with its feature.
+  * Virtual-desktop per-pixel-alpha mini-compositor (issue 64).
+  *
+  * In Wine's "emulate a virtual desktop" mode every Wine top-level window
+@@ -146,8 +147,10 @@
+ static struct vd_root_state vd_roots[MAX_VD_ROOTS];
+ static BOOL vd_ready;     /* one-time: extensions loaded + queried + VD mode active */
+ static BOOL vd_use_damage;
++#ifdef SONAME_LIBXDAMAGE
+ static int vd_damage_event_base;
+ static int vd_damage_error_base;
++#endif
+ 
+ static Bool load_functions(void)
+ {
