@@ -52,7 +52,8 @@ tar --no-same-owner -xzf "$output/tool/crane.tar.gz" -C "$output/tool" crane
 "$output/tool/crane" export "$sdk" "$output/sdk-rootfs.tar"
 mkdir -- "$output/sdk-rootfs"
 tar --no-same-owner -xf "$output/sdk-rootfs.tar" -C "$output/sdk-rootfs"
-mkdir -p -- "$output/sdk-rootfs/work"
+mkdir -p -- "$output/sdk-rootfs/work/"{proton,build,cargo,cache}
+touch -- "$output/sdk-rootfs/work/build-inner.sh"
 cp -- "$recipe_dir/build-inner.sh" "$output/build-inner.sh"
 
 # This is the entire Wine engine
@@ -65,7 +66,10 @@ fi
 systemd-run --user --scope --unit="lvb-runtime-build-$$" \
     -p CPUQuota=300% -p MemoryMax=6G -p MemorySwapMax=0 -p TasksMax=512 \
     bwrap --unshare-user --uid 0 --gid 0 --unshare-pid --die-with-parent \
-    --ro-bind "$output/sdk-rootfs" / --bind "$output" /work \
+    --ro-bind "$output/sdk-rootfs" / --ro-bind "$source_dir" /work/proton \
+    --bind "$build_dir" /work/build --bind "$output/cargo" /work/cargo \
+    --bind "$output/cache" /work/cache \
+    --ro-bind "$output/build-inner.sh" /work/build-inner.sh \
     --ro-bind /etc/resolv.conf /etc/resolv.conf --proc /proc --dev /dev --tmpfs /tmp \
     --setenv PATH /usr/lib/ccache:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     --setenv CARGO_HOME /work/cargo --setenv XDG_CACHE_HOME /work/cache \
