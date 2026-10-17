@@ -696,7 +696,7 @@ mod tests {
     }
     #[test]
     fn ordinary_existing_setup_and_retry_select_same_scoped_advice() {
-        let (f, initial) = onboarding::tests::close_policy_fixture();
+        let (f, initial) = onboarding::tests::close_policy_advice_fixture();
         let initial_op = initial.installation_operation.as_ref().unwrap();
         atomic_json(&onboarding::directory(&f.m, &initial.id).unwrap().join(format!("{initial_op}-result.json")),
             &json!({"schema":2,"operation":initial_op,"state":"completed","cleanup_confirmed":true,"owned_live":0})).unwrap();
@@ -728,7 +728,7 @@ mod tests {
         use linux_vst_bridge::installer_policy::Powershell;
         for (powershell,matched) in [Powershell::Inherited,Powershell::IntentionallyUnavailable]
             .into_iter().flat_map(|policy|[true,false].map(move |matched|(policy,matched))) {
-            let (f,initial)=onboarding::tests::close_policy_fixture();
+            let (f,initial)=onboarding::tests::close_policy_advice_fixture();
             let initial_op=initial.installation_operation.as_ref().unwrap();
             atomic_json(&onboarding::directory(&f.m,&initial.id).unwrap().join(format!("{initial_op}-result.json")),
                 &json!({"schema":2,"operation":initial_op,"state":"completed","cleanup_confirmed":true,"owned_live":0})).unwrap();
@@ -762,6 +762,12 @@ mod tests {
                 let (environment,installer,_)=chosen.environment_installer_start().unwrap();
                 let binding=reserve_with(&f.m,environment,installer,&operation,||Ok(true),|_|Ok(false)).unwrap();
                 let input=launch_input(&f.m,&binding).unwrap();
+                // Reuse the complete owned launch facts to check the ordinary
+                // advice discriminator independently of the explicit choice.
+                let mut ordinary=input.clone();ordinary["schema"]=json!(2);
+                ordinary.as_object_mut().unwrap().remove("installer_capability");
+                linux_vst_bridge::installer_policy::bind_for_launch(&f.m,&mut ordinary,&software(&f.m).unwrap(),None).unwrap();
+                assert_eq!(ordinary.get("installer_capability").is_some(),matched);
                 assert_eq!(input["installer_capability"]["windows_scripting"]["powershell"],serde_json::to_value(powershell).unwrap());
                 assert_eq!(input["installer_capability"]["operation"],operation);
                 assert_eq!(input["installer_capability"]["environment"],serde_json::to_value(&binding.environment).unwrap());
