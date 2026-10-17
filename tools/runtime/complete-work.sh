@@ -20,3 +20,4 @@ epoch=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["proton"]
 bash "$recipe_dir/sdk.sh" "$output" offline /bin/bash /work/build-inner.sh "$epoch" redist
 mkdir -p -- "$output/build/redist/third-party-notices"
 cp -a -- "$output/third-party-notices/." "$output/build/redist/third-party-notices/"
+python3 "$recipe_dir/build-identity.py" --build-root "$output"

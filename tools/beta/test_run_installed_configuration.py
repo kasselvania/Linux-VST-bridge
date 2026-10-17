@@ -90,6 +90,24 @@ class AppliedLaunch(unittest.TestCase):
         with self.assertRaises(helper.Failed):
             helper.applied_launch(self.registration, report)
 
+    def test_common_helper_report_compares_exact_selected_build_digest(self):
+        self.paired_runtime()
+        declaration=self.root/"wine-build.json"
+        helper.save(declaration,{"wine_revision":"c"*40,"recipe_sha256":"d"*64});declaration.chmod(0o444)
+        selected={"path":str(declaration),"sha256":helper.sha(declaration)}
+        self.registration["environment"]["runner"]={"proton":str(self.root/"proton"),"files":[selected]}
+        manifest=self.root/"direct-audio-helper.json"
+        value=helper.read(manifest);value.update(schema=2,runner_wine_revision="c"*40,runner_build_sha256=selected["sha256"])
+        manifest.chmod(0o644);helper.save(manifest,value);manifest.chmod(0o444)
+        runtime=helper.read(self.root/"runtime.json")
+        runtime["direct_audio_helpers"][-1]["sha256"]=helper.sha(manifest)
+        helper.save(self.root/"runtime.json",runtime)
+        report=self.report("winebus.sys=d;lvb-direct-wait=b")
+        helper.applied_launch(self.registration,report)
+        declaration.chmod(0o644);helper.save(declaration,{"wine_revision":"c"*40,"recipe_sha256":"e"*64});declaration.chmod(0o444)
+        selected["sha256"]=helper.sha(declaration)
+        with self.assertRaises(helper.Failed):helper.applied_launch(self.registration,report)
+
 
 class ProductReadRefresh(unittest.TestCase):
     def setUp(self):

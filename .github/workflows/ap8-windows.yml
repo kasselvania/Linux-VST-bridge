@@ -106,6 +106,8 @@ jobs:
           persist-credentials: false
       - name: Acquire pinned official SDK
         run: python tools/wf0-factory-census/build.py acquire --sdk-root "${{ runner.temp }}/ap8-sdk"
+      - name: Refuse unpaired common helper inputs before executing tools
+        run: python tools/mf3/test_common_helper.py
       - name: Build existing Windows host
         shell: pwsh
         run: |

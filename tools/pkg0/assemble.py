@@ -489,11 +489,18 @@ def verify_prebuilt_kit(data, source_head, host_sha256, source_sha256):
             expected={name.removeprefix("runtime/"):recipe["files"][name]
                       for name in helpers if name != "runtime/direct-audio-helper.json"}
             shim=archive.read("runtime/lvb-direct-wait.dll")
-            if (set(helper)!={"schema","abi","host_sha256","runner_wine_revision","files"}
-                or type(helper["schema"]) is not int or helper["schema"]!=1
+            helper_keys={"schema","abi","host_sha256","runner_wine_revision","files"}
+            common=helper.get("schema")==2
+            if common:helper_keys.add("runner_build_sha256")
+            if (set(helper)!=helper_keys
+                or type(helper["schema"]) is not int or helper["schema"] not in (1,2)
                 or type(helper["abi"]) is not int or helper["abi"]!=1
                 or helper["host_sha256"]!=host_sha256
-                or helper["runner_wine_revision"]!="46b29104e3741fe23bf5e2547196a253aab88c89"
+                or (not common and helper["runner_wine_revision"]!="46b29104e3741fe23bf5e2547196a253aab88c89")
+                or (common and (not isinstance(helper["runner_wine_revision"],str)
+                    or re.fullmatch("[0-9a-f]{40}",helper["runner_wine_revision"]) is None
+                    or not isinstance(helper["runner_build_sha256"],str)
+                    or re.fullmatch("[0-9a-f]{64}",helper["runner_build_sha256"]) is None))
                 or helper["files"]!=expected
                 or not shim.startswith(b"MZ") or b"Wine builtin DLL" not in shim[:128]
                 or shim!=archive.read("runtime/x86_64-windows/lvb-direct-wait.dll")
