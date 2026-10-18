@@ -6,15 +6,16 @@ The completed Native Access recovery (#465) is the reference for that vendor
 journey. `docs/ARCHITECTURE.md` fixes the boundaries and beta scope.
 
 Reference: preserve the existing Deck setups and their previous runtimes. Compare
-each saved project before and after its product-managed runtime move. Test215 is
+each saved project before and after its product-managed runtime move. Test216 is
 installed; the Reference setup already plays and recalls independent instance
 settings on r5 in REAPER, with clean retirement. This is not Bitwig qualification.
 
 Next changes and checks:
-1. Serum's retained runtime is restored; the operator confirms touch works again.
-   Carry the released-contact and per-window routing corrections into the
-   maintained GE line, then repeat playback/recall and physical popup checks.
-   r7 adds the two touch corrections to r5's GE/UIA/MSI components; test it first.
+1. Restoring Serum's retained runtime restored physical touch. Both touch
+   corrections are now integrated into the maintained GE line as r7, retaining
+   the existing UIA/MSI corrections. Serum's setup now uses r7.
+   r7 is installed: Serum instrument/FX changed-state recall and playback pass.
+   Repeat the physical finger-menu check before calling the touch repair fixed.
    r5 playback/recall passed; finger menu use stalled or lost the editor.
    Correct transparency remains an open, separate graphics defect (#330).
 2. Move the Native Instruments setup through the same product journey. Preserve
