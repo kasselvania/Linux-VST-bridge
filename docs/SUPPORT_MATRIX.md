@@ -901,8 +901,12 @@ Serum 2 FX and played at the same peak; the instrument editor visibly rendered.
 The operator then reported that the requested finger-operated OSC A waveform-menu
 selection/dismissal stalled or lost the editor. Thus r5 fails this Deck touch
 journey despite the playback/recall result. The previous touch-routing runtime and
-both connections were restored through the product. Changed-parameter recall, FX editor behavior
-and Bitwig remain unchecked; Kontakt's setup has not yet moved to r5.
+both connections were restored through the product. Playback again peaked at
+.283317, and the operator confirmed the same physical-touch test worked after
+restoration. The operator also confirmed the longstanding incorrect transparency
+remains (#330); visible rendering above does not mean correct graphic fills.
+Changed-parameter recall, FX editor behavior and Bitwig remain unchecked;
+Kontakt's setup has not yet moved to r5.
 
 Test35's ordinary GUI **Update Bridge** preserves twelve class/module/environment/
 compatibility bindings, five preferences, two saved projects and all 257 original
