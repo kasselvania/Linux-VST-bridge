@@ -98,12 +98,13 @@ class CandidateInputs(unittest.TestCase):
             self.assertEqual(proxies[0]['destination'], 'usr/lib/linux-vst-bridge/proxy/ReusableEngine.so')
             self.assertEqual(pathlib.Path(proxies[0]['source']).read_bytes(), engine)
             self.assertEqual(spec['external_runtime'], {
-                'id':'managed-ge-proton11-7-slr4-20260805-r5',
-                'manifest_sha256':sha(b'c5448b76a230384e2d7bc6beb5ccb97bafb7e2c3b6c527cb03a1a546bbcb00a0\n3226d8234e7c0542ee767837832bfb1dad5e5e2dc944ec97eb221b437f6b9349\n988fb967608a8c116022c27822647b7a7eda50a283a9e53ee2f22fe299b60f6c\n4ca51dec54f6085bd2050d8714018c3ba95bae7c00277de31e66d2c3ec7c9058\n'),
+                'id':'managed-ge-proton11-7-slr4-20260805-r7',
+                'manifest_sha256':sha(b'c5448b76a230384e2d7bc6beb5ccb97bafb7e2c3b6c527cb03a1a546bbcb00a0\n3226d8234e7c0542ee767837832bfb1dad5e5e2dc944ec97eb221b437f6b9349\n988fb967608a8c116022c27822647b7a7eda50a283a9e53ee2f22fe299b60f6c\n4ca51dec54f6085bd2050d8714018c3ba95bae7c00277de31e66d2c3ec7c9058\nca86baa047d98504faae52af1118403ff4860cf4aae039bdce68113f18360bf3\n'),
             })
             notices=(build/'inputs-0.12.0fixture/THIRD_PARTY_NOTICES.txt').read_text()
             self.assertIn('runtime-uia-r4/uia-guard.tar.gz',notices)
             self.assertIn('runtime-msi-r5/msi-reader.tar.gz',notices)
+            self.assertIn('runtime-touch-r7/x11-touch.tar.gz',notices)
             self.assertIn('complete corresponding patched Wine source',notices)
             guide = (build / 'inputs-0.12.0fixture/START_HERE.html').read_text()
             self.assertNotIn('Supported prebuilt proxy metadata', guide)
