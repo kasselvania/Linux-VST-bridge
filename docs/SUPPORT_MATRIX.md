@@ -930,6 +930,30 @@ screen. An earlier remote mouse Retry attempt was not confirmed received, so
 recovery cannot be attributed to it. The transient loading error remains noted;
 this run does not establish its cause or qualify installation/update behavior.
 
+On Deck/Test216 in native Bitwig 6.1 (Flatpak, Desktop Mode), a copy of the
+retained Reference project plays two Reference Instrument/Effect chains from
+one r5 setup alongside Kontakt Pad Noir from the NI r7 setup. The instruments
+retain different Level/Colour settings (.585/.365 and .675/.295); both Reference
+effects retain .375/.660. All three tracks play an eight-bar MIDI phrase.
+Removing one Reference chain leaves the other Reference track and Kontakt
+playing, with DSP count 3; Undo reloads that chain with its settings and DSP count
+5. Save, full Bitwig exit and fresh-process reopen retain those values and Pad
+Noir. Two 18.0907-second desktop-output captures before and after reopening peak
+at .044678 (RMS .009962/.009963); all three track meters show output. Kontakt's
+editor opens, shows the recalled Pad Noir instrument and closes. Both full
+exits retire to DSP 0/keepers 0 with no pending transactions, stale transports or
+cleanup failure. This is a bounded functional check, not an audio-deadline soak,
+Game Mode qualification, or proof of every plug-in on r7.
+
+An older September KontaktStereo project copy opens with a missing-device
+placeholder in Bitwig although the current factory and saved processor identity
+match. Fresh Kontakt insertion works, as does the newly saved mixed project's
+recall. The older project's pre-migration Bitwig baseline was not established;
+its original bytes are preserved and this unresolved recall result is not a
+proven r7 regression. The audio/state-only Reference fixture has no custom editor
+in its source; the bridge nevertheless exposes an empty small editor window.
+That UI capability-handling gap remains open. Physical Kontakt touch is untested.
+
 Test35's ordinary GUI **Update Bridge** preserves twelve class/module/environment/
 compatibility bindings, five preferences, two saved projects and all 257 original
 candidate/lineage records; each history now holds 269. Exact Test33 remains the

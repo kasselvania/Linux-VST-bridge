@@ -1,5 +1,12 @@
 # Shared failure classes
 
+Deck/Test216 follow-ups under #469: an older KontaktStereo Bitwig project opens
+with a missing-device placeholder although the factory/saved class identity
+matches; fresh insertion and a newly saved mixed-project recall work. Its old
+package baseline must be recovered before attributing the failure to migration.
+The no-custom-editor Reference fixture also opens an empty small editor frame;
+capability handling should avoid offering that unusable window. Both remain open.
+
 This ledger is the current map from reusable failure mechanisms to fixes, artifacts, physical coverage, and remaining gaps. It is organized by shared boundary rather than by chronological campaign or plug-in name.
 
 Problem reports (#361): the manager now collects a bounded local report and offers
