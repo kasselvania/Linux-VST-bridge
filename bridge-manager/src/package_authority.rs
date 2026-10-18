@@ -4786,7 +4786,10 @@ print('LVO0 '+j['session']+' ready',flush=True)
         assert_eq!(after.publication, Publication::Published);
         assert_eq!(after.managed_revision, before.managed_revision,
             "the publication on the changed runtime was kept, not refreshed");
-        assert!(add_back_needs_refresh(m, &key, before.managed_revision.as_ref().unwrap()).unwrap());
+        // Re-adding that plug-in would run it: the setup's own operation
+        // reports the changed runtime rather than the update.
+        assert!(add_back_needs_refresh(m, &key, before.managed_revision.as_ref().unwrap())
+            .unwrap_err().to_string().contains("artifact missing or changed"));
     }
     #[test]
     fn software_update_preserves_owned_stale_publications_until_fresh_preparation() {
