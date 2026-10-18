@@ -1076,7 +1076,7 @@ mod tests {
         let tmp=Scratch::new();
         let (stage,revision,mut rows)=composition_fixture(&tmp,"managed-msi-test",&[UIA_GUARD,MSI_READER]);
         let component=compose_components(&stage,&revision,&mut rows).unwrap();
-        for &(path,_,_,corrected) in UIA_FILES.iter().chain(MSI_FILES).chain(TOUCH_FILES) {
+        for &(path,_,_,corrected) in UIA_FILES.iter().chain(MSI_FILES) {
             let relative=Path::new(GE).join(path);
             assert_eq!(fs::read(stage.join(&relative)).unwrap(),corrected);
             let row=rows.iter().find(|row|row.path==relative).unwrap();
@@ -1095,6 +1095,25 @@ mod tests {
         fs::set_permissions(&x86,fs::Permissions::from_mode(0o600)).unwrap();
         fs::write(&x86,b"original x86 MSI").unwrap();
         fs::set_permissions(&x86,fs::Permissions::from_mode(0o500)).unwrap();
+        assert!(runner.verify().unwrap_err().to_string().contains("managed_runtime_file_changed"));
+    }
+    #[test]
+    fn touch_revision_retains_prior_corrections_and_seals_the_x11_driver() {
+        let tmp=Scratch::new();
+        let (stage,revision,mut rows)=composition_fixture(&tmp,"managed-touch-test",&[UIA_GUARD,MSI_READER,X11_TOUCH]);
+        let component=compose_components(&stage,&revision,&mut rows).unwrap();
+        for &(path,_,_,corrected) in UIA_FILES.iter().chain(MSI_FILES).chain(TOUCH_FILES) {
+            assert_eq!(fs::read(stage.join(GE).join(path)).unwrap(),corrected);
+        }
+        for retained in ["x11-touch/wine-source.tar.gz","x11-touch/THIRD_PARTY_NOTICES.txt"] {
+            assert!(rows.iter().any(|row|row.path==Path::new(retained)),"{retained}");
+        }
+        let runner=seal_composed(&stage,&revision,rows,&component);
+        runner.verify().unwrap();
+        let driver=stage.join(GE).join(TOUCH_FILES[0].0);
+        fs::set_permissions(&driver,fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&driver,b"changed X11 driver").unwrap();
+        fs::set_permissions(&driver,fs::Permissions::from_mode(0o500)).unwrap();
         assert!(runner.verify().unwrap_err().to_string().contains("managed_runtime_file_changed"));
     }
     #[test]
