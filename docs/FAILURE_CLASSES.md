@@ -9,7 +9,9 @@ Slow Native Access sign-in return (#363, measured under #465): the return
 command re-verified the whole runtime tree (13,095 files, 2.3 GB on r5) before
 connecting to the running application session, ~80 s on the CachyOS fixture, so
 Native Access rejected returned codes as expired. PR 467 keeps the application
-files exact and skips the tree census on the return path; installed retest pending.
+files exact and skips the tree census on both return-path verifications; on Test212
+(fresh CachyOS account) the return took 15 s and was accepted first time, down from
+65–95 s with one of two or three returns expiring.
 Kontakt 8's first inspection on a fresh setup can exceed the 30 s module-unload
 deadline ("stopped responding while it was being closed"); the ordinary Retry
 succeeded on Test210. Open: whether first-load work needs a longer exit deadline.

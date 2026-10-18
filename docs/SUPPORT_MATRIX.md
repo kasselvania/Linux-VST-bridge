@@ -20,7 +20,7 @@ Retry, Piano Uno loaded in the bridged editor, a 3 s MIDI phrase rendered and
 played on PulseAudio, and the changed instrument recalled after a full REAPER exit
 and reopen (same onsets, RMS .024 → .023, peak .128 → .129); each quit retired the
 live instance cleanly. Limits: the sign-in return took ~80 s per attempt and two
-returns expired before one landed (fixed in PR 467, retest pending); Kontakt's first
+returns expired before one landed (fixed in PR 467: 15 s and accepted first time on Test212); Kontakt's first
 inspection hit the 30 s unload deadline before the Retry; SteamOS and update/
 rollback for this setup remain unqualified.
 
