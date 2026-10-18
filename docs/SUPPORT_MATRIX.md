@@ -860,6 +860,20 @@ Both hosts retire cleanly. The ordinary GUI records eight observed checks, leavi
 processing restart unchecked. The original project, twelve registrations and five
 preferences are unchanged. This is a short functional test, not audio deadline qualification.
 This repaired journey required several shared fixes; first-attempt qualification remains unmet.
+Test214 (2026-10-18) updates the Deck from Test126 through the ordinary package path
+(staged signed SteamOS package, then `package-update` run by the staged package's own
+manager, as Setup's Update Bridge does) in six minutes with all 26 published classes
+retained: 24 refreshed onto the new manager, the two LVB Completion classes on Steam's
+Proton 11.0 kept as they were. Test212 and Test213 refused the same update with
+"artifact missing or changed" because Steam had updated that Proton build in place
+(8 of 31 pinned files) and the catalogue check, then the publication refresh,
+verified a setup's runtime at update time; both checks are removed on PR #470 and
+the rule is recorded in the architecture. Afterwards the Kontakt 8 project saved
+under Test126 on 15 October (Pad Noir, 4 s phrase) reopens in REAPER on the Deck's
+NI runtime, renders 0–4 s offline at −4.7 dB peak and plays through PulseAudio at
+−4.7 dB track and master peak, the same level as the Test126 measurement; the
+instrument needed about 20 s after project open before it produced sound. Driven
+headlessly as a user service with project and Lua script as launch arguments.
 
 Test35's ordinary GUI **Update Bridge** preserves twelve class/module/environment/
 compatibility bindings, five preferences, two saved projects and all 257 original
