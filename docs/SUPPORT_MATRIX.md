@@ -11,6 +11,17 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Test212 (PR 467 head) / fresh CachyOS account / REAPER 7.82 / runtime r5,
+**mixed-use regression passed** (issue 465, 2026-10-18): two Kontakt 8 instances with
+different instruments from the Native Instruments setup plus the Reference Effect from
+its own setup played together (manager: dsp 3, keepers 2); removing one Kontakt while
+playing left the others running (dsp 3 → 2 → 3 on undo, same FX identity); full REAPER
+quit retired all instances (dsp 0, no incidents); the reopened project kept all three FX
+identities and the effect's Level .7, and its render was bit-identical to the pre-quit
+render (192,000 frames, correlation 1.0). Per-track stems after reopen: piano RMS .0198 /
+peak .129, bass + effect RMS .134 / peak .428. Limits: VM with two cores and a slow disk,
+no Bitwig/SteamOS yet, no measurement of real-time CPU headroom.
+
 Test210 (main 68ceff15) / fresh CachyOS account / REAPER 7.82 / runtime r5,
 **Native Access 3.26.0 → Kontakt 8 Player 8.13.1 journey passed** (issue 465,
 2026-10-17): ordinary r5 acquisition, Native Access install and managed launch with

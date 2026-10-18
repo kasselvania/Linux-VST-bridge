@@ -16,6 +16,15 @@ Kontakt 8's first inspection on a fresh setup can exceed the 30 s module-unload
 deadline ("stopped responding while it was being closed"); the ordinary Retry
 succeeded on Test210. Open: whether first-load work needs a longer exit deadline.
 
+Sticky "cleanup unconfirmed" after a failed admission (#468): the bridge service sets a
+process-wide flag when an exposed admission fails (for example Kontakt's first inspection
+exceeding the 30 s unload deadline, or a host ended by the manager's own vendor-operation
+pause). Nothing in production clears it; every action requiring inactivity, including
+Reconcile, is disabled until the service restarts, and the card offers no restart. After a
+restart the existing Reconcile does resume the stale pause record. Open.
+While a vendor app or installer is open, every setup's Install offer is disabled, not only
+the affected setup's (ARCHITECTURE §3 expects per-setup exclusivity). Open.
+
 PACE/iLok load-time stalls (#414/#417) remain open. Same-setup dependency assistance
 uses local service registration and current scan observations; a timeout alone does
 not establish a PACE requirement. The musician selects the vendor's installer.
