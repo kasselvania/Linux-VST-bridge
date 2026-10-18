@@ -898,9 +898,11 @@ the retained Serum project played a six-note MIDI phrase at peak .283317. A fres
 REAPER process reopened that saved project on r5, played at the same peak, saved
 a new copy and exited normally. A further session loaded Serum 2 followed by
 Serum 2 FX and played at the same peak; the instrument editor visibly rendered.
-This establishes the bounded playback/recall comparison, not physical-touch or
-full migration qualification. Physical touch, changed-parameter recall, FX editor
-behavior and Bitwig remain to be checked; Kontakt's setup has not yet moved to r5.
+The operator then reported that the requested finger-operated OSC A waveform-menu
+selection/dismissal stalled or lost the editor. Thus r5 fails this Deck touch
+journey despite the playback/recall result. The previous touch-routing runtime and
+both connections were restored through the product. Changed-parameter recall, FX editor behavior
+and Bitwig remain unchecked; Kontakt's setup has not yet moved to r5.
 
 Test35's ordinary GUI **Update Bridge** preserves twelve class/module/environment/
 compatibility bindings, five preferences, two saved projects and all 257 original

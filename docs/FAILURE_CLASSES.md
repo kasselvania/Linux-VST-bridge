@@ -372,6 +372,16 @@ were its own reads of a Wine stub, not evidence that Serum called that API.
 Serum 2 2.1.5 on Steam Deck: verified-fixed for the exact waveform popup
 interaction under candidate D. Candidate C's failure remains retained.
 
+Deck/Test215 migration check, 2026-10-18: the operator reports stalled or lost
+editor response during finger-operated OSC A waveform-menu selection/dismissal
+on managed GE r5. Playback and fresh-process recall passed before this check.
+r5's declared corrections are UIA and MSI only; its installed x64 X11 driver is
+byte-identical to the stock GE archive. Its pinned Wine base retains root-raw
+touch routing and the in-contact flag on release. Both retained touch
+patches apply to that base source in an isolated patch check. This is a concrete
+integration lead, not a verified r5 fix; restore the previous working runtime
+and qualify the correction on the maintained GE line with physical input.
+
 ### Claim limit
 
 This entry does not establish a universal popup defect or explain the older broad editor-disappearance reports. The action-bound trace overflow prevents claiming a complete Windows message sequence.

@@ -11,9 +11,10 @@ installed; the Reference setup already plays and recalls independent instance
 settings on r5 in REAPER, with clean retirement. This is not Bitwig qualification.
 
 Next changes and checks:
-1. Move Serum 2 and Serum 2 FX through the product's runtime selector and fresh
-   compatibility/connection actions. Compare playback and saved state, inspect
-   the editor and check physical Deck touch against the retained touch candidate.
+1. Restore Serum's retained touch runtime after the r5 physical-touch failure.
+   Carry the released-contact and per-window routing corrections into the
+   maintained GE line, then repeat playback/recall and physical popup checks.
+   r5 playback and rendering passed; finger menu use stalled or lost the editor.
 2. Move the Native Instruments setup through the same product journey. Preserve
    signed-in Native Access, licensed installations and content. Reopen the saved
    Kontakt Pad Noir project and verify the managed application still works.
