@@ -1,46 +1,34 @@
-# Current slice — restore Native Access → Kontakt on r5 (#465)
+# Current slice — move the Deck beta setups to r5 (#469)
 
-Goal: restore the ordinary managed Native Access → Kontakt journey on current
-`main` before further runtime consolidation or beta qualification.
+Goal: use the maintained managed runtime on the Deck without losing installed
+plug-ins, activation or saved projects, then prove the Bitwig mixed-use journey.
+The completed Native Access recovery (#465) is the reference for that vendor
+journey. `docs/ARCHITECTURE.md` fixes the boundaries and beta scope.
 
-Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) is fixed. Runtime code
-is shared, mutable vendor installations live in setups, and each live plug-in
-instance has its own Windows host. This slice cannot redefine those boundaries.
+Reference: preserve the existing Deck setups and their previous runtimes. Compare
+each saved project before and after its product-managed runtime move. Test215 is
+installed; the Reference setup already plays and recalls independent instance
+settings on r5 in REAPER, with clean retirement. This is not Bitwig qualification.
 
-Reference: build one normal current-main package that selects managed GE-Proton
-r5 for a fresh disposable CachyOS account with native REAPER 7.82. Compare with
-the retained working r5 package/fixture at the first differing behavior, using
-Test88 package behavior and Test126's accepted CachyOS musical result as retained
-references where applicable. Do not assume current main + r5 still works.
+Next changes and checks:
+1. Move Serum 2 and Serum 2 FX through the product's runtime selector and fresh
+   compatibility/connection actions. Compare playback and saved state, inspect
+   the editor and check physical Deck touch against the retained touch candidate.
+2. Move the Native Instruments setup through the same product journey. Preserve
+   signed-in Native Access, licensed installations and content. Reopen the saved
+   Kontakt Pad Noir project and verify the managed application still works.
+3. Connect Bitwig and run two distinct instances from one setup plus a plug-in
+   from another: simultaneous playback, independent removal/reload, changed
+   state, save, full exit and fresh-process recall, followed by clean retirement.
 
-Method:
-1. Reproduce ordinary Native Access installation and managed launch.
-2. At the first difference, hold application build, setup/dependencies, profile
-   choices and graphical context constant and compare the exact package/runtime/
-   launch behavior.
-3. Change one causal variable. Keep the correction or revert it.
-4. Keep installer completion, usable application window, authorization, Kontakt
-   installation, plug-in discovery and musical use as separate outcomes.
+Use the existing homelab backup. Never rewrite licensed setup files outside
+product operations. No synthetic Deck key events; mouse and captures are allowed.
+Keep the old runtimes while any setup or rollback uses them. Preserve BEAM,
+Blackhole, Arturia and the FL Studio workspace. Game Mode secondary-window work,
+r6, DirectComposition integration and supervisor redesign are outside this slice.
 
-All relevant layers remain suspects: manager, profile, setup/dependency handling,
-launcher and runtime. Existing implementation structure is not a reason to protect
-a broken mechanism. Preserve exact target identity, bounded custody, setup
-isolation, user state and safe cleanup.
-
-Do not rebuild or salvage r6, start the DirectComposition track, change the
-supervisor execution boundary, redesign the UI, create another profile/runtime
-framework, or touch licensed Deck installations in this slice. PR464's structured
-installer result remains useful, but completion does not establish Native Access
-usability.
-
-Done: the ordinary product installs Native Access, opens a usable managed window,
-returns user-controlled sign-in, installs Kontakt, discovers and publishes it
-without manual prefix repair, plays MIDI/audio in REAPER, recalls changed state
-after full exit/reopen, and retires the affected owned processes/services cleanly.
-Record the causal correction and a focused regression. A diagnosis, copied app,
-green tests or completed installer is not completion while that journey is broken.
-
-Next after #465: run the architecture's mixed-use regression—two distinct live
-instances from one shared setup plus a plug-in from another setup, simultaneous
-playback, independent instance removal/reload and fresh-process project recall—
-with corresponding REAPER and Bitwig projects.
+Done: the named Deck beta setups use the managed runtime, retain authorization
+and saved musical state, and complete the Bitwig mixed-use checks above. A
+compatibility scan or publication alone does not establish working musical use.
+Record only observed combinations in `docs/SUPPORT_MATRIX.md`; open shared defects
+belong in the existing issue and failure-class map.

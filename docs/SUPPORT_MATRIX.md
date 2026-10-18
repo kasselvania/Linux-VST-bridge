@@ -889,7 +889,18 @@ the same **Continue connecting plug-ins** action completes with both classes
 Available and no failures, without changing either selected publication. This
 same saved project also reopens on Test215 with all five settings retained and
 both tracks playing (peaks .01785 and .02558), then exits normally. This covers
-Reference on REAPER; Bitwig and the licensed setups' r5 migrations remain unqualified.
+Reference on REAPER; Bitwig remains unqualified.
+
+On Deck/Test215, the existing Serum setup moved from the retained touch-routing
+runtime to managed r5 through the product, followed by fresh compatibility checks
+and explicit replacement of the instrument and FX connections. Before the move,
+the retained Serum project played a six-note MIDI phrase at peak .283317. A fresh
+REAPER process reopened that saved project on r5, played at the same peak, saved
+a new copy and exited normally. A further session loaded Serum 2 followed by
+Serum 2 FX and played at the same peak; the instrument editor visibly rendered.
+This establishes the bounded playback/recall comparison, not physical-touch or
+full migration qualification. Physical touch, changed-parameter recall, FX editor
+behavior and Bitwig remain to be checked; Kontakt's setup has not yet moved to r5.
 
 Test35's ordinary GUI **Update Bridge** preserves twelve class/module/environment/
 compatibility bindings, five preferences, two saved projects and all 257 original
