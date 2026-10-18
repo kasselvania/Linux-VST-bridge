@@ -1,295 +1,239 @@
-# Architecture
+# Product architecture
 
-This is the governing recovery contract adopted by the operator on 2026-10-16.
-It replaces production runtime selection by plug-in or qualification campaign.
-AGENTS.md retains priority. Detailed schemas, conflict rules and physical module
-layout are not selected by the examples or logical owners below.
+This is the sole current architecture for the product. It replaces the
+2026-10-16 runtime-recovery contract, which is retained only as
+[history](history/ARCHITECTURE-2026-10-17-runtime-recovery.md). `AGENTS.md` sets
+working rules; `CURRENT_SLICE.md` names the immediate assignment and cannot
+redefine this architecture or the release scope.
 
-> Where semantics are unresolved, I will bring a concrete decision with alternatives and consequences before implementation—not quietly choose a schema or architecture while fixing something else.
+## Product
 
-The [current slice](../CURRENT_SLICE.md) owns immediate work. The
-[retained bridge contracts](components/BRIDGE_CONTRACTS.md) preserve active SDK,
-transport, custody, state and transition invariants in accessible documentation.
-Existing mechanisms and tests remain until a replacement proves their invariants;
-existing structure has no authority merely because it exists.
+The product is a managed library for Windows audio plug-ins used from native
+Linux DAWs. A musician installs and authorizes vendor software, sees the resulting
+plug-ins in the DAW, plays them, saves and reopens projects, updates or repairs the
+installation, and removes it without administering Wine, Proton or prefixes.
 
-## Product and release
+Vendor applications such as Native Access are supported because they install,
+authorize and maintain plug-ins. This is not initially a general Windows
+application or DAW-management platform.
 
-A musician installs, authorizes, plays, saves, reopens, updates, repairs and removes
-Windows audio plug-ins through the product in a native Linux DAW. The product
-acquires its runtime; customers need no Steam, Wine installation, SDK or compiler.
-Preserve existing workspaces without expanding the target to all Windows apps or DAWs.
+The first closed-beta target is:
 
-For each supported platform/architecture, a bridge release has **one qualified
-binary compatibility component set for new work**: one common Wine engine with
-its runtime, graphics and integration components. Configuration selects supported
-behavior inside that set. Profiles cannot select private per-plug-in production
-engines, and several vendor engines in one archive/name do not satisfy the rule.
+- CachyOS with native REAPER and SteamOS with Bitwig;
+- the Reference fixtures and Tyrell as repeatable compatibility regressions;
+- Native Access through Kontakt and Serum 2 as named commercial journeys; and
+- ordinary install/authorize/discover/play/editor/state/restart/update/repair/remove
+  behavior for the combinations actually claimed in `docs/SUPPORT_MATRIX.md`.
 
-The operator selected a common audio runtime without Steam game/overlay or VR
-relay integrations on 2026-10-16. Keep complete native Wine architectures,
-graphics/media, installers/services, recovered corrections and exactly paired
-product helpers. Omit lsteamclient, the Steam executable intermediary, OpenVR and
-wineopenxr relay components. After standard prefix initialization, `run` launches
-the requested program directly; `waitforexitandrun` retains its wineserver wait.
-`runinprefix`, path conversion and supervisor/command-session ownership remain.
-Remove only associated setup/build dependencies; preserve exact applied
-predecessors. This does not remove SteamOS support or forbid unfamiliar plug-ins.
+Blackhole and BEAM remain explicit recovery work, and their existing working
+installations must be preserved. They are not advertised on a new default runtime
+until the useful behavior is physically demonstrated there. This scope is a target,
+not a declaration that every cell already passes.
 
-The release binds manager/control protocol, proxy, Windows host/scanner,
-supervisor protocol, runtime and shipped policy revisions as a tested combination.
-Choose Proton or GE-Proton by combined compatibility and regression results;
-separate successful patches do not qualify their combination. A binary correction
-creates a runtime generation; a supported option creates a configuration change;
-a dependency installation changes a setup revision; discovery and qualification
-record observations. None substitutes for another.
+## Compatibility stack
 
-WebView2 is a managed setup dependency, as selected by the operator on 2026-10-16.
-Its exact browser dependency belongs to the setup revision and changes through
-an explicit owned transition. Preserve predecessor browser bindings and browser
-user data/account state; retaining browser binaries alone does not prove usable
-rollback. The common Wine engine remains independent of browser servicing. This
-classification does not accept publisher terms or settle acquisition versus
-redistribution, delivery APIs or the required servicing implementation.
-
-The setup owner owns the installed dependency set. The configuration owner binds
-an exact browser version for each launch purpose in the immutable applied
-configuration, as selected by the operator on 2026-10-16. The supervisor receives
-the resolved exact identity, folder and scope; it never selects or upgrades a
-browser, uses an implicit latest version, or rewrites configuration at launch.
-Keeper conflicts, browser-data compatibility and failed partial setup mutations
-require explicit transition semantics before implementation.
-
-Git owns original source/patches, pinned inputs/toolchain, build/composition recipes,
-tests and distribution notices. Build coherent components from one selected source
-and SDK basis, without transplanted prebuilt DLLs from different Wine bases or
-machine-local construction steps. Customer installers, plug-ins, presets, content,
-credentials and activation material are never Git build inputs or diagnostic exports.
-Record acquisition, licences, notices and servicing obligations before distribution.
-
-The release builder alone writes the common Wine construction declaration. It
-binds the prepared recipe/patch inputs, pinned SDK, effective compiler/target
-configuration and invocation, Wine source and separate product-helper ABI/source
-identity. Ordinary runtime delivery seals it in the selected runner's immutable
-artifacts. The helper builder consumes that exact declaration and its verified
-Wine marker tool; the helper manifest binds the declaration digest and existing
-host/helper byte identities. The supervisor mechanically verifies that already
-selected pair before dispatch. It neither selects a helper nor resolves source
-policy. The shared command-session declaration's schema2 binds this construction
-digest and positively identifies the new contract independently of missing payload
-files; predecessor schema1 interpretation remains exact. Unknown versions refuse.
-New common archives cannot fall back to predecessor helper interpretation
-when facts are missing. This declaration records construction, not qualification.
-
-Retain exact immutable predecessors for continuity, migration and rollback. Do not
-silently switch working setups or delete predecessors to shorten the runtime list.
-Lab generations remain isolated from ordinary selection and confer no support
-claim. A successful lab mechanism enters production through the common build and
-combined regression. Incompatible binary fixes require an explicit release decision,
-not a quiet profile-selected engine fork.
-
-## Four layers and their identities
-
-| Layer | Identity and responsibility |
+| Component | Responsibility |
 | --- | --- |
-| Release runtime | Immutable release/runtime generation: common binary component set and paired product/protocol/policy inputs. |
-| Vendor setup revision | Stable setup identity with revisions of the mutable Windows environment, installed modules, vendor services and content relationships. |
-| Applied plug-in configuration | Immutable resolved snapshot for one exact module/class, setup revision and release, with selected options and their provenance. |
-| Live instance | One admitted DAW use of an applied snapshot, with actual audio format, editor, process generations and effective runtime observations. |
+| Wine | Windows APIs, loader, registry, processes, services and graphics behavior. |
+| Proton/GE-derived runtime | A coherent Wine build, supporting components, launcher and expected Linux userspace. |
+| Steam Linux Runtime | The pinned Linux container/userspace used by that runtime; it is not a requirement for the Steam client. |
+| Native Linux VST3 proxy | The DAW-facing SDK edge and real-time transport endpoint. |
+| Windows host | Loads one Windows VST3 instance and owns its VST3/Win32 calls. |
+| Control service and manager | Setups, profiles, installation, discovery, publication, updates, repair and musician-facing status. |
+| Host supervisor | Executes an already selected setup/launch plan and owns exact processes, services and cleanup. |
 
-One runtime does not mean one prefix, account environment or Windows process for
-all vendors. Isolate vendor setups and plug-in processes by default. Shared services
-have explicit owners and affected users. An immutable setup-revision record does
-not make vendor disk state immutable: mutation requires an owned revision transition.
-Preserve licensed machine identity and mutable user state through supported changes.
+The native DAW owns the audio device. The bridge carries audio, events, state and
+editor/lifecycle calls between the native proxy and the Windows host. Ordinary
+plug-in processing does not introduce a second Wine/ASIO audio-device path.
 
-Identity uses actual content and logical classes, not paths/display names. Stable
-native DAW class and automation identities survive runtime/configuration updates.
-Never substitute a same-name build, preset, environment or content root. Retaining
-files alone cannot promise reversal of vendor activation or external changes.
+## Runtime strategy
 
-<a id="186-general-preparation-and-compatibility-experimentation"></a>
+The production maintenance line starts from the known GE-derived reference. The
+current r5 generation is a recovery reference, not an automatic beta claim. A
+current product package must prove it again.
 
-## Configuration lifecycle
+One maintained runtime generation is recommended for new setups. Runtime files are
+immutable and shared; each setup records the generation it uses. Older generations
+remain available while working setups or rollback require them. A manager update
+does not silently change a setup's runtime.
 
-Keep discovered facts, shipped advice, user intent, proposed resolution, applied
-selection, effective live observations and qualification separate. Their references
-connect them; one combined profile/candidate record must not impersonate them all.
+A new plug-in failure does not create a private engine. It first exercises existing
+capabilities, then scoped profile advice, then—only when source evidence requires
+it—a reusable runtime correction. A second maintained runtime lineage requires an
+explicit product decision and support boundary; it is never the incidental result
+of debugging one plug-in.
 
-Configuration intent records user selections and scoped overrides. A pure Rust
-resolver consumes exact release/setup/discovery inputs, typed policy, capability
-observations and intent. It proposes a configuration with field provenance,
-conflicts, affected objects and consequences; it performs no filesystem mutation,
-process launch, network or UI work. Hard capability/safety constraints are distinct
-from advice. Supported safe user choices take precedence over advice; competing
-advice or incompatible overrides require a visible decision, not dictionary order.
+The r6 construction is retained as experimental evidence, not the production
+foundation. It changed both the Wine lineage and Proton launch composition. The
+pinned giang source must be measured against its documented upstream base before
+being judged, and its working results remain useful evidence.
 
-A configuration owner commits a proposal through an owned transition into an
-**immutable applied snapshot**. Publication and admission bind that snapshot; UI,
-CLI, launch, update comparison, rollback and reports reference the same selection.
-No consumer independently merges profile data. The service exposes the canonical
-view; this does not make the service projection a writer for every domain.
+Wine-Staging's DirectComposition series is the preferred first integration
+candidate for the GE-derived line. It enters the default only after the real
+editor that needs it renders and the existing baseline still passes. The graphics
+composition is part of that capability: a giang-style path using Wine builtins and
+a staging path expecting DXVK's DXGI are not interchangeable. Profiles may select
+only a graphics path implemented and validated by the selected runtime. Advice
+from one DirectComposition implementation must not be reused for another without
+that validation. Do not reuse an r6 DirectComposition result until the actually
+loaded DLL path is established.
 
-A profile update produces a new proposal. It cannot reinterpret the existing
-applied snapshot at launch. That snapshot continues until a successor transition
-commits. Which changes permit safe automatic adoption, which require user action,
-and how invalid overrides/schema migrations resolve require explicit decisions
-before implementation. Preserve exact project bindings and usable predecessors.
-The supervisor reports what actually ran; requested choices cannot write observations.
+Runtime build records retain the pinned upstream source, complete patch series,
+build invocation, notices and output identities. Executable delivery and matching
+source delivery may be separate artifacts where the licences permit, but their
+release relationship remains exact. Do not graft loose DLLs from a different Wine
+lineage into a production runtime.
 
-Profiles are typed data for implemented vendor, installer and plug-in capabilities:
-renderer/library choices, Windows version, dependencies, services and closed options.
-They contain no commands, patches, arbitrary executable/download hooks or licensing
-material. Vendor-specific advice requires a vendor-specific reason. A new operation
-requires a reusable implemented capability, not a plug-in-name product branch.
+## Setups and simultaneous plug-ins
 
-Advice applicability may cover a family/range; support names exact tested builds,
-release/runtime/applied configuration, platform, DAW, date, conditions and results.
-Generate the support matrix from those facts as that mechanism is implemented.
-Qualification does not authorize ordinary execution. An unfamiliar plug-in/distro
-is untested, not forbidden; refuse a specific missing capability or invalid binding.
-An optional editor failure does not erase usable audio or useful discovery facts.
+The runtime, a setup and a live plug-in instance are different things:
 
-## Sole writers and dependency boundaries
+- **Runtime:** shared immutable compatibility code.
+- **Setup:** one mutable Windows installation environment, including vendor apps,
+  plug-ins, services, registry and setup-owned dependencies.
+- **Live instance:** one DAW plug-in instance with its own Windows host process,
+  transport and plug-in state.
 
-One owner means one writer for a class of facts, not a daemon/crate/database per
-noun. Stored facts, derived proposals and displayed projections remain distinct.
-These logical authorities are governing; concrete keys, APIs, atomic transitions,
-conflict rules and migrations require a decision before the affected implementation.
+Products that genuinely share a vendor hub or service family normally share a
+setup. Independent or unfamiliar installers normally receive a new setup. A vendor
+name alone neither requires nor forbids sharing; the installation and service
+relationship decides it.
 
-| Facts or result | Sole owner | Must not own |
-| --- | --- | --- |
-| Release/runtime generations and paired bill of materials | Release/runtime catalog | Vendor installations, user intent or support claims |
-| Setup identity and committed revisions | Setup owner | Runtime builds, publication or qualification |
-| Discovered module bytes/classes and SDK topology | Inventory/inspection owner | Advice, user choices or support posture |
-| Shipped policy and immutable advice revisions | Policy catalog | Local setup mutation, process launch or observed facts |
-| User intent and committed applied snapshots | Configuration owner | Runtime artifacts or qualification facts |
-| Proposed resolution/conflicts | Pure resolver; derived from identified inputs | Mutating stores or executing operations |
-| Stable DAW publication and predecessor history | Publication owner | Setup mutation or installer execution |
-| Admission reservations and live binding | Admission broker | Choosing policy/runtime composition or rewriting applied snapshots |
-| Operation intent/progress/result | Owning domain operation | Other domains' facts or direct Ready status writes |
-| Exact process generations, owned services and retirement | Supervisor | Advice, qualification or configuration selection |
-| Content placement and owned references | Storage owner | Licensing or guessed external-file ownership |
-| Capability/effective observations | Relevant inventory, renderer or platform assessor | User intent or policy publication |
-| Tested support and qualification outcomes | Qualification owner | Ordinary product activation/selection |
-| Musician status and primary action | Derived service projection; no separate persisted writer | A second status truth store |
+Default execution is one Windows host process per live DAW plug-in instance. Two
+Kontakt instances may share the Native Instruments setup and its services, but
+not their live VST state or Windows host. Instances from different setups run at
+the same time through the same runtime generation where supported.
 
-An installer adapter executes within the setup owner's operation. That owner
-commits the new revision; inventory observes it, configuration proposes successors,
-and publication/admission consume committed selections. Cross-domain changes carry
-expected predecessor, affected siblings/resources, bounds and consequences to the
-actual writers. They do not edit each other's records or set Ready directly.
+Instance retirement stops that instance and its transport, not sibling instances
+or unrelated setups. Setup maintenance—installer, uninstaller, dependency change
+or runtime transition—is exclusive to that setup and waits for its affected live
+users to stop. A running setup never mixes runtime generations. Shared services
+have explicit setup ownership and conflicts are reported rather than hidden by
+creating another prefix.
 
-Vendor advice, installer adapter policy and plug-in advice remain distinct concerns,
-not runtime forks or copies of observed state. Policy catalog ownership does not
-settle their schemas or conflict rules. User export/import, community recommendation
-review and shipped profile publication are distinct operations. Decide their trust,
-authoring, versioning, distribution and update semantics before implementing them;
-the qualification owner does not acquire those authorities by implication.
+Stable DAW class and automation identities, user content references and opaque
+vendor state survive supported runtime, package and configuration changes. A
+prefix copy alone is not a promise that activation, accounts or external state can
+be rolled back.
 
-Runtime build owns source/patch/composition recipes and is not linked into the
-installed control service. Rust owns policy and lifecycle. C++ is confined to VST3
-SDK and Win32 edges behind versioned C ABI/protocols. The Linux proxy owns DAW
-interfaces and bounded transport; the Windows host owns vendor SDK calls. The
-supervisor executes a closed, resolved launch contract and reports custody/effective
-facts; it does not decide product policy. Preserve its tested implementation while
-narrowing that boundary later, rather than starting with a language rewrite.
+Capacity is generic reservation of finite instance, transport and memory resources.
+Campaign- or product-specific class limits are historical constraints to remove,
+not the permanent policy for adding a plug-in.
 
-UI/CLI consume a versioned product API, not manager implementation/store types.
-The resolver depends on pure identities/policy inputs, not operations or stores.
-Enforce dependency direction through modules/facades before moving folders; a new
-crate layout, database or lifecycle framework is not the recovery deliverable.
+## Profiles and configuration
 
-<a id="187-platform-execution-convergence"></a>
+Profiles are versioned data consumed by implemented mechanisms. They do not contain
+shell commands, arbitrary executable hooks, binary patches, hidden downloads,
+credentials or licensing material.
 
-## Musician status and growth decisions
+The profile catalog has three concerns:
 
-One service projection provides a consistent status and primary action from
-separate availability, operation, interaction, health, qualification, publication
-and removal facts. Ready, Needs you, Working, Problem and Removed describe those
-facts in musician language. Their summary precedence requires an explicit decision;
-there is no second persisted status. Missing support history alone is not Problem.
-Companion sign-in does not erase usable audio, and cleanup success does not turn
-failed restoration into success.
+- **Vendor/application profile:** setup-sharing family, vendor hub, services,
+  dependencies, content conventions and managed application launch behavior.
+- **Installer profile:** applicable installer family/build, supported launch
+  options, preparation and completion/handoff behavior.
+- **Plug-in profile:** applicable module/classes, renderer or SDK workarounds and
+  known operating restrictions.
 
-Keep Show/Stop/Cancel and necessary advanced controls available alongside the
-primary action. Check inspects the current setup; Repair addresses the failed stage;
-fresh Reinstall explicitly replaces a setup while preserving recoverable prior
-state; Remove names integration/vendor/setup scope and consequences. These are
-consistent operations, not mandatory gates. Restore is offered only where real.
+Every option has a scope:
 
-Concrete extension decisions remain visible rather than growing a profile dictionary:
+- **runtime scope:** compiled Wine functionality and shipped component versions;
+- **setup scope:** installed dependencies, services and shared registry/files;
+- **process scope:** supported launch arguments, accessibility and renderer/DLL
+  selection for a new process; and
+- **instance scope:** live VST state and negotiated processing configuration.
 
-- A new vendor/service dependency changes advice and, for a genuinely new capability,
-  an installer/service adapter. The proxy stays generic. Decide version/shared-service
-  conflicts and the writer of readiness facts before implementation.
-- Updated advice changes a proposal, retaining user intent and the applied snapshot;
-  the host never merges advice. Decide cross-domain/scoped conflicts and migration.
-- Moving large content changes storage placement/references, never audio-callback I/O.
-  Decide shared/external ownership, authorization and actual restoration consequences.
-- A renderer choice changes intent/proposal; an assessor reports capability/effective
-  behavior and the editor adapter applies the committed choice. Installer policy
-  stays unaware. Decide fallback and override conflicts rather than silently choosing.
-- A DAW layout changes live negotiation from inspected SDK topology, not vendor or
-  installer policy. New layouts/bounds need edge contracts at both ends, not advice.
-- A distro exception changes a capability adapter, not Windows SDK semantics or a
-  whitelist. Decide whether it is data, a new adapter or an operator-owned OS change.
+A process option cannot silently mutate setup-wide files, and a profile cannot
+invent a missing runtime capability. Conflicts at a wider scope are shown and
+resolved before launch or maintenance.
 
-<a id="18-audio-recovery-and-portable-execution"></a>
+Resolution is ordinary product logic:
 
-## Retain the bridge; recover in order
+```text
+selected runtime capabilities
++ observed setup and module
++ applicable profile defaults
++ explicit user choices
+= validated setup/launch plan
+```
 
-Preserve SDK behavior, content/class identity, exact custody, immutable publication
-history, state/automation continuity, rollback and bounded processing. The linked
-[component contracts](components/BRIDGE_CONTRACTS.md) and existing tests govern
-replacement. Do not transplant old campaign-specific selection/acceptance policy
-into a generic-looking framework or delete safety mechanisms during a folder shuffle.
+Implemented defaults apply first, then applicable advice, then safe explicit user
+overrides. The service stores the selected local configuration and reuses it; a
+catalog update does not silently reinterpret a working setup. The supervisor
+executes the selected plan and reports what actually ran. It does not merge policy.
 
-[#430](https://github.com/kasselvania/Linux-VST-bridge/issues/430) is the sole
-implementation slice until a clean Git-owned common build reaches normal delivery
-and combined real-case qualification. The old issue queue, new manager window and
-control-plane implementation remain frozen. Then proceed through working increments:
+Portable profile advice, a user's local setup/configuration, and tested support are
+separate records. An unfamiliar plug-in may take the generic path; lack of a support
+claim is not a permission gate. A sanitized successful adjustment can become a
+reviewed catalog update without exporting a prefix, account data, activation or
+proprietary state.
 
-1. Introduce a versioned API and read-only configuration correspondence alongside
-   current bindings. Compare intent/proposal/applied readback with actual launches;
-   the new read model gains no write authority merely because it exists.
-2. Move write authority through owned transitions only after correspondence and
-   the unresolved semantics are decided. Preserve identities and predecessors.
-3. Narrow the supervisor to resolved launch execution and factual reports.
-4. Build the plug-in library UI on that API and prove the complete ordinary journey.
-5. Migrate preserved setups explicitly; retire old routes only after continuity,
-   recovery and rollback pass. Quarantine/delete conflicting code, retaining useful tests.
+## Component boundaries
 
-No new plug-in/vendor gets a permanent product pathway. It exercises an existing
-capability, adds typed policy for it, or demonstrates the need for one reusable
-capability. Temporary migration code must be explicit and bounded, not a new
-production engine-selection escape hatch.
+The control service selects setups, profiles and operations. The host supervisor
+runs outside the Wine application container so it can retain its host PID, pidfd,
+`/proc` and graphical-resource responsibilities. It receives a closed launch plan
+and reports process/service facts; it does not choose a runtime or compatibility
+policy.
 
-## Delivery and claims
+Until the supervisor is moved function-by-function to Rust, ship `session.py` and
+`ownership.py` as source in the signed package with a declared supported host
+Python range. Do not ship bytecode that accidentally depends on the distribution's
+CPython minor version. A bundled interpreter is the fallback if an acceptable host
+floor cannot be declared. Do not move supervision into a runtime it must acquire or
+across a namespace boundary merely to obtain an interpreter.
 
-Preserve the working Deck and existing backups. Verify backup scope/restoration
-before destructive work; an active copy is not a verified backup. No wipe or silent
-licensed-state migration is part of runtime recovery. Use disposable CachyOS and
-SteamOS fixtures, preserving accounts, activation and original projects under AGENTS.md.
+Installer process completion is established by an exact retained process handle
+and structured result. Wine debug text is diagnostic only. Installer completion,
+application usability, vendor authorization and plug-in readiness remain separate
+outcomes.
 
-The ordinary release journey is install → authorize → discover/connect → play →
-save/reopen → restart/reboot → update/rollback → repair → remove. Exercise combined
-patches against their real cases, baseline effects/stateful instruments, vendor
-services, editor/touch and existing state/update/rollback fixtures in actual DAWs.
-Normal acquisition and installer/publication paths must deliver the tested common
-set; no manual copy or experimental transition substitutes for tester parity.
+Rust is the target product language. C++ remains at the VST3 SDK and Win32 edges
+behind versioned contracts. The existing Python supervisor is a bounded migration,
+not authority for adding new policy there. The UI and CLI consume the same service
+view and cannot write setup, publication or process facts directly.
 
-Report recovered source, clean build, green checks, installed generation and full
-musician journey as different results. Retain actual advertised buffer/workload
-limits and measure the whole DAW call and captured audio. No probe/counter or build
-success proves timely sound or beta readiness. Existing support matrix, failure
-classes and beta acceptance retain tested facts; they confer no catalogue permission
-gate. No new campaign ledger or per-run report is needed.
+On the audio callback path: no filesystem, network or process work, profile
+resolution, ordinary logging, heap allocation after activation, or unbounded wait.
+Any synchronous cross-process wait has a stated bound and measured result. Existing
+instances do not depend on the manager window or editor remaining open.
 
-The operator adopted the initial beta envelope on 2026-10-17: x86-64, 48 kHz,
-float32, Buffered delivery with 512 added bridge frames, one instrument feeding
-one effect, ten minutes of continuous playback, editor open/close while playing,
-save/full exit/reopen, no incorrect delivered audio after the permitted startup
-handoff, no terminal bridge fault and clean retirement. Greater workloads remain
-unqualified. The finite CR0–CR10 release gates and change-specific invalidation
-rules are maintained in [#430](https://github.com/kasselvania/Linux-VST-bridge/issues/430).
+## Release regression and claims
+
+One mixed-use workload is the regression for the runtime/setup strategy:
+
+- two live instances of one instrument from the same setup, with distinct state;
+- one plug-in from another setup;
+- simultaneous playback;
+- editor open/close without stopping DSP;
+- removal and reload of one instance while siblings continue; and
+- save, full DAW exit and fresh-process recall.
+
+Use one workload specification with separate native REAPER and Bitwig projects.
+Runtime or host changes rerun this test. A changed installer, renderer, state or
+other capability also runs its focused product journey; the mixed-use test is
+necessary, not sufficient.
+
+`docs/SUPPORT_MATRIX.md` contains only physically demonstrated claims.
+`docs/FAILURE_CLASSES.md` is a concise map of open shared defects, not a campaign
+narrative. Historical campaigns, superseded architecture and dead experiments live
+under history or closed PRs and do not govern current work. New production modules,
+tools and CI are named by durable responsibility rather than campaign code.
+
+## Working authority
+
+Implement ordinary source, test and internal-structure decisions within this
+architecture. Review a change before applying it when it alters the runtime
+lineage, setup-sharing boundary, process boundary, saved-state/DAW identity
+guarantees, licensed data or the closed-beta scope.
+
+`CURRENT_SLICE.md` names the current product behavior to restore or deliver. It
+must fit on one screen, state the comparison and completion result, and cannot
+create a new architecture, campaign ledger or substitute intermediate evidence for
+working musician behavior.
+
+The current assignment is [#465](https://github.com/kasselvania/Linux-VST-bridge/issues/465): restore Native Access through Kontakt on current `main` using the r5
+reference in a fresh CachyOS account, comparing with the retained working package
+at the first difference. Then run the mixed-use regression above. r6 need not be
+salvaged, and no further consolidation or beta-qualification campaign begins before
+that working path is recovered.
