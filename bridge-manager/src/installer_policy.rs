@@ -262,6 +262,7 @@ mod tests {
     fn close_check_advice_applies_to_the_uia_and_msi_reader_runtimes_only() {
         for (id, advised) in [("managed-ge-proton11-7-slr4-20260805-r4", true),
             ("managed-ge-proton11-7-slr4-20260805-r5", true),
+            ("managed-ge-proton11-7-slr4-20260805-r7", true),
             (runtime_delivery::ID, false)] {
             let (_f, software, mut spec) = fixture();
             spec["environment"]["runner"]["id"] = json!(id);

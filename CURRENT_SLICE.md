@@ -1,4 +1,4 @@
-# Current slice — move the Deck beta setups to r5 (#469)
+# Current slice — move Deck beta setups to the maintained GE line (#469)
 
 Goal: use the maintained managed runtime on the Deck without losing installed
 plug-ins, activation or saved projects, then prove the Bitwig mixed-use journey.
@@ -14,7 +14,8 @@ Next changes and checks:
 1. Serum's retained runtime is restored; the operator confirms touch works again.
    Carry the released-contact and per-window routing corrections into the
    maintained GE line, then repeat playback/recall and physical popup checks.
-   r5 playback and rendering passed; finger menu use stalled or lost the editor.
+   r7 adds the two touch corrections to r5's GE/UIA/MSI components; test it first.
+   r5 playback/recall passed; finger menu use stalled or lost the editor.
    Correct transparency remains an open, separate graphics defect (#330).
 2. Move the Native Instruments setup through the same product journey. Preserve
    signed-in Native Access, licensed installations and content. Reopen the saved
