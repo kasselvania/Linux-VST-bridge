@@ -1126,6 +1126,14 @@ watch. Seven focused current-readback tests and all-target Clippy passed.
 Internal28 was built, installed and selected through normal product controls.
 Live installer recovery verification is pending.
 
+Deck/Test216 recurrence: while Native Access was visibly at Home on the retained
+NI runtime, repeated overview reads refused with
+`operator_current_artifact_changed_refresh`, preventing the offered Stop action
+from being submitted. A normal WM_DELETE_WINDOW request closed the application;
+its product operation then completed after post-close plug-in checks. The exact
+changing watched artifact remains to be isolated; the prior installer correction
+does not establish this vendor-application path is fixed.
+
 The integrated successor separates exact Installer Focus/Stop admission from
 runtime verification and global DSP capacity. It retains current operation,
 environment and live-unit checks. The frontend no longer invalidates a fresh

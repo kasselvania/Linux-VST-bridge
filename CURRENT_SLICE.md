@@ -18,9 +18,10 @@ Next changes and checks:
    The operator confirms finger-menu selection and dismissal stay responsive.
    r5 playback/recall passed; finger menu use stalled or lost the editor.
    Correct transparency remains an open, separate graphics defect (#330).
-2. Move the Native Instruments setup through the same product journey. Preserve
-   signed-in Native Access, licensed installations and content. Reopen the saved
-   Kontakt Pad Noir project and verify the managed application still works.
+2. NI now selects r7: Kontakt Pad Noir playback, save/reopen and visible editor
+   pass. Native Access reached signed-in Home on r7 after a transient Loading
+   Products Failed screen cleared before the operator touched Retry. Preserve
+   installations and content; proceed to the Bitwig mixed-use check.
 3. Connect Bitwig and run two distinct instances from one setup plus a plug-in
    from another: simultaneous playback, independent removal/reload, changed
    state, save, full exit and fresh-process recall, followed by clean retirement.

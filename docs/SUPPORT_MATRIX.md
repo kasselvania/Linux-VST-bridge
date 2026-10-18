@@ -915,8 +915,20 @@ transports or cleanup failure.
 The operator then confirmed that finger-operated OSC A waveform-menu selection,
 reopening and dismissal keep the instrument editor responsive on r7. This fixes
 the tested r5 touch regression. Incorrect transparency remains open (#330).
-FX editor behavior and Bitwig remain unchecked; Kontakt's setup has not yet
-moved to the managed GE line.
+Serum FX editor behavior and Bitwig remain unchecked.
+
+Test216 then compared the retained Kontakt Pad Noir project on the Deck's NI
+runtime and managed GE r7. The product moved the setup and refreshed Kontakt's
+connection. Playback before and after the move, and a fresh-process reopen of
+the project saved on r7, all peaked at .579848 (-4.7337 dB). Each REAPER playback
+session saved and exited normally. Kontakt's editor visibly showed Pad Noir and
+its instrument controls on r7. Native Access reached signed-in Home on the old
+runtime immediately before the move; its first launch on r7 instead displayed
+**Loading Products Failed**. The operator reported that Home loaded automatically
+before any physical Retry; a follow-up capture confirmed the signed-in Home
+screen. An earlier remote mouse Retry attempt was not confirmed received, so
+recovery cannot be attributed to it. The transient loading error remains noted;
+this run does not establish its cause or qualify installation/update behavior.
 
 Test35's ordinary GUI **Update Bridge** preserves twelve class/module/environment/
 compatibility bindings, five preferences, two saved projects and all 257 original
