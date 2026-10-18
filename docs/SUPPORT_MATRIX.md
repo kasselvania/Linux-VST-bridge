@@ -952,7 +952,9 @@ recall. The older project's pre-migration Bitwig baseline was not established;
 its original bytes are preserved and this unresolved recall result is not a
 proven r7 regression. The audio/state-only Reference fixture has no custom editor
 in its source; the bridge nevertheless exposes an empty small editor window.
-That UI capability-handling gap remains open. Physical Kontakt touch is untested.
+That UI capability-handling gap remains open. In the reopened mixed project,
+the operator confirms that opening/dismissing the Kontakt Player menu twice
+with a finger and adjusting Cutoff leaves the editor responsive on r7.
 
 Test35's ordinary GUI **Update Bridge** preserves twelve class/module/environment/
 compatibility bindings, five preferences, two saved projects and all 257 original

@@ -9,6 +9,8 @@ Observed on Test216:
   Instrument/FX playback and changed-state recall pass. The operator confirms
   finger-operated waveform selection/reopening/dismissal stays responsive.
 - NI uses r7. Kontakt Pad Noir playback, save/reopen and visible editor pass.
+  The operator confirms finger-operated menu reopening/dismissal and Cutoff
+  adjustment remain responsive in the reopened Bitwig project.
   Native Access reaches signed-in Home; an initial Loading Products Failed screen
   cleared before the operator touched Retry. Installation/update is not retested.
 - Bitwig 6.1 Desktop plays two distinct Reference chains from the r5 setup plus
@@ -17,9 +19,8 @@ Observed on Test216:
   Clean retirement after both full exits passes. See `docs/SUPPORT_MATRIX.md`.
 
 Remaining:
-1. Physical Kontakt editor touch check in the reopened Bitwig test project.
-2. Review and land the existing two-PR stack; do not deepen it.
-3. Resolve the live Native Access overview refusal hiding Stop controls, the
+1. Review and land the existing two-PR stack; do not deepen it.
+2. Resolve the live Native Access overview refusal hiding Stop controls, the
    empty editor offered for a fixture with no custom editor, and an older Bitwig
    Kontakt project's missing-device result. Preserve the old project and compare
    its known prior package before attributing that result to this runtime move.
