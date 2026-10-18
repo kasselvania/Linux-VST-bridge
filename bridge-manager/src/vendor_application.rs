@@ -408,13 +408,23 @@ impl Application {
     }
 
     pub fn verify(&self, root: &Path) -> Result<()> {
+        self.verify_with_runtime(root, true)
+    }
+    /// The application's own files, helpers and installer stay exact; the runtime
+    /// tree census is skipped. For messages to an application the manager already
+    /// launched and verified, such as the Native Access sign-in return.
+    pub fn verify_for_running_launch(&self, root: &Path) -> Result<()> {
+        self.verify_with_runtime(root, false)
+    }
+    fn verify_with_runtime(&self, root: &Path, runtime_tree: bool) -> Result<()> {
         let installer = if self.schema == 2 {
             Some(self.validate_selected_record(root)?)
         } else {
             self.validate_record(root)?;
             None
         };
-        self.environment.runner.verify()?;
+        if runtime_tree { self.environment.runner.verify()?; }
+        else { self.environment.runner.verify_pinned_files()?; }
         for artifact in std::iter::once(&self.executable).chain(self.helpers.iter()) {
             artifact.verify()?;
         }

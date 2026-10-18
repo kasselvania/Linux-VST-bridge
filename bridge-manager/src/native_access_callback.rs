@@ -89,7 +89,7 @@ fn assisted_target(m: &Manager, directory: &Path, verify_content: bool) -> Resul
         "native_access_callback_environment")?;
     selected.environment = read_json(&app.environment.root.join("environment.json"))?;
     require(selected == *app, "native_access_callback_selection_changed")?;
-    if verify_content {app.verify(&m.root)?;}
+    if verify_content {app.verify_for_running_launch(&m.root)?;}
     let profile = vendor_profile::native_access()?;
     let capabilities = &managed.capabilities;
     // The session was launched with its own saved profile. A manager update
@@ -153,7 +153,7 @@ fn legacy_target(m: &Manager, verify_content: bool) -> Result<Option<Target>> {
         && spec["kind"] == "renderer_application" && spec["application_identity"] == c["application"],
         "native_access_callback_generation")?;
     let app: renderer_application::Application = serde_json::from_value(spec["application"].clone())?;
-    if verify_content {app.verify(&m.root)?;}
+    if verify_content {app.verify_for_running_launch(&m.root)?;}
     require(app.identity()? == c["application"], "native_access_callback_application")?;
     require(result["effective"]["operation"] == op && result["renderer"]["launch_binding"]["status"] == "bound",
         "native_access_callback_not_live")?;

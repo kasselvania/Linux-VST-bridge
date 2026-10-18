@@ -99,13 +99,23 @@ impl Application {
             && observation["input"]["result_sha256"]==self.installation.sha256,"renderer_installation_identity")
     }
     pub fn verify(&self, root: &Path) -> Result<()> {
+        self.verify_with_runtime(root, true)
+    }
+    /// Application files and installation stay exact; the runtime tree census is
+    /// skipped. For messages to a launch the manager already verified, such as the
+    /// Native Access sign-in return.
+    pub fn verify_for_running_launch(&self, root: &Path) -> Result<()> {
+        self.verify_with_runtime(root, false)
+    }
+    fn verify_with_runtime(&self, root: &Path, runtime_tree: bool) -> Result<()> {
         self.validate_record(root)?;
         require(read_json::<Environment>(&self.environment.root.join("environment.json"))?==self.environment,
             "renderer_application_environment")?;
         let directory=self.executable()?.artifact.path.parent().ok_or("renderer_directory")?;
         require(roots(&self.environment.root.join("compatdata/pfx/drive_c"))? == vec![directory.to_owned()], "renderer_application_ambiguous_or_missing")?;
         for image in self.files.values() {verify_image(image)?;}
-        self.installation.verify()?;self.environment.runner.verify()
+        self.installation.verify()?;
+        if runtime_tree { self.environment.runner.verify() } else { self.environment.runner.verify_pinned_files() }
     }
 }
 pub fn discover(root: &Path) -> Result<Application> {

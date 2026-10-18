@@ -1170,6 +1170,45 @@ mod tests {
         assert!(unpack(&archive,&spec,&stage).unwrap_err().to_string().contains("runtime_archive_roster"));
     }
     #[test]
+    fn pinned_file_verification_skips_the_runtime_tree_census() {
+        // A sign-in return to a running launch must not re-hash every runtime file
+        // (over a minute on slow storage); only the pinned entry points stay exact.
+        let tmp=Scratch::new();
+        let stage=tmp.0.join("stage");fs::DirBuilder::new().mode(0o700).create(&stage).unwrap();
+        let (archive,spec)=tmp.archive(&[("GE/proton",b"original"),("GE/lib.dll",b"library")]);
+        let mut rows=unpack(&archive,&spec,&stage).unwrap();
+        for (path,directory) in tree_inventory(&stage).unwrap() {
+            if directory { rows.push(TreeEntry {path,sha256:None,target:None,size:0,mode:0o700,directory:true}); }
+        }
+        atomic_json(&stage.join(TREE),&rows).unwrap();
+        let proton=stage.join("GE/proton");
+        let runner=Runner {id:ID.into(),version:"test".into(),proton:proton.clone(),
+            entry_point:proton.clone(),policy:None,
+            files:vec![Artifact {path:proton.clone(),sha256:digest(&proton).unwrap()},
+                       Artifact {path:stage.join(TREE),sha256:digest(&stage.join(TREE)).unwrap()}]};
+        runner.verify().unwrap();
+        runner.verify_pinned_files().unwrap();
+        let rewrite=|path:&Path,bytes:&[u8]| {
+            fs::set_permissions(path,fs::Permissions::from_mode(0o700)).unwrap();
+            fs::write(path,bytes).unwrap();
+            fs::set_permissions(path,fs::Permissions::from_mode(0o500)).unwrap();
+        };
+        // A changed unpinned runtime file fails the launch census but not the pinned check.
+        rewrite(&stage.join("GE/lib.dll"),b"modified");
+        assert!(with_launch_verification(|| runner.verify()).unwrap_err().to_string().contains("file_changed"));
+        runner.verify_pinned_files().unwrap();
+        // A changed pinned entry point fails both.
+        rewrite(&proton,b"modified");
+        assert!(runner.verify_pinned_files().is_err());
+        assert!(with_launch_verification(|| runner.verify()).is_err());
+        // A forged manifest digest fails both.
+        rewrite(&stage.join("GE/lib.dll"),b"library");rewrite(&proton,b"original");
+        let mut forged=runner.clone();
+        forged.files[1].sha256="0".repeat(64);
+        assert!(forged.verify_pinned_files().is_err());
+        assert!(forged.verify().is_err());
+    }
+    #[test]
     fn runtime_tree_refuses_changed_bytes_and_added_files() {
         let tmp=Scratch::new();
         let stage=tmp.0.join("stage");fs::DirBuilder::new().mode(0o700).create(&stage).unwrap();

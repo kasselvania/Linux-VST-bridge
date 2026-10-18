@@ -11,6 +11,30 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Test212 (PR 467 head) / fresh CachyOS account / REAPER 7.82 / runtime r5,
+**mixed-use regression passed** (issue 465, 2026-10-18): two Kontakt 8 instances with
+different instruments from the Native Instruments setup plus the Reference Effect from
+its own setup played together (manager: dsp 3, keepers 2); removing one Kontakt while
+playing left the others running (dsp 3 → 2 → 3 on undo, same FX identity); full REAPER
+quit retired all instances (dsp 0, no incidents); the reopened project kept all three FX
+identities and the effect's Level .7, and its render was bit-identical to the pre-quit
+render (192,000 frames, correlation 1.0). Per-track stems after reopen: piano RMS .0198 /
+peak .129, bass + effect RMS .134 / peak .428. Limits: VM with two cores and a slow disk,
+no Bitwig/SteamOS yet, no measurement of real-time CPU headroom.
+
+Test210 (main 68ceff15) / fresh CachyOS account / REAPER 7.82 / runtime r5,
+**Native Access 3.26.0 → Kontakt 8 Player 8.13.1 journey passed** (issue 465,
+2026-10-17): ordinary r5 acquisition, Native Access install and managed launch with
+a usable window, browser sign-in, Kontakt 8 Player and Kontakt Factory Selection
+installed through Native Access, discovery and publication after one ordinary
+Retry, Piano Uno loaded in the bridged editor, a 3 s MIDI phrase rendered and
+played on PulseAudio, and the changed instrument recalled after a full REAPER exit
+and reopen (same onsets, RMS .024 → .023, peak .128 → .129); each quit retired the
+live instance cleanly. Limits: the sign-in return took ~80 s per attempt and two
+returns expired before one landed (fixed in PR 467: 15 s and accepted first time on Test212); Kontakt's first
+inspection hit the 30 s unload deadline before the Retry; SteamOS and update/
+rollback for this setup remain unqualified.
+
 Test206 / fresh CachyOS / REAPER 7.82, **supported for this first-party checkpoint**:
 normal install/acquisition/discovery/publication connects both Reference classes.
 Effect Level .7 / Colour .2 and instance identity survive full DAW exit/reopen;

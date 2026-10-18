@@ -5,6 +5,26 @@ This ledger is the current map from reusable failure mechanisms to fixes, artifa
 Problem reports (#361): the manager now collects a bounded local report and offers
 a save dialog; installed save/cancel/retry and failure-card acceptance remain open.
 
+Slow Native Access sign-in return (#363, measured under #465): the return
+command re-verified the whole runtime tree (13,095 files, 2.3 GB on r5) before
+connecting to the running application session, ~80 s on the CachyOS fixture, so
+Native Access rejected returned codes as expired. PR 467 keeps the application
+files exact and skips the tree census on both return-path verifications; on Test212
+(fresh CachyOS account) the return took 15 s and was accepted first time, down from
+65–95 s with one of two or three returns expiring.
+Kontakt 8's first inspection on a fresh setup can exceed the 30 s module-unload
+deadline ("stopped responding while it was being closed"); the ordinary Retry
+succeeded on Test210. Open: whether first-load work needs a longer exit deadline.
+
+Sticky "cleanup unconfirmed" after a failed admission (#468): the bridge service sets a
+process-wide flag when an exposed admission fails (for example Kontakt's first inspection
+exceeding the 30 s unload deadline, or a host ended by the manager's own vendor-operation
+pause). Nothing in production clears it; every action requiring inactivity, including
+Reconcile, is disabled until the service restarts, and the card offers no restart. After a
+restart the existing Reconcile does resume the stale pause record. Open.
+While a vendor app or installer is open, every setup's Install offer is disabled, not only
+the affected setup's (ARCHITECTURE §3 expects per-setup exclusivity). Open.
+
 PACE/iLok load-time stalls (#414/#417) remain open. Same-setup dependency assistance
 uses local service registration and current scan observations; a timeout alone does
 not establish a PACE requirement. The musician selects the vendor's installer.
