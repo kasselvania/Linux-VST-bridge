@@ -875,6 +875,22 @@ NI runtime, renders 0–4 s offline at −4.7 dB peak and plays through PulseAud
 instrument needed about 20 s after project open before it produced sound. Driven
 headlessly as a user service with project and Lua script as launch arguments.
 
+On the same Deck/Test214, the Reference setup moved from r4 to r5 through the
+runtime selector, compatibility checks in plug-in Details, and explicit test
+replacement of both connections. REAPER loaded two Reference Instrument instances
+with gain/colour .37/.21 and .63/.79, plus the Reference Effect at gain .71.
+Both tracks played MIDI with nonzero peaks (.01785 and .02735). After saving and
+fully exiting REAPER, a fresh process recalled all five changed parameter values
+and played both tracks again (peaks .01785 and .02558). After exit and the normal
+idle retirement period: DSP 0, keepers 0, no pending transactions, stale transports
+or cleanup failure. Test214's setup connection job still incorrectly requested
+replacement after the explicit replacements. Test215 fixes that continuation:
+the same **Continue connecting plug-ins** action completes with both classes
+Available and no failures, without changing either selected publication. This
+same saved project also reopens on Test215 with all five settings retained and
+both tracks playing (peaks .01785 and .02558), then exits normally. This covers
+Reference on REAPER; Bitwig and the licensed setups' r5 migrations remain unqualified.
+
 Test35's ordinary GUI **Update Bridge** preserves twelve class/module/environment/
 compatibility bindings, five preferences, two saved projects and all 257 original
 candidate/lineage records; each history now holds 269. Exact Test33 remains the
