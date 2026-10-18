@@ -5,6 +5,15 @@ This ledger is the current map from reusable failure mechanisms to fixes, artifa
 Problem reports (#361): the manager now collects a bounded local report and offers
 a save dialog; installed save/cancel/retry and failure-card acceptance remain open.
 
+Slow Native Access sign-in return (#363, measured under #465): the return
+command re-verified the whole runtime tree (13,095 files, 2.3 GB on r5) before
+connecting to the running application session, ~80 s on the CachyOS fixture, so
+Native Access rejected returned codes as expired. PR 467 keeps the application
+files exact and skips the tree census on the return path; installed retest pending.
+Kontakt 8's first inspection on a fresh setup can exceed the 30 s module-unload
+deadline ("stopped responding while it was being closed"); the ordinary Retry
+succeeded on Test210. Open: whether first-load work needs a longer exit deadline.
+
 PACE/iLok load-time stalls (#414/#417) remain open. Same-setup dependency assistance
 uses local service registration and current scan observations; a timeout alone does
 not establish a PACE requirement. The musician selects the vendor's installer.

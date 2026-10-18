@@ -11,6 +11,19 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Test210 (main 68ceff15) / fresh CachyOS account / REAPER 7.82 / runtime r5,
+**Native Access 3.26.0 → Kontakt 8 Player 8.13.1 journey passed** (issue 465,
+2026-10-17): ordinary r5 acquisition, Native Access install and managed launch with
+a usable window, browser sign-in, Kontakt 8 Player and Kontakt Factory Selection
+installed through Native Access, discovery and publication after one ordinary
+Retry, Piano Uno loaded in the bridged editor, a 3 s MIDI phrase rendered and
+played on PulseAudio, and the changed instrument recalled after a full REAPER exit
+and reopen (same onsets, RMS .024 → .023, peak .128 → .129); each quit retired the
+live instance cleanly. Limits: the sign-in return took ~80 s per attempt and two
+returns expired before one landed (fixed in PR 467, retest pending); Kontakt's first
+inspection hit the 30 s unload deadline before the Retry; SteamOS and update/
+rollback for this setup remain unqualified.
+
 Test206 / fresh CachyOS / REAPER 7.82, **supported for this first-party checkpoint**:
 normal install/acquisition/discovery/publication connects both Reference classes.
 Effect Level .7 / Colour .2 and instance identity survive full DAW exit/reopen;
