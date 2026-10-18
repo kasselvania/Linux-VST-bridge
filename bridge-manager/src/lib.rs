@@ -369,9 +369,16 @@ impl Runner {
         Ok(())
     }
     pub fn verify(&self) -> Result<()> {
+        self.verify_pinned_files()?;
+        runtime_delivery::verify_tree(self)?;
+        Ok(())
+    }
+    /// Exact pinned entry points only. A launch verifies the whole runtime tree;
+    /// a later message to that already-running launch must not repeat a census
+    /// of every runtime file, which takes over a minute on slow storage.
+    pub fn verify_pinned_files(&self) -> Result<()> {
         self.validate_record()?;
         for f in &self.files { f.verify()?; }
-        runtime_delivery::verify_tree(self)?;
         Ok(())
     }
 }
