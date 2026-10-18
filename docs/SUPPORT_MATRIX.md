@@ -912,9 +912,11 @@ phrase, saved and fully exited. A fresh REAPER process recalled both values
 (within .00001) and played at the same peak .136029, then exited normally. After
 idle retirement, DSP and keepers were zero with no pending transactions, stale
 transports or cleanup failure.
-Physical touch on r7 is still awaiting the operator's check; this playback and
-recall result does not establish the touch repair. FX editor behavior and Bitwig
-remain unchecked; Kontakt's setup has not yet moved to the managed GE line.
+The operator then confirmed that finger-operated OSC A waveform-menu selection,
+reopening and dismissal keep the instrument editor responsive on r7. This fixes
+the tested r5 touch regression. Incorrect transparency remains open (#330).
+FX editor behavior and Bitwig remain unchecked; Kontakt's setup has not yet
+moved to the managed GE line.
 
 Test35's ordinary GUI **Update Bridge** preserves twelve class/module/environment/
 compatibility bindings, five preferences, two saved projects and all 257 original

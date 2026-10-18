@@ -15,7 +15,7 @@ Next changes and checks:
    corrections are now integrated into the maintained GE line as r7, retaining
    the existing UIA/MSI corrections. Serum's setup now uses r7.
    r7 is installed: Serum instrument/FX changed-state recall and playback pass.
-   Repeat the physical finger-menu check before calling the touch repair fixed.
+   The operator confirms finger-menu selection and dismissal stay responsive.
    r5 playback/recall passed; finger menu use stalled or lost the editor.
    Correct transparency remains an open, separate graphics defect (#330).
 2. Move the Native Instruments setup through the same product journey. Preserve
