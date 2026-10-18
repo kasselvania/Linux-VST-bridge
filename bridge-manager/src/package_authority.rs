@@ -1449,6 +1449,11 @@ fn prepare_refresh_receipt(m: &Manager, target: &Software,
         // fresh preparation owns that separate musician choice.
         if environment_revision::current_environment(m, &revision.registration.environment)?
             != revision.registration.environment { continue; }
+        // A runtime that changed outside the product, such as Steam updating
+        // the Proton build a setup sits on, makes this publication historical
+        // for the refresh as well: the setup's own launch admission reports
+        // the condition. The manager update continues without it.
+        if revision.registration.environment.runner.verify_pinned_files().is_err() { continue; }
         if !preparation::publication_requires_refresh(m, &revision, &runtime.kit.sha256)? {
             continue;
         }
@@ -4755,6 +4760,33 @@ print('LVO0 '+j['session']+' ready',flush=True)
         let registry = fs::read(m.root.join("registry.json")).unwrap();
         assert!(add_back_publication(m, &key, &removed, &random_id().unwrap()).is_err());
         assert_eq!(fs::read(m.root.join("registry.json")).unwrap(), registry);
+    }
+    /// Steam updated the Proton build that a published plug-in's setup sits on
+    /// (the Deck, 2026-10-18). The bridge update keeps that publication as it
+    /// is and completes; the setup's own launch admission reports the runtime.
+    #[test]
+    fn software_update_continues_past_a_setup_whose_runtime_changed_outside_the_product() {
+        use std::os::unix::fs::PermissionsExt;
+        let f = refreshing_update_fixture();
+        let m = &f.base.m;
+        let key = f.base.r.key();
+        let before = m.registry().unwrap().classes[&key].clone();
+        let previous = f.current();
+        let pinned = f.base.r.environment.runner.files[0].path.clone();
+        let mode = fs::metadata(&pinned).unwrap().permissions();
+        fs::set_permissions(&pinned, fs::Permissions::from_mode(0o600)).unwrap();
+        let mut changed = fs::read(&pinned).unwrap();
+        changed.extend_from_slice(b"\n# updated by Steam\n");
+        fs::write(&pinned, &changed).unwrap();
+        fs::set_permissions(&pinned, mode).unwrap();
+        assert!(f.base.r.environment.runner.verify_pinned_files().is_err());
+        update_from(m, &f.home, &f.inputs, f.owner, &f.service).unwrap();
+        assert_ne!(f.current().manager.sha256, previous.manager.sha256, "the bridge was updated");
+        let after = m.registry().unwrap().classes[&key].clone();
+        assert_eq!(after.publication, Publication::Published);
+        assert_eq!(after.managed_revision, before.managed_revision,
+            "the publication on the changed runtime was kept, not refreshed");
+        assert!(add_back_needs_refresh(m, &key, before.managed_revision.as_ref().unwrap()).unwrap());
     }
     #[test]
     fn software_update_preserves_owned_stale_publications_until_fresh_preparation() {
