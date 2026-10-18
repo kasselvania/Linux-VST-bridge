@@ -401,7 +401,9 @@ impl Capabilities {
     /// application and bundled installer still must match all original bytes.
     pub fn verify_callback_inputs(&self, app: &Application, managed: &Path) -> Result<()> {
         self.same_profile()?;
-        app.verify(managed)?;
+        // The return goes to a launch the manager already verified; the application
+        // files stay exact here, the runtime tree census is not repeated.
+        app.verify_for_running_launch(managed)?;
         let mut current = observe_structure(app, &self.profile)?;
         current.dependency.daemon = self.dependency.daemon.clone();
         require(current == *self, "vendor_profile_observed_content_changed")
