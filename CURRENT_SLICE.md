@@ -1,43 +1,46 @@
-# Current slice — CR4 Native Instruments / Kontakt (#430)
+# Current slice — restore Native Access → Kontakt on r5 (#465)
 
-Reached: a real common-runtime release candidate with a generic clean-machine
-checkpoint. Construction is complete; finite release qualification remains.
-The operator-adopted [CR0–CR10 checklist](https://github.com/kasselvania/Linux-VST-bridge/issues/430)
-owns the remaining gates. CR0/CR1, candidate authority/delivery CR2 and CachyOS/
-REAPER CR3 are closed. This candidate is not yet the qualified product default.
+Goal: restore the ordinary managed Native Access → Kontakt journey on current
+`main` before further runtime consolidation or beta qualification.
 
-Candidate authority: draft PR453 contains the r6 catalog/internal recommendation,
-generic tests and delivery pins only. Each package = current main + this overlay.
-Vendor results stay on main. Max review/checks passed; keep draft until promotion.
-Freeze the existing r6 archive; no rebuild now:
-SHA256 6c0d09e1ed76cc2f33fa0117ab777da6128eb9e7473e85e08bedd0163848d58d.
+Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) is fixed. Runtime code
+is shared, mutable vendor installations live in setups, and each live plug-in
+instance has its own Windows host. This slice cannot redefine those boundaries.
 
-Active CR4 only: fresh disposable CachyOS account, native REAPER 7.82, 48 kHz,
-float32 Buffered with 512 added bridge frames; exact current-main/overlay package,
-r6 runtime and paired host/proxy/helper. Ordinary Native Access install and
-authorized sign-in → Kontakt through Native Access → owned services/retirement →
-discovery/publication without prefix repair → editor/MIDI/audio → changed
-instrument/state full DAW exit/reopen → cold-boot recall → cleanup and second load.
-Record exact vendor builds privately. Test208's ordinary update, explicit typed
-installer choices, exact adapter binding and live diagnostic-write readback passed.
-NI copied its app without a usable window; no sign-in occurred. The operator
-delegated completion semantics; the selected IS2 V2 contract accepts exact retained
-root-handle terminal status zero, with durable files, cancellation/deadline exclusion
-and conflict refusal. This proves status, not voluntary exit or a usable app.
-Implement/test/review the bounded repair, then repeat ordinary NI on frozen r6.
-Short Test208
-audio/state/full-reopen checks pass; Reference parameter UI and Tyrell editor open/close.
+Reference: build one normal current-main package that selects managed GE-Proton
+r5 for a fresh disposable CachyOS account with native REAPER 7.82. Compare with
+the retained working r5 package/fixture at the first differing behavior, using
+Test88 package behavior and Test126's accepted CachyOS musical result as retained
+references where applicable. Do not assume current main + r5 still works.
 
-Preserved CR3: Reference full .49-gain renders and 60 s delivered-output capture
-pass (sole permitted startup handoff settled by 220.7 ms, all later frames correct).
-TyrellN6 16976 ordinary install/editor/16 notes/Output .37 and both projects'
-FX identities survive full exit/reopen and cold boot. Expiry counters alone do
-not reopen audio architecture; stopped processing also accumulates them.
+Method:
+1. Reproduce ordinary Native Access installation and managed launch.
+2. At the first difference, hold application build, setup/dependencies, profile
+   choices and graphical context constant and compare the exact package/runtime/
+   launch behavior.
+3. Change one causal variable. Keep the correction or revert it.
+4. Keep installer completion, usable application window, authorization, Kontakt
+   installation, plug-in discovery and musical use as separate outcomes.
 
-Limits: NI/Kontakt fresh authorization is permitted. No fresh licensed Blackhole
-activation or repeated iLok reconnection; demo terms/behavior are checked at CR7.
-Existing licensed Deck transitions require a concrete approved preservation and
-rollback plan; the backup excludes licensed setups and restoration is unproven.
-Browser-data rollback semantics remain unresolved. CR5–CR10, their separate
-lifecycle checks, final independent rebuild and promotion remain in #430.
-The old issue queue, new UI and new control-plane architecture remain frozen.
+All relevant layers remain suspects: manager, profile, setup/dependency handling,
+launcher and runtime. Existing implementation structure is not a reason to protect
+a broken mechanism. Preserve exact target identity, bounded custody, setup
+isolation, user state and safe cleanup.
+
+Do not rebuild or salvage r6, start the DirectComposition track, change the
+supervisor execution boundary, redesign the UI, create another profile/runtime
+framework, or touch licensed Deck installations in this slice. PR464's structured
+installer result remains useful, but completion does not establish Native Access
+usability.
+
+Done: the ordinary product installs Native Access, opens a usable managed window,
+returns user-controlled sign-in, installs Kontakt, discovers and publishes it
+without manual prefix repair, plays MIDI/audio in REAPER, recalls changed state
+after full exit/reopen, and retires the affected owned processes/services cleanly.
+Record the causal correction and a focused regression. A diagnosis, copied app,
+green tests or completed installer is not completion while that journey is broken.
+
+Next after #465: run the architecture's mixed-use regression—two distinct live
+instances from one shared setup plus a plug-in from another setup, simultaneous
+playback, independent instance removal/reload and fresh-process project recall—
+with corresponding REAPER and Bitwig projects.

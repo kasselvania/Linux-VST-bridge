@@ -11,8 +11,10 @@ or commit count is not progress. Progress is something a musician can now do
 that they could not do before, or a defect that is now fixed and shown fixed.
 
 The operator's current instruction comes first, then this file, then
-`CURRENT_SLICE.md`, then `docs/ARCHITECTURE.md`. If two of them conflict, say so
-in one sentence and follow the higher one.
+`docs/ARCHITECTURE.md`, then `CURRENT_SLICE.md`. The architecture fixes the
+product/runtime/setup/process boundaries. The current slice names only the next
+product behavior and cannot redefine those boundaries or the beta scope. If two
+sources conflict, say so in one sentence and follow the higher one.
 
 ## How to work: fix it, then show it
 
@@ -45,7 +47,7 @@ These are routine. Do them, then report what happened.
   change is being kept.
 - Add or remove diagnostic code, timers and test fixtures.
 - Change product source, including the engine, transport, manager and Windows
-  host, when that is the fix.
+  host, when that is the fix and the change stays within the architecture.
 - Build, install and roll back test packages on project machines.
 - Rerun a test.
 
@@ -60,13 +62,15 @@ and stop if it is not, so a missing mount cannot silently use the system drive.
 - Anything that could destroy or alter user projects, licensed plug-in
   installations, activation state or account data.
 - Spending money or exceeding the declared machine resource limits.
-- Changing what the product is for, dropping a target platform, or changing
-  what counts as done for the beta.
+- Changing what the product is for, dropping a target platform, changing the
+  closed-beta scope, runtime lineage, setup-sharing boundary or saved-state/DAW
+  identity guarantee.
 - A permanent change to the maintainer's machines outside the product's own
   files, such as system packages or root filesystem edits.
 
 Ask one specific question and carry on with whatever does not depend on the
-answer.
+answer. Ordinary implementation choices inside the architecture do not require a
+proposal or escalation.
 
 ## How to report
 
@@ -89,10 +93,10 @@ the honesty rule; it does not require a paragraph of caveats.
 - Add an evidence file only when it backs a claim in `docs/SUPPORT_MATRIX.md`,
   and keep it to the numbers that back the claim.
 - `docs/SUPPORT_MATRIX.md` says what works on what. `docs/FAILURE_CLASSES.md`
-  lists open defects. Update each with a line or two. Do not start another
-  status document, ledger, campaign or receipt system.
-- `CURRENT_SLICE.md` fits on one screen, about forty lines: the goal, the best
-  explanation, the next changes, and what done looks like.
+  is a concise map of open shared defects. GitHub issues hold the active defect
+  work. Do not start another status document, ledger, campaign or receipt system.
+- `CURRENT_SLICE.md` fits on one screen, about forty lines: the goal, reference
+  comparison, next changes, and what working completion looks like.
 - Test builds are numbered simply. Do not invent a new candidate name per run.
 
 ## Landing code
@@ -106,32 +110,38 @@ the honesty rule; it does not require a paragraph of caveats.
 ## Design rules
 
 - The DAW loads a native Linux proxy. A supervised Windows host loads the
-  Windows plug-in under a pinned runner. The DAW never loads a Windows binary.
-- Rust is the product language. C++ is confined to the VST3 SDK and Win32
-  edges, behind a versioned C ABI. Process boundaries use a versioned protocol.
+  Windows plug-in under a pinned runtime. The DAW never loads a Windows binary.
+- Rust is the target product language. C++ is confined to the VST3 SDK and
+  Win32 edges behind a versioned C ABI. The existing host-side Python supervisor
+  may remain during recovery only as signed source with a declared interpreter
+  range; new product policy does not move into it, and it is ported to Rust by
+  function rather than by a prerequisite rewrite.
 - Build general mechanisms. A plug-in is a test case, not a design unit. Do not
-  add product-name branches or per-binary builds to cover a missing mechanism.
-  A vendor-specific workaround needs a vendor-specific reason and belongs in
-  declarative profile data where possible.
+  add product-name branches or per-binary runtime builds to cover a missing
+  mechanism. A vendor-specific workaround needs a vendor-specific reason and
+  belongs in scoped declarative profile data where possible.
 - An unfamiliar plug-in or distribution is untested, not forbidden. Refuse only
   for a specific missing capability, and name it.
 - Identity is by content and class, not by path or display name. Never silently
   substitute a different build, preset, environment or content root.
-- Saved projects and plug-in state must survive save, restart, reboot, update
-  and rollback before a plug-in is called usable.
-- The product acquires its own runtime. Steam, a customer-installed Wine, an
-  SDK or a compiler is never a prerequisite.
-- No single Wine prefix for every vendor and no single process for every
-  plug-in by default.
-- Editor, scanner, installer and audio failures are reported as what they are.
+- Saved projects and plug-in state must survive save, restart, reboot, supported
+  update and rollback before a plug-in is called usable.
+- The product acquires its own runtime. Steam, a customer-installed Wine, an SDK
+  or a compiler is never a prerequisite.
+- Runtime code is shared; mutable installations live in setups; each live DAW
+  plug-in instance has its own Windows host process by default. Setup maintenance
+  stops only affected users and never silently changes a working runtime.
+- No single Wine prefix for every vendor and no single process for every plug-in.
+- Editor, scanner, installer, application, authorization and audio failures are
+  reported as what they are. Completion of one does not prove the next.
 
 ## Real-time rules
 
 On the audio callback path: no heap allocation after activation, no file,
-network or process work, no ordinary logging, no unbounded lock or wait, and no
-dependence on the manager or an editor. Every wait has a stated bound and a
-stated result when it expires. A dead Windows host must be detected quickly and
-must not stall the DAW.
+network or process work, no profile resolution, no ordinary logging, no unbounded
+lock or wait, and no dependence on the manager or an editor. Every synchronous
+cross-process wait has a stated bound and a stated result when it expires. A dead
+Windows host must be detected quickly and must not stall the DAW.
 
 Measure the whole plug-in call as the DAW sees it. A bridge counter reading zero
 is not proof that the audio arrived on time.
