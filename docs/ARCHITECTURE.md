@@ -45,6 +45,14 @@ immutable and shared; every setup records the generation it uses. Older
 releases remain while working setups or rollback require them. A manager update
 never silently changes a setup's runtime.
 
+Steam and the bridge share a machine, never files. The product does not pin,
+verify, launch from or write into a Proton build, Steam Linux Runtime copy or
+prefix that Steam owns; each runner carries its own copies inside the product
+root, so Steam may update its files at any time. A runtime that changed outside
+the product, owned or foreign, is a condition on the setups that use it: it is
+reported at launch with a repair or move offer. It never blocks a product update
+or activation and never stops other setups.
+
 A new plug-in failure does not create a private engine. It first exercises
 existing capabilities, then scoped profile advice, then—only when source evidence
 requires it—a reusable runtime correction. A second maintained lineage requires

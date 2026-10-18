@@ -218,17 +218,15 @@ impl OnboardingRuntimePolicy {
     }
 }
 impl Catalogue {
+    /// Verifies the product's own artifacts: native builds and retained
+    /// Windows hosts. A setup's runtime files are deliberately not verified
+    /// here. The standard onboarding runtime may be a Proton build that Steam
+    /// owns and updates in place; a runtime that changed outside the product is
+    /// a condition on the setups that use it, refused by their own launch
+    /// admission, and must never block a package update or activation.
     pub fn validate(&self, root: &Path) -> Result<()> {
         self.validate_record(root)?;
         for native in &self.natives { native.artifact.verify()?; }
-        if self.onboarding_runtime.is_some() {
-            for binding in &self.environments {
-                let runner = &binding.environment.runner;
-                if runner.id == STANDARD_ONBOARDING_RUNNER && runner.policy.is_none() {
-                    runner.verify()?;
-                }
-            }
-        }
         for host in &self.hosts {
             host.host.verify()?;
             host.source_manifest.verify()?;
@@ -708,7 +706,7 @@ mod ui1_format_tests {
     }
 
     #[test]
-    fn runtime_policy_requires_one_exact_verified_standard_runner() {
+    fn runtime_policy_binds_one_exact_standard_runner_record() {
         let (f, valid) = standard_catalogue();
         valid.validate(&f.m.root).unwrap();
         let mut changed = valid.clone();
@@ -748,5 +746,28 @@ mod ui1_format_tests {
         let mut changed = valid;
         changed.onboarding_runtime = None;
         assert!(changed.validate(&f.m.root).is_err());
+    }
+
+    /// Steam updated the Proton build that the standard onboarding runtime
+    /// pins (the Deck, 2026-10-18). The catalogue still binds the exact
+    /// recorded runner, so a package update or activation must not refuse;
+    /// only the affected setup's own launch admission refuses it.
+    #[test]
+    fn standard_runtime_changed_outside_the_product_is_a_launch_condition_not_a_catalogue_fault() {
+        use std::os::unix::fs::PermissionsExt;
+        let (f, valid) = standard_catalogue();
+        valid.validate(&f.m.root).unwrap();
+        let runner = &valid.environments[0].environment.runner;
+        runner.verify_pinned_files().unwrap();
+        let pinned = &runner.files[0].path;
+        let mode = std::fs::metadata(pinned).unwrap().permissions();
+        std::fs::set_permissions(pinned, std::fs::Permissions::from_mode(0o600)).unwrap();
+        let mut changed = std::fs::read(pinned).unwrap();
+        changed.extend_from_slice(b"\n# updated by Steam\n");
+        std::fs::write(pinned, &changed).unwrap();
+        std::fs::set_permissions(pinned, mode).unwrap();
+        valid.validate(&f.m.root).unwrap();
+        assert!(runner.verify_pinned_files().unwrap_err().to_string()
+            .contains("artifact missing or changed"));
     }
 }
