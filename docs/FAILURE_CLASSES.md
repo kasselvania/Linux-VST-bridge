@@ -372,6 +372,13 @@ were its own reads of a Wine stub, not evidence that Serum called that API.
 Serum 2 2.1.5 on Steam Deck: verified-fixed for the exact waveform popup
 interaction under candidate D. Candidate C's failure remains retained.
 
+Managed GE r5 omits the released-contact and per-window XI2 touch corrections:
+its stock X11 driver retains INCONTACT on release and uses root-raw touch routing.
+On Deck/Test215, Serum's finger-operated OSC A waveform menu stalls or loses
+response on r5; restoring the retained touch runtime restores that interaction.
+Playback/recall pass on both. Integrate and qualify the shared X11 correction on
+the maintained line (#469); transparency is a separate graphics defect (#330).
+
 ### Claim limit
 
 This entry does not establish a universal popup defect or explain the older broad editor-disappearance reports. The action-bound trace overflow prevents claiming a complete Windows message sequence.
@@ -3757,7 +3764,7 @@ offline/online toggle).
 ## Beta reports under investigation
 
 - [#329](https://github.com/kasselvania/Linux-VST-bridge/issues/329): Choose another installer retains the setup and original history; the selected replacement owns subsequent plug-in connection or installed-app continuation. Missing installation folders require recovery rather than silent recreation. Final source review and packaged acceptance remain pending.
-- [#330](https://github.com/kasselvania/Linux-VST-bridge/issues/330): Serum 2 editor transparency was reported and remains unreproduced.
+- [#330](https://github.com/kasselvania/Linux-VST-bridge/issues/330): Serum 2 waveform/graphic fills render with incorrect transparency. Supplied Linux and native macOS images show the mismatch; a controlled rendering comparison and repair remain open. Touch recovery does not close the graphics defect.
 - [#331](https://github.com/kasselvania/Linux-VST-bridge/issues/331): Generic X11 embedding now passes the first-party CachyOS / REAPER 7.82 custom editor, native Param/last-touched access, real Touch/Read envelope playback and saved-project recall after application restart. Commercial editor acceptance and whole-call audio timing remain open.
 
 - [#333](https://github.com/kasselvania/Linux-VST-bridge/issues/333): Fresh CachyOS (Test81) and the tester's own failed state (Test69 → Test83 update, #351): Retry moves a setup stuck on r4 to a new attempt on runtime r5; Native Access installs past its close check, opens, prepares NTKDaemon and returns the browser sign-in; Native Access installs Kontakt 8.13.1 and Kontakt becomes Available for REAPER (fresh setup). Open: Native Access's download location starts empty; the sign-in hand-back can take about a minute and was flaky once; Kontakt in the recovered setup was interrupted by a host freeze; DAW playback and save/reopen untested.

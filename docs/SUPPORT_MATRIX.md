@@ -860,6 +860,24 @@ Both hosts retire cleanly. The ordinary GUI records eight observed checks, leavi
 processing restart unchecked. The original project, twelve registrations and five
 preferences are unchanged. This is a short functional test, not audio deadline qualification.
 This repaired journey required several shared fixes; first-attempt qualification remains unmet.
+Test214–215 / Steam Deck / REAPER: ordinary signed-package update from Test126
+retains all 26 published classes, refreshing 24 and preserving two tied to a
+changed Steam-owned runtime. The retained Kontakt Pad Noir project recalls and
+plays at −4.7 dB peak. Unhealthy foreign runtime admission remains setup-scoped
+(#470); preserved classes are not a claim that their changed runtime can launch.
+
+Product-managed Reference r4 → r5 migration and explicit connection replacement
+pass: two instruments retain gain/colour .37/.21 and .63/.79, and an effect retains
+gain .71 across save/full exit/fresh reopen. Both tracks play; retirement reaches
+DSP 0/keepers 0 without cleanup failure. Continue connecting completes without
+another publication revision. This check covers REAPER, not Bitwig.
+
+Serum 2 / Deck / Test215: migration to r5 retains playback/recall at peak .283317,
+but finger-operated OSC A waveform menus stall or lose editor response. Restoring
+the retained touch runtime through product operations restores the same physical
+interaction and playback. r5 does not pass this touch journey (#469, FC-UI-003).
+Transparency remains incorrect (#330); changed-parameter recall and the FX editor
+are not covered by this comparison.
 
 Test35's ordinary GUI **Update Bridge** preserves twelve class/module/environment/
 compatibility bindings, five preferences, two saved projects and all 257 original

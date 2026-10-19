@@ -2028,20 +2028,25 @@ fn connect_class(
         save(m, record, intent, operation)?;
         return Ok(());
     }
-    // Initial intent may never silently replace an existing product/build/context.
+    // An explicit replacement can finish outside this discovery job. Recognize
+    // its exact selected configuration without publishing anything again.
+    // A different build or environment still needs a separate change choice.
     if let Some(entry) = m.registry()?.classes.get(&selection.class.id) {
-        let ours = intent.work[index].candidate.as_ref().is_some_and(|id| {
-            prep::candidate_record(m, id)
-                .and_then(|c| prep::selected_publication_candidate_record(m, &c))
-                .is_ok_and(|selected| selected)
-        });
-        if ours
-            && entry.registration.environment.id == record.id()
-            && entry.registration.module == selection.module
-        {
-            intent.journey.plugins[result_index].stage = ui::InstallationPluginStage::Available;
-            save(m, record, intent, operation)?;
-            return Ok(());
+        if let Some(reference) = &entry.managed_revision {
+            let revision = m.load_revision_record(&selection.class.id, reference)?;
+            let records = prep::RecordReadback::capture(m)?;
+            if let Some(candidate) = records.publication_candidate_record(
+                m, &revision.profile, &entry.registration,
+            )? {
+                if candidate.selection == selection
+                    && prep::selected_publication_candidate_record(m, candidate)?
+                {
+                    intent.work[index].candidate = Some(candidate.id()?);
+                    intent.journey.plugins[result_index].stage = ui::InstallationPluginStage::Available;
+                    save(m, record, intent, operation)?;
+                    return Ok(());
+                }
+            }
         }
         intent.journey.plugins[result_index].stage =
             ui::InstallationPluginStage::ReplacementRequired;
@@ -4872,7 +4877,7 @@ finally:
         assert_eq!(intent.journey.phase, ui::InstallationPhase::Available);
     }
     #[test]
-    fn existing_working_configuration_is_preserved_until_separate_change_review() {
+    fn separately_published_exact_configuration_finishes_connection_without_republishing() {
         let (f, c, r, mut intent) = setup();
         let operation = intent.owner.clone();
         prep::retain_lineage(&f.m, &c, &random_id().unwrap(), None).unwrap();
@@ -4885,8 +4890,29 @@ finally:
         .unwrap();
         assert_eq!(
             intent.journey.plugins[0].stage,
-            ui::InstallationPluginStage::ReplacementRequired
+            ui::InstallationPluginStage::Available
         );
+        assert_eq!(intent.work[0].candidate.as_deref(), Some(c.id().unwrap().as_str()));
+        assert_eq!(intent.journey.phase, ui::InstallationPhase::Available);
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), before);
+    }
+    #[test]
+    fn publication_on_previous_environment_still_requires_explicit_replacement() {
+        let (f, c, mut r, mut intent) = setup();
+        let operation = intent.owner.clone();
+        prep::retain_lineage(&f.m, &c, &random_id().unwrap(), None).unwrap();
+        prep::record_candidate(&f.m, &c).unwrap();
+        prep::enable(&f.m, &c, false).unwrap();
+        let before = fs::read(f.m.root.join("registry.json")).unwrap();
+        r.environment.revision += 1;
+        atomic_json(&r.environment.root.join("environment.json"), &r.environment).unwrap();
+        atomic_json(&onboarding::directory(&f.m, &r.id).unwrap().join("record.json"), &r).unwrap();
+        let path = inventory_path(&f.m, &r);
+        let mut scan: inventory::Scan = read_json(&path).unwrap();
+        scan.environment = r.environment.clone();
+        atomic_json(&path, &scan).unwrap();
+        continue_with(&f.m, &r, &mut intent, &operation, &mut |a, o, _| actual(&f.m, a, o)).unwrap();
+        assert_eq!(intent.journey.plugins[0].stage, ui::InstallationPluginStage::ReplacementRequired);
         assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), before);
     }
     #[test]
