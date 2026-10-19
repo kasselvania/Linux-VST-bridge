@@ -399,6 +399,20 @@ impl AdmissionCleanup {
     fn record(&self, lease: &Path) {
         self.0.lock().unwrap().insert(lease.to_path_buf());
     }
+    // Caller holds registry.lock, through scope resolution and admission.
+    fn blocks_environment(&self, m: &Manager, environment: &Environment) -> Result<bool> {
+        for lease in self.0.lock().unwrap().iter() {
+            let Some(session) = lease.file_stem().and_then(|name| name.to_str()) else { return Ok(true) };
+            if *lease != m.root.join("runtime/leases").join(format!("{session}.json")) {
+                return Ok(true);
+            }
+            if !m.lease_environment(session).is_ok_and(|owner|
+                owner.id != environment.id && owner.root != environment.root) {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
     fn refresh(&self, m: &Manager) -> Result<()> {
         if !self.blocked() { return Ok(()); }
         let (_registry, _) = m.lock_bounded(operator_model::OperatorLock::Registry,
@@ -1264,11 +1278,11 @@ fn observe_keeper(environment: &str, active: &mut Vec<KeeperOwner>)
     else { Err("environment owner published a non-ready live result".into()) }
 }
 
-fn retire_mismatched_graphical_keeper(m:&Manager,environment:&str,
+fn retire_mismatched_graphical_keeper(m:&Manager,environment:&Environment,
     requested:Option<&transport_storage::GraphicalSession>,active:&mut [KeeperOwner])
     -> Result<bool> {
     let Some(requested)=requested else {return Ok(false)};
-    let Some(owner)=active.iter_mut().find(|owner|owner.environment==environment) else {
+    let Some(owner)=active.iter_mut().find(|owner|owner.environment==environment.id) else {
         return Ok(false);
     };
     if owner.graphical_session.as_ref().is_some_and(|bound|bound.same_display_context(requested))
@@ -1276,7 +1290,7 @@ fn retire_mismatched_graphical_keeper(m:&Manager,environment:&str,
     if owner.retiring {return Ok(true)}
     // Each DAW request retains its authenticated peer generation, while the
     // keeper belongs to the exact display context shared by those requests.
-    m.require_inactive(None)?;
+    capacity::require_environment_inactive(m,environment)?;
     require(unsafe{libc::kill(owner.child.id() as i32,libc::SIGTERM)}==0,
         "graphical keeper retirement request")?;
     owner.retiring=true;
@@ -1335,7 +1349,7 @@ fn stage_keeper_with_history(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keep
         active.remove(index);
         observed=None;
     }
-    if retire_mismatched_graphical_keeper(m,&r.environment.id,graphical_session,&mut active)? {
+    if retire_mismatched_graphical_keeper(m,&r.environment,graphical_session,&mut active)? {
         return Ok(KeeperAvailability::Retiring);
     }
     if let Some(status)=observed {return Ok(status)}
@@ -1939,7 +1953,8 @@ fn serve(m: Manager) -> Result<()> {
                     startup.phase("binding_verified");
                     let mut observed=None;
                     let reservation=wait_for_keeper(keeper_deadline,
-                        || capacity::reserve(&m,&limits,Some(&class),blocked.blocked()),
+                        || capacity::reserve_environment(&m,&limits,&class,&r.environment,
+                            || blocked.blocks_environment(&m,&r.environment)),
                         || {
                             let registry=m.registry()?;
                             require(registry.classes.get(&class).is_some_and(|entry|
@@ -1992,7 +2007,8 @@ fn serve(m: Manager) -> Result<()> {
                     startup.phase("ready_binding_verified");
                     ready_verified.run(|| {
                     let _reservation=wait_for_keeper(keeper_deadline,
-                        || capacity::reserve(&m,&limits,Some(&class),blocked.blocked()),
+                        || capacity::reserve_environment(&m,&limits,&class,&r.environment,
+                            || blocked.blocks_environment(&m,&r.environment)),
                         || {
                             let registry=m.registry()?;
                             require(registry.classes.get(&class).is_some_and(|entry|
@@ -2733,9 +2749,9 @@ mod tests {
         owner.graphical_session=Some(graphical(":1",1));
         let mut active=vec![owner];
         // A different requester in the same display context shares the keeper.
-        assert!(!retire_mismatched_graphical_keeper(&f.m,&f.r.environment.id,
+        assert!(!retire_mismatched_graphical_keeper(&f.m,&f.r.environment,
             Some(&graphical(":1",2)),&mut active).unwrap());
-        assert!(retire_mismatched_graphical_keeper(&f.m,&f.r.environment.id,
+        assert!(retire_mismatched_graphical_keeper(&f.m,&f.r.environment,
             Some(&graphical(":2",2)),&mut active).unwrap());
         assert!(active[0].child.wait().unwrap().code().is_none());
     }
@@ -2747,11 +2763,29 @@ mod tests {
         let (mut owner,_,_)=fixture_keeper(&f,"sleep 5");
         owner.graphical_session=Some(graphical(":1",1));
         let mut active=vec![owner];
-        assert!(retire_mismatched_graphical_keeper(&f.m,&f.r.environment.id,
+        assert!(retire_mismatched_graphical_keeper(&f.m,&f.r.environment,
             Some(&graphical(":2",2)),&mut active).is_err());
         assert!(active[0].child.try_wait().unwrap().is_none());
         active[0].child.kill().unwrap();active[0].child.wait().unwrap();
         fs::remove_file(job.lease).unwrap();
+    }
+    #[test]
+    fn graphical_transition_ignores_maintenance_in_another_exact_setup() {
+        let f=test_fixture::Fixture::new();
+        let (job,path)=spec(&f.m,f.r.clone().into(),true,true,false).unwrap();
+        f.m.retain_lease_owner(&path).unwrap();
+        atomic_json(&job.lease,&job.report).unwrap();
+        let mut other=f.r.environment.clone();
+        other.id="22222222-2222-4222-8222-222222222222".into();
+        other.root=f.m.root.join("environments").join(&other.id);
+        let (mut keeper,_,_)=fixture_keeper(&f,"sleep 5");
+        keeper.environment=other.id.clone();
+        let mut active=vec![keeper];
+        let _registry=f.m.lock("registry.lock").unwrap();
+        assert!(retire_mismatched_graphical_keeper(&f.m,&other,
+            Some(&graphical(":2",2)),&mut active).unwrap());
+        assert!(active[0].child.wait().unwrap().code().is_none());
+        assert!(job.lease.exists());
     }
     #[test]
     fn keeper_generation_is_ready_only_while_live_and_exactly_bound() {
@@ -2825,7 +2859,7 @@ mod tests {
         assert_eq!(observe_keeper(&f.r.environment.id,&mut active).unwrap(),
             Some(KeeperAvailability::Ready));
         std::thread::sleep(Duration::from_millis(50));
-        assert!(retire_mismatched_graphical_keeper(&f.m,&f.r.environment.id,
+        assert!(retire_mismatched_graphical_keeper(&f.m,&f.r.environment,
             Some(&graphical(":1",1)),&mut active).unwrap());
         assert!(active[0].retiring);
         let status=active[0].child.wait().unwrap();
@@ -3195,6 +3229,38 @@ mod tests {
         assert!(super::spec(&f.m,r,false,false,false).is_err());
     }
     use super::*;
+    #[test]
+    fn failed_admission_custody_is_scoped_by_retained_owner_not_current_class() {
+        let f = test_fixture::Fixture::new();
+        let session = "ac".repeat(16);
+        let lease = f.m.root.join("runtime/leases").join(format!("{session}.json"));
+        let report = f.m.root.join("runtime/results").join(format!("windows-{session}.json"));
+        let owner = f.r.environment.root.join("compatdata/pfx/drive_c/bridge/sessions")
+            .join(&session).join("owner.json");
+        private_dir(owner.parent().unwrap()).unwrap();
+        private_dir(lease.parent().unwrap()).unwrap();
+        atomic_json(&owner, &serde_json::json!({"session":session,"lease":lease,
+            "report":report,"registration":f.r})).unwrap();
+        f.m.retain_lease_owner(&owner).unwrap();
+        atomic_json(&lease, &report).unwrap();
+        let failed = AdmissionCleanup::default();
+        failed.record(&lease);
+        let _registry = f.m.lock("registry.lock").unwrap();
+        assert!(failed.blocks_environment(&f.m, &f.r.environment).unwrap());
+        let mut other = f.r.environment.clone();
+        other.id = "22222222-2222-4222-8222-222222222222".into();
+        other.root = f.m.root.join("environments").join(&other.id);
+        assert!(!failed.blocks_environment(&f.m, &other).unwrap());
+        // No current publication is needed to locate the old live host.
+        fs::remove_file(&owner).unwrap();
+        assert!(!failed.blocks_environment(&f.m, &other).unwrap());
+        let mut revised = f.r.environment.clone();
+        revised.revision += 1;
+        assert!(failed.blocks_environment(&f.m, &revised).unwrap());
+        fs::remove_file(f.m.root.join("runtime/lease-owners").join(format!("{session}.json"))).unwrap();
+        assert!(failed.blocks_environment(&f.m, &other).unwrap(), "Missing custody never grants independence");
+        assert!(failed.blocked() && lease.exists());
+    }
     #[test]
     fn failed_admission_recovers_from_exact_retirement_without_service_restart() {
         let f = test_fixture::Fixture::new();

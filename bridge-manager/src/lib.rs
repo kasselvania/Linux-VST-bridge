@@ -766,6 +766,19 @@ impl Manager {
             && owner["report"].as_str() == report.to_str(), "lease_identity")?;
         Ok((owner, path))
     }
+    /// Resolve setup scope from the exact durable owner, never from today's
+    /// class publication (which may have moved since this host was admitted).
+    /// Caller holds registry.lock. Historical owners without this binding
+    /// remain unscoped and cannot grant independence from another setup.
+    pub fn lease_environment(&self, sid: &str) -> Result<Environment> {
+        require(valid_hex(sid, 32), "lease_identity")?;
+        let report: PathBuf = read_json(&self.root.join("runtime/leases").join(format!("{sid}.json")))?;
+        let (owner, path) = self.lease_owner(sid, &report)?;
+        require(self.lease_owner_location(sid, &report, &owner)? == path, "lease_identity")?;
+        let environment: Environment = serde_json::from_value(owner["registration"]["environment"].clone())?;
+        require(!environment.id.is_empty(), "lease_identity")?;
+        Ok(environment)
+    }
     /// Must be called while holding registry.lock, the same lock as admission.
     pub fn require_inactive(&self, class: Option<&str>) -> Result<()> {
         for owner in capacity::owners(self)? {
