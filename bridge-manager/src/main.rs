@@ -1278,11 +1278,11 @@ fn observe_keeper(environment: &str, active: &mut Vec<KeeperOwner>)
     else { Err("environment owner published a non-ready live result".into()) }
 }
 
-fn retire_mismatched_graphical_keeper(m:&Manager,environment:&str,
+fn retire_mismatched_graphical_keeper(m:&Manager,environment:&Environment,
     requested:Option<&transport_storage::GraphicalSession>,active:&mut [KeeperOwner])
     -> Result<bool> {
     let Some(requested)=requested else {return Ok(false)};
-    let Some(owner)=active.iter_mut().find(|owner|owner.environment==environment) else {
+    let Some(owner)=active.iter_mut().find(|owner|owner.environment==environment.id) else {
         return Ok(false);
     };
     if owner.graphical_session.as_ref().is_some_and(|bound|bound.same_display_context(requested))
@@ -1290,7 +1290,7 @@ fn retire_mismatched_graphical_keeper(m:&Manager,environment:&str,
     if owner.retiring {return Ok(true)}
     // Each DAW request retains its authenticated peer generation, while the
     // keeper belongs to the exact display context shared by those requests.
-    m.require_inactive(None)?;
+    capacity::require_environment_inactive(m,environment)?;
     require(unsafe{libc::kill(owner.child.id() as i32,libc::SIGTERM)}==0,
         "graphical keeper retirement request")?;
     owner.retiring=true;
@@ -1349,7 +1349,7 @@ fn stage_keeper_with_history(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keep
         active.remove(index);
         observed=None;
     }
-    if retire_mismatched_graphical_keeper(m,&r.environment.id,graphical_session,&mut active)? {
+    if retire_mismatched_graphical_keeper(m,&r.environment,graphical_session,&mut active)? {
         return Ok(KeeperAvailability::Retiring);
     }
     if let Some(status)=observed {return Ok(status)}
@@ -2749,9 +2749,9 @@ mod tests {
         owner.graphical_session=Some(graphical(":1",1));
         let mut active=vec![owner];
         // A different requester in the same display context shares the keeper.
-        assert!(!retire_mismatched_graphical_keeper(&f.m,&f.r.environment.id,
+        assert!(!retire_mismatched_graphical_keeper(&f.m,&f.r.environment,
             Some(&graphical(":1",2)),&mut active).unwrap());
-        assert!(retire_mismatched_graphical_keeper(&f.m,&f.r.environment.id,
+        assert!(retire_mismatched_graphical_keeper(&f.m,&f.r.environment,
             Some(&graphical(":2",2)),&mut active).unwrap());
         assert!(active[0].child.wait().unwrap().code().is_none());
     }
@@ -2763,11 +2763,29 @@ mod tests {
         let (mut owner,_,_)=fixture_keeper(&f,"sleep 5");
         owner.graphical_session=Some(graphical(":1",1));
         let mut active=vec![owner];
-        assert!(retire_mismatched_graphical_keeper(&f.m,&f.r.environment.id,
+        assert!(retire_mismatched_graphical_keeper(&f.m,&f.r.environment,
             Some(&graphical(":2",2)),&mut active).is_err());
         assert!(active[0].child.try_wait().unwrap().is_none());
         active[0].child.kill().unwrap();active[0].child.wait().unwrap();
         fs::remove_file(job.lease).unwrap();
+    }
+    #[test]
+    fn graphical_transition_ignores_maintenance_in_another_exact_setup() {
+        let f=test_fixture::Fixture::new();
+        let (job,path)=spec(&f.m,f.r.clone().into(),true,true,false).unwrap();
+        f.m.retain_lease_owner(&path).unwrap();
+        atomic_json(&job.lease,&job.report).unwrap();
+        let mut other=f.r.environment.clone();
+        other.id="22222222-2222-4222-8222-222222222222".into();
+        other.root=f.m.root.join("environments").join(&other.id);
+        let (mut keeper,_,_)=fixture_keeper(&f,"sleep 5");
+        keeper.environment=other.id.clone();
+        let mut active=vec![keeper];
+        let _registry=f.m.lock("registry.lock").unwrap();
+        assert!(retire_mismatched_graphical_keeper(&f.m,&other,
+            Some(&graphical(":2",2)),&mut active).unwrap());
+        assert!(active[0].child.wait().unwrap().code().is_none());
+        assert!(job.lease.exists());
     }
     #[test]
     fn keeper_generation_is_ready_only_while_live_and_exactly_bound() {
@@ -2841,7 +2859,7 @@ mod tests {
         assert_eq!(observe_keeper(&f.r.environment.id,&mut active).unwrap(),
             Some(KeeperAvailability::Ready));
         std::thread::sleep(Duration::from_millis(50));
-        assert!(retire_mismatched_graphical_keeper(&f.m,&f.r.environment.id,
+        assert!(retire_mismatched_graphical_keeper(&f.m,&f.r.environment,
             Some(&graphical(":1",1)),&mut active).unwrap());
         assert!(active[0].retiring);
         let status=active[0].child.wait().unwrap();

@@ -628,6 +628,18 @@ fn owners_for(m: &Manager, environment: Option<&Environment>) -> Result<Vec<Owne
     Ok(result)
 }
 
+/// Caller holds registry.lock. Keepers may be retired only when this setup
+/// has no DSP or maintenance users. An unscoped owner cannot be excluded.
+pub fn require_environment_inactive(m: &Manager, environment: &Environment) -> Result<()> {
+    for owner in owners_for(m, Some(environment))? {
+        if owner.kind == Kind::Keeper { continue; }
+        require(m.lease_environment(&owner.session).is_ok_and(|scope|
+            scope.id != environment.id && scope.root != environment.root),
+            if owner.kind == Kind::Dsp { "active_device_lease" } else { "active_maintenance_lease" })?;
+    }
+    Ok(())
+}
+
 fn check_selected(
     owners: &[Owner], limits: &Limits, class: Option<&str>,
     unfamiliar_managed_capacity: Option<usize>,
