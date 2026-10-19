@@ -11,6 +11,30 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Test225 / CachyOS / REAPER 7.82 / runtime r7 / host CPython 3.14.8,
+**source-generation update and exact restore passed**
+([PR 484](https://github.com/kasselvania/Linux-VST-bridge/pull/484), 2026-10-19):
+the normal signed installer and Open Setup completed Test223 → source Test225 →
+exact Test223 restore → the same source Test225. All four visits played the same
+Reference project, preserved its FX instance identity, saved and fully exited.
+Captured stereo audio was nonzero in every visit. Every normal retirement ended
+with zero DSP, keepers, maintenance, pending transactions and stale transports,
+no cleanup uncertainty and exactly three persistent runtime-root entries. The
+final source run preserved that root's device/inode/owner/mode; source generations
+wrote no bytecode. Old/restored and source/source-again records remain byte-exact.
+The runtime inventory stayed exact at 16,950 entries. Reference also played and
+retired in the original long-home account, fixing its keeper endpoint refusal.
+The declared CPython 3.13/3.14 range has bootstrap/runtime qualification on actual
+3.13.15 and 3.14.8 interpreters; this installed comparison used 3.14.8.
+Limits: the retained old **Download and update** feed cannot stage source-only
+bundles; use the new signed standalone installer and Open Setup. The retained
+Test223 attempt from an invalid graphical session, without an initialized folder,
+remains unrecovered: Continue only rescans and Run refuses the missing installation.
+Fresh NI/r7 installation and
+Kontakt changed-state/reboot recall remain [#482](https://github.com/kasselvania/Linux-VST-bridge/issues/482);
+responsiveness #481 and live status #382 remain open. This is a first-party
+packaging/launch/restore claim, not fresh Native Access/Kontakt qualification.
+
 Test223 / retained CachyOS account / REAPER 7.82 / existing NI r5 setup,
 **vendor-maintenance isolation and mixed recall passed**
 ([PR 480](https://github.com/kasselvania/Linux-VST-bridge/pull/480), 2026-10-19):
