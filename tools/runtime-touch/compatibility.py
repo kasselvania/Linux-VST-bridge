@@ -66,7 +66,7 @@ def build_facts(built):
     facts = {}
     for macro in macros:
         match = re.search(r'^#define ' + macro + r' (.*)$', config, re.M)
-        if not match:
+        if not match or (macro.startswith("HAVE_") and match.group(1).strip() != "1"):
             raise ValueError('Missing X11 build feature: ' + macro)
         facts[macro] = match.group(1)
     if re.search(r'^\s*#.*(?:HAVE_\w*WAYLAND|HAVE_FFMPEG)', inputs, re.M):
@@ -82,7 +82,12 @@ def build_facts(built):
         header = (built/'wine/include/wine'/f'{name}_driver.h').read_text()
         macro = 'WINE_' + name.upper() + '_DRIVER_VERSION'
         versions[macro] = int(re.search(r'^#define ' + macro + r' (\d+)$', header, re.M).group(1))
-    return dict(x11_features=facts, build_variables=flags, driver_versions=versions)
+    if versions != {'WINE_GDI_DRIVER_VERSION': 111, 'WINE_VULKAN_DRIVER_VERSION': 49,
+                    'WINE_OPENGL_DRIVER_VERSION': 38}:
+        raise ValueError('GE driver interface header version changed')
+    return dict(x11_features=facts, build_variables=flags, driver_versions=versions,
+                config_sha256=digest(built/'obj64/include/config.h'),
+                makefile_sha256=digest(built/'obj64/Makefile'))
 
 
 def digest(path):

@@ -18,10 +18,13 @@ Observed on Test216:
   full exit/reopen retain settings and Pad Noir, with matching capture peaks.
   Clean retirement after both full exits passes. See `docs/SUPPORT_MATRIX.md`.
 
+- Tyrell on r7 installs, opens its editor, plays MIDI/audio and retains Output
+  .37 and its instance across full exit/reopen, then retires cleanly. The X11 driver passes
+  the GE binary-interface comparison; packaging now enforces that comparison.
+
 Remaining:
-1. #470 is merged. Finish #471 against main: verify the unchanged r7 driver
-   against GE, complete Tyrell editor/audio/changed-state recall, then review/land.
-   No new implementation PR until this runtime increment lands.
+1. #470 is merged. Final review and land #471 against main. No new implementation
+   PR until this runtime increment lands.
 2. Resolve the live Native Access overview refusal hiding Stop controls, the
    empty editor offered for a fixture with no custom editor, and an older Bitwig
    Kontakt project's missing-device result. Preserve the old project and compare

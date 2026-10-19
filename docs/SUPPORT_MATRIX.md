@@ -896,6 +896,15 @@ Test216 / Deck Desktop / managed GE r7:
   operator confirms Kontakt menu reopen/dismissal and Cutoff respond to fingers.
   This covers cross-generation mixed use, not all-r7, Game Mode or audio deadlines.
 
+Test216 / Steam Deck Desktop / REAPER 7.82 / r7: TyrellN6 3.0.0 (16976)
+completes ordinary Install and connect in a new setup. Its editor opens; Output
+.3700000048, the same FX instance and 16 MIDI notes survive confirmed full DAW
+exit and fresh reopen. Track peaks are .165937/.164045; both desktop-output
+captures contain audio (peaks .166412/.165833). The loaded X11 driver matches the
+unchanged r7 artifact checked against GE. Final retirement reaches DSP 0/keepers 0
+with no pending transactions, stale transports or cleanup failure. This is a short
+baseline, not endurance or Game Mode qualification.
+
 Open limits (#469): an older September KontaktStereo project copy resolves as
 missing despite matching class identity; its pre-migration baseline is unknown
 and original bytes are preserved. Reference has no custom editor, but the bridge
