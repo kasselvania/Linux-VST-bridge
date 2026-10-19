@@ -2906,14 +2906,20 @@ mod tests {
     #[test]
     fn service_resumed_keeper_retires_before_one_graphical_generation() {
         let f=test_fixture::Fixture::new();
-        let (owner,report,lease)=fixture_keeper(&f,
-            "exec python3 -c 'import signal,sys,time; signal.signal(signal.SIGTERM,lambda *_:sys.exit(0)); time.sleep(5)'");
+        let ready=f.outer.join("keeper-ready");
+        let (owner,report,lease)=fixture_keeper(&f,&format!(
+            "exec python3 -c 'import pathlib,signal,sys,time; signal.signal(signal.SIGTERM,lambda *_:sys.exit(0)); pathlib.Path({}).touch(); time.sleep(5)'",
+            serde_json::to_string(&ready).unwrap()));
         atomic_json(&report,&serde_json::json!({"ready":true,
             "environment":f.r.environment.id})).unwrap();
         let mut active=vec![owner];
         assert_eq!(observe_keeper(&f.r.environment.id,&mut active).unwrap(),
             Some(KeeperAvailability::Ready));
-        std::thread::sleep(Duration::from_millis(50));
+        let deadline=Instant::now()+Duration::from_secs(5);
+        while !ready.try_exists().unwrap() {
+            assert!(Instant::now()<deadline,"Keeper fixture did not install its signal handler");
+            std::thread::sleep(Duration::from_millis(10));
+        }
         assert!(retire_mismatched_graphical_keeper(&f.m,&f.r.environment,
             Some(&graphical(":1",1)),&mut active).unwrap());
         assert!(active[0].retiring);

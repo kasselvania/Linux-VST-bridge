@@ -768,24 +768,21 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
         }
         "cancel" => {
             let writer=m.lock(directory.join("writer.lock").strip_prefix(&m.root)?.to_str().ok_or("vendor_writer_gate")?)?;
-            let running=live(&args[1])?;
-            let registry = m.lock("registry.lock")?;
             let job:vendor_application::Operation=read_json(&directory.join("operation.json"))?;
             let prior=result(m,&args[1],&job.operation_id)?;
-            if !running {
-                if let Some(id) = operation {
-                    require(job.operation_id == id && prior.operation_id.as_deref() == Some(id),
-                        "vendor_application_operation_changed")?;
-                }
-                drop(writer);
-                return recover_stopped(m,&args[1],&job.operation_id,registry,reconcile);
-            }
+            // The writer pins this submission. Reject a changed job or result
+            // before a service observation can mask the identity failure.
             if let Some(id) = operation {
-                let job: serde_json::Value = read_json(&directory.join("operation.json"))?;
                 require(
-                    job["operation_id"] == id && prior.operation_id.as_deref() == Some(id),
+                    job.operation_id == id && prior.operation_id.as_deref() == Some(id),
                     "vendor_application_operation_changed",
                 )?;
+            }
+            let running=live(&args[1])?;
+            let registry=m.lock("registry.lock")?;
+            if !running {
+                drop(writer);
+                return recover_stopped(m,&args[1],&job.operation_id,registry,reconcile);
             }
             drop(registry);
             let result = Command::new("systemctl")

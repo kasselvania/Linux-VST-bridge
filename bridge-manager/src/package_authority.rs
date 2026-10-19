@@ -5111,6 +5111,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
 
     #[test]
     fn updater_registry_admission_covers_stop_refresh_commit_and_contended_recovery() {
+        readiness::with_unit_state_fixture(&[vendor_cli::unit("arturia-software-center").unwrap()],"inactive",|| {
         use operator_model::LockOutcome;
         // Cleanup refusal (13), and refusal during resumed target settlement (19).
         // The success case also settles the retained suspension (19).
@@ -5183,6 +5184,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
             assert!(!f.base.m.root.join("package-transition.json").exists());
             assert!(!f.base.m.publication_pending(&f.base.r.key()).unwrap());
         }
+        });
     }
 
     #[test]
@@ -5335,6 +5337,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
 
     #[test]
     fn package_update_settles_retired_suspension_after_clean_target_readback() {
+        readiness::with_unit_state_fixture(&[vendor_cli::unit("arturia-software-center").unwrap()],"inactive",|| {
         let f = Fixture::new();
         f.adopt().unwrap();
         let (first, next, receipt, setup) = staged_transition(&f);
@@ -5357,6 +5360,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
         assert!(f.current() == first);
         assert!(!reservation.exists());
         assert_eq!(fs::read(&failed).unwrap(),failed_bytes);
+        });
     }
     #[test]
     fn package_resume_snapshot_verification_requires_exact_registry_guard() {
@@ -5379,6 +5383,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
     }
     #[test]
     fn package_resume_crash_boundaries_preserve_or_settle_exact_owner() {
+        readiness::with_unit_state_fixture(&[vendor_cli::unit("arturia-software-center").unwrap()],"inactive",|| {
         for boundary in ["before_switch","after_switch","settling_present","consumed"] {
             let f = Fixture::new();
             f.adopt().unwrap();
@@ -5408,6 +5413,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
             assert_eq!(fs::read(&failed).unwrap(),failed_bytes);
             assert!(!journal.exists());
         }
+        });
     }
     #[test]
     fn package_resume_target_failure_restores_paused_origin_and_raw_reservation() {
@@ -5495,6 +5501,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
     }
     #[test]
     fn package_resume_active_origin_rollback_is_readable_by_the_old_decoder() {
+        readiness::with_unit_state_fixture(&[vendor_cli::unit("arturia-software-center").unwrap()],"inactive",|| {
         for starts in [1,2] {
             let f = Fixture::new();
             f.adopt().unwrap();
@@ -5519,6 +5526,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
             assert!(!journal.exists());
             assert_eq!(f.service.show().unwrap().active,"active");
         }
+        });
     }
     #[test]
     fn package_resume_cannot_be_bypassed_by_another_generation_switch() {
