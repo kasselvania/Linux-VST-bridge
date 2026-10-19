@@ -80,8 +80,8 @@ fn allowed(row: &ReleaseFile) -> bool {
     let role = match row.destination.as_str() {
         "usr/bin/linux-vst-bridge" => row.kind == "manager",
         "usr/bin/linux-audio-compatibility-manager" => row.kind == "frontend",
-        "usr/lib/linux-vst-bridge/supervisor/session.pyc" => row.kind == "supervisor",
-        "usr/lib/linux-vst-bridge/supervisor/ownership.pyc" => row.kind == "ownership",
+        "usr/lib/linux-vst-bridge/supervisor/session.pyc" | "usr/lib/linux-vst-bridge/supervisor/session.py" => row.kind == "supervisor",
+        "usr/lib/linux-vst-bridge/supervisor/ownership.pyc" | "usr/lib/linux-vst-bridge/supervisor/ownership.py" => row.kind == "ownership",
         "usr/lib/linux-vst-bridge/host/bridge-host.exe" => row.kind == "windows_host",
         "usr/lib/linux-vst-bridge/host/source-manifest.json" => row.kind == "host_source",
         "usr/lib/linux-vst-bridge/preparation/preparation-kit.zip" => row.kind == "preparation_kit",
@@ -99,7 +99,11 @@ fn allowed(row: &ReleaseFile) -> bool {
             ("license", "usr/share/doc/linux-vst-bridge-beta/licenses/"),
         ].iter().any(|(kind, prefix)| row.kind == *kind && name.starts_with(prefix)),
     };
-    canonical && role && row.mode == if matches!(row.kind.as_str(), "manager"|"frontend"|"proxy") { "0555" } else { "0444" }
+    let source = matches!(p.extension().and_then(|x| x.to_str()),
+        Some("rs" | "c" | "cc" | "cpp" | "h" | "hpp" | "py"));
+    let source_allowed = !source || row.kind == "license" || matches!(row.destination.as_str(),
+        "usr/lib/linux-vst-bridge/supervisor/session.py" | "usr/lib/linux-vst-bridge/supervisor/ownership.py");
+    canonical && role && source_allowed && row.mode == if matches!(row.kind.as_str(), "manager"|"frontend"|"proxy") { "0555" } else { "0444" }
         && hexadecimal(&row.sha256,64) && row.size <= PAYLOAD_MAX
         && !row.component.is_empty() && row.component.len() <= 128
 }
@@ -123,7 +127,6 @@ fn signed_release(bytes: &[u8], signature: &[u8], base_sha256:&[u8;32], trust: &
             "user_package_roster")?;
     }
     for required in ["usr/bin/linux-vst-bridge", "usr/bin/linux-audio-compatibility-manager",
-        "usr/lib/linux-vst-bridge/supervisor/session.pyc", "usr/lib/linux-vst-bridge/supervisor/ownership.pyc",
         "usr/lib/linux-vst-bridge/host/bridge-host.exe", "usr/lib/linux-vst-bridge/host/source-manifest.json",
         "usr/lib/linux-vst-bridge/preparation/preparation-kit.zip", ADOPTION,
         "usr/share/applications/linux-vst-bridge-setup.desktop",
@@ -133,10 +136,21 @@ fn signed_release(bytes: &[u8], signature: &[u8], base_sha256:&[u8;32], trust: &
         "usr/share/doc/linux-vst-bridge-beta/COMPLIANCE_MANIFEST.json"] {
         require(names.contains(required), "user_package_required_component")?;
     }
+    supervisor_names(&release)?;
     for kind in ["proxy", "fixture", "profile", "license"] {
         require(release.files.iter().any(|r|r.kind==kind), "user_package_required_component")?;
     }
     Ok(release)
+}
+
+fn supervisor_names(release: &Release) -> Result<[&'static str; 2]> {
+    let has = |name| release.files.iter().any(|row|
+        row.destination == format!("usr/lib/linux-vst-bridge/supervisor/{name}"));
+    match (has("session.py"), has("ownership.py"), has("session.pyc"), has("ownership.pyc")) {
+        (true, true, false, false) => Ok(["session.py", "ownership.py"]),
+        (false, false, true, true) => Ok(["session.pyc", "ownership.pyc"]),
+        _ => Err("user_package_supervisor_pair".into()),
+    }
 }
 
 pub struct Bundle {
@@ -323,12 +337,15 @@ pub fn verify_directory(root:&Path, trust:&Trust) -> Result<Release> {
             && meta.mode() & 0o777==u32::from_str_radix(&row.mode,8)?,"user_package_file_custody")?;
         require(digest(&p)?==row.sha256,"user_package_file_changed")?;
     }
-    // Package bytecode is coupled to the target Python minor version. Refuse
-    // before adoption rather than create a selected service that cannot start.
-    verify_python(root)?;
+    // New source has an explicit host range; retained bytecode keeps its exact
+    // interpreter ABI. Refuse before adopting a service that cannot start.
+    verify_python(root, &release)?;
     Ok(release)
 }
-fn verify_python(root:&Path) -> Result<()> {
+fn verify_python(root:&Path, release:&Release) -> Result<()> {
+    if supervisor_names(release)?[0] == "session.py" {
+        return crate::supervisor::verify_host_python();
+    }
     use std::{process::{Command,Stdio},time::{Duration,Instant}};
     let mut expected=None;
     for name in ["session.pyc","ownership.pyc"] {
@@ -486,7 +503,8 @@ fn input_supervisor_with_trust(executable:&Path,home:&Path,trust:&Trust)
             .ok_or("user_package_supervisor_identity")?;
         Ok((verify_release_file(&root,row)?,row.sha256.clone()))
     };
-    Ok(Some([verified("session.pyc")?,verified("ownership.pyc")?]))
+    let names = supervisor_names(&release)?;
+    Ok(Some([verified(names[0])?,verified(names[1])?]))
 }
 /// Only the running source-package executable selects its source. A selected
 /// generation executable is an ordinary product route, not a package input.
@@ -698,6 +716,54 @@ pub(crate) mod tests {
             "internal_test").unwrap();
         assert!(version(&other).is_err());
     }
+    #[test]
+    fn source_generation_stages_and_executes_only_its_verified_pair() {
+        let mut f=Fixture::new();
+        for (row,bytes) in &mut f.rows {
+            if matches!(row.kind.as_str(),"supervisor"|"ownership") {
+                row.destination.pop();
+                *bytes=if row.kind=="supervisor" {
+                    b"import ownership,sys; print(ownership.VALUE); print(sys.argv[1])\n".to_vec()
+                } else { b"VALUE='exact signed ownership'\n".to_vec() };
+                row.sha256=hex(&Sha256::digest(&bytes));row.size=bytes.len() as u64;
+            }
+        }
+        let frontend=Bundle::open(&f.bundle("1.0"),f.trust()).unwrap().stage(&f.home).unwrap();
+        let [(session,session_sha),(ownership,ownership_sha)]=
+            input_supervisor_with_trust(&frontend,&f.home,&f.trust()).unwrap().unwrap();
+        assert_eq!(session.file_name().unwrap(),"session.py");
+        assert!(!session.with_extension("pyc").exists());
+        let session=crate::Artifact {path:session,sha256:session_sha};
+        let ownership=crate::Artifact {path:ownership,sha256:ownership_sha};
+        let args=crate::supervisor::arguments(&session,&ownership).unwrap();
+        let output=Command::new("/usr/bin/python3").args(&args).arg("job with spaces")
+            .output().unwrap();
+        assert!(output.status.success(),"{}",String::from_utf8_lossy(&output.stderr));
+        assert_eq!(output.stdout,b"exact signed ownership\njob with spaces\n");
+        assert!(!ownership.path.parent().unwrap().join("__pycache__").exists());
+        fs::set_permissions(&ownership.path,fs::Permissions::from_mode(0o644)).unwrap();
+        fs::write(&ownership.path,b"raise RuntimeError('changed source executed')").unwrap();
+        assert!(crate::supervisor::arguments(&session,&ownership).is_err());
+        let output=Command::new("/usr/bin/python3").args(&args).output().unwrap();
+        assert!(!output.status.success());
+        assert!(String::from_utf8_lossy(&output.stderr).contains("supervisor source changed"));
+        assert!(input_supervisor_with_trust(&frontend,&f.home,&f.trust()).is_err());
+    }
+
+    #[test]
+    fn source_exception_refuses_other_source_destinations_and_mixed_pairs() {
+        let f=Fixture::new();
+        let mut row=f.rows.iter().find(|(row,_)|row.kind=="ownership").unwrap().0.clone();
+        row.destination="usr/lib/linux-vst-bridge/self-test/other.py".into();
+        row.kind="fixture_resource".into();
+        assert!(!allowed(&row));
+        let mut release=Release {schema:1,package:"linux-vst-bridge-beta".into(),
+            version:"1.0".into(),pkgrel:1,source_head:"a".repeat(40),source_tree:"b".repeat(40),
+            payload_sha256:"c".repeat(64),files:f.rows.iter().map(|(row,_)|row.clone()).collect()};
+        release.files.iter_mut().find(|row|row.kind=="supervisor").unwrap().destination.pop();
+        assert!(supervisor_names(&release).is_err());
+    }
+
     #[test]
     fn gate_supervisor_lookup_verifies_only_its_two_signed_rows() {
         let f=Fixture::new();let frontend=Bundle::open(&f.bundle("1.0"),f.trust())

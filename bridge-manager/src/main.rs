@@ -1059,8 +1059,7 @@ fn inspect_for_package_refresh_with_registry(m: &Manager, target: &Software,
     Ok(Artifact { sha256:digest(&job.report)?, path:job.report })
 }
 fn spawn(m: &Manager, s: &Software, path: &Path, peer: Option<UnixStream>) -> Result<Child> {
-    s.supervisor.verify()?;
-    s.ownership.verify()?;
+    let supervisor_args=linux_vst_bridge::supervisor::arguments(&s.supervisor, &s.ownership)?;
     let bound_peer = peer.is_some();
     let stdin = if let Some(p) = peer {
         unsafe { Stdio::from_raw_fd(p.into_raw_fd()) }
@@ -1072,7 +1071,7 @@ fn spawn(m: &Manager, s: &Software, path: &Path, peer: Option<UnixStream>) -> Re
     m.retain_lease_owner(path).map_err(|e|format!("session owner record: {e}"))?;
     atomic_json(&job.lease, &job.report).map_err(|e|format!("session lease record: {e}"))?;
     let mut command = Command::new("/usr/bin/python3");
-    command.arg(&s.supervisor.path);
+    command.args(supervisor_args);
     if job.registration.compatibility.graphics.is_some() && !job.keeper {
         // Older retained supervisors expect the first argument to be the job
         // file. A versioned entry point makes them refuse before preflight or
@@ -2434,7 +2433,7 @@ fn install(m: &Manager, id: &str, path: &Path, sha: &str) -> Result<()> {
         ])
         .arg(format!("--unit=linux-vst-bridge-setup-{token}"))
         .arg("/usr/bin/python3")
-        .arg(&sw.supervisor.path)
+        .args(linux_vst_bridge::supervisor::arguments(&sw.supervisor, &sw.ownership)?)
         .arg("--install")
         .arg(&job)
         .status()?;
@@ -3509,6 +3508,9 @@ mod tests {
         // The retained interface reads argv[1] as the job before launching.
         fs::write(&script, b"import json,pathlib,sys\njob=json.loads(pathlib.Path(sys.argv[1]).read_text())\npathlib.Path(job['directory'],'owner-started').write_text('legacy launch')\n").unwrap();
         software.supervisor = Artifact { sha256: digest(&script).unwrap(), path: script };
+        let ownership=f.outer.join("ownership.py");
+        fs::write(&ownership,b"# retained ownership module\n").unwrap();
+        software.ownership=Artifact {sha256:digest(&ownership).unwrap(),path:ownership};
         for graphics in [None, Some(operator_model::GraphicsBackend::WineD3d11)] {
             let mut registration = f.r.clone();
             registration.compatibility.graphics = graphics;
@@ -3523,6 +3525,19 @@ mod tests {
             }
         }
     }
+    fn real_supervisor_arguments(f: &test_fixture::Fixture) -> Vec<std::ffi::OsString> {
+        let directory=f.outer.join("verified-supervisor");
+        private_dir(&directory).unwrap();
+        let artifacts=[("session.py",include_bytes!("../runtime/session.py").as_slice()),
+            ("ownership.py",include_bytes!("../runtime/ownership.py").as_slice())]
+            .map(|(name,bytes)| {
+                let path=directory.join(name);fs::write(&path,bytes).unwrap();
+                fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();
+                Artifact {sha256:digest(&path).unwrap(),path}
+            });
+        linux_vst_bridge::supervisor::arguments(&artifacts[0],&artifacts[1]).unwrap()
+    }
+
     #[test]
     fn real_supervisor_preflight_refuses_before_exposure() {
         let f=test_fixture::Fixture::new();
@@ -3538,8 +3553,7 @@ mod tests {
         let pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
         let (_native,supervisor)=UnixStream::pair().unwrap();
         let stdin=unsafe{Stdio::from_raw_fd(supervisor.into_raw_fd())};
-        let script=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("runtime/session.py");
-        let mut child=Command::new("/usr/bin/python3").arg(script).arg(&path)
+        let mut child=Command::new("/usr/bin/python3").args(real_supervisor_arguments(&f)).arg(&path)
             .stdin(stdin).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().unwrap();
         assert!(supervisor_ready(&mut child,&job,Duration::from_secs(2)).is_err());
         retire_unready_supervisor(&mut child,&path).unwrap();
@@ -3570,9 +3584,8 @@ mod tests {
         let (mut native,supervisor)=UnixStream::pair().unwrap();
         native.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
         let stdin=unsafe{Stdio::from_raw_fd(supervisor.into_raw_fd())};
-        let script=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("runtime/session.py");
         let mut command = Command::new("/usr/bin/python3");
-        command.arg(script);
+        command.args(real_supervisor_arguments(&f));
         if graphics.is_some() { command.arg("--graphics-settings-v1"); }
         let mut child=command.arg(&path)
             .env("PATH",format!("{}:/usr/bin:/bin",bin.display()))

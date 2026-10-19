@@ -15,10 +15,15 @@ const NAMES_WITH_KIT: [&str; 7] = [
     "linux-vst-bridge", "linux-audio-compatibility-manager", "session.pyc",
     "ownership.pyc", "host.exe", "host-source-manifest.json", "preparation-kit.zip",
 ];
+const SOURCE_NAMES_WITH_KIT: [&str; 7] = [
+    "linux-vst-bridge", "linux-audio-compatibility-manager", "session.py",
+    "ownership.py", "host.exe", "host-source-manifest.json", "preparation-kit.zip",
+];
 fn names(schema: u32) -> Result<&'static [&'static str]> {
     match schema {
         1 => Ok(&NAMES),
         2 => Ok(&NAMES_WITH_KIT),
+        3 => Ok(&SOURCE_NAMES_WITH_KIT),
         _ => Err("package_manifest_schema".into()),
     }
 }
@@ -52,7 +57,9 @@ impl Inputs {
             "linux-vst-bridge" => "bin/linux-vst-bridge",
             "linux-audio-compatibility-manager" => "bin/linux-audio-compatibility-manager",
             "session.pyc" => "lib/linux-vst-bridge/supervisor/session.pyc",
+            "session.py" => "lib/linux-vst-bridge/supervisor/session.py",
             "ownership.pyc" => "lib/linux-vst-bridge/supervisor/ownership.pyc",
+            "ownership.py" => "lib/linux-vst-bridge/supervisor/ownership.py",
             "host.exe" => "lib/linux-vst-bridge/host/bridge-host.exe",
             "host-source-manifest.json" => "lib/linux-vst-bridge/host/source-manifest.json",
             "preparation-kit.zip" => "lib/linux-vst-bridge/preparation/preparation-kit.zip",
@@ -347,6 +354,7 @@ fn read_manifest(inputs: &Inputs, owner: u32) -> Result<(PackageManifest, String
         require(actual == entry.sha256 && size == entry.size,
             "package_artifact_changed")?;
     }
+    if manifest.schema == 3 { linux_vst_bridge::supervisor::verify_host_python()?; }
     Ok((manifest, sha))
 }
 fn package_artifact_record(path: &Path, owner: u32, maximum: u64, expected: u64) -> Result<()> {
@@ -427,7 +435,10 @@ fn valid_package_version(value: &str) -> bool {
     linux_vst_bridge::package_version::valid_version(value)
 }
 fn id(record: &Generation) -> Result<String> {
-    Ok(hex(&sha2::Sha256::digest(serde_json::to_vec(record)?)))
+    // Source generations are distinct from the retained loose-source layout,
+    // even if their package record is later missing. Schema 1/2 IDs stay exact.
+    let hash = hex(&sha2::Sha256::digest(serde_json::to_vec(record)?));
+    Ok(if record.schema == 3 { format!("source-{hash}") } else { hash })
 }
 fn artifact(dir: &Path, name: &str) -> Result<Artifact> {
     let path = dir.join(name);
@@ -559,10 +570,10 @@ fn retained_catalogue(m: &Manager, predecessor: Option<&Software>,
 fn generation_record(m: &Manager, manifest: PackageManifest, manifest_sha256: String,
     predecessor: Option<Software>) -> Result<Generation> {
     let catalogue = retained_catalogue(m, predecessor.as_ref(), &manifest)?;
-    let packaged_preparation_kit_sha256 = (manifest.schema == 2)
+    let packaged_preparation_kit_sha256 = (manifest.schema >= 2)
         .then(|| manifest.files[NAMES.len()].sha256.clone());
     Ok(Generation {
-        schema: if packaged_preparation_kit_sha256.is_some() { 2 } else { 1 },
+        schema: manifest.schema,
         manifest_sha256, manifest,
         retained_installer_launch: predecessor.as_ref().and_then(|s| s.installer_launch.clone()),
         retained_preparation_kit: if packaged_preparation_kit_sha256.is_some() { None } else {
@@ -814,7 +825,7 @@ fn generation_identity(m: &Manager, dir: &Path) -> Result<Generation> {
         && fs::metadata(&record_path)?.permissions().mode() & 0o222 == 0,
         "package_generation_record_writable")?;
     let record: Generation = read_json(&record_path)?;
-    require(matches!((record.schema, record.manifest.schema), (1, 1) | (2, 2))
+    require(matches!((record.schema, record.manifest.schema), (1, 1) | (2, 2) | (3, 3))
         && id(&record)? == dir.file_name().and_then(|n| n.to_str()).unwrap_or(""),
         "package_generation_identity")?;
     let expected_names = names(record.manifest.schema)?;
@@ -831,11 +842,12 @@ fn generation_identity(m: &Manager, dir: &Path) -> Result<Generation> {
 fn verify_generation(m: &Manager, current: &Software) -> Result<Generation> {
     let dir = current.manager.path.parent().ok_or("package_generation_path")?;
     let record = generation_identity(m, dir)?;
+    let generation_names = names(record.manifest.schema)?;
     let expected = [
-        (&current.manager, NAMES[0]),
-        (current.operator_frontend.as_ref().ok_or("package_frontend_absent")?, NAMES[1]),
-        (&current.supervisor, NAMES[2]), (&current.ownership, NAMES[3]),
-        (&current.host, NAMES[4]), (&current.source_manifest, NAMES[5]),
+        (&current.manager, generation_names[0]),
+        (current.operator_frontend.as_ref().ok_or("package_frontend_absent")?, generation_names[1]),
+        (&current.supervisor, generation_names[2]), (&current.ownership, generation_names[3]),
+        (&current.host, generation_names[4]), (&current.source_manifest, generation_names[5]),
     ];
     for (index, (actual, name)) in expected.iter().enumerate() {
         require(actual.path == dir.join(name)
@@ -843,7 +855,7 @@ fn verify_generation(m: &Manager, current: &Software) -> Result<Generation> {
             "package_generation_artifact_binding")?;
         actual.verify()?;
     }
-    let packaged_kit = if record.schema == 2 {
+    let packaged_kit = if record.schema >= 2 {
         let sha = &record.manifest.files[NAMES.len()].sha256;
         require(record.packaged_preparation_kit_sha256.as_ref() == Some(sha)
             && record.retained_preparation_kit.is_none(), "package_generation_kit_binding")?;
@@ -870,7 +882,7 @@ fn verify_generation(m: &Manager, current: &Software) -> Result<Generation> {
         require(fs::metadata(&a.path)?.permissions().mode() & 0o222 == 0,
             "package_generation_catalogue_writable")?;
     }
-    if record.schema==2 {preparation::build::verify_package_host(current,true)?;}
+    if record.schema>=2 {preparation::build::verify_package_host(current,true)?;}
     Ok(record)
 }
 fn validate_generation_record(m: &Manager, current: &Software) -> Result<Generation> {
@@ -880,19 +892,20 @@ fn validate_generation_record(m: &Manager, current: &Software) -> Result<Generat
         .parent()
         .ok_or("package_generation_path")?;
     let record = generation_identity(m, dir)?;
+    let generation_names = names(record.manifest.schema)?;
     let expected = [
-        (&current.manager, NAMES[0]),
+        (&current.manager, generation_names[0]),
         (
             current
                 .operator_frontend
                 .as_ref()
                 .ok_or("package_frontend_absent")?,
-            NAMES[1],
+            generation_names[1],
         ),
-        (&current.supervisor, NAMES[2]),
-        (&current.ownership, NAMES[3]),
-        (&current.host, NAMES[4]),
-        (&current.source_manifest, NAMES[5]),
+        (&current.supervisor, generation_names[2]),
+        (&current.ownership, generation_names[3]),
+        (&current.host, generation_names[4]),
+        (&current.source_manifest, generation_names[5]),
     ];
     for (index, (actual, name)) in expected.iter().enumerate() {
         require(
@@ -903,7 +916,7 @@ fn validate_generation_record(m: &Manager, current: &Software) -> Result<Generat
         )?;
         actual.validate_record()?;
     }
-    let packaged_kit = if record.schema == 2 {
+    let packaged_kit = if record.schema >= 2 {
         let entry = &record.manifest.files[NAMES.len()];
         require(
             record.packaged_preparation_kit_sha256.as_ref() == Some(&entry.sha256)
@@ -944,7 +957,7 @@ fn validate_generation_record(m: &Manager, current: &Software) -> Result<Generat
         )?;
         current.catalogue_record(m)?;
     }
-    if record.schema==2 {preparation::build::verify_package_host(current,false)?;}
+    if record.schema>=2 {preparation::build::verify_package_host(current,false)?;}
     Ok(record)
 }
 /// Only an executable in the canonical managed frontend slot is subject to
@@ -1049,7 +1062,8 @@ fn selected_generation(m: &Manager, current: &Software) -> Result<Option<Generat
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             // Only the retained pre-package helper layout has no package record.
             // A missing or damaged modern record must never become legacy.
-            require(current.supervisor.path == dir.join("session.py")
+            require(valid_hex(dir.file_name().and_then(|name| name.to_str()).unwrap_or(""),64)
+                && current.supervisor.path == dir.join("session.py")
                 && current.ownership.path == dir.join("ownership.py"),
                 "package_generation_record_missing")?;
             existing_generation_dir(dir)?;
@@ -1075,7 +1089,8 @@ fn selected_generation_record(m: &Manager, current: &Software) -> Result<Option<
     match fs::symlink_metadata(dir.join("package-generation.json")) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             require(
-                current.supervisor.path == dir.join("session.py")
+                valid_hex(dir.file_name().and_then(|name| name.to_str()).unwrap_or(""),64)
+                    && current.supervisor.path == dir.join("session.py")
                     && current.ownership.path == dir.join("ownership.py"),
                 "package_generation_record_missing",
             )?;
@@ -1137,7 +1152,7 @@ fn stage(m: &Manager, inputs: &Inputs, manifest: PackageManifest,
                     if matches!(file.name.as_str(), "linux-vst-bridge" | "linux-audio-compatibility-manager") {0o500} else {0o400}))?;
                 fs::File::open(target)?.sync_all()?;
             }
-            if record.schema==2 {
+            if record.schema>=2 {
                 let kit=Artifact {path:scratch.join("preparation-kit.zip"),
                     sha256:record.manifest.files[NAMES.len()].sha256.clone()};
                 preparation::build::stage_package_host(&kit,&scratch,&dest,
@@ -1180,20 +1195,20 @@ fn stage(m: &Manager, inputs: &Inputs, manifest: PackageManifest,
     } else { None };
     let result = Software {
         installer_launch: record.retained_installer_launch,
-        preparation_kit: if record.schema == 2 {
+        preparation_kit: if record.schema >= 2 {
             Some(artifact(&dest, "preparation-kit.zip")?)
         } else { record.retained_preparation_kit },
         operator_frontend: Some(artifact(&dest, "linux-audio-compatibility-manager")?),
         manager: artifact(&dest, "linux-vst-bridge")?,
-        supervisor: artifact(&dest, "session.pyc")?,
-        ownership: artifact(&dest, "ownership.pyc")?,
+        supervisor: artifact(&dest, names(record.manifest.schema)?[2])?,
+        ownership: artifact(&dest, names(record.manifest.schema)?[3])?,
         host: artifact(&dest, "host.exe")?,
         source_manifest: artifact(&dest, "host-source-manifest.json")?,
         source_sha256: digest(&dest.join("host-source-manifest.json"))?,
         native_catalogue,
     };
     if result.native_catalogue.is_some() { result.catalogue(m)?; }
-    if record.schema==2 {preparation::build::verify_package_host(&result,true)?;}
+    if record.schema>=2 {preparation::build::verify_package_host(&result,true)?;}
     Ok(result)
 }
 fn preflight(m: &Manager, service: &impl ServiceControl) -> Result<()> {
@@ -1282,7 +1297,8 @@ fn package_census_tools(inputs: &Inputs, owner: u32) -> Result<(Artifact, Artifa
         require(sha256 == entry.sha256 && size == entry.size, "package_artifact_changed")?;
         Ok(Artifact { path, sha256 })
     };
-    Ok((tool("session.pyc")?, tool("ownership.pyc")?))
+    let roster = names(manifest.schema)?;
+    Ok((tool(roster[2])?, tool(roster[3])?))
 }
 /// The running manager's own package: a signed source package verifies just
 /// the two supervisor rows of its release; the system package is root-owned.
@@ -2937,7 +2953,8 @@ mod tests {
             result
         }
         fn manifest(&self) -> PackageManifest {
-            let schema = if self.inputs.path("preparation-kit.zip").unwrap().exists() { 2 } else { 1 };
+            let schema = if self.inputs.path("session.py").unwrap().exists() { 3 }
+                else if self.inputs.path("preparation-kit.zip").unwrap().exists() { 2 } else { 1 };
             PackageManifest {
                 schema, package: "linux-vst-bridge-beta".into(), version: "0.1.0beta1".into(),
                 pkgrel: 1,
@@ -3023,7 +3040,7 @@ with zipfile.ZipFile(kit,'w') as z:
         }
         fn setup_legacy_with_catalogue(&self, native: NativeArtifact) {
             let m = &self.base.m;
-            let dir = m.root.join("software/legacy");
+            let dir = m.root.join("software").join("ef".repeat(32));
             private_dir(&dir).unwrap();
             for name in NAMES {
                 let old_name = match name {
@@ -4080,6 +4097,52 @@ assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
         assert_eq!(fs::read(&original_record).unwrap(), original_record_bytes);
         f.adopt().unwrap();
         assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected_bytes);
+    }
+
+    #[test]
+    fn source_generation_preserves_bytecode_predecessor_and_exact_restore() {
+        let f = Fixture::new();
+        f.add_kit(b"same reusable host across source migration");
+        f.adopt().unwrap();
+        let old = f.current();
+        let old_selection = fs::read(f.base.m.root.join("software.json")).unwrap();
+        let old_record = old.manager.path.parent().unwrap().join("package-generation.json");
+        let old_bytes = fs::read(&old_record).unwrap();
+        assert_eq!(verify_generation(&f.base.m, &old).unwrap().schema, 2);
+        assert_eq!(linux_vst_bridge::supervisor::arguments(&old.supervisor,&old.ownership).unwrap(),
+            vec![old.supervisor.path.clone().into_os_string()]);
+        for (name, bytes) in [("session.py", include_bytes!("../runtime/session.py").as_slice()),
+            ("ownership.py", include_bytes!("../runtime/ownership.py").as_slice())] {
+            let path = f.inputs.path(name).unwrap();
+            fs::write(&path, bytes).unwrap();
+            fs::set_permissions(&path,fs::Permissions::from_mode(0o444)).unwrap();
+        }
+        f.write_manifest();
+        f.adopt().unwrap();
+        let source = f.current();
+        let source_selection = fs::read(f.base.m.root.join("software.json")).unwrap();
+        assert_eq!(verify_generation(&f.base.m,&source).unwrap().schema,3);
+        assert_eq!(source.supervisor.path.file_name().unwrap(),"session.py");
+        assert_eq!(source.ownership.path.file_name().unwrap(),"ownership.py");
+        assert_eq!(package_census_tools(&f.inputs,f.owner).unwrap(),
+            (Artifact {path:f.inputs.path("session.py").unwrap(),sha256:source.supervisor.sha256.clone()},
+             Artifact {path:f.inputs.path("ownership.py").unwrap(),sha256:source.ownership.sha256.clone()}));
+        rollback_from(&f.base.m,&f.home,&f.service).unwrap();
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(),old_selection);
+        assert_eq!(fs::read(&old_record).unwrap(),old_bytes);
+        f.adopt().unwrap();
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(),source_selection);
+        assert_eq!(fs::read(&old_record).unwrap(),old_bytes);
+        let source_record=source.manager.path.parent().unwrap().join("package-generation.json");
+        let saved=source_record.with_extension("saved");
+        fs::rename(&source_record,&saved).unwrap();
+        assert!(selected_generation(&f.base.m,&source).is_err());
+        assert!(selected_generation_record(&f.base.m,&source).is_err());
+        fs::rename(&saved,&source_record).unwrap();
+        fs::set_permissions(&source.ownership.path,fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&source.ownership.path,b"changed source").unwrap();
+        assert!(verify_generation(&f.base.m,&source).is_err());
+        assert!(linux_vst_bridge::supervisor::arguments(&source.supervisor,&source.ownership).is_err());
     }
 
     #[test]

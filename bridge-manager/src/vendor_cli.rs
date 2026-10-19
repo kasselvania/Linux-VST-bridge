@@ -262,7 +262,9 @@ fn run_recover_census(interpreter:&Path,supervisor:&Artifact,ownership:&Artifact
     let input=serde_json::to_vec(request).map_err(|error|Refusal::caused("vendor_recover_request_unavailable",error.into()))?;
     if input.len()>16384 {return Err(Refusal::new("vendor_recover_request_unavailable"));}
     let deadline=Instant::now()+limit;
-    let mut child=Command::new(interpreter).args(["-E","-s"]).arg(&supervisor.path).arg("--vendor-recover-census")
+    let args=linux_vst_bridge::supervisor::arguments(supervisor,ownership)
+        .map_err(|error|Refusal::caused("vendor_recover_supervisor_changed",error))?;
+    let mut child=Command::new(interpreter).args(["-E","-s"]).args(args).arg("--vendor-recover-census")
         .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn()
         .map_err(|error|Refusal::caused("vendor_recover_census_spawn_failed",error.into()))?;
     let (sender,receiver)=std::sync::mpsc::channel();
@@ -903,7 +905,7 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
                 ])
                 .arg(format!("--unit={unit}"))
                 .arg("/usr/bin/python3")
-                .arg(&sw.supervisor.path)
+                .args(linux_vst_bridge::supervisor::arguments(&sw.supervisor, &sw.ownership)?)
                 .arg("--vendor-application")
                 .arg(&job);
             submit_with(&directory.join("operation-result.json"),&operation_id,supervised_service,||command.spawn())

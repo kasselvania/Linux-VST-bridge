@@ -1,5 +1,15 @@
 //! Shared existing manager/publication fixture for library and installed CLI tests.
 use crate::{catalogue::*, observation::*, profiles::*, *};
+/// Give a scanner stub a complete source pair for the same isolated launch path.
+#[allow(dead_code)] // This shared fixture is also compiled by library-only tests.
+pub(crate) fn set_source_supervisor(software: &mut catalogue::Software, script: &Path) {
+    let ownership=script.with_file_name(format!("{}-ownership.py",
+        script.file_stem().unwrap().to_str().unwrap()));
+    fs::write(&ownership,b"# first-party scanner fixture ownership module\n").unwrap();
+    software.supervisor=Artifact {sha256:digest(script).unwrap(),path:script.to_path_buf()};
+    software.ownership=Artifact {sha256:digest(&ownership).unwrap(),path:ownership};
+}
+
 pub(crate) struct Fixture {
     pub(crate) m: Manager,
     pub(crate) r: Registration,

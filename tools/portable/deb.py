@@ -51,6 +51,8 @@ PYTHON_ABIS = {
 
 
 def python_abi(headers):
+    if set(headers) == set(path[:-1] for path in SUPERVISOR_PATHS):
+        return "python3 (>= 3.13), python3 (<< 3.15)"
     if set(headers) != set(SUPERVISOR_PATHS):
         raise ValueError("supervisor Python ABI missing")
     magics = set()
@@ -145,7 +147,7 @@ def verify_payload(path, manifest):
                 content = archive.extractfile(member)
                 if content is None:
                     raise ValueError("payload bytes differ")
-                if member.name in SUPERVISOR_PATHS:
+                if member.name in (*SUPERVISOR_PATHS, *(path[:-1] for path in SUPERVISOR_PATHS)):
                     header = content.read(16)
                     supervisor_headers[member.name] = header
                     digest = sha_with_header(content, header)
@@ -350,7 +352,7 @@ def verify(package, staged, source_root=None, rebuild_backend=False):
                 content = archive.extractfile(member)
                 if content is None:
                     raise ValueError("Debian payload differs")
-                if member.name in SUPERVISOR_PATHS:
+                if member.name in (*SUPERVISOR_PATHS, *(path[:-1] for path in SUPERVISOR_PATHS)):
                     header = content.read(16)
                     supervisor_headers[member.name] = header
                     member_sha = sha_with_header(content, header)

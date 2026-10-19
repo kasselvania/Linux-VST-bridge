@@ -1239,7 +1239,7 @@ fn create_exact(m: &Manager, installer: &str, release: &str, runner: Runner) -> 
     Ok(w)
 }
 
-fn supervisor(m: &Manager) -> Result<PathBuf> {
+fn supervisor(m: &Manager) -> Result<Vec<std::ffi::OsString>> {
     // A workspace package is separate from the installed native-bridge service.
     // The executable and supervisor must be siblings in one selected generation.
     let tooling_root = m.root.join("daw-workspaces/tooling");
@@ -1274,7 +1274,7 @@ fn supervisor(m: &Manager) -> Result<PathBuf> {
     t.supervisor.verify()?;
     t.ownership.verify()?;
     t.importer.verify()?;
-    Ok(t.supervisor.path)
+    linux_vst_bridge::supervisor::arguments(&t.supervisor, &t.ownership)
 }
 
 fn reserve_install_record(w: &mut Workspace, op: &str) -> Result<()> {
@@ -1560,7 +1560,7 @@ fn install(m: &Manager, requested_operation: Option<&str>) -> Result<Value> {
         ])
         .arg(format!("--unit={}", unit(&op, true)?))
         .arg("/usr/bin/python3")
-        .arg(owner)
+        .args(owner)
         .arg("--install")
         .arg(spec)
         .status();
@@ -1958,7 +1958,7 @@ fn product_install(m: &Manager, requested_operation: Option<&str>) -> Result<Val
         ])
         .arg(format!("--unit={}", unit(&op, true)?))
         .arg("/usr/bin/python3")
-        .arg(owner)
+        .args(owner)
         .arg("--install")
         .arg(dir.join("spec.json"))
         .status();
@@ -2143,7 +2143,7 @@ fn launch(m: &Manager) -> Result<()> {
         ])
         .arg(format!("--unit={}", unit(&op, false)?))
         .arg("/usr/bin/python3")
-        .arg(owner)
+        .args(owner)
         .arg("--vendor-application")
         .arg(spec)
         .status();
@@ -2236,7 +2236,7 @@ fn uninstall(m: &Manager, requested_operation: Option<&str>) -> Result<()> {
         ])
         .arg(format!("--unit={}", unit(&op, false)?))
         .arg("/usr/bin/python3")
-        .arg(owner)
+        .args(owner)
         .arg("--vendor-application")
         .arg(spec)
         .status();

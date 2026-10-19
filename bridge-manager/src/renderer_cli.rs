@@ -49,7 +49,7 @@ pub(super) fn launch(m: &Manager, identity: &str, policy: renderer::RendererPoli
     require(all_retired(m)?,"renderer_previous_cleanup_unconfirmed")?;
     lifecycle::submit_with(m,&spec,|path|Ok(Command::new("systemd-run").args(["--user","--collect","--slice=app.slice","--property=UMask=0077","--property=KillMode=mixed",
         "--property=TimeoutStopSec=90","--property=StandardOutput=null","--property=StandardError=null"])
-        .arg(format!("--unit={}",unit(op)?)).arg("/usr/bin/python3").arg(&sw.supervisor.path)
+        .arg(format!("--unit={}",unit(op)?)).arg("/usr/bin/python3").args(linux_vst_bridge::supervisor::arguments(&sw.supervisor, &sw.ownership)?)
         .arg("--vendor-application").arg(path).status()?.success()),||lifecycle::inspect(op))
 }
 

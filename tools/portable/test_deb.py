@@ -56,6 +56,22 @@ class DebianPackage(unittest.TestCase):
             row["build_tree"] = "b" * 40
         self.files.append(row)
 
+    def test_source_package_declares_range_and_round_trips_exact_roster(self):
+        fixture = test_assemble.PackageAssembly()
+        fixture.setUp()
+        try:
+            fixture.source_pair()
+            staged = fixture.root / 'source-stage'
+            assemble.build(fixture.spec, staged, 1_234_567_890)
+            package = fixture.root / 'linux-vst-bridge-beta_0.1.0beta1-1_amd64.deb'
+            deb.build(staged, package, 1_234_567_890)
+            deb.verify(package, staged)
+            manifest, _ = deb.read_manifest(staged / 'RELEASE_MANIFEST.json')
+            self.assertIn('python3 (>= 3.13), python3 (<< 3.15)',
+                          deb.control_bytes(manifest, deb.python_abi({path: b'' for path in assemble.SOURCE_SUPERVISOR_PATHS})).decode())
+        finally:
+            fixture.doCleanups()
+
     def build(self):
         return deb.build(self.staged, self.package, 1_234_567_890)
 
