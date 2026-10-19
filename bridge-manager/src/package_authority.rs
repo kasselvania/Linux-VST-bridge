@@ -1961,14 +1961,18 @@ fn update_from_with_registry(m: &Manager, home: &Path, inputs: &Inputs, owner: u
     service: &impl ServiceControl,
     acquire_registry: impl FnMut() -> Result<Lock>,
     acquire_recovery_registry: impl FnMut() -> Result<Lock>) -> Result<()> {
-    let _package = m.lock("package.lock")?;
-    let _setup = m.lock("setup.lock")?;
-    // Before capture: an interrupted owner must be terminal and its app
-    // session retired before its service reservation can be handed over.
-    // Settling restores no service, so it needs no resume lock.
-    let settled = settle_interrupted(m, service);
-    settled_then(settled, update_settled(m, home, inputs, owner, service,
-        acquire_registry, acquire_recovery_registry))
+    // A package transition is one verification lifetime, including recovery.
+    // Each reused digest still reopens and checks the exact file identity.
+    linux_vst_bridge::with_launch_verification(|| {
+        let _package = m.lock("package.lock")?;
+        let _setup = m.lock("setup.lock")?;
+        // Before capture: an interrupted owner must be terminal and its app
+        // session retired before its service reservation can be handed over.
+        // Settling restores no service, so it needs no resume lock.
+        let settled = settle_interrupted(m, service);
+        settled_then(settled, update_settled(m, home, inputs, owner, service,
+            acquire_registry, acquire_recovery_registry))
+    })
 }
 fn update_settled(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl,
@@ -2043,11 +2047,15 @@ fn restore_from_with_registry(m: &Manager, home: &Path, inputs: &Inputs, owner: 
     service: &impl ServiceControl,
     acquire_registry: impl FnMut() -> Result<Lock>,
     acquire_recovery_registry: impl FnMut() -> Result<Lock>) -> Result<()> {
-    let _package = m.lock("package.lock")?;
-    let _setup = m.lock("setup.lock")?;
-    let settled = settle_interrupted(m, service);
-    settled_then(settled, restore_settled(m, home, inputs, owner, service,
-        acquire_registry, acquire_recovery_registry))
+    // A package transition is one verification lifetime, including recovery.
+    // Each reused digest still reopens and checks the exact file identity.
+    linux_vst_bridge::with_launch_verification(|| {
+        let _package = m.lock("package.lock")?;
+        let _setup = m.lock("setup.lock")?;
+        let settled = settle_interrupted(m, service);
+        settled_then(settled, restore_settled(m, home, inputs, owner, service,
+            acquire_registry, acquire_recovery_registry))
+    })
 }
 fn restore_settled(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl,
