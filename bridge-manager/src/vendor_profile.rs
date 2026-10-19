@@ -241,10 +241,7 @@ fn image(path: &Path) -> Result<Image> {
         && path.canonicalize()? == path, "vendor_profile_resource_alias")?;
     require(metadata.len() > 0 && metadata.len() <= 256 * 1024 * 1024,
         "vendor_profile_resource_extent")?;
-    let image = Image { artifact: Artifact { path: path.into(), sha256: digest(path)? },
-        size: metadata.len() };
-    crate::renderer_application::verify_image(&image)?;
-    Ok(image)
+    crate::renderer_application::observe_image(path)
 }
 
 fn executable(path: &Path, architecture: Option<&str>) -> Result<()> {

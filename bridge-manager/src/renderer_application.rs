@@ -30,20 +30,47 @@ pub struct Application {
     pub source_seal_sha256: String,
 }
 fn observed() -> Result<Value> { Ok(serde_json::from_slice::<Value>(OBSERVATION)?["result"].clone()) }
-fn stable(md: &fs::Metadata) -> (u64,u64,u64,i64,i64,i64,i64) {
-    (md.dev(),md.ino(),md.len(),md.mtime(),md.mtime_nsec(),md.ctime(),md.ctime_nsec())
+/// Observe a bounded resource through one held file. Reused digests remain tied
+/// to the complete file identity and the current verification scope.
+pub(crate) fn observe_image(path: &Path) -> Result<Image> {
+    observe_image_with(path, |_| {})
 }
-/// Bounded exact-file hashing outside registry authority; rejects all path aliases.
+fn observe_image_with(path: &Path, mut hashed: impl FnMut(usize)) -> Result<Image> {
+    require(path.canonicalize()? == path, "renderer_image_alias")?;
+    let mut f = file(path)?;
+    let metadata = f.metadata()?;
+    let before = DigestFileIdentity::from(&metadata);
+    require(before.length > 0 && before.length <= 256*1024*1024, "renderer_image_bound")?;
+    require(metadata.nlink() == 1, "renderer_image_extent_or_alias")?;
+    let cached = SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref()
+        .and_then(|records| records.get(path))
+        .filter(|(identity, _)| *identity == before)
+        .map(|(_, value)| value.clone()));
+    let value = if let Some(value) = cached { value } else {
+        let mut h = Sha256::new();
+        let mut buf = [0u8;65536];
+        let mut left = before.length;
+        while left > 0 {
+            let n = f.read(&mut buf[..(left as usize).min(65536)])?;
+            require(n > 0, "renderer_image_short")?;
+            h.update(&buf[..n]); hashed(n); left -= n as u64;
+        }
+        hex(&h.finalize())
+    };
+    require(DigestFileIdentity::from(&f.metadata()?) == before
+        && DigestFileIdentity::from(&fs::symlink_metadata(path)?) == before,
+        "renderer_image_changed")?;
+    SCOPED_DIGESTS.with(|cache| {
+        if let Some(records) = cache.borrow_mut().as_mut() {
+            records.insert(path.to_owned(), (before, value.clone()));
+        }
+    });
+    Ok(Image {artifact: Artifact {path: path.to_owned(), sha256: value}, size: before.length})
+}
+/// Bounded exact-file verification outside registry authority; rejects aliases.
 pub fn verify_image(image: &Image) -> Result<()> {
     require(image.size > 0 && image.size <= 256*1024*1024, "renderer_image_bound")?;
-    require(image.artifact.path.canonicalize()? == image.artifact.path, "renderer_image_alias")?;
-    let mut f=file(&image.artifact.path)?;
-    let before=f.metadata()?;
-    require(before.nlink()==1 && before.len()==image.size, "renderer_image_extent_or_alias")?;
-    let mut h=Sha256::new(); let mut buf=[0u8;65536]; let mut left=image.size;
-    while left>0 {let n=f.read(&mut buf[..(left as usize).min(65536)])?;require(n>0,"renderer_image_short")?;h.update(&buf[..n]);left-=n as u64;}
-    require(hex(&h.finalize())==image.artifact.sha256 && stable(&before)==stable(&f.metadata()?)
-        && stable(&before)==stable(&fs::symlink_metadata(&image.artifact.path)?),"renderer_image_changed")
+    require(observe_image(&image.artifact.path)? == *image, "renderer_image_changed")
 }
 fn roots(prefix: &Path) -> Result<Vec<PathBuf>> {
     let mut pending=vec![prefix.to_owned()];let mut found=vec![];let mut count=0;
@@ -147,6 +174,51 @@ pub fn bind(app: &Application, sw: &Software, operation: &str, policy: RendererP
 
 #[cfg(test)] mod tests {
     use super::*;
+    #[test]
+    fn image_scope_reuses_bytes_and_rejects_replacements_and_aliases() {
+        let directory = std::env::temp_dir().canonicalize().unwrap().join(format!("lvb-image-{}", random_id().unwrap()));
+        fs::create_dir(&directory).unwrap();
+        let path = directory.join("resource");
+        fs::write(&path, b"first").unwrap();
+        let mut bytes = 0;
+        with_launch_verification(|| {
+            let image = observe_image_with(&path, |n| bytes += n).unwrap();
+            verify_image(&image).unwrap();
+            assert_eq!(observe_image_with(&path, |n| bytes += n).unwrap(), image);
+            assert_eq!(bytes, 5);
+            let mut false_claim = image.clone();
+            false_claim.artifact.sha256 = "0".repeat(64);
+            assert!(verify_image(&false_claim).is_err());
+            false_claim = image.clone(); false_claim.size += 1;
+            assert!(verify_image(&false_claim).is_err());
+            let modified = fs::metadata(&path).unwrap().modified().unwrap();
+            let replacement = directory.join("replacement");
+            fs::write(&replacement, b"other").unwrap();
+            File::options().write(true).open(&replacement).unwrap()
+                .set_times(fs::FileTimes::new().set_modified(modified)).unwrap();
+            fs::rename(&replacement, &path).unwrap();
+            assert!(verify_image(&image).is_err());
+            let alias = directory.join("alias");
+            fs::hard_link(&path, &alias).unwrap();
+            assert!(observe_image(&path).is_err());
+            fs::remove_file(&alias).unwrap();
+            std::os::unix::fs::symlink(&path, &alias).unwrap();
+            assert!(observe_image(&alias).is_err());
+        });
+        bytes = 0;
+        with_launch_verification(|| { observe_image_with(&path, |n| bytes += n).unwrap(); });
+        assert_eq!(bytes, 5, "next launch must read bytes again");
+        fs::write(&path, vec![0u8; 131072]).unwrap();
+        let short = observe_image_with(&path, |_| {
+            File::options().write(true).open(&path).unwrap().set_len(0).unwrap();
+        }).unwrap_err();
+        assert_eq!(short.to_string(), "renderer_image_short");
+        fs::write(&path, []).unwrap();
+        assert!(observe_image(&path).is_err());
+        File::options().write(true).open(&path).unwrap().set_len(256*1024*1024+1).unwrap();
+        assert!(observe_image(&path).is_err());
+        fs::remove_dir_all(directory).unwrap();
+    }
     #[test] fn closed_modes_and_observations() {
         assert_eq!(RendererPolicy::Inherited.arguments(), &[] as &[&str]);
         assert_eq!(RendererPolicy::SoftwareRendering.arguments(), &["--disable-gpu"]);
