@@ -1289,21 +1289,15 @@ class NativeProtonSession:
     @staticmethod
     def endpoint_for(sid):
         if not isinstance(sid,str) or not re.fullmatch('[0-9a-f]{32}',sid):raise RuntimeError('native command keeper identity')
-        return pathlib.Path(pwd.getpwuid(os.getuid()).pw_dir)/'.cache/linux-vst-bridge/command-sessions'/sid/'s'
+        return validate_runtime()/sid/'s'
     def keeper_launch(self,cmd,env):
         # This is private bridge IPC. The plug-in retains the caller's exact
         # graphical bus denial; no desktop session bus is used for launch.
         endpoint=self.endpoint_for(self.spec['session'])
         if len(os.fsencode(endpoint))>100:raise RuntimeError('native command socket path extent')
-        # The shared cache may be public; the application and command roots
-        # must be private. Create each level with its own explicit mode rather
-        # than assuming another feature has already created these parents.
-        cache=endpoint.parents[3];cache.mkdir(mode=0o700,exist_ok=True)
-        metadata=cache.lstat()
-        if not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid!=os.getuid():
-            raise RuntimeError('native command cache ownership differs')
-        for directory in (endpoint.parents[2],endpoint.parents[1]):
-            directory.mkdir(mode=0o700,exist_ok=True);private_runtime_root(directory)
+        # The authenticated volatile root is already shared with this keeper's
+        # runtime. Only this exclusive session directory belongs to the keeper;
+        # no home-length dependency or persistent command parent is needed.
         endpoint.parent.mkdir(mode=0o700)
         # No exclusive directory was owned before mkdir succeeded. A refusal
         # must never make the finalizer retire a nonexistent or foreign path.

@@ -29,6 +29,19 @@ SUPERVISOR_PATHS = (
     "usr/lib/linux-vst-bridge/supervisor/session.pyc",
     "usr/lib/linux-vst-bridge/supervisor/ownership.pyc",
 )
+SOURCE_SUPERVISOR_PATHS = tuple(path[:-1] for path in SUPERVISOR_PATHS)
+SOURCE_PYTHON_RANGE = "3.13-3.14"
+
+
+def source_supervisor(paths):
+    present = set(paths) & set((*SUPERVISOR_PATHS, *SOURCE_SUPERVISOR_PATHS))
+    if present == set(SOURCE_SUPERVISOR_PATHS):
+        return True
+    if present == set(SUPERVISOR_PATHS):
+        return False
+    raise ValueError("supervisor source/bytecode pair missing or mixed")
+
+
 # Exact CPython bytecode magics for the declared Debian 13 and Ubuntu 26.04
 # build targets. Arch intake must declare the same interpreter ABI as its
 # packaged supervisors; a rolling host cannot infer that from plain `python`.
@@ -52,6 +65,8 @@ def supervisor_python_minor(headers):
 
 
 def package_dependencies(python_minor):
+    if python_minor == SOURCE_PYTHON_RANGE:
+        return (*DEPENDENCIES, "python>=3.13", "python<3.15")
     if python_minor not in PYTHON_MINOR_BY_MAGIC.values():
         raise ValueError("unsupported package Python ABI")
     major, minor = (int(part) for part in python_minor.split("."))
@@ -70,6 +85,10 @@ REQUIRED = {
     "usr/share/doc/linux-vst-bridge-beta/SBOM.spdx.json": "sbom",
     "usr/share/doc/linux-vst-bridge-beta/COMPLIANCE_MANIFEST.json": "compliance",
 }
+SOURCE_REQUIRED = {name[:-1] if name in SUPERVISOR_PATHS else name: kind
+                   for name, kind in REQUIRED.items()}
+
+
 ADOPTION_MANIFEST = "usr/share/linux-vst-bridge/pkg0-manifest.json"
 SYSTEM_DESKTOP = "usr/share/applications/linux-vst-bridge-setup.desktop"
 SYSTEM_DESKTOP_BYTES = b"""[Desktop Entry]
@@ -93,6 +112,9 @@ ADOPTED = {
     "usr/lib/linux-vst-bridge/host/source-manifest.json": "host-source-manifest.json",
 }
 ADOPTED_WITH_KIT = {**ADOPTED, KIT_DESTINATION: "preparation-kit.zip"}
+SOURCE_ADOPTED = {name[:-1] if name in SUPERVISOR_PATHS else name:
+                  value[:-1] if name in SUPERVISOR_PATHS else value
+                  for name, value in ADOPTED_WITH_KIT.items()}
 SOURCE_SUFFIXES = {".rs", ".c", ".cc", ".cpp", ".h", ".hpp", ".py"}
 EXECUTABLE_KINDS = {"manager", "frontend", "proxy"}
 OPTIONAL_PREFIXES = {
@@ -304,8 +326,8 @@ def validate_file_role(name, kind, mode, component, *, generated=False):
             raise ValueError("generated package authority differs")
     elif kind in ("adoption_manifest", "system_desktop"):
         raise ValueError("generated package authority destination differs")
-    elif name in REQUIRED:
-        if REQUIRED[name] != kind:
+    elif name in REQUIRED or name in SOURCE_REQUIRED:
+        if {**REQUIRED, **SOURCE_REQUIRED}[name] != kind:
             raise ValueError("required package role")
     else:
         prefix = OPTIONAL_PREFIXES.get(kind)
@@ -313,7 +335,8 @@ def validate_file_role(name, kind, mode, component, *, generated=False):
             raise ValueError("file role and destination disagree")
     if kind == "preparation_kit" and name != KIT_DESTINATION:
         raise ValueError("preparation kit destination")
-    if kind != "license" and PurePosixPath(name).suffix in SOURCE_SUFFIXES:
+    if (kind != "license" and PurePosixPath(name).suffix in SOURCE_SUFFIXES
+            and name not in SOURCE_SUPERVISOR_PATHS):
         raise ValueError("proprietary source in binary package")
 
 
@@ -336,7 +359,8 @@ def validate_release_roster(manifest):
             raise ValueError("duplicate release roster")
         validate_file_role(name, row["kind"], row["mode"], row["component"], generated=True)
         seen[name] = row
-    if not (set(REQUIRED) | {ADOPTION_MANIFEST, SYSTEM_DESKTOP}) <= set(seen):
+    required = SOURCE_REQUIRED if source_supervisor(seen) else REQUIRED
+    if not (set(required) | {ADOPTION_MANIFEST, SYSTEM_DESKTOP}) <= set(seen):
         raise ValueError("required package roster absent")
     for kind in ("proxy", "fixture", "profile", "license"):
         if not any(row["kind"] == kind for row in rows):
@@ -679,7 +703,7 @@ def verify_kit_backend(data, source_root):
 def validate(spec, source_root=None):
     base = {"schema", "version", "source_head", "source_tree", "operator_schema",
             "external_runtime", "files"}
-    if set(spec) != base or spec["schema"] not in (1, 2):
+    if set(spec) != base or spec["schema"] not in (1, 2, 3):
         raise ValueError("PKG0 input schema")
     if (type(spec["operator_schema"]) is not int
             or spec["operator_schema"] != declared_operator_schema(source_root)):
@@ -712,9 +736,12 @@ def validate(spec, source_root=None):
             raise ValueError("file digest syntax")
         validate_file_role(name, item["kind"], item["mode"], item["component"])
         seen[name] = item
-    if any(name not in seen for name in REQUIRED):
+    source = source_supervisor(seen)
+    if source != (spec["schema"] == 3):
+        raise ValueError("supervisor format differs from package schema")
+    if any(name not in seen for name in (SOURCE_REQUIRED if source else REQUIRED)):
         raise ValueError("required binary/document missing")
-    if (KIT_DESTINATION in seen) != (spec["schema"] == 2):
+    if (KIT_DESTINATION in seen) != (spec["schema"] >= 2):
         raise ValueError("preparation kit required by package schema")
     if not any(x["kind"] == "proxy" for x in spec["files"]):
         raise ValueError("native proxy absent")
@@ -748,14 +775,18 @@ def _build(spec, output, epoch, source_root=None):
                 raise ValueError("Linux executable format")
             if item["kind"] in ("windows_host", "fixture") and not data.startswith(b"MZ"):
                 raise ValueError("Windows executable format")
-            if item["kind"] in ("supervisor", "ownership") and not name.endswith(".pyc"):
-                raise ValueError("supervisor bytecode required")
+            if name in SOURCE_SUPERVISOR_PATHS:
+                compile(data, name, "exec")
+                if source_root is not None:
+                    exact = Path(source_root) / "bridge-manager/runtime" / PurePosixPath(name).name
+                    if data != exact.read_bytes():
+                        raise ValueError("supervisor differs from exact product source")
             if name in SUPERVISOR_PATHS:
                 supervisor_headers[name] = data[:16]
             add_bytes(archive, name, data, int(item["mode"], 8), epoch)
             roster.append({"destination": name, "sha256": sha(data), "size": len(data),
                            "mode": item["mode"], "kind": item["kind"], "component": item["component"]})
-        adopted_names = ADOPTED_WITH_KIT if spec["schema"] == 2 else ADOPTED
+        adopted_names = SOURCE_ADOPTED if spec["schema"] == 3 else (ADOPTED_WITH_KIT if spec["schema"] == 2 else ADOPTED)
         adopted = [{"name": adopted_names[name], "sha256": files[name]["sha256"],
                     "size": len(file_bytes(files[name]))} for name in adopted_names]
         adoption = canonical({"schema": spec["schema"], "package": PACKAGE, "version": spec["version"],
@@ -779,7 +810,7 @@ def _build(spec, output, epoch, source_root=None):
                 "source_head": spec["source_head"], "source_tree": spec["source_tree"],
                 "payload_sha256": sha(payload.read_bytes()), "files": roster}
     validate_release_roster(manifest)
-    python_minor = supervisor_python_minor(supervisor_headers)
+    python_minor = SOURCE_PYTHON_RANGE if spec["schema"] == 3 else supervisor_python_minor(supervisor_headers)
     (output / "RELEASE_MANIFEST.json").write_bytes(canonical(manifest))
     pkgbuild = f'''pkgname={PACKAGE}
 pkgver={spec["version"]}

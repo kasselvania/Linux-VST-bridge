@@ -1704,6 +1704,7 @@ pub mod managed_candidate;
 pub mod native_access_dependency;
 pub mod dependency_session;
 pub mod portable_package;
+pub mod supervisor;
 pub mod package_version;
 pub mod update_feed;
 

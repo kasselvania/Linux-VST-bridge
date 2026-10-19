@@ -31,10 +31,15 @@ def fixture(base, case):
     usr = base / case / "usr"
     roster = []
     selected = {**FILES, **KIT} if case.endswith("_kit") else FILES
+    if "source" in case:
+        selected = {name[:-1] if name.endswith(".pyc") else name:
+                    relative[:-1] if name.endswith(".pyc") else relative
+                    for name, relative in selected.items()}
     for name, relative in selected.items():
         path = usr / relative
         path.parent.mkdir(parents=True, exist_ok=True)
-        data = name.encode()
+        data = ((ROOT / "bridge-manager/runtime" / name).read_bytes()
+                if name.endswith(".py") else name.encode())
         if name == "preparation-kit.zip":
             members = {"runtime/" + n: (usr / FILES[n]).read_bytes()
                        for n in ("host.exe", "host-source-manifest.json")}
@@ -53,7 +58,7 @@ def fixture(base, case):
     manifest = usr / "share/linux-vst-bridge/pkg0-manifest.json"
     manifest.parent.mkdir(parents=True)
     manifest.write_text(json.dumps({
-        "schema": 2 if case.endswith("_kit") else 1,
+        "schema": 3 if "source" in case else 2 if case.endswith("_kit") else 1,
         "package": "linux-vst-bridge-beta", "version": "0.1.0beta1",
         "pkgrel": 1,
         "source_head": "a" * 40, "source_tree": "b" * 40,
@@ -76,6 +81,11 @@ def fixture(base, case):
         manifest.chmod(0o644)
         manifest.write_bytes(manifest.read_bytes() + b" " * 65536)
         manifest.chmod(0o444)
+    elif case == "changed_source_kit":
+        artifact = usr / "lib/linux-vst-bridge/supervisor/session.py"
+        artifact.chmod(0o644)
+        artifact.write_bytes(b"changed source")
+        artifact.chmod(0o444)
     elif case == "changed_kit":
         artifact = usr / KIT["preparation-kit.zip"]
         artifact.chmod(0o644)
@@ -95,12 +105,12 @@ def main():
     with tempfile.TemporaryDirectory(prefix="pkg0-root-intake-") as temporary:
         base = Path(temporary)
         for case in ("valid", "changed_owner", "symlink", "writable", "changed_bytes", "oversize",
-                     "valid_kit", "changed_kit", "writable_kit"):
+                     "valid_kit", "changed_kit", "writable_kit", "valid_source_kit", "changed_source_kit"):
             usr = fixture(base, case)
             try:
                 env = dict(os.environ, PKG0_ROOT_INPUT_FIXTURE=str(usr),
-                           PKG0_ROOT_EXPECT="ok" if case in ("valid", "valid_kit") else "reject",
-                           PKG0_ROOT_EXPECT_KIT="yes" if case == "valid_kit" else "no")
+                           PKG0_ROOT_EXPECT="ok" if case in ("valid", "valid_kit", "valid_source_kit") else "reject",
+                           PKG0_ROOT_EXPECT_KIT="yes" if case in ("valid_kit", "valid_source_kit") else "no")
                 run("cargo", "test", "--manifest-path", str(ROOT / "bridge-manager/Cargo.toml"),
                     "--locked", "--bin", "linux-vst-bridge", "--",
                     "--ignored", "--exact", "package_authority::tests::root_owned_package_intake",

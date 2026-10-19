@@ -502,7 +502,7 @@ mod tests {
         let script=f.m.root.join("software/runtime-scan-fixture.py");
         let report=serde_json::to_string(&c.selection.factory_report.path).unwrap();
         fs::write(&script,format!("import json,pathlib,shutil,sys\njob=json.load(open(sys.argv[1]))\nwith open({report},'rb') as source,open(job['report'],'wb') as target: target.write(source.read())\nprint('LVO0 '+job['session']+' ready',flush=True)\nshutil.rmtree(job['directory'])\nprint('LVO1 '+job['session']+' retired',flush=True)\n")).unwrap();
-        sw.supervisor=Artifact {sha256:digest(&script).unwrap(),path:script};
+        test_fixture::set_source_supervisor(&mut sw, &script);
         atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
         let operation=job(&f.m,&before,&runner);let mut waits=vec![];let mut calls=0;
         let mut remaining_wait=Duration::from_secs(2);

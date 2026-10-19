@@ -4898,7 +4898,7 @@ pub(crate) mod tests {
         let healthy=serde_json::to_string(&healthy_path).unwrap();
         fs::write(&script,format!("import json,shutil,sys\njob=json.load(open(sys.argv[1]))\nwith open({healthy},'rb') as source,open(job['report'],'wb') as target: target.write(source.read())\nprint('LVO0 '+job['session']+' ready',flush=True)\nshutil.rmtree(job['directory'])\nprint('LVO1 '+job['session']+' retired',flush=True)\n")).unwrap();
         let mut sw=software(m).unwrap();
-        sw.supervisor=Artifact {sha256:digest(&script).unwrap(),path:script};
+        test_fixture::set_source_supervisor(&mut sw, &script);
         atomic_json(&m.root.join("software.json"),&sw).unwrap();
         readiness::with_unit_state_fixture(&[unit],"inactive",|| {
             let snapshot=snapshot_idle_test(m).unwrap();
@@ -4952,7 +4952,7 @@ pub(crate) mod tests {
         let log=serde_json::to_string(&launches).unwrap();
         let ending=serde_json::to_string(ended).unwrap();
         fs::write(&script,format!("import json,pathlib,shutil,sys\njob=json.load(open(sys.argv[1]))\nreport=json.load(open({source}))\nsetup=job.get('finish_setup',False)\nwith open({log},'a') as log: log.write(('setup' if setup else 'inspect')+'\\n')\nif setup: report['finish_setup']={{'ended':{ending}}}\npathlib.Path(job['report']).write_text(json.dumps(report))\nprint('LVO0 '+job['session']+' ready',flush=True)\nshutil.rmtree(job['directory'])\nprint('LVO1 '+job['session']+' retired',flush=True)\n")).unwrap();
-        let mut sw=software(m).unwrap();sw.supervisor=Artifact {sha256:digest(&script).unwrap(),path:script};
+        let mut sw=software(m).unwrap();test_fixture::set_source_supervisor(&mut sw, &script);
         atomic_json(&m.root.join("software.json"),&sw).unwrap();
         readiness::with_unit_state_fixture(&[onboarding::unit(&installer).unwrap()],"inactive",|| {
             let snapshot=snapshot_idle_test(m).unwrap();
@@ -5138,7 +5138,7 @@ pub(crate) mod tests {
         let source = serde_json::to_string(&prepared.census.report.path).unwrap();
         let count = serde_json::to_string(&launches).unwrap();
         fs::write(&script, format!("import json,pathlib,shutil,sys\njob=json.load(open(sys.argv[1]))\nwith open({source},'rb') as source,open(job['report'],'wb') as target: target.write(source.read())\nwith open({count},'a') as output: output.write('1\\n')\nprint('LVO0 '+job['session']+' ready',flush=True)\nshutil.rmtree(job['directory'])\nprint('LVO1 '+job['session']+' retired',flush=True)\n")).unwrap();
-        sw.supervisor = Artifact {sha256:digest(&script).unwrap(),path:script};
+        test_fixture::set_source_supervisor(&mut sw, &script);
         atomic_json(&m.root.join("software.json"),&sw).unwrap();
 
         let snapshot = snapshot_idle_test(m).unwrap();
@@ -6859,7 +6859,7 @@ pub(crate) mod tests {
         fs::write(&supervisor, format!(
             "import json,shutil,sys\njob=json.load(open(sys.argv[1]))\nreports=json.load(open({}))\nwith open(job['report'],'w') as target: json.dump(reports[job['registration']['module']['sha256']],target)\nprint('LVO0 '+job['session']+' ready',flush=True)\nshutil.rmtree(job['directory'])\nprint('LVO1 '+job['session']+' retired',flush=True)\n",
             serde_json::to_string(&reports).unwrap())).unwrap();
-        sw.supervisor = Artifact {sha256:digest(&supervisor).unwrap(),path:supervisor};
+        test_fixture::set_source_supervisor(&mut sw, &supervisor);
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         let preference = f.m.root.join("performance").join(format!("{}.json",f.r.key()));
         private_dir(preference.parent().unwrap()).unwrap();

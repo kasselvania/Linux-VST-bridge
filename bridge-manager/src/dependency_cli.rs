@@ -41,7 +41,7 @@ pub(super) fn launch(m: &Manager, op: &str) -> Result<life::Submission> {
                 ])
                 .arg(format!("--unit={}", life::unit(op)?))
                 .arg("/usr/bin/python3")
-                .arg(&software.supervisor.path)
+                .args(linux_vst_bridge::supervisor::arguments(&software.supervisor, &software.ownership)?)
                 .arg("--vendor-application")
                 .arg(path)
                 .status()?

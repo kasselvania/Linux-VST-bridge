@@ -10,7 +10,7 @@ import re
 import stat
 import subprocess
 import tempfile
-from assemble import (ADOPTED, ADOPTED_WITH_KIT, ADOPTION_MANIFEST, SUPERVISOR_PATHS,
+from assemble import (ADOPTED, ADOPTED_WITH_KIT, SOURCE_ADOPTED, SOURCE_PYTHON_RANGE, source_supervisor, ADOPTION_MANIFEST, SUPERVISOR_PATHS,
                       KIT_DESTINATION, PKGREL, verify_kit, verify_kit_backend,
                       verify_kit_source, validate_release_roster, package_dependencies,
                       supervisor_python_minor, declared_operator_schema)
@@ -56,11 +56,12 @@ def bytecode_header(path):
 
 
 def verify_adoption(adopted, manifest, expected, source_root=None):
-    names = ADOPTED_WITH_KIT if KIT_DESTINATION in expected else ADOPTED
+    source = source_supervisor(expected)
+    names = SOURCE_ADOPTED if source else (ADOPTED_WITH_KIT if KIT_DESTINATION in expected else ADOPTED)
     external = adopted.get("external_runtime")
     if (set(adopted) != {"schema", "package", "version", "pkgrel", "source_head",
                         "source_tree", "operator_schema", "files", "external_runtime"}
-            or adopted["schema"] != (2 if KIT_DESTINATION in expected else 1)
+            or adopted["schema"] != (3 if source else 2 if KIT_DESTINATION in expected else 1)
             or adopted["package"] != manifest["package"]
             or adopted["version"] != manifest["version"]
             or adopted["pkgrel"] != manifest["pkgrel"]
@@ -143,7 +144,7 @@ def verify(package, manifest, structure_only=False, source_root=None, rebuild_ba
                 pe = subprocess.check_output(["file", "-b", str(path)], text=True)
                 if "PE32+" not in pe or "x86-64" not in pe:
                     raise ValueError("package PE architecture differs")
-        python_minor = supervisor_python_minor({
+        python_minor = SOURCE_PYTHON_RANGE if source_supervisor(expected) else supervisor_python_minor({
             name: bytecode_header(root / name) for name in SUPERVISOR_PATHS
         })
         package_info(root / ".PKGINFO", manifest, python_minor)

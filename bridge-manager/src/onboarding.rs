@@ -712,7 +712,7 @@ pub(super) fn launch_spec(m: &Manager, op: &str, path: &Path, report: &Path) -> 
         ])
         .arg(format!("--unit={}", unit(op)?))
         .arg("/usr/bin/python3")
-        .arg(sw.supervisor.path)
+        .args(linux_vst_bridge::supervisor::arguments(&sw.supervisor, &sw.ownership)?)
         .arg("--install")
         .arg(path)
         .status();

@@ -33,6 +33,8 @@ def launch_provenance(binary):
 
 def staged_python_minor(staged):
     with tarfile.open(staged / "payload.tar") as archive:
+        if assemble.source_supervisor(archive.getnames()):
+            return assemble.SOURCE_PYTHON_RANGE
         headers = {name: archive.extractfile(name).read(16)
                    for name in assemble.SUPERVISOR_PATHS}
     return assemble.supervisor_python_minor(headers)
@@ -120,6 +122,41 @@ class PackageAssembly(unittest.TestCase):
         if kind in ("manager", "frontend"):
             item.update(build_head="a" * 40, build_tree="b" * 40)
         self.files.append(item)
+
+    def source_pair(self):
+        self.add_kit()
+        self.spec["schema"] = 3
+        for row in self.files:
+            if row["kind"] in ("supervisor", "ownership"):
+                row["destination"] = row["destination"][:-1]
+                data = b"# exact supervisor fixture\nVALUE = 1\n"
+                pathlib.Path(row["source"]).write_bytes(data)
+                row["sha256"] = hashlib.sha256(data).hexdigest()
+
+    def test_source_generation_has_only_source_and_declared_range(self):
+        self.source_pair()
+        output = self.root / "source-staged"
+        assemble.build(self.spec, output, 1_234_567_890)
+        self.assertIn("'python>=3.13' 'python<3.15'", (output / "PKGBUILD").read_text())
+        with tarfile.open(output / "payload.tar") as archive:
+            adoption = json.load(archive.extractfile(assemble.ADOPTION_MANIFEST))
+            self.assertEqual(adoption["schema"], 3)
+            for name in assemble.SOURCE_SUPERVISOR_PATHS:
+                self.assertIn(name, archive.getnames())
+                self.assertNotIn(name + 'c', archive.getnames())
+        package = package_archive(output, self.root / "source.pkg.tar.zst")
+        verify_package.verify(package, json.loads((output / "RELEASE_MANIFEST.json").read_bytes()), structure_only=True)
+
+    def test_source_exception_is_exact_and_mixed_payloads_refuse(self):
+        self.source_pair()
+        row = next(row for row in self.files if row["kind"] == "ownership")
+        row["destination"] += 'c'
+        with self.assertRaisesRegex(ValueError, "pair missing or mixed"):
+            assemble.validate(self.spec)
+        for name, kind in [('usr/lib/linux-vst-bridge/self-test/other.py', 'fixture_resource'),
+                           ('usr/lib/linux-vst-bridge/supervisor/other.py', 'ownership')]:
+            with self.assertRaises(ValueError):
+                assemble.validate_file_role(name, kind, '0444', 'fixture')
 
     def set_supervisor_header(self, kind, magic, *, flags=0):
         item = next(row for row in self.files if row["kind"] == kind)
