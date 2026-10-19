@@ -34,11 +34,13 @@ use std::{
     path::{Path, PathBuf},
     process::{Child, Command, ExitStatus, Stdio},
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        atomic::{AtomicUsize, Ordering},
         Arc, Mutex,
     },
     time::{Duration, Instant},
 };
+#[cfg(test)]
+use std::sync::atomic::AtomicBool;
 use catalogue::Software;
 
 struct KeeperOwner {
@@ -386,15 +388,44 @@ impl NativeExecution {
         ap1_native_client::admission::ExecutionIdentity {engine:self.engine,descriptor:self.descriptor}
     }
 }
+// Cleanup uncertainty belongs to the exact failed admission leases. A retired
+// lease must not leave a process-wide sticky failure after its owner is gone.
+#[derive(Default)]
+struct AdmissionCleanup(Mutex<std::collections::BTreeSet<PathBuf>>);
+impl AdmissionCleanup {
+    fn blocked(&self) -> bool {
+        !self.0.lock().unwrap().is_empty()
+    }
+    fn record(&self, lease: &Path) {
+        self.0.lock().unwrap().insert(lease.to_path_buf());
+    }
+    fn refresh(&self, m: &Manager) -> Result<()> {
+        if !self.blocked() { return Ok(()); }
+        let (_registry, _) = m.lock_bounded(operator_model::OperatorLock::Registry,
+            operator_model::LockPurpose::ServiceRecovery, None, Duration::from_secs(2))?;
+        let mut failed = self.0.lock().unwrap();
+        // Only existing retirement receipts (or an ended kernel generation)
+        // can remove leases. Missing reports never become cleanup proof.
+        let boot = kernel_boot()?;
+        let mut retired = Vec::new();
+        for path in failed.iter() {
+            if !path.try_exists()? || !reconcile_lease_in_kernel(m, path, boot.as_deref())? {
+                retired.push(path.clone());
+            }
+        }
+        for path in retired { failed.remove(&path); }
+        Ok(())
+    }
+}
 // Unexposed admission owns only a reservation. Once the native binding is
 // exposed, only positive supervisor retirement can release that ownership.
 struct PendingAdmission {
     lease: Option<PathBuf>,
-    blocked: Arc<AtomicBool>,
+    blocked: Arc<AdmissionCleanup>,
     exposed: bool,
 }
 impl PendingAdmission {
-    fn new(lease: PathBuf, blocked: Arc<AtomicBool>) -> Self {
+    fn new(lease: PathBuf, blocked: Arc<AdmissionCleanup>) -> Self {
         Self {
             lease: Some(lease),
             blocked,
@@ -420,7 +451,11 @@ impl PendingAdmission {
             require(!directory.try_exists()?, "transport retirement unconfirmed")?;
         }
         if let Some(lease) = &self.lease {
-            fs::remove_file(lease)?;
+            match fs::remove_file(lease) {
+                Ok(()) => {},
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
+                Err(error) => return Err(error.into()),
+            }
             self.lease = None;
         }
         Ok(())
@@ -430,11 +465,11 @@ impl Drop for PendingAdmission {
     fn drop(&mut self) {
         if let Some(path) = &self.lease {
             if self.exposed {
-                self.blocked.store(true, Ordering::Release);
+                self.blocked.record(path);
             } else if let Err(e) = fs::remove_file(path) {
                 if e.kind() != std::io::ErrorKind::NotFound {
                     // Failed unexposed cleanup cannot silently return a unit.
-                    self.blocked.store(true, Ordering::Release);
+                    self.blocked.record(path);
                 }
             }
         }
@@ -1119,60 +1154,65 @@ fn reconcile_leases_in_kernel(m: &Manager, boot: Option<&str>) -> Result<bool> {
     private_dir(&directory)?;
     let mut unconfirmed = false;
     for entry in fs::read_dir(directory)? {
-        let path = entry?.path();
-        let report: PathBuf = read_json(&path)?;
-        let session = path.file_stem().and_then(|name| name.to_str()).ok_or("lease_session_identity")?;
-        require(valid_hex(session, 32) && path.file_name().and_then(|name| name.to_str())
-            == Some(format!("{session}.json").as_str()), "lease_session_identity")?;
-        require(
-            report.parent() == Some(m.root.join("runtime/results").as_path()),
-            "lease report outside owned results",
-        )?;
-        let receipt = report.with_extension("ownership.json");
-        let proof = if receipt.exists() {
-            read_json::<serde_json::Value>(&receipt).and_then(|r| {
-                require(
-                    r["session"].as_str() == path.file_stem().and_then(|s| s.to_str())
-                        && r["transport_retired"] == true,
-                    "ownership receipt identity/retirement",
-                )?;
-                Ok(r)
-            })
-        } else {
-            read_json::<serde_json::Value>(&report).and_then(|r| {
-                require(
-                    r["ownership_schema"].is_null(),
-                    "new owner requires minimal retirement receipt",
-                )?;
-                Ok(r)
-            })
-        };
-        match proof {
-            Ok(r) if r["cleanup_confirmed"] == true => fs::remove_file(path)?,
-            _ => {
-                let generation_path = m.root.join("runtime/lease-generations")
-                    .join(format!("{session}.json"));
-                if generation_path.try_exists()? {
-                    let generation: LeaseGeneration = read_json(&generation_path)?;
-                    require(generation.schema == 1 && generation.session == session
-                        && generation.report == report && valid_kernel_boot(&generation.kernel_boot),
-                        "lease_generation_binding")?;
-                    if boot.is_some_and(|current| current != generation.kernel_boot) {
-                        let interrupted = generation_path.with_extension("interrupted.json");
-                        atomic_json(&interrupted, &serde_json::json!({"schema":1,
-                            "session":session,"retirement_basis":"kernel_generation_ended",
-                            "observation_basis":generation.basis,
-                            "cleanup_confirmed":true,"transport_retired":true,
-                            "successful_session":false}))?;
-                        fs::remove_file(path)?;
-                        continue;
-                    }
-                }
-                unconfirmed = true;
-            },
-        }
+        unconfirmed |= reconcile_lease_in_kernel(m, &entry?.path(), boot)?;
     }
     Ok(unconfirmed)
+}
+fn reconcile_lease_in_kernel(m: &Manager, path: &Path, boot: Option<&str>) -> Result<bool> {
+    let report: PathBuf = read_json(path)?;
+    let session = path.file_stem().and_then(|name| name.to_str()).ok_or("lease_session_identity")?;
+    require(valid_hex(session, 32) && path.file_name().and_then(|name| name.to_str())
+        == Some(format!("{session}.json").as_str()), "lease_session_identity")?;
+    require(
+        report.parent() == Some(m.root.join("runtime/results").as_path()),
+        "lease report outside owned results",
+    )?;
+    let receipt = report.with_extension("ownership.json");
+    let proof = if receipt.exists() {
+        read_json::<serde_json::Value>(&receipt).and_then(|r| {
+            require(
+                r["session"].as_str() == path.file_stem().and_then(|s| s.to_str())
+                    && r["transport_retired"] == true,
+                "ownership receipt identity/retirement",
+            )?;
+            Ok(r)
+        })
+    } else {
+        read_json::<serde_json::Value>(&report).and_then(|r| {
+            // Legacy reports carry no session identity. Bind them through the
+            // exact retained owner before accepting their cleanup assertion.
+            m.lease_owner(session, &report)?;
+            require(
+                r["ownership_schema"].is_null(),
+                "new owner requires minimal retirement receipt",
+            )?;
+            Ok(r)
+        })
+    };
+    match proof {
+        Ok(r) if r["cleanup_confirmed"] == true => { fs::remove_file(path)?; Ok(false) },
+        _ => {
+            let generation_path = m.root.join("runtime/lease-generations")
+                .join(format!("{session}.json"));
+            if generation_path.try_exists()? {
+                let generation: LeaseGeneration = read_json(&generation_path)?;
+                require(generation.schema == 1 && generation.session == session
+                    && generation.report == report && valid_kernel_boot(&generation.kernel_boot),
+                    "lease_generation_binding")?;
+                if boot.is_some_and(|current| current != generation.kernel_boot) {
+                    let interrupted = generation_path.with_extension("interrupted.json");
+                    atomic_json(&interrupted, &serde_json::json!({"schema":1,
+                        "session":session,"retirement_basis":"kernel_generation_ended",
+                        "observation_basis":generation.basis,
+                        "cleanup_confirmed":true,"transport_retired":true,
+                        "successful_session":false}))?;
+                    fs::remove_file(path)?;
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        },
+    }
 }
 fn retired_keeper(owner: &KeeperOwner, status: ExitStatus) -> Result<()> {
     let report: serde_json::Value = read_json(&owner.report)?;
@@ -1602,7 +1642,11 @@ fn serve(m: Manager) -> Result<()> {
     }
     // A service restart cannot turn missing cleanup into a fresh admission.
     // Clean reports retire their leases; uncertain ones remain inspectable.
-    let blocked = Arc::new(AtomicBool::new(reconcile_leases(&manager)?));
+    reconcile_leases(&manager)?;
+    let blocked = Arc::new(AdmissionCleanup::default());
+    for entry in fs::read_dir(manager.root.join("runtime/leases"))? {
+        blocked.record(&entry?.path());
+    }
     let keepers = Arc::new(Mutex::new(Vec::new()));
     let limits = capacity::service_limits()?;
     let workers = Arc::new(AtomicUsize::new(0));
@@ -1657,6 +1701,7 @@ fn serve(m: Manager) -> Result<()> {
                 peer.set_read_timeout(Some(Duration::from_secs(5)))?;
                 let mut greeting = [0; 117];
                 peer.read_exact(&mut greeting[..5])?;
+                if &greeting[..5] != b"LVP1\n" { blocked.refresh(&m)?; }
                 if &greeting[..5]==b"LVE2\n" {
                     // Maintenance admitted no active DSP. Restore control
                     // service availability only; native admission owns exact
@@ -1665,7 +1710,7 @@ fn serve(m: Manager) -> Result<()> {
                     let operation=std::str::from_utf8(&greeting[5..37])?;
                     require(valid_hex(operation,32),"operator_resume_request_identity")?;
                     let _admission=capacity::reserve_maintenance_until(&m,&limits,
-                        || blocked.load(Ordering::Acquire),
+                        || blocked.blocked(),
                         Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS))?;
                     m.require_inactive(None)?;
                     operator_cli::authorize_service_resume(&m,operation,&s)?;
@@ -1679,7 +1724,7 @@ fn serve(m: Manager) -> Result<()> {
                     let deadline=Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS);
                     let registrations={
                         let _admission=capacity::reserve_maintenance_until(&m,&limits,
-                            || blocked.load(Ordering::Acquire),deadline)?;
+                            || blocked.blocked(),deadline)?;
                         m.require_inactive(None)?;
                         let mut environments=std::collections::BTreeSet::new();
                         m.registry()?.classes.into_values().map(|entry|entry.registration)
@@ -1698,7 +1743,7 @@ fn serve(m: Manager) -> Result<()> {
                         let mut ready_owners=std::collections::BTreeMap::new();
                         restore_recovery_bindings(&bindings, deadline,
                                 || capacity::reserve_maintenance_until(&m,&limits,
-                                    || blocked.load(Ordering::Acquire),deadline),
+                                    || blocked.blocked(),deadline),
                                 |registration, execution| {
                                     stage_recovery_keeper(&m,execution,registration,&keepers,&mut ready_owners)
                                 }, |registration, execution| {
@@ -1716,7 +1761,7 @@ fn serve(m: Manager) -> Result<()> {
                     });
                 }
                 if &greeting[..5]==b"LVC1\n" {
-                    let value=match capacity::status(&m,limits.clone(),workers.load(Ordering::Acquire),blocked.load(Ordering::Acquire)) {
+                    let value=match capacity::status(&m,limits.clone(),workers.load(Ordering::Acquire),blocked.blocked()) {
                         Ok(status)=>serde_json::json!({"ok":true,"capacity":status}),
                         Err(e)=>serde_json::json!({"ok":false,"refusal":readback::refusal(e.as_ref())}),
                     };
@@ -1728,7 +1773,7 @@ fn serve(m: Manager) -> Result<()> {
                 }
                 if &greeting[..5]==b"LVP1\n" {
                     peer.set_write_timeout(Some(Duration::from_millis(200)))?;
-                    peer.write_all(&[u8::from(blocked.load(Ordering::Acquire))])?;
+                    peer.write_all(&[u8::from(blocked.blocked())])?;
                     return Ok(());
                 }
                 if let Some(purpose) = inspection_purpose(&greeting[..5]) {
@@ -1742,7 +1787,7 @@ fn serve(m: Manager) -> Result<()> {
                     };
                     let (r,execution)={
                         let _admission=capacity::reserve_maintenance(&m,&limits,
-                            || blocked.load(Ordering::Acquire))?;
+                            || blocked.blocked())?;
                         m.require_inactive(None)?;
                         let r=select()?;
                         let execution=package_authority::paired_host_components(&m,&s,&r.host,&r.host_source_sha256)?;
@@ -1751,7 +1796,7 @@ fn serve(m: Manager) -> Result<()> {
                     let _admission=wait_for_keeper(
                         Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS),
                         || capacity::reserve_maintenance(&m,&limits,
-                            || blocked.load(Ordering::Acquire)),
+                            || blocked.blocked()),
                         || {
                             m.require_inactive(None)?;
                             require(select()?==r,"inspection_binding_changed")?;
@@ -1785,7 +1830,7 @@ fn serve(m: Manager) -> Result<()> {
                     let request:InspectionRequest=serde_json::from_slice(&bytes)?;
                     let (r,execution)={
                         let _admission=capacity::reserve_maintenance(&m,&limits,
-                            || blocked.load(Ordering::Acquire))?;
+                            || blocked.blocked())?;
                         m.require_inactive(None)?;
                         let r=inspection_binding(&m,request.clone())?;
                         let execution=package_authority::paired_host_components(&m,&s,&r.host,&r.host_source_sha256)?;
@@ -1794,7 +1839,7 @@ fn serve(m: Manager) -> Result<()> {
                     let _admission=wait_for_keeper(
                         Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS),
                         || capacity::reserve_maintenance(&m,&limits,
-                            || blocked.load(Ordering::Acquire)),
+                            || blocked.blocked()),
                         || {
                             m.require_inactive(None)?;
                             require(inspection_binding(&m,request.clone())?==r,"vendor_access_binding_changed")?;
@@ -1888,7 +1933,7 @@ fn serve(m: Manager) -> Result<()> {
                     startup.phase("binding_verified");
                     let mut observed=None;
                     let reservation=wait_for_keeper(keeper_deadline,
-                        || capacity::reserve(&m,&limits,Some(&class),blocked.load(Ordering::Acquire)),
+                        || capacity::reserve(&m,&limits,Some(&class),blocked.blocked()),
                         || {
                             let registry=m.registry()?;
                             require(registry.classes.get(&class).is_some_and(|entry|
@@ -1941,7 +1986,7 @@ fn serve(m: Manager) -> Result<()> {
                     startup.phase("ready_binding_verified");
                     ready_verified.run(|| {
                     let _reservation=wait_for_keeper(keeper_deadline,
-                        || capacity::reserve(&m,&limits,Some(&class),blocked.load(Ordering::Acquire)),
+                        || capacity::reserve(&m,&limits,Some(&class),blocked.blocked()),
                         || {
                             let registry=m.registry()?;
                             require(registry.classes.get(&class).is_some_and(|entry|
@@ -3145,21 +3190,81 @@ mod tests {
     }
     use super::*;
     #[test]
+    fn failed_admission_recovers_from_exact_retirement_without_service_restart() {
+        let f = test_fixture::Fixture::new();
+        let leases = f.m.root.join("runtime/leases");
+        let results = f.m.root.join("runtime/results");
+        private_dir(&leases).unwrap();
+        private_dir(&results).unwrap();
+        let session = "ab".repeat(16);
+        let lease = leases.join(format!("{session}.json"));
+        let report = results.join(format!("windows-{session}.json"));
+        atomic_json(&lease, &report).unwrap();
+        let sibling = leases.join(format!("{}.json", "cd".repeat(16)));
+        let sibling_report = results.join("sibling-finishing.json");
+        atomic_json(&sibling, &sibling_report).unwrap();
+        atomic_json(&sibling_report.with_extension("ownership.json"), &serde_json::json!({
+            "session":"cd".repeat(16),"transport_retired":true,"cleanup_confirmed":true})).unwrap();
+        let blocked = Arc::new(AdmissionCleanup::default());
+        let mut pending = PendingAdmission::new(lease.clone(), blocked.clone());
+        pending.expose();
+        drop(pending);
+        blocked.refresh(&f.m).unwrap();
+        assert!(blocked.blocked() && lease.exists()); // missing result is not proof
+        let receipt = report.with_extension("ownership.json");
+        atomic_json(&receipt, &serde_json::json!({"session":"wrong",
+            "transport_retired":true,"cleanup_confirmed":true})).unwrap();
+        blocked.refresh(&f.m).unwrap();
+        assert!(blocked.blocked() && lease.exists());
+        atomic_json(&receipt, &serde_json::json!({"session":session,
+            "transport_retired":true,"cleanup_confirmed":true})).unwrap();
+        blocked.refresh(&f.m).unwrap();
+        assert!(!blocked.blocked() && !lease.exists());
+        assert!(sibling.exists()); // a live sibling is not a failed admission
+    }
+    #[test]
+    fn exact_supervisor_completion_accepts_prior_reconciliation() {
+        let f = test_fixture::Fixture::new();
+        let blocked = Arc::new(AdmissionCleanup::default());
+        let lease = f.outer.join("retired-lease.json");
+        let mut pending = PendingAdmission::new(lease, blocked.clone());
+        pending.expose();
+        assert!(pending.complete("exact", true, "LVO1 wrong retired\n", None).is_err());
+        pending.complete("exact", true, "LVO1 exact retired\n", None).unwrap();
+        drop(pending);
+        assert!(!blocked.blocked());
+    }
+    #[test]
+    fn externally_reconciled_failed_lease_clears_only_its_own_failure() {
+        let f = test_fixture::Fixture::new();
+        let blocked = AdmissionCleanup::default();
+        let absent = f.outer.join("already-retired");
+        let leases = f.m.root.join("runtime/leases");
+        private_dir(&leases).unwrap();
+        let uncertain = leases.join(format!("{}.json", "ab".repeat(16)));
+        atomic_json(&uncertain, &f.m.root.join("runtime/results/missing.json")).unwrap();
+        blocked.record(&absent);
+        blocked.record(&uncertain);
+        blocked.refresh(&f.m).unwrap();
+        assert!(blocked.blocked());
+        assert_eq!(blocked.0.lock().unwrap().len(), 1);
+    }
+    #[test]
     fn exposed_binding_cannot_erase_an_unresolved_retirement() {
         let f = test_fixture::Fixture::new();
         let lease = f.outer.join("lease.json");
         fs::write(&lease, b"reservation").unwrap();
-        let blocked = Arc::new(AtomicBool::new(false));
+        let blocked = Arc::new(AdmissionCleanup::default());
         drop(PendingAdmission::new(lease.clone(), blocked.clone()));
         assert!(!lease.exists());
         fs::write(&lease, b"bound native owner").unwrap();
-        let blocked = Arc::new(AtomicBool::new(false));
+        let blocked = Arc::new(AdmissionCleanup::default());
         let mut pending = PendingAdmission::new(lease.clone(), blocked.clone());
         pending.expose();
         drop(pending);
         assert!(lease.exists());
-        assert!(blocked.load(Ordering::Acquire));
-        let blocked = Arc::new(AtomicBool::new(false));
+        assert!(blocked.blocked());
+        let blocked = Arc::new(AdmissionCleanup::default());
         let mut pending = PendingAdmission::new(lease.clone(), blocked.clone());
         pending.expose();
         pending
@@ -3170,7 +3275,7 @@ mod tests {
             .unwrap();
         drop(pending);
         assert!(!lease.exists());
-        assert!(!blocked.load(Ordering::Acquire));
+        assert!(!blocked.blocked());
     }
     #[test]
     fn failed_binding_delivery_still_retires_the_retained_supervisor_owner() {
@@ -3183,7 +3288,7 @@ mod tests {
             "gated":true,"cleanup_confirmed":true,"transport_retired":true,
             "fault_status":null})).unwrap();
         fs::write(&lease,b"owner").unwrap();
-        let blocked=Arc::new(AtomicBool::new(false));
+        let blocked=Arc::new(AdmissionCleanup::default());
         let mut pending=PendingAdmission::new(lease.clone(),blocked.clone());
         pending.expose();
         let command=format!("printf 'LVO1 {session} retired\\n'");
@@ -3195,7 +3300,7 @@ mod tests {
             &mut child,&mut pending)
             .unwrap_err().to_string(),"delivery failed");
         assert!(!lease.exists());
-        assert!(!blocked.load(Ordering::Acquire));
+        assert!(!blocked.blocked());
     }
     #[test]
     fn terminal_projection_failure_cannot_abandon_a_retired_owner() {
@@ -3216,7 +3321,7 @@ mod tests {
         private_dir(&f.m.root.join("runtime")).unwrap();
         fs::write(f.m.root.join("runtime/terminal-summaries"),b"not a directory").unwrap();
         fs::write(&lease,b"owner").unwrap();
-        let blocked=Arc::new(AtomicBool::new(false));
+        let blocked=Arc::new(AdmissionCleanup::default());
         let mut pending=PendingAdmission::new(lease.clone(),blocked.clone());
         pending.expose();
         let command=format!("printf 'LVO1 {session} retired\\n'");
@@ -3226,7 +3331,7 @@ mod tests {
             report:&report,session:&session,transport:None},Ok(()),&mut child,
             &mut pending).is_err());
         assert!(!lease.exists());
-        assert!(!blocked.load(Ordering::Acquire));
+        assert!(!blocked.blocked());
     }
     #[test]
     fn exact_supervisor_readiness_precedes_exposure() {
@@ -3244,9 +3349,9 @@ mod tests {
 
         let f=test_fixture::Fixture::new();
         let lease=f.outer.join("unready-lease.json");fs::write(&lease,b"unexposed").unwrap();
-        let blocked=Arc::new(AtomicBool::new(false));
+        let blocked=Arc::new(AdmissionCleanup::default());
         drop(PendingAdmission::new(lease.clone(),blocked.clone()));
-        assert!(!lease.exists()&&!blocked.load(Ordering::Acquire));
+        assert!(!lease.exists()&&!blocked.blocked());
     }
     #[test]
     fn graphics_settings_require_capability_acknowledgment_from_any_retained_generation() {
@@ -3296,7 +3401,7 @@ mod tests {
         });
         atomic_json(&path,&job).unwrap();
         atomic_json(&job.lease,&job.report).unwrap();
-        let blocked=Arc::new(AtomicBool::new(false));
+        let blocked=Arc::new(AdmissionCleanup::default());
         let pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
         let (_native,supervisor)=UnixStream::pair().unwrap();
         let stdin=unsafe{Stdio::from_raw_fd(supervisor.into_raw_fd())};
@@ -3308,7 +3413,7 @@ mod tests {
         drop(pending);
         assert!(!job.lease.exists());
         assert!(!job.directory.exists());
-        assert!(!blocked.load(Ordering::Acquire));
+        assert!(!blocked.blocked());
     }
     #[cfg(target_os="linux")]
     #[test]
@@ -3327,7 +3432,7 @@ mod tests {
         fs::write(&systemctl,b"#!/bin/sh\nprintf 'DISPLAY=:fixture\\n'\n").unwrap();
         fs::set_permissions(&systemctl,fs::Permissions::from_mode(0o500)).unwrap();
         atomic_json(&job.lease,&job.report).unwrap();
-        let blocked=Arc::new(AtomicBool::new(false));
+        let blocked=Arc::new(AdmissionCleanup::default());
         let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
         let (mut native,supervisor)=UnixStream::pair().unwrap();
         native.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
@@ -3356,7 +3461,7 @@ mod tests {
         assert_eq!(report["transport_retired"],true);
         assert!(job.report.with_extension("ownership.json").exists());
         assert!(!job.lease.exists());
-        assert!(!blocked.load(Ordering::Acquire));
+        assert!(!blocked.blocked());
     }
     #[test]
     fn only_exact_positive_retirement_releases_one_exposed_owner() {
@@ -3367,7 +3472,7 @@ mod tests {
         fs::write(&lease, b"owner").unwrap();
         fs::write(&sibling, b"sibling").unwrap();
         fs::create_dir(&transport).unwrap();
-        let blocked = Arc::new(AtomicBool::new(false));
+        let blocked = Arc::new(AdmissionCleanup::default());
         let mut pending = PendingAdmission::new(lease.clone(), blocked.clone());
         assert!(pending
             .complete("a", true, "LVO1 a retired\n", None)
@@ -3398,34 +3503,34 @@ mod tests {
         drop(pending);
         assert_eq!(fs::read(&lease).unwrap(), b"replacement");
         assert_eq!(fs::read(&sibling).unwrap(), b"sibling");
-        assert!(!blocked.load(Ordering::Acquire));
+        assert!(!blocked.blocked());
     }
     #[test]
     fn failed_unlink_or_post_spawn_error_keeps_admission_blocked() {
         let f = test_fixture::Fixture::new();
         let lease = f.outer.join("lease.json");
         fs::create_dir(&lease).unwrap(); // deterministic remove_file failure
-        let blocked = Arc::new(AtomicBool::new(false));
+        let blocked = Arc::new(AdmissionCleanup::default());
         drop(PendingAdmission::new(lease.clone(), blocked.clone()));
-        assert!(blocked.load(Ordering::Acquire) && lease.exists());
-        blocked.store(false, Ordering::Release);
+        assert!(blocked.blocked() && lease.exists());
+        blocked.0.lock().unwrap().clear();
         let mut pending = PendingAdmission::new(lease.clone(), blocked.clone());
         pending.expose();
         assert!(pending
             .complete("a", true, "LVO1 a retired\n", None)
             .is_err());
         drop(pending);
-        assert!(blocked.load(Ordering::Acquire) && lease.exists());
+        assert!(blocked.blocked() && lease.exists());
         fs::remove_dir(&lease).unwrap();
         fs::write(&lease, b"owner").unwrap();
-        blocked.store(false, Ordering::Release);
-        fn after_spawn(lease: PathBuf, blocked: Arc<AtomicBool>) -> Result<()> {
+        blocked.0.lock().unwrap().clear();
+        fn after_spawn(lease: PathBuf, blocked: Arc<AdmissionCleanup>) -> Result<()> {
             let mut pending = PendingAdmission::new(lease, blocked);
             pending.expose();
             Err("post-spawn wait/read failure".into())
         }
         let failure = after_spawn(lease.clone(), blocked.clone());
-        assert!(failure.is_err() && blocked.load(Ordering::Acquire) && lease.exists());
+        assert!(failure.is_err() && blocked.blocked() && lease.exists());
     }
     #[test]
     #[cfg(target_os="linux")]
@@ -3668,26 +3773,20 @@ mod tests {
     }
     #[test]
     fn restart_requires_positive_prior_cleanup() {
-        unsafe {
-            libc::umask(0o077);
-        }
-        let outer = std::env::temp_dir().join(format!("ap12-leases-{}", random_id().unwrap()));
-        let m = Manager {
-            root: outer.join("managed"),
-            publications: outer.join("vst3"),
-        };
-        private_dir(&m.root.join("runtime/results")).unwrap();
-        private_dir(&m.root.join("runtime/leases")).unwrap();
-        let report = m.root.join("runtime/results/one.json");
-        let session = "01".repeat(16);
-        let lease = m.root.join("runtime/leases").join(format!("{session}.json"));
+        let f = test_fixture::Fixture::new();
+        let m = &f.m;
+        let (job, owner) = spec(m, f.r.clone().into(), true, false, false).unwrap();
+        m.retain_lease_owner(&owner).unwrap();
+        let report = job.report;
+        let session = job.session;
+        let lease = job.lease;
         atomic_json(&lease, &report).unwrap();
-        assert!(reconcile_leases(&m).unwrap());
+        assert!(reconcile_leases(m).unwrap());
         assert!(lease.exists());
         atomic_json(&report, &serde_json::json!({"cleanup_confirmed":false})).unwrap();
-        assert!(reconcile_leases(&m).unwrap());
+        assert!(reconcile_leases(m).unwrap());
         atomic_json(&report, &serde_json::json!({"cleanup_confirmed":true})).unwrap();
-        assert!(!reconcile_leases(&m).unwrap());
+        assert!(!reconcile_leases(m).unwrap());
         assert!(!lease.exists());
         assert!(report.exists());
         atomic_json(&lease, &report).unwrap();
@@ -3696,15 +3795,14 @@ mod tests {
             &serde_json::json!({"ownership_schema":1,"cleanup_confirmed":true}),
         )
         .unwrap();
-        assert!(reconcile_leases(&m).unwrap()); // physical report alone cannot retire new transport
+        assert!(reconcile_leases(m).unwrap()); // physical report alone cannot retire new transport
         let receipt = report.with_extension("ownership.json");
         atomic_json(&receipt,&serde_json::json!({"session":"wrong","cleanup_confirmed":true,"transport_retired":true})).unwrap();
-        assert!(reconcile_leases(&m).unwrap());
+        assert!(reconcile_leases(m).unwrap());
         atomic_json(&receipt,&serde_json::json!({"session":session,"cleanup_confirmed":true,"transport_retired":true,"reporting_error":"disk refusal"})).unwrap();
         fs::remove_file(&report).unwrap();
-        assert!(!reconcile_leases(&m).unwrap());
+        assert!(!reconcile_leases(m).unwrap());
         assert!(!lease.exists());
-        fs::remove_dir_all(outer).unwrap();
     }
 }
 

@@ -589,6 +589,9 @@ fn inactive_reason(
     pending: usize,
     reconcile: bool,
 ) -> Option<&'static str> {
+    // Recovery must remain callable when custody is uncertain. Its worker
+    // reconciles exact leases before checking inactivity at the write boundary.
+    if reconcile { return None; }
     match cap {
         None => Some("Service capacity unavailable; actions requiring inactivity are unsafe"),
         Some(c) if c.cleanup_unconfirmed => Some("Previous instance cleanup is unconfirmed"),
@@ -654,7 +657,7 @@ fn require_operator_inactive_with(
     timeout: Duration,
     waits: &mut Vec<ui::LockFacts>,
 ) -> Result<()> {
-    if !a.requires_inactive() {
+    if !a.requires_inactive() || matches!(a, ui::Action::TransactionReconcile {}) {
         return Ok(());
     }
     // Resolve immutable candidate history before taking the short admission lock.
@@ -2627,6 +2630,11 @@ fn execute_with_receipt_policy_progress(
     }
     timing::measure(Stage::WorkerAdmission, ||
         require_operator_inactive_with(m, a, capacity_read, operation, timeout, waits))?;
+    // Service readback takes registry.lock itself, so capture it before the
+    // mutation boundary. Reconcile rechecks the exact owner set under its lock.
+    let recovery_capacity = if matches!(a, ui::Action::TransactionReconcile {}) {
+        capacity_read()
+    } else { None };
     #[cfg(test)]
     if matches!(a, ui::Action::BufferingSet { .. } | ui::Action::DeliverySet { .. }
         | ui::Action::TransactionReconcile {}) {
@@ -3023,10 +3031,25 @@ fn execute_with_receipt_policy_progress(
             Ok(json!({"capture":"disarmed"}))
         }
         ui::Action::TransactionReconcile {} => {
+            // Read the service before acquiring registry.lock. A healthy idle
+            // keeper may remain, but a missing or uncertain census cannot
+            // authorize a retained owner. Empty proven retirement needs no service.
+            let capacity = recovery_capacity;
             let mut remaining_wait=timeout;
             let mut registry_admission=|| {
                 let started=Instant::now();
-                let result=acquire_readback(m,ui::OperatorLock::Registry,operation,remaining_wait,waits);
+                let result=(|| {
+                    let registry=acquire_readback(m,ui::OperatorLock::Registry,operation,remaining_wait,waits)?;
+                    if reconcile_leases(m)? {
+                        let current = capacity::owners(m)?;
+                        require(capacity.as_ref().is_some_and(|cap|
+                            !cap.cleanup_unconfirmed && cap.owners == current),
+                            "operator_cleanup_unconfirmed")?;
+                    }
+                    require(vendor_retired(m)? && onboarding::all_retired(m)?,
+                        "operator_vendor_cleanup_unconfirmed")?;
+                    Ok(registry)
+                })();
                 remaining_wait=remaining_wait.saturating_sub(started.elapsed());
                 result
             };
@@ -4034,7 +4057,7 @@ fn rescan_environment_locked(
             false,
         )?;
         let pending =
-            PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
+            PendingAdmission::new(job.lease.clone(), Arc::new(AdmissionCleanup::default()));
         #[cfg(test)]
         SCAN_SPAWN_COUNT.with(|count| count.set(count.get() + 1));
         let child = spawn(m, &sw, &path, None)?;
@@ -5480,6 +5503,35 @@ pub(crate) mod tests {
         }
     }
     #[test]
+    fn reconcile_remains_offered_when_cleanup_or_capacity_is_unavailable() {
+        assert!(inactive_reason(None, false, 1, true).is_none());
+        let cap: CapacityReadback = serde_json::from_value(
+            capacity_json(true, 0, 1)["capacity"].clone()).unwrap();
+        assert!(inactive_reason(Some(&cap), false, 1, true).is_none());
+        assert!(inactive_reason(Some(&cap), false, 1, false).is_some());
+        let f = test_fixture::Fixture::new();
+        let mut waits = Vec::new();
+        require_operator_inactive_with(&f.m, &ui::Action::TransactionReconcile {},
+            &|| panic!("recovery cannot depend on healthy capacity"), None,
+            Duration::from_secs(1), &mut waits).unwrap();
+    }
+    #[test]
+    fn reconcile_allows_a_known_idle_keeper_but_retains_uncertain_custody() {
+        let f = test_fixture::Fixture::new();
+        let (job, owner) = spec(&f.m, f.r.clone().into(), true, false, true).unwrap();
+        f.m.retain_lease_owner(&owner).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        let read = || capacity_fixture(&f.m);
+        let action = ui::Action::TransactionReconcile {};
+        assert_eq!(execute_with_receipt_capacity(&f.m, &action, None, &read).unwrap(),
+            json!({"reconciled":true}));
+        assert!(job.lease.exists());
+        let uncertain = || read().map(|mut cap| { cap.cleanup_unconfirmed = true; cap });
+        assert!(execute_with_receipt_capacity(&f.m, &action, None, &uncertain).is_err());
+        assert!(execute_with_receipt_capacity(&f.m, &action, None, &|| None).is_err());
+        assert!(job.lease.exists());
+    }
+    #[test]
     fn crafted_inactive_actions_refuse_each_live_boundary_before_any_mutation() {
         let f = test_fixture::Fixture::new();
         atomic_json(&f.m.root.join("sentinel.json"), &json!({"unchanged":true})).unwrap();
@@ -5490,7 +5542,6 @@ pub(crate) mod tests {
             ui::Action::InstallerScan {
                 onboarding: "ef".repeat(16),
             },
-            ui::Action::TransactionReconcile {},
             ui::Action::EnvironmentRescan {
                 environment: f.r.environment.id.clone(),
             },
@@ -7989,16 +8040,21 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         assert_eq!(product.details["refusal"]["code"], "recovery_pending");
         let offer = live.actions.iter().find(|offer|
             matches!(offer.action, ui::Action::TransactionReconcile {})).unwrap();
-        assert!(offer.disabled_reason.as_deref().unwrap().contains("Close active bridged"));
+        assert!(offer.disabled_reason.is_none()); // recovery is reachable; its worker checks custody
         assert!(execute_with_receipt_capacity(&f.m, &offer.action, None, &read).is_err());
         assert_eq!(capacity::owners(&f.m).unwrap()[0].session, session);
         assert_eq!(f.m.registry().unwrap().classes[class], before);
 
-        // Supervised fixture retirement confirms cleanup, then releases only
-        // its exact owner. The positive report alone never grants inactivity.
+        // Supervised fixture retirement confirms cleanup. Ordinary Reconcile
+        // must retire that exact lease before repairing the publication.
         atomic_json(&report, &json!({"cleanup_confirmed":true,"transport_retired":true})).unwrap();
         assert_eq!(read().unwrap().dsp, 1);
-        fs::remove_file(lease).unwrap();
+        assert_eq!(execute_with_receipt_capacity(&f.m, &offer.action, None, &read).unwrap(),
+            json!({"reconciled":true}));
+        assert!(!lease.exists());
+        // Interrupt again to exercise the ordinary pending-publication offer.
+        f.m.rollback(class, &baseline.id,
+            Some(linux_vst_bridge::publication::Boundary::Intent)).unwrap_err();
         assert!(rescan(&f.m, &candidate.selection.environment.id).unwrap_err()
             .to_string().contains("operator_pending_transaction_reconcile"));
         let retired = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &read).unwrap();

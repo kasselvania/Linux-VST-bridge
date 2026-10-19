@@ -156,7 +156,7 @@ pub(super) fn assess(m: &Manager, binding: HostBinding,
         let (mut job, path) = spec(m, binding, true, false, false)?;
         job.graphics_assessment = true;
         atomic_json(&path, &job)?;
-        let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
+        let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AdmissionCleanup::default()));
         let child = spawn(m, &sw, &path, None)?;
         drop(registry);
         vendor_product_cli::finish_scan(child, &job, &path, pending)?;

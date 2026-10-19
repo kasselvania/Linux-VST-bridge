@@ -115,7 +115,7 @@ fn visible_session(m:&Manager,action:&ui::Action,operation:&str,timeout:Duration
             module:module.artifact.clone(),host:sw.host.clone(),host_source_sha256:sw.source_sha256.clone(),
             compatibility:Compatibility::default()},true,true,false)?;
         job.finish_setup=true;atomic_json(&path,&job)?;
-        let pending=PendingAdmission::new(job.lease.clone(),Arc::new(AtomicBool::new(false)));
+        let pending=PendingAdmission::new(job.lease.clone(),Arc::new(AdmissionCleanup::default()));
         atomic_json(&job_dir(m,operation)?.join("setup-session.json"),&job)?;
         write_operation(m,operation,&json!({"schema":2,"operation":operation,"state":"vendor_running",
             "environment":environment,"plugin_setup":true}),false)?;
