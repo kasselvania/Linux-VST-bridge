@@ -212,7 +212,6 @@ architecture. Review before applying a change to runtime lineage, setup-sharing 
 process boundaries, saved-state/DAW identity guarantees, licensed data or the
 closed-beta scope.
 
-The current assignment is [#465](https://github.com/kasselvania/Linux-VST-bridge/issues/465): restore Native Access through Kontakt on current `main` using r5 in a
-fresh CachyOS account, comparing with the retained working package at the first
-difference. Then run the mixed-use regression. No further consolidation or beta
-qualification begins before that working path is recovered.
+The Native Access recovery and maintained-line Deck migration are completed
+(#465, #469). `CURRENT_SLICE.md` names the current behavior; it is the only active
+assignment pointer. Release qualification still follows the scope above.
