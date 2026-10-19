@@ -406,8 +406,14 @@ impl AdmissionCleanup {
         let mut failed = self.0.lock().unwrap();
         // Only existing retirement receipts (or an ended kernel generation)
         // can remove leases. Missing reports never become cleanup proof.
-        reconcile_leases(m)?;
-        failed.retain(|path| path.try_exists().unwrap_or(true));
+        let boot = kernel_boot()?;
+        let mut retired = Vec::new();
+        for path in failed.iter() {
+            if !path.try_exists()? || !reconcile_lease_in_kernel(m, path, boot.as_deref())? {
+                retired.push(path.clone());
+            }
+        }
+        for path in retired { failed.remove(&path); }
         Ok(())
     }
 }
@@ -445,7 +451,11 @@ impl PendingAdmission {
             require(!directory.try_exists()?, "transport retirement unconfirmed")?;
         }
         if let Some(lease) = &self.lease {
-            fs::remove_file(lease)?;
+            match fs::remove_file(lease) {
+                Ok(()) => {},
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
+                Err(error) => return Err(error.into()),
+            }
             self.lease = None;
         }
         Ok(())
@@ -1144,60 +1154,65 @@ fn reconcile_leases_in_kernel(m: &Manager, boot: Option<&str>) -> Result<bool> {
     private_dir(&directory)?;
     let mut unconfirmed = false;
     for entry in fs::read_dir(directory)? {
-        let path = entry?.path();
-        let report: PathBuf = read_json(&path)?;
-        let session = path.file_stem().and_then(|name| name.to_str()).ok_or("lease_session_identity")?;
-        require(valid_hex(session, 32) && path.file_name().and_then(|name| name.to_str())
-            == Some(format!("{session}.json").as_str()), "lease_session_identity")?;
-        require(
-            report.parent() == Some(m.root.join("runtime/results").as_path()),
-            "lease report outside owned results",
-        )?;
-        let receipt = report.with_extension("ownership.json");
-        let proof = if receipt.exists() {
-            read_json::<serde_json::Value>(&receipt).and_then(|r| {
-                require(
-                    r["session"].as_str() == path.file_stem().and_then(|s| s.to_str())
-                        && r["transport_retired"] == true,
-                    "ownership receipt identity/retirement",
-                )?;
-                Ok(r)
-            })
-        } else {
-            read_json::<serde_json::Value>(&report).and_then(|r| {
-                require(
-                    r["ownership_schema"].is_null(),
-                    "new owner requires minimal retirement receipt",
-                )?;
-                Ok(r)
-            })
-        };
-        match proof {
-            Ok(r) if r["cleanup_confirmed"] == true => fs::remove_file(path)?,
-            _ => {
-                let generation_path = m.root.join("runtime/lease-generations")
-                    .join(format!("{session}.json"));
-                if generation_path.try_exists()? {
-                    let generation: LeaseGeneration = read_json(&generation_path)?;
-                    require(generation.schema == 1 && generation.session == session
-                        && generation.report == report && valid_kernel_boot(&generation.kernel_boot),
-                        "lease_generation_binding")?;
-                    if boot.is_some_and(|current| current != generation.kernel_boot) {
-                        let interrupted = generation_path.with_extension("interrupted.json");
-                        atomic_json(&interrupted, &serde_json::json!({"schema":1,
-                            "session":session,"retirement_basis":"kernel_generation_ended",
-                            "observation_basis":generation.basis,
-                            "cleanup_confirmed":true,"transport_retired":true,
-                            "successful_session":false}))?;
-                        fs::remove_file(path)?;
-                        continue;
-                    }
-                }
-                unconfirmed = true;
-            },
-        }
+        unconfirmed |= reconcile_lease_in_kernel(m, &entry?.path(), boot)?;
     }
     Ok(unconfirmed)
+}
+fn reconcile_lease_in_kernel(m: &Manager, path: &Path, boot: Option<&str>) -> Result<bool> {
+    let report: PathBuf = read_json(path)?;
+    let session = path.file_stem().and_then(|name| name.to_str()).ok_or("lease_session_identity")?;
+    require(valid_hex(session, 32) && path.file_name().and_then(|name| name.to_str())
+        == Some(format!("{session}.json").as_str()), "lease_session_identity")?;
+    require(
+        report.parent() == Some(m.root.join("runtime/results").as_path()),
+        "lease report outside owned results",
+    )?;
+    let receipt = report.with_extension("ownership.json");
+    let proof = if receipt.exists() {
+        read_json::<serde_json::Value>(&receipt).and_then(|r| {
+            require(
+                r["session"].as_str() == path.file_stem().and_then(|s| s.to_str())
+                    && r["transport_retired"] == true,
+                "ownership receipt identity/retirement",
+            )?;
+            Ok(r)
+        })
+    } else {
+        read_json::<serde_json::Value>(&report).and_then(|r| {
+            // Legacy reports carry no session identity. Bind them through the
+            // exact retained owner before accepting their cleanup assertion.
+            m.lease_owner(session, &report)?;
+            require(
+                r["ownership_schema"].is_null(),
+                "new owner requires minimal retirement receipt",
+            )?;
+            Ok(r)
+        })
+    };
+    match proof {
+        Ok(r) if r["cleanup_confirmed"] == true => { fs::remove_file(path)?; Ok(false) },
+        _ => {
+            let generation_path = m.root.join("runtime/lease-generations")
+                .join(format!("{session}.json"));
+            if generation_path.try_exists()? {
+                let generation: LeaseGeneration = read_json(&generation_path)?;
+                require(generation.schema == 1 && generation.session == session
+                    && generation.report == report && valid_kernel_boot(&generation.kernel_boot),
+                    "lease_generation_binding")?;
+                if boot.is_some_and(|current| current != generation.kernel_boot) {
+                    let interrupted = generation_path.with_extension("interrupted.json");
+                    atomic_json(&interrupted, &serde_json::json!({"schema":1,
+                        "session":session,"retirement_basis":"kernel_generation_ended",
+                        "observation_basis":generation.basis,
+                        "cleanup_confirmed":true,"transport_retired":true,
+                        "successful_session":false}))?;
+                    fs::remove_file(path)?;
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        },
+    }
 }
 fn retired_keeper(owner: &KeeperOwner, status: ExitStatus) -> Result<()> {
     let report: serde_json::Value = read_json(&owner.report)?;
@@ -3186,7 +3201,10 @@ mod tests {
         let report = results.join(format!("windows-{session}.json"));
         atomic_json(&lease, &report).unwrap();
         let sibling = leases.join(format!("{}.json", "cd".repeat(16)));
-        atomic_json(&sibling, &results.join("still-live.json")).unwrap();
+        let sibling_report = results.join("sibling-finishing.json");
+        atomic_json(&sibling, &sibling_report).unwrap();
+        atomic_json(&sibling_report.with_extension("ownership.json"), &serde_json::json!({
+            "session":"cd".repeat(16),"transport_retired":true,"cleanup_confirmed":true})).unwrap();
         let blocked = Arc::new(AdmissionCleanup::default());
         let mut pending = PendingAdmission::new(lease.clone(), blocked.clone());
         pending.expose();
@@ -3205,12 +3223,26 @@ mod tests {
         assert!(sibling.exists()); // a live sibling is not a failed admission
     }
     #[test]
+    fn exact_supervisor_completion_accepts_prior_reconciliation() {
+        let f = test_fixture::Fixture::new();
+        let blocked = Arc::new(AdmissionCleanup::default());
+        let lease = f.outer.join("retired-lease.json");
+        let mut pending = PendingAdmission::new(lease, blocked.clone());
+        pending.expose();
+        assert!(pending.complete("exact", true, "LVO1 wrong retired\n", None).is_err());
+        pending.complete("exact", true, "LVO1 exact retired\n", None).unwrap();
+        drop(pending);
+        assert!(!blocked.blocked());
+    }
+    #[test]
     fn externally_reconciled_failed_lease_clears_only_its_own_failure() {
         let f = test_fixture::Fixture::new();
         let blocked = AdmissionCleanup::default();
         let absent = f.outer.join("already-retired");
-        let uncertain = f.outer.join("still-owned");
-        fs::write(&uncertain, b"owned").unwrap();
+        let leases = f.m.root.join("runtime/leases");
+        private_dir(&leases).unwrap();
+        let uncertain = leases.join(format!("{}.json", "ab".repeat(16)));
+        atomic_json(&uncertain, &f.m.root.join("runtime/results/missing.json")).unwrap();
         blocked.record(&absent);
         blocked.record(&uncertain);
         blocked.refresh(&f.m).unwrap();
@@ -3741,19 +3773,13 @@ mod tests {
     }
     #[test]
     fn restart_requires_positive_prior_cleanup() {
-        unsafe {
-            libc::umask(0o077);
-        }
-        let outer = std::env::temp_dir().join(format!("ap12-leases-{}", random_id().unwrap()));
-        let m = Manager {
-            root: outer.join("managed"),
-            publications: outer.join("vst3"),
-        };
-        private_dir(&m.root.join("runtime/results")).unwrap();
-        private_dir(&m.root.join("runtime/leases")).unwrap();
-        let report = m.root.join("runtime/results/one.json");
-        let session = "01".repeat(16);
-        let lease = m.root.join("runtime/leases").join(format!("{session}.json"));
+        let f = test_fixture::Fixture::new();
+        let m = &f.m;
+        let (job, owner) = spec(m, f.r.clone().into(), true, false, false).unwrap();
+        m.retain_lease_owner(&owner).unwrap();
+        let report = job.report;
+        let session = job.session;
+        let lease = job.lease;
         atomic_json(&lease, &report).unwrap();
         assert!(reconcile_leases(&m).unwrap());
         assert!(lease.exists());
@@ -3777,7 +3803,6 @@ mod tests {
         fs::remove_file(&report).unwrap();
         assert!(!reconcile_leases(&m).unwrap());
         assert!(!lease.exists());
-        fs::remove_dir_all(outer).unwrap();
     }
 }
 

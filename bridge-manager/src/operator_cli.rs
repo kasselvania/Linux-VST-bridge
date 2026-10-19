@@ -3026,12 +3026,21 @@ fn execute_with_receipt_policy_progress(
             Ok(json!({"capture":"disarmed"}))
         }
         ui::Action::TransactionReconcile {} => {
+            // Read the service before acquiring registry.lock. A healthy idle
+            // keeper may remain, but a missing or uncertain census cannot
+            // authorize a retained owner. Empty proven retirement needs no service.
+            let capacity = capacity_read();
             let mut remaining_wait=timeout;
             let mut registry_admission=|| {
                 let started=Instant::now();
                 let result=(|| {
                     let registry=acquire_readback(m,ui::OperatorLock::Registry,operation,remaining_wait,waits)?;
-                    require(!reconcile_leases(m)?, "operator_cleanup_unconfirmed")?;
+                    if reconcile_leases(m)? {
+                        let current = capacity::owners(m)?;
+                        require(capacity.as_ref().is_some_and(|cap|
+                            !cap.cleanup_unconfirmed && cap.owners == current),
+                            "operator_cleanup_unconfirmed")?;
+                    }
                     require(vendor_retired(m)? && onboarding::all_retired(m)?,
                         "operator_vendor_cleanup_unconfirmed")?;
                     Ok(registry)
