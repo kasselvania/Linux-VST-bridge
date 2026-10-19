@@ -1630,7 +1630,9 @@ fn serve(m: Manager) -> Result<()> {
     let warm_manager = manager.clone();
     let warm_verification = launch_verification.clone();
     let _runtime_preparation = std::thread::Builder::new().spawn(move || {
-        match runtime_delivery::preparation_runners(&warm_manager) {
+        let selected = onboarding::history_records(&warm_manager).and_then(|records|
+            runtime_delivery::preparation_runners(&warm_manager, records.into_iter().map(|r| r.environment)));
+        match selected {
             Ok(runners) => for runner in runners {
                 if let Err(error) = warm_verification.warm(
                     Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS),

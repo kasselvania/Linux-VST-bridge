@@ -403,12 +403,13 @@ pub fn installed_identity_records(m: &Manager) -> Result<Vec<Runner>> {
 /// Prefetch only owned runtime identities selected by current product setups.
 /// Historical/foreign or unresolved setup records never authorize prefetch;
 /// their ordinary launch/recovery paths retain the specific diagnosis.
-pub fn preparation_runners(m: &Manager) -> Result<Vec<Runner>> {
+pub fn preparation_runners(m: &Manager, initial_setups: impl IntoIterator<Item=Environment>) -> Result<Vec<Runner>> {
     let owned = installed_identity_records(m)?;
     let mut bindings = m.registry()?.classes.into_values()
         .map(|entry| entry.registration.environment).collect::<Vec<_>>();
     bindings.extend(environment_revision::installer_records(m)?.into_iter()
         .map(|record| record.environment));
+    bindings.extend(initial_setups);
     let no_setups = bindings.is_empty();
     let mut selected = Vec::new();
     for bound in bindings {
@@ -902,15 +903,17 @@ mod tests {
         retained_revision(&f.m, &unused);
         f.r.environment.runner = runner.clone();
         atomic_json(&f.r.environment.root.join("environment.json"), &f.r.environment).unwrap();
+        assert_eq!(preparation_runners(&f.m, [f.r.environment.clone()]).unwrap(), vec![runner.clone()],
+            "an unpublished initial setup selects its retained generation");
         f.m.register(f.r.clone()).unwrap();
         let mut other = f.r.clone();
         other.metadata.class_id = "02".repeat(16);
         f.m.register(other).unwrap();
-        assert_eq!(preparation_runners(&f.m).unwrap(), vec![runner]);
+        assert_eq!(preparation_runners(&f.m, []).unwrap(), vec![runner]);
         let mut changed = f.r.environment.clone();
         changed.runner.version = "unproven replacement".into();
         atomic_json(&changed.root.join("environment.json"), &changed).unwrap();
-        assert!(preparation_runners(&f.m).unwrap().is_empty());
+        assert!(preparation_runners(&f.m, []).unwrap().is_empty());
     }
     #[test]
     fn verification_progress_is_scoped_and_cleared_when_tree_verification_fails() {

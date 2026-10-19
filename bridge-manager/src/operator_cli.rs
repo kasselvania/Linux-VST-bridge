@@ -570,7 +570,8 @@ fn pulse(m: &Manager) -> Result<ui::Pulse> {
         Duration::from_millis(200), &mut vec![])
         .and_then(|_guard| capacity::owners(m)).ok();
     let pending = pending_transactions(m)?;
-    let operation = automatic_install::current_operation(m)?;
+    let mut operation = automatic_install::current_operation(m)?;
+    present_verification_progress(m, &mut operation);
     let operation_live = operation.as_ref().and_then(|v|v["state"].as_str())
         .is_some_and(operation_state_live);
     Ok(ui::Pulse {schema:ui::OPERATOR_SCHEMA,
@@ -4108,26 +4109,39 @@ fn rescan_environment_locked(
             "prior_report_sha256":retry.report_sha256}))}))
 }
 fn verification_progress(m: &Manager, id: &str, counts: Option<(usize, usize)>) -> Result<()> {
-    // Progress is optional and never delays verification behind a UI receipt.
-    let _lock = match m.try_lock("operator-receipt.lock")? {
-        operator_lock::LockAttempt::Acquired(lock) => lock,
-        operator_lock::LockAttempt::Busy => return Ok(()),
-    };
-    let path = job_dir(m, id)?.join("result.json");
-    let mut value = optional(&path)?;
-    if value["operation"] != id
-        || !matches!(value["state"].as_str(), Some("waiting" | "running")) { return Ok(()); }
+    require(valid_hex(id, 32), "operator_operation_identity")?;
+    // Advisory files live outside watched control records and directories.
+    // They never change an operation receipt, generation or admission token.
+    let directory = m.root.join("operator-progress");
+    let path = directory.join(format!("{id}.json"));
     match counts {
         Some((checked, total)) => {
             require(checked <= total && total > 0 && total <= 40000, "runtime_progress_extent")?;
-            value["runtime_verification"] = json!({"checked":checked,"total":total});
+            private_dir(&directory)?;
+            atomic_json(&path, &json!({"operation":id,"checked":checked,"total":total}))?;
         },
-        None => { if let Some(object) = value.as_object_mut() { object.remove("runtime_verification"); } },
+        None => match fs::remove_file(path) {
+            Ok(()) => (),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => (),
+            Err(error) => return Err(error.into()),
+        },
     }
-    atomic_json(&path, &value)?;
-    let latest = m.root.join("operator/latest.json");
-    if optional(&latest)?["operation"] == id { atomic_json(&latest, &value)?; }
     Ok(())
+}
+fn present_verification_progress(m: &Manager, operation: &mut Option<Value>) {
+    let Some(value) = operation.as_mut() else { return };
+    if !matches!(value["state"].as_str(), Some("waiting" | "running")) { return }
+    let Some(id) = value["operation"].as_str().filter(|id| valid_hex(id, 32)) else { return };
+    let read = || -> Result<Value> {
+        let path = m.root.join("operator-progress").join(format!("{id}.json"));
+        require(file(&path)?.metadata()?.len() <= 1024, "runtime_progress_extent")?;
+        let counts: Value = read_json(&path)?;
+        require(counts["operation"] == id && counts["checked"].as_u64().zip(counts["total"].as_u64())
+            .is_some_and(|(checked,total)| checked <= total && total > 0 && total <= 40000),
+            "runtime_progress_extent")?;
+        Ok(json!({"checked":counts["checked"],"total":counts["total"]}))
+    };
+    if let Ok(counts) = read() { value["runtime_verification"] = counts; }
 }
 fn worker(m: &Manager, id: &str) -> Result<()> {
     // One operation reads each exact runtime artifact afresh, then reuses only
@@ -9087,21 +9101,30 @@ mod dead_worker_reconciliation {
         optional(&job_dir(m, id).unwrap().join("result.json")).unwrap()
     }
     #[test]
-    fn runtime_progress_preserves_receipts_and_never_reopens_terminal_operations() {
+    fn runtime_progress_preserves_control_generation_and_terminal_receipts() {
         let f = test_fixture::Fixture::new();
         let id = operation(&f.m, "running");
         let original = receipt(&f.m, &id);
+        let generation = pulse_generation(&f.m).unwrap();
         verification_progress(&f.m, &id, Some((3, 10))).unwrap();
-        assert_eq!(receipt(&f.m, &id)["runtime_verification"]["checked"], 3);
-        verification_progress(&f.m, &id, None).unwrap();
+        assert_eq!(pulse_generation(&f.m).unwrap(), generation);
         assert_eq!(receipt(&f.m, &id), original);
-        let lock = f.m.lock("operator-receipt.lock").unwrap();
+        let mut shown = Some(original.clone());
+        present_verification_progress(&f.m, &mut shown);
+        assert_eq!(shown.unwrap()["runtime_verification"]["checked"], 3);
         verification_progress(&f.m, &id, Some((4, 10))).unwrap();
-        assert_eq!(receipt(&f.m, &id), original);
-        drop(lock);
+        assert_eq!(pulse_generation(&f.m).unwrap(), generation);
+        verification_progress(&f.m, &id, None).unwrap();
+        assert_eq!(pulse_generation(&f.m).unwrap(), generation);
+        let mut shown = Some(original.clone());
+        present_verification_progress(&f.m, &mut shown);
+        assert_eq!(shown.unwrap(), original);
         write_operation(&f.m, &id, &json!({"schema":1,"operation":id,"state":"completed"}), false).unwrap();
         let completed = receipt(&f.m, &id);
         verification_progress(&f.m, &id, Some((5, 10))).unwrap();
+        let mut shown = Some(completed.clone());
+        present_verification_progress(&f.m, &mut shown);
+        assert_eq!(shown.unwrap(), completed);
         assert_eq!(receipt(&f.m, &id), completed);
     }
     fn suspend_for(m: &Manager, owner: &str) {
