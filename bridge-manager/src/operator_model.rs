@@ -1033,7 +1033,9 @@ impl Action {
     /// use the manager's exact offered refusal and repeat that check on execution.
     pub fn requires_global_inactive(&self) -> bool {
         self.requires_inactive() && !matches!(self,
-            Self::CandidateHistoryComplete { .. }
+            Self::VendorSoftwareInstall { .. }
+                | Self::VendorApplicationOpen { .. }
+                | Self::CandidateHistoryComplete { .. }
                 | Self::CompatibilityPublishTest { .. }
                 | Self::CompatibilityResult { .. }
                 | Self::CompatibilityFinishResult { .. }

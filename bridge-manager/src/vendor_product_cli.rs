@@ -72,9 +72,17 @@ pub(super) fn finish_scan(
     finish_scan_bounded(child,job,owner,pending,Duration::from_secs(190))
 }
 pub(super) fn finish_scan_bounded(
-    mut child: Child,job:&SessionSpec,owner:&Path,mut pending:PendingAdmission,
+    child: Child,job:&SessionSpec,owner:&Path,pending:PendingAdmission,
     timeout:Duration,
 )->Result<()> {
+    finish_scan_retirement(child,job,owner,pending,timeout,None)
+}
+pub(super) fn finish_scan_with_registry(m:&Manager,child:Child,job:&SessionSpec,
+    owner:&Path,pending:PendingAdmission)->Result<()> {
+    finish_scan_retirement(child,job,owner,pending,Duration::from_secs(190),Some(m))
+}
+fn finish_scan_retirement(mut child:Child,job:&SessionSpec,owner:&Path,
+    mut pending:PendingAdmission,timeout:Duration,manager:Option<&Manager>)->Result<()> {
     // Inspection uses the same supervisor as DSP/editor sessions. Its first
     // stdout record is therefore the preflight-ready ownership boundary, not
     // the terminal retirement receipt. Consume readiness before exposing the
@@ -100,6 +108,8 @@ pub(super) fn finish_scan_bounded(
     if let Some(stdout) = child.stdout.take() {
         stdout.take(128).read_to_string(&mut receipt)?;
     }
+    let _registry=manager.map(|m|m.lock_bounded(operator_model::OperatorLock::Registry,
+        operator_model::LockPurpose::ServiceRecovery,None,Duration::from_secs(2))).transpose()?;
     pending.complete(
         &job.session,
         status.success(),

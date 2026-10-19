@@ -18,6 +18,7 @@ pub(super) fn launch(m: &Manager, op: &str) -> Result<life::Submission> {
     let directory = life::operation_dir(m, op)?;
     let spec = dep::bind(&application, &software, op, &directory.join("result.json"))?;
     let _guard = m.lock("registry.lock")?;
+    require(!operator_cli::vendor_maintenance::blocks(m,&application.environment)?,"setup_maintenance_active")?;
     m.require_inactive(None)?;
     require(
         all_retired(m)? && renderer_cli::all_retired(m)?,

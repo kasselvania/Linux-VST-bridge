@@ -1197,6 +1197,7 @@ fn stage(m: &Manager, inputs: &Inputs, manifest: PackageManifest,
     Ok(result)
 }
 fn preflight(m: &Manager, service: &impl ServiceControl) -> Result<()> {
+    require(operator_cli::all_operations_finished(m)?,"package_operator_active_or_ambiguous")?;
     require(!reconcile_leases(m)?, "package_cleanup_unconfirmed")?;
     m.require_inactive(None)?;
     require(capacity::owners(m)?.is_empty(), "package_owner_active")?;
@@ -1229,8 +1230,10 @@ fn settle_interrupted(m: &Manager, service: &impl ServiceControl) -> Result<()> 
             eprintln!("An interrupted bridge task was not completely finished: {failure}");
         }
         // A live task may own its app session and that session's writer.
-        if !operator_cli::all_operations_finished(m)? { return Ok(()); }
-        service.reverify_vendor(m, deadline.saturating_duration_since(Instant::now()))
+        if !operator_cli::all_workers_finished(m)? { return Ok(()); }
+        service.reverify_vendor(m, deadline.saturating_duration_since(Instant::now()))?;
+        let recovery=operator_cli::vendor_maintenance::reconcile(m, |operation| service.worker_live(operation))?;
+        require(recovery.failures.is_empty(),&recovery.failures.join("; "))
     })().map_err(gate_refusal)
 }
 /// Setup has no per-app Recover; its refusals end with Setup's own next step.
@@ -1295,6 +1298,7 @@ fn running_package_census_tools() -> Result<(Artifact, Artifact)> {
 }
 fn recovery_preflight(m: &Manager,
     transition: &CoordinatedTransition, service: &impl ServiceControl) -> Result<()> {
+    require(operator_cli::all_operations_finished(m)?,"package_operator_active_or_ambiguous")?;
     require(!reconcile_leases(m)?, "package_cleanup_unconfirmed")?;
     m.require_inactive(None)?;
     require(capacity::owners(m)?.is_empty(), "package_owner_active")?;
@@ -1719,6 +1723,7 @@ fn settle_resume_handoff_with_registry(m: &Manager, service: &impl ServiceContro
     {
         let registry = acquire_registry()?;
         registry.require_registry(m)?;
+        require(operator_cli::all_operations_finished(m)?,"package_operator_active_or_ambiguous")?;
         m.require_inactive(None)?;
         require(owners == capacity::owners(m)?,"package_owners_changed")?;
         require(transition.setup.is_after()?
@@ -2531,6 +2536,7 @@ fn stop_gate(m: &Manager, service: &impl ServiceControl,
     {
         let registry = acquire_registry()?;
         registry.require_registry(m)?;
+        require(operator_cli::all_operations_finished(m)?,"package_operator_active_or_ambiguous")?;
         m.require_inactive(None)?;
         require(capacity::owners(m)? == before, "package_owners_changed")?;
         require(operator_cli::pending_transactions(m)? == 0,

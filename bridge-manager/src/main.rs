@@ -1278,6 +1278,43 @@ fn observe_keeper(environment: &str, active: &mut Vec<KeeperOwner>)
     else { Err("environment owner published a non-ready live result".into()) }
 }
 
+fn retire_vendor_keeper(m:&Manager,operation:&str,keepers:&Keepers)->Result<()> {
+    let deadline=Instant::now()+Duration::from_secs(30);
+    loop {
+        {
+            let (registry,_)=m.lock_bounded(operator_model::OperatorLock::Registry,
+                operator_model::LockPurpose::ServiceRecovery,None,Duration::from_secs(2))?;
+            let environment=operator_cli::vendor_maintenance::owned(m,operation)?
+                .ok_or("setup_maintenance_owner_missing")?;
+            capacity::require_environment_inactive(m,&environment)?;
+            let mut active=keepers.lock().map_err(|_|"environment ownership lock poisoned")?;
+            let observed=observe_keeper(&environment.id,&mut active)?;
+            if observed==Some(KeeperAvailability::Failed) {
+                // Failed here means the exact child was reaped with its cleanup
+                // receipt. An uncertain generation makes observe_keeper fail.
+                active.retain(|owner|owner.environment!=environment.id);
+            }
+            if let Some(owner)=active.iter_mut().find(|owner|owner.environment==environment.id) {
+                if !owner.retiring {
+                    require(unsafe {libc::kill(owner.child.id() as i32,libc::SIGTERM)}==0,
+                        "setup_keeper_retirement_request")?;
+                    owner.retiring=true;
+                }
+            } else {
+                for owner in capacity::owners_for(m,Some(&environment))? {
+                    let scope=m.lease_environment(&owner.session)?;
+                    require(scope.id!=environment.id && scope.root!=environment.root,
+                        "setup_keeper_cleanup_unconfirmed")?;
+                }
+                return Ok(());
+            }
+            drop(active);drop(registry);
+        }
+        require(Instant::now()<deadline,"setup_keeper_retirement_deadline")?;
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
 fn retire_mismatched_graphical_keeper(m:&Manager,environment:&Environment,
     requested:Option<&transport_storage::GraphicalSession>,active:&mut [KeeperOwner])
     -> Result<bool> {
@@ -1311,6 +1348,7 @@ fn stage_keeper_with_history(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keep
     -> Result<KeeperAvailability> {
     // All keeper callers, including inspection and vendor access, must prove
     // selected V4 history before reusing an owner or creating session state.
+    require(!operator_cli::vendor_maintenance::blocks(m,&r.environment)?, "setup_maintenance_active")?;
     verify_history(m, &r.environment)?;
     let mut active=keepers.lock().map_err(|_|"environment ownership lock poisoned")?;
     if let Some(owner)=active.iter_mut().find(|owner|owner.environment==r.environment.id) {
@@ -1722,6 +1760,15 @@ fn serve(m: Manager) -> Result<()> {
                 let mut greeting = [0; 117];
                 peer.read_exact(&mut greeting[..5])?;
                 if &greeting[..5] != b"LVP1\n" { blocked.refresh(&m)?; }
+                if &greeting[..5]==b"LVM1\n" {
+                    peer.read_exact(&mut greeting[5..37])?;
+                    let operation=std::str::from_utf8(&greeting[5..37])?;
+                    require(valid_hex(operation,32),"setup_maintenance_operation")?;
+                    retire_vendor_keeper(&m,operation,&keepers)?;
+                    peer.set_write_timeout(Some(Duration::from_secs(1)))?;
+                    peer.write_all(b"LVM1 retired\n")?;
+                    return Ok(());
+                }
                 if &greeting[..5]==b"LVE2\n" {
                     // Maintenance admitted no active DSP. Restore control
                     // service availability only; native admission owns exact
@@ -1954,7 +2001,11 @@ fn serve(m: Manager) -> Result<()> {
                     let mut observed=None;
                     let reservation=wait_for_keeper(keeper_deadline,
                         || capacity::reserve_environment(&m,&limits,&class,&r.environment,
-                            || blocked.blocks_environment(&m,&r.environment)),
+                            || {
+                                require(!operator_cli::vendor_maintenance::blocks(&m,&r.environment)?,
+                                    "setup_maintenance_active")?;
+                                blocked.blocks_environment(&m,&r.environment)
+                            }),
                         || {
                             let registry=m.registry()?;
                             require(registry.classes.get(&class).is_some_and(|entry|
@@ -2008,7 +2059,11 @@ fn serve(m: Manager) -> Result<()> {
                     ready_verified.run(|| {
                     let _reservation=wait_for_keeper(keeper_deadline,
                         || capacity::reserve_environment(&m,&limits,&class,&r.environment,
-                            || blocked.blocks_environment(&m,&r.environment)),
+                            || {
+                                require(!operator_cli::vendor_maintenance::blocks(&m,&r.environment)?,
+                                    "setup_maintenance_active")?;
+                                blocked.blocks_environment(&m,&r.environment)
+                            }),
                         || {
                             let registry=m.registry()?;
                             require(registry.classes.get(&class).is_some_and(|entry|

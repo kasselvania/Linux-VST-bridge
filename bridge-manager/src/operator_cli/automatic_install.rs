@@ -41,7 +41,7 @@ pub(crate) struct ClassWork {
     result_index: usize,
     check: Option<String>,
     candidate: Option<String>,
-    active_operation: Option<String>,
+    pub(super) active_operation: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -131,7 +131,9 @@ pub(super) fn vendor_checkpoint_authority(m: &Manager) -> Result<Vec<Value>> {
     current_vendor_bindings(m)?.into_iter().map(|binding| {
         let path=checkpoint(m,&binding.operation)?;
         let artifact=if path.exists() { Some(control_artifact(path)?) } else { None };
-        Ok(json!({"binding":binding,"checkpoint":artifact}))
+        let maintenance=job_dir(m,&binding.operation)?.join("vendor-maintenance-state.json");
+        let maintenance=if maintenance.try_exists()? {Some(control_artifact(maintenance)?)} else {None};
+        Ok(json!({"binding":binding,"checkpoint":artifact,"maintenance":maintenance}))
     }).collect()
 }
 
@@ -757,11 +759,19 @@ fn execute_with_vendor(m:&Manager,action:&ui::Action,operation:&str,
             false,
         )?;
     }
-    let result = execute_owned(m, action, operation, capacity_read, timeout, waits, vendor_run);
+    let result = vendor_maintenance::with_executor(operation,||
+        execute_owned(m, action, operation, capacity_read, timeout, waits, vendor_run));
     if let Err(error) = &result {
         fail_early_preparation(m, operation, error)?;
     }
-    result
+    if matches!(action,ui::Action::VendorSoftwareInstall {..}|ui::Action::SoftwareInstallResume {..}) {
+        let cleanup=vendor_maintenance::settle_executor(m,operation);
+        match (result,cleanup) {
+            (Ok(value),Ok(()))=>Ok(value),
+            (Err(error),_)=>Err(error),
+            (Ok(_),Err(error))=>Err(error),
+        }
+    } else {result}
 }
 
 fn fail_early_preparation(m: &Manager, operation: &str, error: impl ToString) -> Result<()> {
@@ -1014,6 +1024,7 @@ fn execute_owned(
                     intent.previous = Some(retain_vendor_intent(m, &prior)?);
                 }
             }
+            intent.active_operation=operation.into();
             save(m, &record, &intent, operation)?;
             let record = reserve_vendor_revision(m, &record, &intent)?;
             vendor_run(&record,&mut intent,waits)?;
@@ -1038,6 +1049,8 @@ fn execute_owned(
             )?;
             let mut intent = intent;
             let record: Box<dyn InstallationTarget> = if intent.vendor.is_some() {
+                intent.active_operation=operation.into();
+                save(m,&record,&intent,operation)?;
                 Box::new(reserve_vendor_revision(m, &record, &intent)?)
             } else { Box::new(record) };
             if intent.vendor.is_some() {vendor_run(record.as_ref(),&mut intent,waits)?;}
@@ -1142,21 +1155,28 @@ fn restart_vendor_intent(m:&Manager,prior:&Intent,operation:&str,daw:ui::DawChoi
 }
 fn reserve_vendor_revision(m:&Manager,record:&dyn InstallationTarget,intent:&Intent)->Result<Environment> {
     let _ownership=m.lock("onboarding.lock")?;
-    let _registry=m.lock("registry.lock")?;
     let directory=job_dir(m,&intent.owner)?;
+    let existing=directory.join("vendor-maintenance.json").try_exists()?;
+    let retirement=if existing {None} else {Some(vendor_maintenance::observe_retired(m,record.environment())?)};
+    let _registry=m.lock("registry.lock")?;
+    require(directory.join("vendor-maintenance.json").try_exists()?==existing,"vendor_maintenance_generation_changed")?;
+    if let Some(retirement)=retirement {retirement.verify(m)?;}
     if directory.join("vendor-maintenance.json").exists(){
         let binding=environment_revision::vendor_record(m,&intent.owner)?;
         require(binding.application==intent.vendor.as_ref().unwrap().application
             && binding.vendor_operation==intent.vendor.as_ref().unwrap().operation,"automatic_vendor_revision_changed")?;
         let current:Environment=read_json(&binding.environment.root.join("environment.json"))?;
+        require(current==binding.before || current==binding.environment,"automatic_vendor_revision_changed")?;
+        vendor_maintenance::acquire(m,&binding,intent)?;
         if current==binding.before {
             atomic_json(&binding.environment.root.join("environment.json"),&binding.environment)?;
         } else { require(current==binding.environment,"automatic_vendor_revision_changed")?; }
         drop(_registry);drop(_ownership);
         return Ok(binding.environment)
     }
-    m.require_inactive(None)?;
-    require(vendor_retired(m)? && onboarding::all_retired(m)?,"operator_vendor_cleanup_unconfirmed")?;
+    require(!vendor_maintenance::blocks(m,record.environment())?,"setup_maintenance_active")?;
+    capacity::require_environment_inactive(m,record.environment())?;
+    require(pending_transactions(m)?==0,"operator_pending_transaction_reconcile")?;
     environment_runtime::require_settled(m,record.id())?;
     let before=environment_install::target(m,record.id())?;
     let mut after=before.clone();after.revision=after.revision.checked_add(1).ok_or("environment_revision_exhausted")?;
@@ -1164,6 +1184,7 @@ fn reserve_vendor_revision(m:&Manager,record:&dyn InstallationTarget,intent:&Int
     let binding=environment_revision::VendorBinding{schema:1,operation:intent.owner.clone(),
         application:vendor.application.clone(),selected:vendor.selected.clone(),vendor_operation:vendor.operation.clone(),before,environment:after};
     atomic_json(&directory.join("vendor-maintenance.json"),&binding)?;
+    vendor_maintenance::acquire(m,&binding,intent)?;
     atomic_json(&binding.environment.root.join("environment.json"),&binding.environment)?;
     drop(_registry);drop(_ownership);
     Ok(binding.environment)
@@ -1226,7 +1247,7 @@ fn run_vendor(
             vendor_cli::reconcile(m,&vendor.application,&vendor.operation)?;
             let result = vendor_cli::result(m, &vendor.application, &vendor.operation)?;
             require(result.retired(), "operator_vendor_cleanup_unconfirmed")?;
-            resume_interrupted(m)?;
+            if vendor_maintenance::owned(m,operation)?.is_none() {resume_interrupted(m)?;}
             Ok(json!({"result":result}))
         } else {
             open_vendor_owned(
@@ -2649,6 +2670,7 @@ mod tests {
             assert_eq!(current_journey(&f.m,&intent).unwrap().phase,ui::InstallationPhase::AwaitingApplication);
             assert_ne!(intent.journey.phase,ui::InstallationPhase::Available);
             assert!(empty_vendor_handoff(&f.m,&intent).unwrap());
+            vendor_maintenance::settle_executor(&f.m,&owner).unwrap();
             let row=vendor_projection(&f.m,&selector,None).unwrap().unwrap();
             assert!(row.actions.iter().any(|a|a.disabled_reason.is_none()
                 && matches!(&a.action,ui::Action::VendorSoftwareInstall {application,..} if application == &selector)));
@@ -2684,6 +2706,82 @@ mod tests {
         assert_eq!(fs::read(onboarding::directory(&f.m,&record.id).unwrap().join(format!("{}-result.json",record.installation_operation.as_ref().unwrap()))).unwrap(),original);
         let mut foreign=after.clone();foreign.revision+=1;atomic_json(&foreign.root.join("environment.json"),&foreign).unwrap();
         assert_eq!(reserve_vendor_revision(&f.m,&record,&intent).unwrap_err().to_string(),"automatic_vendor_revision_changed");
+    }
+    #[test]
+    fn vendor_maintenance_scope_and_corrupt_receipt_recovery() {
+        let (f,c,record,mut intent)=setup();
+        let after=vendor_edge(&f,&c,&record,&mut intent);
+        reserve_vendor_revision(&f.m,&record,&intent).unwrap();
+        assert!(vendor_maintenance::blocks(&f.m,&after).unwrap());
+        let mut other=after.clone();other.id=random_id().unwrap();other.root=f.outer.join("other-setup");
+        assert!(!vendor_maintenance::blocks(&f.m,&other).unwrap());
+        let selector=intent.vendor.as_ref().unwrap().application.clone();
+        let path=vendor_cli::directory(&f.m,&selector).unwrap().join("operation.json");
+        atomic_json(&path,&json!({"operation_id":42})).unwrap();
+        readiness::with_unit_state_fixture(&[vendor_cli::unit(&selector).unwrap()],"inactive",|| {
+            let recovery=vendor_maintenance::reconcile(&f.m,|_|Ok(false)).unwrap();
+            assert_eq!(recovery.settled,0);assert_eq!(recovery.failures.len(),1);
+            assert!(vendor_maintenance::blocks(&f.m,&after).unwrap());
+            fs::remove_file(&path).unwrap(); // test-owned malformed fixture only
+            let intent_bytes=fs::read(job_dir(&f.m,&intent.owner).unwrap().join("automatic.json")).unwrap();
+            let recovery=vendor_maintenance::reconcile(&f.m,|_|Ok(true)).unwrap();
+            assert_eq!(recovery.settled,0);
+            assert!(vendor_maintenance::blocks(&f.m,&after).unwrap());
+            let recovery=vendor_maintenance::reconcile(&f.m,|_|Ok(false)).unwrap();
+            assert!(recovery.failures.is_empty(),"{:?}",recovery.failures);
+            assert_eq!(recovery.settled,1);
+            assert!(!vendor_maintenance::blocks(&f.m,&after).unwrap());
+            assert_eq!(fs::read(job_dir(&f.m,&intent.owner).unwrap().join("automatic.json")).unwrap(),intent_bytes);
+        });
+    }
+    #[test]
+    fn held_vendor_refuses_keeper_and_stop_uses_exact_job_without_global_pause() {
+        let (f,c,record,mut intent)=setup();
+        let after=vendor_edge(&f,&c,&record,&mut intent);
+        reserve_vendor_revision(&f.m,&record,&intent).unwrap();
+        let mut binding:HostBinding=f.r.clone().into();binding.environment=after;
+        let sw=Software {manager:f.r.host.clone(),supervisor:f.r.host.clone(),ownership:f.r.host.clone(),
+            host:f.r.host.clone(),source_manifest:f.r.host.clone(),source_sha256:f.r.host.sha256.clone(),
+            installer_launch:None,preparation_kit:None,operator_frontend:None,native_catalogue:None};
+        let keepers=Keepers::new(vec![]);
+        let registry=f.m.lock("registry.lock").unwrap();
+        let error=stage_keeper_with_history(&f.m,&sw,&binding,&keepers,None,
+            |_,_|panic!("Held setup must refuse before reuse"),|_,_|panic!("Held setup must not launch")).err().unwrap();
+        assert_eq!(error.to_string(),"setup_maintenance_active");
+        drop(registry);
+        let vendor=intent.vendor.as_ref().unwrap();
+        let directory=vendor_cli::directory(&f.m,&vendor.application).unwrap();
+        atomic_json(&directory.join("operation.json"),&vendor_application::Operation {
+            application:vendor_cli::application(&f.m,&vendor.application).unwrap(),report:directory.join("operation-result.json"),
+            mode:vendor_application::LaunchMode::Normal,operation_id:vendor.operation.clone(),launcher:None,managed:None,capability_notice:None}).unwrap();
+        stop_vendor_with(&f.m,&vendor.application,|operation| {
+            assert_eq!(operation,vendor.operation);Ok(())
+        },|_|panic!("Scoped stop must not restore shared service")).unwrap();
+        assert!(vendor_maintenance::blocks(&f.m,&binding.environment).unwrap());
+        assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    #[test]
+    fn resumed_vendor_reacquires_lifecycle_for_new_executor() {
+        let (f,c,record,mut intent)=setup();
+        let after=vendor_edge(&f,&c,&record,&mut intent);
+        reserve_vendor_revision(&f.m,&record,&intent).unwrap();
+        let selector=intent.vendor.as_ref().unwrap().application.clone();
+        readiness::with_unit_state_fixture(&[vendor_cli::unit(&selector).unwrap()],"inactive",|| {
+            vendor_maintenance::settle_executor(&f.m,&intent.active_operation).unwrap();
+        });
+        assert!(!vendor_maintenance::blocks(&f.m,&after).unwrap());
+        let prior=intent.active_operation.clone();
+        let executor=random_id().unwrap();private_dir(&job_dir(&f.m,&executor).unwrap()).unwrap();
+        atomic_json(&job_dir(&f.m,&executor).unwrap().join("request.json"),&ui::Request {
+            schema:ui::OPERATOR_SCHEMA,state_token:"test".into(),
+            action:ui::Action::SoftwareInstallResume {onboarding:record.id.clone()}}).unwrap();
+        intent.active_operation=executor.clone();save(&f.m,&record,&intent,&executor).unwrap();
+        assert!(vendor_maintenance::blocks(&f.m,&after).is_err(),"Old settlement cannot release a new executor");
+        reserve_vendor_revision(&f.m,&record,&intent).unwrap();
+        assert_eq!(vendor_maintenance::owned(&f.m,&executor).unwrap(),Some(after.clone()));
+        assert_eq!(vendor_maintenance::owned(&f.m,&prior).unwrap(),None);
+        vendor_maintenance::settle_executor(&f.m,&prior).unwrap();
+        assert!(vendor_maintenance::blocks(&f.m,&after).unwrap());
     }
     fn initial_intent(record: &onboarding::Record) -> Intent {
         Intent { installer_policy:None,owner:record.creation_operation.clone(), active_operation:record.creation_operation.clone(),
@@ -2758,7 +2856,8 @@ mod tests {
                 software:"ab".repeat(32),vendor_operation:None}).unwrap();
         }
         let reservation=f.m.root.join("operator/resume.json");
-        let failures=settle_dead_workers(&f.m,|_|Ok(false)).unwrap();
+        let failures=readiness::with_unit_state_fixture(&[vendor_cli::unit(&intent.vendor.as_ref().unwrap().application).unwrap()],"inactive",||
+            settle_dead_workers(&f.m,|_|Ok(false)).unwrap());
         assert!(failures.is_empty(),"{failures:?}");
         let receipt=|id:&str|optional(&job_dir(&f.m,id).unwrap().join("result.json")).unwrap();
         assert_eq!(receipt(&resume)["reason"],"operator_worker_terminated");
@@ -2908,9 +3007,11 @@ mod tests {
         let (f,mut record,_)=vendor_cli::selection::tests::installed_app();
         let intent=initial_intent(&record);record.automatic=Some(intent);
         atomic_json(&onboarding::directory(&f.m,&record.id).unwrap().join("record.json"),&record).unwrap();
-        let units=vendor_cli::selection::choices(&f.m,&record).unwrap().iter()
-            .map(|c|vendor_cli::unit(&c.application.selector().unwrap()).unwrap()).collect::<Vec<_>>();
         let project=|| {
+            // The installer receipt participates in each app selector. Refresh
+            // the observed unit after this test rewrites that receipt.
+            let units=vendor_cli::selection::choices(&f.m,&record).unwrap().iter()
+                .map(|c|vendor_cli::unit(&c.application.selector().unwrap()).unwrap()).collect::<Vec<_>>();
             let mut setup=installer_setup(&record);
             readiness::with_unit_state_fixture(&units,"inactive",||project_from_with(&f.m,
                 std::slice::from_mut(&mut setup),None,std::slice::from_ref(&record),&mut |_|Ok(false))).unwrap();

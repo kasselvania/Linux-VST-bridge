@@ -1207,11 +1207,12 @@ pub(super) fn admitted_inspection_spec(
     m: &Manager,
     binding: HostBinding,
     admission: impl FnOnce() -> Result<Lock>,
-) -> Result<(SessionSpec, PathBuf)> {
+) -> Result<(SessionSpec, PathBuf, Lock)> {
     let guard = admission()?;
     guard.require_registry(m)?;
-    m.require_inactive(None)?;
-    selected_inspection_spec(m, binding)
+    operator_cli::vendor_maintenance::require_inactive(m,&binding.environment)?;
+    let (job,path)=selected_inspection_spec(m,binding)?;
+    Ok((job,path,guard))
 }
 pub fn inspect(
     m: &Manager,
@@ -1234,7 +1235,7 @@ fn inspect_unretained(
     prep::verify_selection(m, s, &sw.host, &sw.source_sha256)?;
     let runtime = prep::build::stage_runtime(m)?;
     let stamp = observation::ModuleStamp::read(&s.module.path)?;
-    let (job, path) = admitted_inspection_spec(
+    let (job, path, admission_guard) = admitted_inspection_spec(
         m,
         HostBinding {
             metadata: ClassSelection {
@@ -1255,7 +1256,8 @@ fn inspect_unretained(
     let report = job.report.clone();
     bind_session_report(&job.session, &report, || -> Result<prep::Inspection> {
         let child = spawn(m, sw, &path, None)?;
-        vendor_product_cli::finish_scan(child, &job, &path, pending)?;
+        drop(admission_guard);
+        vendor_product_cli::finish_scan_with_registry(m,child,&job,&path,pending)?;
         require(
             observation::ModuleStamp::read(&s.module.path)? == stamp,
             "inspection_module_changed",
@@ -1685,7 +1687,7 @@ where
             "guided_check_preparation_basis")?;
         prep::verify_candidate(m, &c, &sw.host, &sw.source_sha256)?;
         let guard = m.lock("registry.lock")?;
-        m.require_inactive(None)?;
+        operator_cli::vendor_maintenance::require_inactive(m,&c.selection.environment)?;
         prep::retain_lineage(m, &c, operation, predecessor.as_deref())?;
         let lineage = prep::lineage(m, &c)?;
         require(lineage.preparation_identity == operation
@@ -1917,7 +1919,7 @@ pub(super) fn execute_with_progress(
             let candidate_reused = prep::retained_candidates(m)?.iter().any(|old| old == &c);
             prep::verify_candidate(m, &c, &sw.host, &sw.source_sha256)?;
             let guard = m.lock("registry.lock")?;
-            m.require_inactive(None)?;
+            operator_cli::vendor_maintenance::require_inactive(m,&c.selection.environment)?;
             prep::retain_lineage(m, &c, operation, predecessor.as_deref())?;
             let id = prep::record_candidate(m, &c)?;
             drop(guard);
