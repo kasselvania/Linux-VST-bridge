@@ -3013,9 +3013,15 @@ mod tests {
     #[test]
     fn timed_out_keeper_retirement_becomes_a_stable_failure() {
         let f=test_fixture::Fixture::new();
-        let (mut owner,report,lease)=fixture_keeper(&f,
-            "exec python3 -c 'import signal,sys,time; signal.signal(signal.SIGTERM,lambda *_:sys.exit(0)); time.sleep(5)'");
-        std::thread::sleep(Duration::from_millis(50));
+        let ready=f.outer.join("keeper-handler-ready");
+        let (mut owner,report,lease)=fixture_keeper(&f,&format!(
+            "exec python3 -c 'import pathlib,signal,sys,time; signal.signal(signal.SIGTERM,lambda *_:sys.exit(0)); pathlib.Path({}).touch(); time.sleep(5)'",
+            serde_json::to_string(&ready).unwrap()));
+        let deadline=Instant::now()+Duration::from_secs(5);
+        while !ready.try_exists().unwrap() {
+            assert!(Instant::now()<deadline,"Keeper fixture did not install its signal handler");
+            std::thread::sleep(Duration::from_millis(10));
+        }
         owner.retiring=true;owner.failure_pending=true;
         unsafe{libc::kill(owner.child.id() as i32,libc::SIGTERM)};
         assert!(owner.child.wait().unwrap().success());
