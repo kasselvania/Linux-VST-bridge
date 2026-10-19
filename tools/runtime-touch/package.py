@@ -8,7 +8,9 @@ import json
 from pathlib import Path
 import shutil
 import tarfile
+import tempfile
 import build
+import compatibility
 
 GE_SHA='c5448b76a230384e2d7bc6beb5ccb97bafb7e2c3b6c527cb03a1a546bbcb00a0'
 GE_ROOT='GE-Proton11-7-x86_64'
@@ -70,8 +72,13 @@ def package(built,ge,output):
     header=artifact.read_bytes()[:20]
     if header[:6]!=b'\x7fELF\x02\x01' or int.from_bytes(header[18:20],'little')!=62:raise ValueError('Driver architecture')
     with tarfile.open(ge) as tar:
-        if hashlib.sha256(tar.extractfile(GE_ROOT+'/'+TARGET).read()).hexdigest()!=PREIMAGE:
+        original = tar.extractfile(GE_ROOT+'/'+TARGET).read()
+        if hashlib.sha256(original).hexdigest()!=PREIMAGE:
             raise ValueError('GE driver preimage changed')
+    with tempfile.TemporaryDirectory(prefix='driver-abi-', dir=built) as temporary:
+        preimage = Path(temporary)/'winex11.so'
+        preimage.write_bytes(original)
+        compatibility.verify(preimage, built)
     output.mkdir(mode=0o700);component=output/ROOT;component.mkdir()
     shutil.copyfile(artifact,component/'winex11.so')
     for name in ['build.py','build-manifest.json','apply-ge.sh','test_touch_flags.c',*build.PATCHES]:

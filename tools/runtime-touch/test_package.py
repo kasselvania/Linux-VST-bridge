@@ -33,6 +33,8 @@ class PackageTest(unittest.TestCase):
         with tarfile.open(self.ge,'w:gz') as tar:package.add_bytes(tar,package.GE_ROOT+'/'+package.TARGET,b'original')
         patch.object(package,'GE_SHA',build.sha(self.ge)).start()
         patch.object(package,'PREIMAGE',package.hashlib.sha256(b'original').hexdigest()).start()
+        # The ELF checker has separate real compiled-library negative tests.
+        self.compatibility = patch.object(package.compatibility, 'verify', return_value={}).start()
     def run_package(self):return package.package(self.built,self.ge,self.root/'package')
     def test_source_and_exact_replacement_accompany_binary(self):
         result=self.run_package()
@@ -41,6 +43,10 @@ class PackageTest(unittest.TestCase):
             self.assertEqual(tar.extractfile('wine/unchanged.c').read(),b'unchanged source')
             self.assertIn('upstream/ge.tar.gz',tar.getnames())
             self.assertIn('build.sh',tar.getnames())
+    def test_incompatible_driver_refused_before_package_creation(self):
+        self.compatibility.side_effect = ValueError('GE driver compatibility mismatch: imports')
+        with self.assertRaisesRegex(ValueError, 'compatibility mismatch'): self.run_package()
+        self.assertFalse((self.root/'package').exists())
     def test_changed_binary_refused(self):
         self.driver.write_bytes(b'changed')
         with self.assertRaisesRegex(ValueError,'Built driver changed'):self.run_package()

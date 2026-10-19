@@ -860,101 +860,46 @@ Both hosts retire cleanly. The ordinary GUI records eight observed checks, leavi
 processing restart unchecked. The original project, twelve registrations and five
 preferences are unchanged. This is a short functional test, not audio deadline qualification.
 This repaired journey required several shared fixes; first-attempt qualification remains unmet.
-Test214 (2026-10-18) updates the Deck from Test126 through the ordinary package path
-(staged signed SteamOS package, then `package-update` run by the staged package's own
-manager, as Setup's Update Bridge does) in six minutes with all 26 published classes
-retained: 24 refreshed onto the new manager, the two LVB Completion classes on Steam's
-Proton 11.0 kept as they were. Test212 and Test213 refused the same update with
-"artifact missing or changed" because Steam had updated that Proton build in place
-(8 of 31 pinned files) and the catalogue check, then the publication refresh,
-verified a setup's runtime at update time; both checks are removed on PR #470 and
-the rule is recorded in the architecture. Afterwards the Kontakt 8 project saved
-under Test126 on 15 October (Pad Noir, 4 s phrase) reopens in REAPER on the Deck's
-NI runtime, renders 0–4 s offline at −4.7 dB peak and plays through PulseAudio at
-−4.7 dB track and master peak, the same level as the Test126 measurement; the
-instrument needed about 20 s after project open before it produced sound. Driven
-headlessly as a user service with project and Lua script as launch arguments.
+Test214–215 / Steam Deck / REAPER: ordinary signed-package update from Test126
+retains all 26 published classes, refreshing 24 and preserving two tied to a
+changed Steam-owned runtime. The retained Kontakt Pad Noir project recalls and
+plays at −4.7 dB peak. Unhealthy foreign runtime admission remains setup-scoped
+(#470); preserved classes are not a claim that their changed runtime can launch.
 
-On the same Deck/Test214, the Reference setup moved from r4 to r5 through the
-runtime selector, compatibility checks in plug-in Details, and explicit test
-replacement of both connections. REAPER loaded two Reference Instrument instances
-with gain/colour .37/.21 and .63/.79, plus the Reference Effect at gain .71.
-Both tracks played MIDI with nonzero peaks (.01785 and .02735). After saving and
-fully exiting REAPER, a fresh process recalled all five changed parameter values
-and played both tracks again (peaks .01785 and .02558). After exit and the normal
-idle retirement period: DSP 0, keepers 0, no pending transactions, stale transports
-or cleanup failure. Test214's setup connection job still incorrectly requested
-replacement after the explicit replacements. Test215 fixes that continuation:
-the same **Continue connecting plug-ins** action completes with both classes
-Available and no failures, without changing either selected publication. This
-same saved project also reopens on Test215 with all five settings retained and
-both tracks playing (peaks .01785 and .02558), then exits normally. This covers
-Reference on REAPER; Bitwig remains unqualified.
+Product-managed Reference r4 → r5 migration and explicit connection replacement
+pass: two instruments retain gain/colour .37/.21 and .63/.79, and an effect retains
+gain .71 across save/full exit/fresh reopen. Both tracks play; retirement reaches
+DSP 0/keepers 0 without cleanup failure. Continue connecting completes without
+another publication revision. This check covers REAPER, not Bitwig.
 
-On Deck/Test215, the existing Serum setup moved from the retained touch-routing
-runtime to managed r5 through the product, followed by fresh compatibility checks
-and explicit replacement of the instrument and FX connections. Before the move,
-the retained Serum project played a six-note MIDI phrase at peak .283317. A fresh
-REAPER process reopened that saved project on r5, played at the same peak, saved
-a new copy and exited normally. A further session loaded Serum 2 followed by
-Serum 2 FX and played at the same peak; the instrument editor visibly rendered.
-The operator then reported that the requested finger-operated OSC A waveform-menu
-selection/dismissal stalled or lost the editor. Thus r5 fails this Deck touch
-journey despite the playback/recall result. The previous touch-routing runtime and
-both connections were restored through the product. Playback again peaked at
-.283317, and the operator confirmed the same physical-touch test worked after
-restoration. The operator also confirmed the longstanding incorrect transparency
-remains (#330); visible rendering above does not mean correct graphic fills.
-Test216 acquired managed GE r7 through the product and moved the Serum setup,
-then checked and refreshed both connections. In a copy of the retained project,
-REAPER changed instrument Main Vol to .37 and FX Main Vol to .61, played the MIDI
-phrase, saved and fully exited. A fresh REAPER process recalled both values
-(within .00001) and played at the same peak .136029, then exited normally. After
-idle retirement, DSP and keepers were zero with no pending transactions, stale
-transports or cleanup failure.
-The operator then confirmed that finger-operated OSC A waveform-menu selection,
-reopening and dismissal keep the instrument editor responsive on r7. This fixes
-the tested r5 touch regression. Incorrect transparency remains open (#330).
-Serum FX editor behavior and Bitwig remain unchecked.
+Serum 2 / Deck / Test215: migration to r5 retains playback/recall at peak .283317,
+but finger-operated OSC A waveform menus stall or lose editor response. Restoring
+the retained touch runtime through product operations restores the same physical
+interaction and playback. r5 does not pass this touch journey (#469, FC-UI-003).
+Transparency remains incorrect (#330); changed-parameter recall and the FX editor
+are not covered by this comparison.
 
-Test216 then compared the retained Kontakt Pad Noir project on the Deck's NI
-runtime and managed GE r7. The product moved the setup and refreshed Kontakt's
-connection. Playback before and after the move, and a fresh-process reopen of
-the project saved on r7, all peaked at .579848 (-4.7337 dB). Each REAPER playback
-session saved and exited normally. Kontakt's editor visibly showed Pad Noir and
-its instrument controls on r7. Native Access reached signed-in Home on the old
-runtime immediately before the move; its first launch on r7 instead displayed
-**Loading Products Failed**. The operator reported that Home loaded automatically
-before any physical Retry; a follow-up capture confirmed the signed-in Home
-screen. An earlier remote mouse Retry attempt was not confirmed received, so
-recovery cannot be attributed to it. The transient loading error remains noted;
-this run does not establish its cause or qualify installation/update behavior.
+Test216 / Deck Desktop / managed GE r7:
+- Serum 2 instrument/FX in REAPER retain Main Vol .37/.61 across save/full exit/
+  fresh reopen; playback peaks match at .136029 and retirement is clean. The
+  operator confirms finger waveform selection/reopening/dismissal stays responsive.
+  FX editor behavior and Serum in Bitwig are untested; transparency remains #330.
+- Migrated Kontakt Pad Noir in REAPER plays/recalls at peak .579848 before and
+  after the runtime move. Native Access reaches signed-in Home after a transient
+  Loading Products Failed screen clears without confirmed Retry. Fresh NI
+  installation/update on r7 remains untested.
+- Bitwig 6.1 Flatpak plays two Reference Instrument/Effect chains on r5 alongside
+  Kontakt on r7. Instrument Level/Colour .585/.365 and .675/.295, effect .375/.660
+  and Pad Noir survive save/full exit/reopen. Removing/reloading one chain leaves
+  siblings playing (DSP 5 → 3 → 5). Both 18.09-second output captures peak at
+  .044678; both exits retire to DSP 0/keepers 0 without cleanup failure. The
+  operator confirms Kontakt menu reopen/dismissal and Cutoff respond to fingers.
+  This covers cross-generation mixed use, not all-r7, Game Mode or audio deadlines.
 
-On Deck/Test216 in native Bitwig 6.1 (Flatpak, Desktop Mode), a copy of the
-retained Reference project plays two Reference Instrument/Effect chains from
-one r5 setup alongside Kontakt Pad Noir from the NI r7 setup. The instruments
-retain different Level/Colour settings (.585/.365 and .675/.295); both Reference
-effects retain .375/.660. All three tracks play an eight-bar MIDI phrase.
-Removing one Reference chain leaves the other Reference track and Kontakt
-playing, with DSP count 3; Undo reloads that chain with its settings and DSP count
-5. Save, full Bitwig exit and fresh-process reopen retain those values and Pad
-Noir. Two 18.0907-second desktop-output captures before and after reopening peak
-at .044678 (RMS .009962/.009963); all three track meters show output. Kontakt's
-editor opens, shows the recalled Pad Noir instrument and closes. Both full
-exits retire to DSP 0/keepers 0 with no pending transactions, stale transports or
-cleanup failure. This is a bounded functional check, not an audio-deadline soak,
-Game Mode qualification, or proof of every plug-in on r7.
-
-An older September KontaktStereo project copy opens with a missing-device
-placeholder in Bitwig although the current factory and saved processor identity
-match. Fresh Kontakt insertion works, as does the newly saved mixed project's
-recall. The older project's pre-migration Bitwig baseline was not established;
-its original bytes are preserved and this unresolved recall result is not a
-proven r7 regression. The audio/state-only Reference fixture has no custom editor
-in its source; the bridge nevertheless exposes an empty small editor window.
-That UI capability-handling gap remains open. In the reopened mixed project,
-the operator confirms that opening/dismissing the Kontakt Player menu twice
-with a finger and adjusting Cutoff leaves the editor responsive on r7.
+Open limits (#469): an older September KontaktStereo project copy resolves as
+missing despite matching class identity; its pre-migration baseline is unknown
+and original bytes are preserved. Reference has no custom editor, but the bridge
+offers an empty frame. Live Native Access overview can hide Stop (#468).
 
 Test35's ordinary GUI **Update Bridge** preserves twelve class/module/environment/
 compatibility bindings, five preferences, two saved projects and all 257 original

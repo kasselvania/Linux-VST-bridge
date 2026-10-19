@@ -379,22 +379,13 @@ were its own reads of a Wine stub, not evidence that Serum called that API.
 Serum 2 2.1.5 on Steam Deck: verified-fixed for the exact waveform popup
 interaction under candidate D. Candidate C's failure remains retained.
 
-Deck/Test215 migration check, 2026-10-18: the operator reports stalled or lost
-editor response during finger-operated OSC A waveform-menu selection/dismissal
-on managed GE r5. Playback and fresh-process recall passed before this check.
-r5's declared corrections are UIA and MSI only; its installed x64 X11 driver is
-byte-identical to the stock GE archive. Its pinned Wine base retains root-raw
-touch routing and the in-contact flag on release. Both retained touch
-patches apply to that base source in an isolated patch check. This is a concrete
-integration lead, not a verified r5 fix. After restoring the previous runtime and
-both connections through the product, playback again peaked at .283317 and the
-operator confirmed the same physical-touch test worked. This before/after supports
-the missing touch corrections as the cause of the r5 regression. On Test216,
-managed GE r7 integrates both corrections. Instrument/FX changed-state recall,
-playback and retirement passed, and the operator confirmed that finger-operated
-waveform selection, reopening and dismissal keep the editor responsive. The
-tested Serum touch regression is fixed on r7; other plug-ins still require their
-own checks. Serum's incorrect transparency remains separate (#330).
+Managed GE r5 omits the released-contact and per-window XI2 corrections, retaining
+INCONTACT on release and root-raw touch routing. Serum's finger waveform popup
+fails on r5 and works after restoring the retained touch runtime. Managed GE r7
+integrates both corrections: the operator confirms Serum waveform selection/
+reopening/dismissal and Kontakt menu/Cutoff interaction remain responsive on
+Deck/Test216. Musical state/recall checks pass; see `SUPPORT_MATRIX.md`. This is
+bounded cross-plug-in evidence, not universal touch support. Transparency is #330.
 
 ### Claim limit
 
@@ -406,26 +397,13 @@ FC-UI-001, FC-UI-002, FC-UI-005, FC-UI-006.
 
 ### Remaining gate
 
-The [exact lineage check](../evidence/serum-x11-touch-routing/cross-plugin-lineage.json)
-shows Blackhole's DComp Wine already has the per-window route; do not apply
-Serum's routing patch to it. Kontakt's NI Wine still has the root-raw route
-and accepts both source patches, but its managed runner/candidate transition
-needs a separately closed NI authority before a physical product check. Do
-not assign this Serum result to either product or Pigments' older release tail.
-
-### Evidence and historical sources
-
-[PLUGIN_RELIABILITY_FOLLOWUP](PLUGIN_RELIABILITY_FOLLOWUP.md), [candidate-C action capture](../evidence/serum-x11-touch-routing/candidate-c-action-capture.json), [candidate-D physical result](../evidence/serum-x11-touch-routing/candidate-d-physical.json), [PR #151](https://github.com/kasselvania/Linux-VST-bridge/pull/151).
-
-### Tracking issue
-
-No dedicated shared issue yet.
-
-### Last reviewed
-
-2026-09-24.
-
----
+Retain exact-runtime checks for other plug-ins. Blackhole's older DComp runtime
+already has per-window routing; do not infer its behavior from Serum or Kontakt.
+NI's r7 migration and physical check now pass; its fresh r7 installation journey
+remains required before beta. Track this integration in #469. Retained evidence: [lineage comparison](../evidence/serum-x11-touch-routing/cross-plugin-lineage.json),
+[candidate C](../evidence/serum-x11-touch-routing/candidate-c-action-capture.json),
+[candidate D](../evidence/serum-x11-touch-routing/candidate-d-physical.json),
+and [PR #151](https://github.com/kasselvania/Linux-VST-bridge/pull/151).
 
 ## FC-UI-004 — Windows touch-release processing continues long after X11 release
 
@@ -1133,13 +1111,10 @@ watch. Seven focused current-readback tests and all-target Clippy passed.
 Internal28 was built, installed and selected through normal product controls.
 Live installer recovery verification is pending.
 
-Deck/Test216 recurrence: while Native Access was visibly at Home on the retained
-NI runtime, repeated overview reads refused with
-`operator_current_artifact_changed_refresh`, preventing the offered Stop action
-from being submitted. A normal WM_DELETE_WINDOW request closed the application;
-its product operation then completed after post-close plug-in checks. The exact
-changing watched artifact remains to be isolated; the prior installer correction
-does not establish this vendor-application path is fixed.
+Live vendor-application readback also refuses `operator_current_artifact_changed_refresh`,
+hiding Stop while Native Access is at Home (Deck/Test216, retained NI runtime).
+Normal window close completes the product operation and post-close checks. Isolate
+the changing watched artifact; the installer fix does not cover this path (#468).
 
 The integrated successor separates exact Installer Focus/Stop admission from
 runtime verification and global DSP capacity. It retains current operation,
@@ -3789,7 +3764,7 @@ offline/online toggle).
 ## Beta reports under investigation
 
 - [#329](https://github.com/kasselvania/Linux-VST-bridge/issues/329): Choose another installer retains the setup and original history; the selected replacement owns subsequent plug-in connection or installed-app continuation. Missing installation folders require recovery rather than silent recreation. Final source review and packaged acceptance remain pending.
-- [#330](https://github.com/kasselvania/Linux-VST-bridge/issues/330): Serum 2 waveform/graphic fills render with incorrect transparency. Supplied Linux and native macOS images show the mismatch; a controlled rendering comparison and repair remain open. On Deck/Test215, 2026-10-18, the operator confirms this longstanding defect remains after restoring the working touch runtime. Touch recovery does not close the graphics defect.
+- [#330](https://github.com/kasselvania/Linux-VST-bridge/issues/330): Serum 2 waveform/graphic fills render with incorrect transparency. Supplied Linux and native macOS images show the mismatch; a controlled rendering comparison and repair remain open. Touch recovery does not close the graphics defect.
 - [#331](https://github.com/kasselvania/Linux-VST-bridge/issues/331): Generic X11 embedding now passes the first-party CachyOS / REAPER 7.82 custom editor, native Param/last-touched access, real Touch/Read envelope playback and saved-project recall after application restart. Commercial editor acceptance and whole-call audio timing remain open.
 
 - [#333](https://github.com/kasselvania/Linux-VST-bridge/issues/333): Fresh CachyOS (Test81) and the tester's own failed state (Test69 → Test83 update, #351): Retry moves a setup stuck on r4 to a new attempt on runtime r5; Native Access installs past its close check, opens, prepares NTKDaemon and returns the browser sign-in; Native Access installs Kontakt 8.13.1 and Kontakt becomes Available for REAPER (fresh setup). Open: Native Access's download location starts empty; the sign-in hand-back can take about a minute and was flaky once; Kontakt in the recovered setup was interrupted by a host freeze; DAW playback and save/reopen untested.

@@ -19,7 +19,9 @@ Observed on Test216:
   Clean retirement after both full exits passes. See `docs/SUPPORT_MATRIX.md`.
 
 Remaining:
-1. Review and land the existing two-PR stack; do not deepen it.
+1. #470 is merged. Finish #471 against main: verify the unchanged r7 driver
+   against GE, complete Tyrell editor/audio/changed-state recall, then review/land.
+   No new implementation PR until this runtime increment lands.
 2. Resolve the live Native Access overview refusal hiding Stop controls, the
    empty editor offered for a fixture with no custom editor, and an older Bitwig
    Kontakt project's missing-device result. Preserve the old project and compare
