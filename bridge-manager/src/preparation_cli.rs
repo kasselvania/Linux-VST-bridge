@@ -1388,6 +1388,16 @@ pub(super) fn retain_revalidation_candidate_checkpoint(m: &Manager, operation: &
 /// The supervised inspection a revalidation uses.
 pub(super) type Inspector<'a> = &'a dyn Fn(&Manager, &prep::Selection, &Software,
     Option<profiles::AudioLayoutPolicy>) -> Result<prep::Inspection>;
+// Setup revalidation preserves the predecessor's exact engine. Replacing it
+// with the selected kit requires the package-refresh publication owner.
+fn revalidation_runtime(m:&Manager,predecessor:&linux_vst_bridge::publication::Revision)
+    ->Result<prep::build::Runtime> {
+    let records=prep::RecordReadback::capture(m)?;
+    match records.publication_candidate_record(m,&predecessor.profile,&predecessor.registration)? {
+        Some(candidate)=>prep::build::existing_runtime(m,&candidate.recipe_sha256),
+        None=>prep::build::stage_runtime(m),
+    }
+}
 /// Check the same module and class again in its setup's current, owned
 /// revision after maintenance changed the setup (an uninstaller run), and
 /// publish that: in place of a current publication, or back into the DAW for
@@ -1404,7 +1414,7 @@ pub(super) fn revalidate_in_place(m: &Manager, class: &str, predecessor: &linux_
             && s.class.id.eq_ignore_ascii_case(class))
         .ok_or("unchanged_publication_selection_missing")?;
     let inspection = inspect(m, &selection, &sw, prior.registration.compatibility.audio_layout.clone())?;
-    let prepared = prep::revalidate_candidate(m, &prior, selection, prep::build::stage_runtime(m)?,
+    let prepared = prep::revalidate_candidate(m, &prior, selection, revalidation_runtime(m,&prior)?,
         inspection.report, operation);
     let cleanup = prep::build::cleanup_work(m, operation);
     let candidate = prepared?;
@@ -1766,7 +1776,7 @@ pub(super) fn execute_with_progress(
                     predecessor.registration.compatibility.audio_layout.clone())?;
                 progress("inspection");
                 let c = prep::revalidate_candidate(m, &predecessor, s,
-                    prep::build::stage_runtime(m)?, i.report, operation)?;
+                    revalidation_runtime(m,&predecessor)?, i.report, operation)?;
                 retain_revalidation_candidate_checkpoint(m, operation, a, &c.id()?)?;
                 c
             };
@@ -2149,6 +2159,39 @@ pub(crate) mod tests {
             &random_id().unwrap(), None).unwrap();
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         (f, c)
+    }
+    #[test]
+    fn revalidation_uses_exact_retained_kit_and_never_falls_back_when_it_changes() {
+        let (f,c)=projection_fixture();
+        prep::record_candidate(&f.m,&c).unwrap();
+        let reference=prep::enable(&f.m,&c,false).unwrap();
+        let prior=f.m.load_revision(&c.selection.class.id,&reference).unwrap();
+        let original=prep::build::existing_runtime(&f.m,&c.recipe_sha256).unwrap();
+        let kit=f.m.root.join("software/selected-other-kit.zip");
+        test_fixture::reusable_kit(&kit,&c.selection.scanner,&c.source_manifest,"new-selected-engine");
+        let mut selected:Software=read_json(&f.m.root.join("software.json")).unwrap();
+        selected.preparation_kit=Some(Artifact {path:kit.clone(),sha256:digest(&kit).unwrap()});
+        atomic_json(&f.m.root.join("software.json"),&selected).unwrap();
+        let current=prep::build::stage_runtime(&f.m).unwrap();
+        assert_ne!(current.kit,original.kit);
+        assert_eq!(revalidation_runtime(&f.m,&prior).unwrap().kit,original.kit);
+        let path=original.host.path.parent().unwrap().join("runtime.json");
+        let bytes=fs::read(&path).unwrap();let mode=fs::metadata(&path).unwrap().permissions();
+        fs::remove_file(&path).unwrap();
+        let Err(error)=revalidation_runtime(&f.m,&prior) else {panic!("missing retained kit must refuse")};
+        assert_eq!(error.downcast_ref::<std::io::Error>().map(|e|e.kind()),Some(std::io::ErrorKind::NotFound));
+        assert_eq!(prep::build::stage_runtime(&f.m).unwrap().kit,current.kit);
+        fs::write(&path,bytes).unwrap();fs::set_permissions(&path,mode).unwrap();
+        let bytes=fs::read(&original.kit.path).unwrap();let mode=fs::metadata(&original.kit.path).unwrap().permissions();
+        fs::set_permissions(&original.kit.path,fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&original.kit.path,b"changed retained preparation kit").unwrap();
+        fs::set_permissions(&original.kit.path,mode.clone()).unwrap();
+        let Err(error)=revalidation_runtime(&f.m,&prior) else {panic!("corrupt retained kit must refuse")};
+        assert_eq!(error.to_string(),"artifact missing or changed");
+        assert_eq!(prep::build::stage_runtime(&f.m).unwrap().kit,current.kit);
+        fs::set_permissions(&original.kit.path,fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&original.kit.path,bytes).unwrap();fs::set_permissions(&original.kit.path,mode).unwrap();
+        assert_eq!(revalidation_runtime(&f.m,&prior).unwrap().kit,original.kit);
     }
     #[test]
     fn projection_fixture_uses_the_current_loaded_engine_contract() {

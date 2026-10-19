@@ -4872,18 +4872,24 @@ print('LVO0 '+j['session']+' ready',flush=True)
                 id:baseline.id.clone(),sha256:baseline.sha256.clone()}};
             let job=m.root.join("operator").join(&child);private_dir(&job).unwrap();
             atomic_json(&job.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"accepted-check".into(),action:action.clone()}).unwrap();
-            let records=preparation::RecordReadback::capture(m).unwrap();
-            let mut probe=records.publication_candidate_record(m,&prior.profile,&prior.registration).unwrap().unwrap().clone();
-            probe.inspection.selection=selection.clone();
-            let result=preparation_cli::with_automatic_fixture(&probe,||preparation_cli::execute(m,&action,&child,||m.lock("registry.lock"))).unwrap();
-            {
-                let receipt=if child_state=="completed" {serde_json::json!({"schema":1,"operation":child,"state":"completed",
-                    "action":action,"parent_operation":owner,"result":result})}
-                    else if child_state=="running" {serde_json::json!({"schema":1,"operation":child,"state":"running",
-                        "action":action,"parent_operation":owner})}
-                    else {serde_json::json!({"schema":1,"operation":child,"state":"refused","action":action,
-                        "parent_operation":owner,"result":null,"reason":"fixture_interrupted_after_committed_successor"})};
-                atomic_json(&job.join("result.json"),&receipt).unwrap();
+            if matches!(child_state,"pending" | "pending_new_engine") {
+                atomic_json(&job.join("result.json"),&serde_json::json!({"schema":1,"operation":child,
+                    "state":"refused","action":action,"parent_operation":owner,
+                    "reason":"operator_worker_terminated"})).unwrap();
+            } else {
+                let records=preparation::RecordReadback::capture(m).unwrap();
+                let mut probe=records.publication_candidate_record(m,&prior.profile,&prior.registration).unwrap().unwrap().clone();
+                probe.inspection.selection=selection.clone();
+                let result=preparation_cli::with_automatic_fixture(&probe,||preparation_cli::execute(m,&action,&child,||m.lock("registry.lock"))).unwrap();
+                {
+                    let receipt=if child_state=="completed" {serde_json::json!({"schema":1,"operation":child,"state":"completed",
+                        "action":action,"parent_operation":owner,"result":result})}
+                        else if child_state=="running" {serde_json::json!({"schema":1,"operation":child,"state":"running",
+                            "action":action,"parent_operation":owner})}
+                        else {serde_json::json!({"schema":1,"operation":child,"state":"refused","action":action,
+                            "parent_operation":owner,"result":null,"reason":"fixture_interrupted_after_committed_successor"})};
+                    atomic_json(&job.join("result.json"),&receipt).unwrap();
+                }
             }
             work.push(serde_json::json!({"selection":selection.id().unwrap(),"predecessor":baseline,"result_index":0,
                 "check":child,"candidate":null,"active_operation":child}));
@@ -4909,7 +4915,21 @@ print('LVO0 '+j['session']+' ready',flush=True)
         let bytes=fs::read(directory.join("refresh.json")).unwrap();let initial=f.current();
         for edge in 0..edges {
             let kit=f.base.outer.join(format!("continued-kit-{edge}.zip"));
-            test_fixture::reusable_kit(&kit,&initial.host,&initial.source_manifest,&format!("continued-engine-{edge}"));
+            let engine=if child_state=="pending" {"updated-engine".into()} else {format!("continued-engine-{edge}")};
+            test_fixture::reusable_kit(&kit,&initial.host,&initial.source_manifest,&engine);
+            if child_state=="pending" {
+                // Same host/native bytes, distinct authenticated recipe: the
+                // installed failure must not be masked by an engine change.
+                fs::set_permissions(&kit,fs::Permissions::from_mode(0o600)).unwrap();
+                assert!(Command::new("python3").args(["-I","-c",r#"import json,sys,zipfile
+p,commit=sys.argv[1:]
+with zipfile.ZipFile(p) as z:files={n:z.read(n) for n in z.namelist()}
+r=json.loads(files['recipe.json']);r['source_commit']=commit;files['recipe.json']=json.dumps(r).encode()
+with zipfile.ZipFile(p,'w') as z:
+ for n,b in files.items():z.writestr(n,b)
+"#]).arg(&kit).arg(format!("{:040x}",edge+1)).status().unwrap().success());
+                fs::set_permissions(&kit,fs::Permissions::from_mode(0o400)).unwrap();
+            }
             f.add_kit_archive(&fs::read(kit).unwrap());f.replace("linux-vst-bridge",format!("continued manager {edge}").as_bytes(),true);
             readiness::with_unit_state_fixture(&units,"inactive",||update_from(m,&f.home,&f.inputs,f.owner,&f.service))
                 .unwrap_or_else(|error|panic!("package edge {edge}, child {child_state}, own {own_child}: {error}"));
@@ -4948,6 +4968,50 @@ print('LVO0 '+j['session']+' ready',flush=True)
         let checkpoint:serde_json::Value=read_json(&f.base.m.root.join("operator").join(owner).join("refresh.json")).unwrap();
         assert!(checkpoint["intent"]["work"][0]["check"].is_null());
         assert_eq!(checkpoint["intent"]["journey"]["plugins"][0]["stage"],"available");
+    }
+    #[test]
+    fn companion_continuation_finishes_pending_owned_revision_after_package_updates() {
+        use linux_vst_bridge::operator_model as ui;
+        for state in ["pending","pending_new_engine"] {
+            let (f,owner,_,before)=package_continuation_fixture(true,state,2);let m=&f.base.m;
+            let retained:serde_json::Value=serde_json::from_slice(&before).unwrap();
+            let prior:Revision=serde_json::from_value(retained["intent"]["predecessors"][0].clone()).unwrap();
+            let records=preparation::RecordReadback::capture(m).unwrap();
+            let mut probe=records.publication_candidate_record(m,&prior.profile,&prior.registration).unwrap().unwrap().clone();
+            let sw=f.current();let selection=preparation::selections(m,&sw.host,&sw.source_sha256).unwrap().pop().unwrap();
+            probe.inspection.selection=selection.clone();
+            let current=preparation::build::stage_runtime(m).unwrap();
+            let inspection=preparation::inspect_record_with(selection.clone(),probe.inspection.report.clone(),
+                preparation::Origin::ManagedPreparation,current.host.clone(),current.source_manifest.clone()).unwrap();
+            let construction=random_id().unwrap();
+            let candidate=preparation::build::construct_with_runtime(m,selection.clone(),inspection,current,
+                &construction,None).unwrap();
+            assert_ne!(candidate.host,prior.registration.host);
+            assert_eq!(candidate.host.sha256,prior.registration.host.sha256);
+            assert_ne!(candidate.recipe_sha256,probe.recipe_sha256);
+            assert_eq!(candidate.native.artifact.sha256==prior.registration.native.sha256,state=="pending");
+            assert_eq!(candidate.source_manifest.sha256,prior.registration.host_source_sha256);
+            preparation::build::cleanup_work(m,&construction).unwrap();
+            let resume=random_id().unwrap();let job=m.root.join("operator").join(&resume);private_dir(&job).unwrap();
+            atomic_json(&job.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"accepted-resume".into(),
+                action:ui::Action::EnvironmentRefreshResume {operation:owner.clone()}}).unwrap();
+            let result=operator_cli::continue_package_refresh_fixture_with(m,&owner,&resume,|action,child,progress|
+                preparation_cli::with_automatic_fixture(&probe,||preparation_cli::execute_with_progress(m,action,child,
+                    ||m.lock("registry.lock"),progress))).unwrap();
+            assert_eq!(result["available"],true,"{result}");
+            let now:serde_json::Value=read_json(&m.root.join("operator").join(&owner).join("refresh.json")).unwrap();
+            assert_eq!(now["intent"]["predecessors"],retained["intent"]["predecessors"]);
+            let selected=m.registry().unwrap().classes[&prior.class_id].managed_revision.clone().unwrap();
+            let completed=m.load_revision(&prior.class_id,&selected).unwrap();
+            assert_eq!(completed.parent.as_ref().unwrap().id,prior.id);
+            assert_eq!(completed.registration.host,prior.registration.host);
+            assert_eq!(completed.registration.native.sha256,prior.registration.native.sha256);
+            assert_eq!(completed.registration.environment.revision,prior.registration.environment.revision+1);
+            assert_eq!(f.current().preparation_kit,sw.preparation_kit);
+            let records=preparation::RecordReadback::capture(m).unwrap();
+            let prepared=records.publication_candidate_record(m,&completed.profile,&completed.registration).unwrap().unwrap();
+            assert_eq!(prepared.recipe_sha256,probe.recipe_sha256);
+        }
     }
     #[test]
     fn companion_continuation_refuses_broken_renewal_or_changed_inputs() {

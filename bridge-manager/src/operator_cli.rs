@@ -15,12 +15,18 @@ mod renderer_continuation;
 mod setup_removal;
 #[cfg(test)]
 pub(super) fn continue_package_refresh_fixture(m:&Manager,owner:&str,operation:&str)->Result<Value> {
+    continue_package_refresh_fixture_with(m,owner,operation,
+        |_,_,_|Err("package_continuation_repeated_completed_work".into()))
+}
+#[cfg(test)]
+pub(super) fn continue_package_refresh_fixture_with(m:&Manager,owner:&str,operation:&str,
+    mut run:impl FnMut(&ui::Action,&str,&mut dyn FnMut(&str))->Result<Value>)->Result<Value> {
     let units=environment_install::records(m)?.into_iter().map(|record|onboarding::unit(&record.operation))
         .collect::<Result<Vec<_>>>()?;
     readiness::with_unit_state_fixture(&units,"inactive",|| {
         let result=environment_refresh::execute_with(m,&ui::Action::EnvironmentRefreshResume {operation:owner.into()},operation,
             &mut |environment,intent|automatic_install::continue_refresh_fixture(m,environment,intent,operation,
-                &mut |_,_,_|Err("package_continuation_repeated_completed_work".into())))?;
+                &mut run))?;
         write_operation(m,operation,&json!({"schema":1,"operation":operation,"state":"completed","result":result}),false)?;
         let (owned,preparation)=finish_owned_work(m,operation);owned?;preparation?;
         require(!vendor_maintenance::any_held(m)? && !m.root.join("operator/resume.json").try_exists()?,
