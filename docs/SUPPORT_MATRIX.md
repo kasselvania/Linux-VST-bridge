@@ -11,6 +11,46 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Test223 / retained CachyOS account / REAPER 7.82 / existing NI r5 setup,
+**vendor-maintenance isolation and mixed recall passed**
+([PR 480](https://github.com/kasselvania/Linux-VST-bridge/pull/480), 2026-10-19):
+the signed update completed in 68.93 s. New Reference instances in another setup
+loaded during Native Access startup (20.59 s), with populated Home visible
+(6.865 s), and during follow-up discovery (2.388 s). Four Reference tracks each
+produced audio; a 327.75 s monitor capture had zero silent complete one-second
+windows (327 windows, minimum RMS .0083044). This measures continuity at that
+window size, not callback deadlines. NI admission was refused during maintenance;
+normal close and follow-up returned Kontakt to available. The bridge service kept
+the same PID throughout. Native Access first showed Loading Products Failed and
+recovered with one ordinary Retry; its origin is unestablished. Post-close checking
+took 91.136 s; responsiveness remains [#481](https://github.com/kasselvania/Linux-VST-bridge/issues/481).
+Two Kontakt instances plus Reference retained FX identities and changed Reference
+Level .61 / Colour .37 across save, full DAW exit and fresh-process reopen.
+Their 192,000-frame stereo PCM render matched bit for bit; Kontakt's reserialized
+state chunks differed, so this is functional recall rather than chunk identity.
+Original project bytes were preserved. Final exit left zero DSP, maintenance,
+pending transactions and stale transports, no cleanup uncertainty, and two idle
+tracked keepers with the service active. This is retained r5 setup qualification;
+fresh r7 installation is [#482](https://github.com/kasselvania/Linux-VST-bridge/issues/482).
+The Deck's r7/mixed-use results remain the earlier Test216 qualification below.
+
+**Failed-work recovery and setup isolation (#468) delivered on CachyOS:**
+[Test217 / PR 474](https://github.com/kasselvania/Linux-VST-bridge/pull/474)
+recovered the repeated cleanup-lock timeout through ordinary readback and Reconcile,
+reopened the mixed project and retired cleanly without restarting the new service.
+Installing it from the stuck predecessor required a baseline-only restart.
+[Test218 / PR 476](https://github.com/kasselvania/Linux-VST-bridge/pull/476)
+passed update → exact restore → update and mixed recall. Updates read 5.95/5.86 GB
+versus more than 53.2 GB observed previously; this is reduced read volume, not a
+controlled cold-storage speed ratio. [Test219 / PR 477](https://github.com/kasselvania/Linux-VST-bridge/pull/477)
+prepared selected runtimes and displayed advancing file counts; preparation still
+ran after 63 s, then completed. [Test221 / PR 478](https://github.com/kasselvania/Linux-VST-bridge/pull/478)
+admitted a new Kontakt instance while unrelated Reference cleanup remained uncertain,
+then recovered normally without a service restart. Test223 adds vendor-maintenance
+isolation above. These results complete the recovery outcome; status invalidation
+[#382](https://github.com/kasselvania/Linux-VST-bridge/issues/382) and responsiveness
+#481 remain open.
+
 Test212 (PR 467 head) / fresh CachyOS account / REAPER 7.82 / runtime r5,
 **mixed-use regression passed** (issue 465, 2026-10-18): two Kontakt 8 instances with
 different instruments from the Native Instruments setup plus the Reference Effect from
@@ -908,7 +948,7 @@ baseline, not endurance or Game Mode qualification.
 Open limits (#469): an older September KontaktStereo project copy resolves as
 missing despite matching class identity; its pre-migration baseline is unknown
 and original bytes are preserved. Reference has no custom editor, but the bridge
-offers an empty frame. Live Native Access overview can hide Stop (#468).
+offers an empty frame. Live Native Access overview can hide Stop (#382).
 
 Test35's ordinary GUI **Update Bridge** preserves twelve class/module/environment/
 compatibility bindings, five preferences, two saved projects and all 257 original

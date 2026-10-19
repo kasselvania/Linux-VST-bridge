@@ -1,37 +1,40 @@
-# Current slice — recover failed work through the product (#468)
+# Current slice — fresh r7 Native Access → Kontakt (#482)
 
-Goal: a failed admission or inspection must not leave every setup unusable.
-Reconcile remains reachable, and proven retirement restores ordinary actions
-without an external terminal or service restart. Architecture and beta scope
-remain in `docs/ARCHITECTURE.md`.
+Goal: a new CachyOS user installs one signed, release-shaped package, acquires r7,
+installs and authorizes Native Access/Kontakt, plays in native REAPER and recalls
+changed state after full exit and reboot, without terminal recovery or blocking
+an unrelated setup. Architecture and beta scope remain in `docs/ARCHITECTURE.md`.
 
 Reference comparison:
-- Test210 exposed a failed update with an unresolved verification lease.
-- Test214–216 exposed a process-wide sticky cleanup flag after failed inspection
-  or the manager's own vendor-operation pause. Restart followed by Reconcile
-  recovered those cases; the product must provide that recovery itself.
-- #465 recovery and #469 named beta migration are complete; #470 and #471 landed.
-  Preserve their working installations, changed state and mixed-use projects.
+- #468 recovery and setup isolation are complete through #474–#480. Test223
+  admits new Reference instances during NI maintenance and preserves mixed recall.
+- Fresh NI installation passed on r5; r7 migration did not prove fresh r7 install.
+  Deck/Test216 remains earlier cross-generation qualification.
 
 Next changes, in small reviewed increments:
-1. Separate operation failure from uncertain process custody. Retain uncertain
-   ownership; clear the block when exact retirement is proved. Keep Reconcile
-   reachable and keep maintenance scoped to affected setups.
-2. Give full runtime verification a useful lifetime tied to exact manifest and
-   stable file identity, explicit invalidation and cold-verification progress.
-   Do not broadly skip launch integrity checks or extend the callback exception.
+1. New generations ship exact signed session.py/ownership.py source. Keep old
+   bytecode generations truthful and runnable, including exact predecessor restore.
+   Use a fixed isolated bootstrap loading both verified absolute paths; preserve
+   arguments/display/scheduler handoff, reject ambient imports, write no bytecode.
+   Declare/enforce only physically tested host-Python versions (test 3.13/3.14).
+2. Prove old bytecode → source update → first-party launch/retire → exact old
+   restore → old launch/retire → source update; cover package/bootstrap/recovery.
+3. With that exact signed package, use a fresh CachyOS account for ordinary r7
+   acquisition, Native Access install/sign-in, Kontakt + Factory Selection install,
+   discovery/publication, REAPER MIDI/audio/editor and changed-state save/recall.
 
 Working completion:
-- Reproduce a failed admission/inspection, then recover from the ordinary UI.
-- No restart or manual ownership deletion is required after proven retirement.
-- Unresolved live custody still refuses conflicting execution.
-- Unrelated setups keep working; affected setup retries successfully.
-- Update/recovery and mixed-use state recall pass on the resulting package.
+- Exact source packaging, interpreter range and isolated launch pass; rollback works.
+- Kontakt identity and changed state survive full DAW exit/reopen and reboot.
+- During NI maintenance, Reference plays, admits a new instance and recalls state.
+- Progress and Stop/Cancel/Retry remain reachable; normal close/follow-up completes.
+- Final retirement: zero DSP, setup maintenance leases, pending transactions,
+  stale transports and cleanup uncertainty. Record phase timings and any Retry.
 
-Serum transparency #330, live overview refusal #382, no-view editor #472 and
-older Bitwig project baseline #473 remain separate. Fresh r7 NI installation,
-fresh SteamOS packaging and supervisor source delivery remain release work.
-No manual managed-state cleanup. Preserve licensed setups, activation, original
-projects and predecessor runtimes used by setups or rollback. No synthetic Deck
-key events; mouse and captures are allowed. On homelab, confirm Storage2 is
-mounted before writing build/test files below /mnt/Storage2/LinuxPluginBridge.
+Repair the first demonstrated product-owned failure only. Slow bounded completion
+may pass correctness while responsiveness stays open in #481; status invalidation
+belongs to #382. Loading failure origin is unestablished; repeated Retry fails.
+SteamOS, Serum transparency, Blackhole/BEAM, DirectComposition, old Bitwig project,
+empty editor, Rust port, broad endurance and manager redesign are separate.
+Preserve licensed setups, activation, original projects and retained predecessors.
+Confirm Storage2 is mounted before homelab writes under /mnt/Storage2/LinuxPluginBridge.

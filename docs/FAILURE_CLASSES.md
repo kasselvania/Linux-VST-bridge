@@ -23,13 +23,19 @@ Kontakt 8's first inspection on a fresh setup can exceed the 30 s module-unload
 deadline ("stopped responding while it was being closed"); the ordinary Retry
 succeeded on Test210. Open: whether first-load work needs a longer exit deadline.
 
-Failed-admission recovery (#468): #474 replaces the sticky cleanup flag with exact
-failed-lease tracking and keeps Reconcile reachable. Test217 recovered after a cleanup
-lock timeout, reopened the mixed Kontakt/Reference project, and retired all instances
-without restarting the service. Missing retirement proof remains a refusal. Open:
-cold verification lifetime/progress and isolation of genuinely uncertain setup custody.
-While a vendor app or installer is open, every setup's Install offer is disabled, not only
-the affected setup's (ARCHITECTURE §3 expects per-setup exclusivity). Open.
+Failed-work recovery and setup isolation (#468) are delivered through #474–#480:
+exact retirement clears failed custody without restarting the service, Reconcile
+stays reachable, known setup custody and vendor maintenance hold only affected
+admissions, and selected-runtime preparation has visible progress and a useful
+verification lifetime. Missing or unattributable custody still refuses execution.
+Installed recovery, update/restore and mixed-use results are in the support matrix.
+
+Native Access/runtime responsiveness (#481) remains open: cold preparation exceeded
+63 s on Test219; Test223 post-close checking took 91.136 s. Native Access initially
+showed Loading Products Failed and reached Home after one ordinary Retry; origin
+is unestablished. Unrelated Reference playback and new admission worked throughout
+the tested maintenance phases. Live status-read invalidation and hidden controls
+remain #382. Fresh r7 NI installation and supervisor source delivery are #482.
 
 PACE/iLok load-time stalls (#414/#417) remain open. Same-setup dependency assistance
 uses local service registration and current scan observations; a timeout alone does
@@ -1113,7 +1119,7 @@ Live installer recovery verification is pending.
 Live vendor-application readback also refuses `operator_current_artifact_changed_refresh`,
 hiding Stop while Native Access is at Home (Deck/Test216, retained NI runtime).
 Normal window close completes the product operation and post-close checks. Isolate
-the changing watched artifact; the installer fix does not cover this path (#468).
+the changing watched artifact; the installer fix does not cover this path (#382).
 
 The integrated successor separates exact Installer Focus/Stop admission from
 runtime verification and global DSP capacity. It retains current operation,
