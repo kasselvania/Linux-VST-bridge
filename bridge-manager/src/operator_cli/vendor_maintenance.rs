@@ -97,8 +97,16 @@ fn enrollments(m:&Manager)->Result<Vec<(String,ui::Action,Enrollment)>> {
 fn bindings(m:&Manager)->Result<Vec<Binding>> {
     let mut result:Vec<_>=automatic_install::current_vendor_bindings(m)?.into_iter().map(Binding::from).collect();
     let enrolled=enrollments(m)?;
-    for current in onboarding::history_records(m)? {
-        let record=initial_record(m,&current.id)?;
+    // A validated deletion already claimed/quiesced these setups. Unreadable
+    // markers hide launch offers, but cannot establish custody retirement.
+    let deleted:std::collections::BTreeSet<_>=deleted_setup::records(m)?.into_iter()
+        .flat_map(|record|record.environments.into_iter().map(|environment|environment.id)).collect();
+    let mut initial:std::collections::BTreeSet<_>=onboarding::history_records(m)?.into_iter().map(|record|record.id).collect();
+    initial.extend(enrolled.iter().filter(|(_,action,enrollment)|!deleted.contains(&enrollment.environment.id)
+        && (action.software_install().is_some() || matches!(action,ui::Action::SoftwareInstallResume {..})))
+        .map(|(_,_,enrollment)|enrollment.environment.id.clone()));
+    for id in initial {
+        let record=initial_record(m,&id)?;
         if let Some(intent)=record.automatic.filter(|i|i.vendor.is_none()) {
             let known=enrolled.iter().any(|(owner,action,_)|*owner==intent.owner
                 || matches!(action,ui::Action::SoftwareInstallResume {onboarding} if *onboarding==record.id));
@@ -108,6 +116,7 @@ fn bindings(m:&Manager)->Result<Vec<Binding>> {
         }
     }
     for record in environment_install::records(m)? {
+        if deleted.contains(&record.environment.id) {continue;}
         let known=enrolled.iter().any(|(owner,action,_)|*owner==record.operation
             || matches!(action,ui::Action::EnvironmentRefreshResume {operation} if *operation==record.operation));
         if !known && !job_dir(m,&record.operation)?.join(STATE).try_exists()? {continue;}
@@ -115,6 +124,7 @@ fn bindings(m:&Manager)->Result<Vec<Binding>> {
             environment:record.environment,vendor_operation:record.operation,target:Target::Installer});
     }
     for (operation,action,enrollment) in enrolled {
+        if deleted.contains(&enrollment.environment.id) {continue;}
         if action.environment_installer_start().is_none()
             || job_dir(m,&operation)?.join("installation.json").try_exists()? {continue;}
         require(action.environment_installer_start().is_some_and(|(environment,_,_)|

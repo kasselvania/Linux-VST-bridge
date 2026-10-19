@@ -235,6 +235,115 @@ fn deleting_a_setup_removes_its_windows_files_and_keeps_its_history() {
     assert_eq!(delete_setup(&f.m, &installer, &environment, false, &operation).unwrap()["already_deleted"], true);
 }
 
+fn setup_with_installation_custody(kind:&str) -> (test_fixture::Fixture,onboarding::Record,String,String,Vec<String>) {
+        let (f,environment,installer)=created_setup();
+        let mut record=onboarding::retained_environment_record(&f.m,&environment).unwrap().unwrap();
+        let owner=random_id().unwrap();let dir=job_dir(&f.m,&owner).unwrap();private_dir(&dir).unwrap();
+        let action=if kind=="initial" {ui::Action::SoftwareInstall {installer:installer.clone(),daw:ui::DawChoice::Reaper}}
+            else {ui::Action::EnvironmentInstallerStart {environment:environment.clone(),installer:installer.clone()}};
+        atomic_json(&dir.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"fixture".into(),action:action.clone()}).unwrap();
+        let mut units=vec![onboarding::unit(&owner).unwrap()];
+        if kind!="reservation" {
+            // Retained ordinary initial DAW intent supplies the companion's
+            // existing refresh checkpoint, exactly as successful installation does.
+            let initial=if kind=="initial" {owner.clone()} else {random_id().unwrap()};
+            let initial_dir=job_dir(&f.m,&initial).unwrap();private_dir(&initial_dir).unwrap();
+            atomic_json(&initial_dir.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"fixture".into(),
+                action:ui::Action::SoftwareInstall {installer:installer.clone(),daw:ui::DawChoice::Reaper}}).unwrap();
+            record=onboarding::reserve(&f.m,&environment,&initial).unwrap();
+            units.push(onboarding::unit(&initial).unwrap());
+            atomic_json(&onboarding::directory(&f.m,&environment).unwrap().join(format!("{initial}-result.json")),
+                &json!({"schema":2,"operation":initial,"state":"completed","raw_exit":0,"cleanup_confirmed":true,"owned_live":0})).unwrap();
+            let prefix=record.environment.root.join("compatdata/pfx");private_dir(&prefix).unwrap();
+            fs::write(prefix.join("system.reg"),b"first-party initialized installer fixture").unwrap();
+            record.automatic=Some(automatic_install::Intent {owner:initial.clone(),active_operation:initial.clone(),
+                installer_policy:None,vendor:None,journey:ui::InstallationJourney {daw:ui::DawChoice::Reaper,
+                    phase:ui::InstallationPhase::Available,plugins:vec![],failure:None},scan:None,prior_selections:vec![],
+                prior_modules:vec![],failed_modules:vec![],work:vec![],predecessors:vec![],previous:None});
+            atomic_json(&onboarding::directory(&f.m,&environment).unwrap().join("record.json"),&record).unwrap();
+            if kind=="initial" {
+                readiness::with_unit_state_fixture(&units,"inactive",||vendor_maintenance::acquire_onboarding(
+                    &f.m,&record,record.automatic.as_ref().unwrap())).unwrap();
+            } else {
+                write_operation(&f.m,&initial,&json!({"schema":1,"operation":initial,"state":"completed"}),false).unwrap();
+                let binding=readiness::with_unit_state_fixture(&units,"inactive",||
+                    environment_install::reserve(&f.m,&environment,&installer,&owner)).unwrap();
+                assert!(binding.automatic_request.is_some());
+                atomic_json(&dir.join("installation-result.json"),&json!({"schema":2,"operation":owner,
+                    "state":"completed","raw_exit":0,"cleanup_confirmed":true,"owned_live":0})).unwrap();
+                environment_refresh::initialize_replacement(&f.m,&owner).unwrap();
+                record.environment=binding.environment;
+            }
+        } else {vendor_maintenance::enroll(&f.m,&owner,&record.environment).unwrap();}
+        (f,record,installer,owner,units)
+}
+#[test]
+fn settled_installation_custody_is_history_after_ordinary_setup_deletion() {
+    for kind in ["initial","companion","reservation"] {for interrupted in [false,true] {
+        let (f,record,installer,owner,units)=setup_with_installation_custody(kind);
+        let environment=record.id.clone();let dir=job_dir(&f.m,&owner).unwrap();
+        // Neither held custody nor its missing lifecycle can be erased by Delete.
+        assert!(vendor_maintenance::any_held(&f.m).unwrap());
+        let deletion=ui::Action::SetupDelete {installer:installer.clone(),environment:environment.clone(),
+            confirmed:true,forget_installer:false};
+        assert_eq!(execute_with_receipt_policy(&f.m,&deletion,Some(&random_id().unwrap()),
+            &||capacity_fixture(&f.m),OPERATOR_WAIT,&mut vec![]).unwrap_err().to_string(),"setup_maintenance_active");
+        assert!(deleted_setup::load(&f.m,&environment).unwrap().is_none());
+        readiness::with_unit_state_fixture(&units,"inactive",|| {
+            let (installation,preparation)=finish_owned_work(&f.m,&owner);
+            installation.unwrap();preparation.unwrap();
+        });
+        write_operation(&f.m,&owner,&json!({"schema":1,"operation":owner,"state":"refused","reason":"fixture_no_plugins"}),false).unwrap();
+        assert!(!vendor_maintenance::any_held(&f.m).unwrap());
+        let history=test_fixture::snapshot(&dir);
+        readiness::with_unit_state_fixture(&units,"inactive",|| {
+            if interrupted {
+                // Existing deletion history after the ordinary claimant quiesced
+                // the setup, before its Windows files were removed.
+                deleted_setup::write(&f.m,&Tombstone {schema:1,environment:environment.clone(),installer:installer.clone(),
+                    name:"Fixture".into(),environments:vec![record.environment.clone()],registrations:vec![],plugins:vec![],
+                    operation:random_id().unwrap(),requested_at:1,deleted_at:None,state:Deletion::Deleting,
+                    environments_folder:None,forget_installer:false}).unwrap();
+                assert!(!vendor_maintenance::any_held(&f.m).unwrap());
+            }
+            let snapshot=snapshot_idle_test(&f.m).unwrap();
+            let delete=if interrupted {snapshot.deleted_setups[0].actions[0].clone()}
+                else {delete_offer(&snapshot,&installer).unwrap()};
+            assert!(delete.disabled_reason.is_none(),"{delete:?}");
+            let operation=test_submit_offered(&f.m,&confirmed(&delete.action)).unwrap();
+            let result=test_run_offered_worker(&f.m,&operation).unwrap();
+            assert_eq!(result["state"],"completed","{result}");
+        });
+        assert_eq!(test_fixture::snapshot(&dir),history,"Custody and installation history stay exact");
+        assert!(!record.environment.root.join("compatdata").exists());
+        assert!(!vendor_maintenance::any_held(&f.m).unwrap());
+        assert!(all_operations_finished(&f.m).unwrap(),"Package admission must not retain a deleted setup owner");
+        assert!(!vendor_maintenance::blocks(&f.m,&f.r.environment).unwrap());
+        capacity::require_environment_inactive(&f.m,&f.r.environment).unwrap();
+        let snapshot=snapshot_idle_test(&f.m).unwrap();assert_eq!(snapshot.deleted_setups.len(),1);
+        assert!(current::capture(&f.m).is_ok());
+    }}
+}
+#[test]
+fn unreadable_deletion_marker_cannot_erase_installation_custody() {
+    for kind in ["initial","companion","reservation"] {for missing in [false,true] {
+        let (f,record,installer,owner,_)=setup_with_installation_custody(kind);
+        let dir=job_dir(&f.m,&owner).unwrap();let state=dir.join("vendor-maintenance-state.json");
+        if missing && state.exists() {fs::remove_file(state).unwrap();}
+        let marker=deleted_setup::path(&f.m,&record.id).unwrap();private_dir(marker.parent().unwrap()).unwrap();
+        fs::write(&marker,b"invalid deletion marker").unwrap();
+        let history=test_fixture::snapshot(&dir);
+        assert!(!matches!(vendor_maintenance::any_held(&f.m),Ok(false)),"{kind}/{missing}");
+        assert!(!matches!(vendor_maintenance::blocks(&f.m,&record.environment),Ok(false)),"{kind}/{missing}");
+        assert!(!matches!(all_operations_finished(&f.m),Ok(true)),"{kind}/{missing}");
+        let deletion=ui::Action::SetupDelete {installer,environment:record.id,confirmed:true,forget_installer:false};
+        assert!(execute_with_receipt_policy(&f.m,&deletion,Some(&random_id().unwrap()),
+            &||capacity_fixture(&f.m),OPERATOR_WAIT,&mut vec![]).is_err());
+        assert_eq!(fs::read(marker).unwrap(),b"invalid deletion marker");
+        assert_eq!(test_fixture::snapshot(&dir),history);
+    }}
+}
+
 #[test]
 fn a_setup_in_use_or_with_uncertain_records_is_refused_and_unchanged() {
     let (f, environment, installer) = created_setup();

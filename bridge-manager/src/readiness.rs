@@ -170,22 +170,32 @@ fn bounded_command(program: &str, args: &[&str]) -> Probe<String> {
 /// A fixed, read-only systemd query with the same process-cohort and output
 /// bounds as platform probes. Callers supply only manager-derived unit names.
 #[cfg(test)]
-static UNIT_STATE_FIXTURE: std::sync::Mutex<std::collections::BTreeMap<String,String>> =
+static UNIT_STATE_FIXTURE: std::sync::Mutex<std::collections::BTreeMap<String,Vec<(u64,String)>>> =
     std::sync::Mutex::new(std::collections::BTreeMap::new());
 #[cfg(test)]
+static UNIT_STATE_FIXTURE_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+#[cfg(test)]
 pub(super) fn with_unit_state_fixture<T>(units: &[String], state: &str, run: impl FnOnce() -> T) -> T {
-    struct Restore(Vec<(String,Option<String>)>);
+    struct Restore {id:u64,units:Vec<String>}
     impl Drop for Restore {
         fn drop(&mut self) {
             let mut states=UNIT_STATE_FIXTURE.lock().unwrap();
-            for (unit,previous) in self.0.drain(..) {
-                if let Some(previous)=previous {states.insert(unit,previous);}
-                else {states.remove(&unit);}
+            for unit in &self.units {
+                if let Some(frames)=states.get_mut(unit) {
+                    frames.retain(|(id,_)|*id!=self.id);
+                    if frames.is_empty() {states.remove(unit);}
+                }
             }
         }
     }
-    let _restore=Restore(units.iter().map(|unit|
-        (unit.clone(),UNIT_STATE_FIXTURE.lock().unwrap().insert(unit.clone(),state.into()))).collect());
+    let id=UNIT_STATE_FIXTURE_ID.fetch_add(1,std::sync::atomic::Ordering::Relaxed);
+    {
+        let mut states=UNIT_STATE_FIXTURE.lock().unwrap();
+        for unit in units {states.entry(unit.clone()).or_default().push((id,state.into()));}
+    }
+    // Concurrent scopes may retire out of order. Remove only this scope's
+    // frames, retaining global visibility for the product's spawned readers.
+    let _restore=Restore {id,units:units.to_vec()};
     run()
 }
 pub(super) fn bounded_user_unit_state(unit: &str) -> Result<String> {
@@ -193,7 +203,8 @@ pub(super) fn bounded_user_unit_state(unit: &str) -> Result<String> {
         && unit.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.')),
         "readiness_unit_identity")?;
     #[cfg(test)]
-    if let Some(state)=UNIT_STATE_FIXTURE.lock().unwrap().get(unit).cloned() {
+    if let Some(state)=UNIT_STATE_FIXTURE.lock().unwrap().get(unit)
+        .and_then(|frames|frames.last()).map(|(_,state)|state.clone()) {
         return admit_unit_state(Probe::Observed(state));
     }
     admit_unit_state(bounded_command("systemctl", &["--user", "show", unit,
@@ -1505,6 +1516,30 @@ fn report_value(m: &Manager, snapshot: &ui::Snapshot,
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn unit_state_fixture_survives_overlapping_scope_retirement() {
+        let unit="linux-vst-bridge-overlapping-fixture.service".to_owned();
+        let (entered,ready)=std::sync::mpsc::channel();
+        let (release,continue_read)=std::sync::mpsc::channel();
+        let observed=std::thread::scope(|scope| {
+            let worker=with_unit_state_fixture(std::slice::from_ref(&unit),"inactive",|| {
+                assert_eq!(scope.spawn(||bounded_user_unit_state(&unit)).join().unwrap().unwrap(),"inactive",
+                    "The fixture remains visible to existing spawned readers");
+                with_unit_state_fixture(std::slice::from_ref(&unit),"active",||
+                    assert_eq!(bounded_user_unit_state(&unit).unwrap(),"active"));
+                assert_eq!(bounded_user_unit_state(&unit).unwrap(),"inactive");
+                let unit=&unit;
+                let worker=scope.spawn(move ||with_unit_state_fixture(std::slice::from_ref(unit),"inactive",|| {
+                    entered.send(()).unwrap();continue_read.recv_timeout(Duration::from_secs(5))
+                        .expect("later fixture scope was not released");bounded_user_unit_state(&unit)
+                }));
+                ready.recv_timeout(Duration::from_secs(5)).expect("later fixture scope did not enter");worker
+            });
+            release.send(()).unwrap();worker.join().unwrap()
+        });
+        assert_eq!(observed.unwrap(),"inactive","An earlier scope cannot remove a still-live override");
+        assert!(!UNIT_STATE_FIXTURE.lock().unwrap().contains_key(&unit),"No retired override may leak");
+    }
     use super::*;
     #[test]
     fn control_record_readiness_does_not_claim_fresh_payload_or_capacity_verification() {

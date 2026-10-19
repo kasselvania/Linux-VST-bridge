@@ -5828,8 +5828,7 @@ pub(crate) mod tests {
             })
             .unwrap_err()
             .to_string();
-            assert!(e.contains("cleanup") || e.contains("active bridged")
-                    || e.contains("owner census") || e.contains("maintenance"), "{e}");
+            assert_eq!(e,if blocked {"operator_cleanup_unconfirmed"} else {"operator_owner_census_unresolved"});
             assert!(!f.m.root.join("onboarding").exists());
             assert!(!f.m.root.join("operator/resume.json").exists());
         }

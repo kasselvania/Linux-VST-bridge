@@ -5474,7 +5474,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
             atomic_json(&journal,&transition).unwrap();
             if boundary != "before_switch" {apply_coordinated(&f.base.m,&transition).unwrap();}
             if boundary == "consumed" {operator_cli::consume_package_resume(&f.base.m,&captured).unwrap();}
-            assert!(recover_from(&f.base.m,&f.home,&f.service).unwrap());
+            assert!(recover_from(&f.base.m,&f.home,&f.service).unwrap_or_else(|error|panic!("{boundary}: {error}")));
             if boundary == "before_switch" {
                 assert!(f.current() == first);
                 assert_eq!(fs::read(&reservation).unwrap(),original);
