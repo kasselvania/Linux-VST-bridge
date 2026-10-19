@@ -8,6 +8,13 @@ use std::{
     sync::mpsc,
     time::{Duration, Instant},
 };
+fn runtime_verification_label(op: &serde_json::Value) -> Option<String> {
+    let checked = op["runtime_verification"]["checked"].as_u64()?;
+    let total = op["runtime_verification"]["total"].as_u64()?;
+    (total > 0 && total <= 40000 && checked <= total).then(|| format!(
+        "Checking compatibility files: {checked} of {total}. This can take longer after a restart."))
+}
+
 fn installation_label(product: &ReadinessProduct) -> &'static str {
     let records = product.facts.iter().any(|fact| fact.name == "Validation scope"
         && fact.value.as_deref() == Some("control_records"));
@@ -209,6 +216,7 @@ impl RequestFeedback {
         {
             self.transition(state);
         }
+        let verification = runtime_verification_label(op);
         self.text = match op["state"].as_str() {
             Some("refused") => {
                 self.terminal = true;
@@ -239,6 +247,8 @@ impl RequestFeedback {
                     "Installation or DAW connection needs attention. Refreshing its results…".into()
                 } else { "This operation completed. Refreshing its result…".into() }
             }
+            Some("waiting" | "running") if verification.is_some() =>
+                verification.unwrap_or_default(),
             Some("waiting" | "validating") => {
                 "This operation is validating manager state. Do not click again.".into()
             }
@@ -8245,6 +8255,31 @@ mod tests {
                 "result":{"message":"Freq Echo was checked again and stays in your DAW."}}));
             assert_eq!(feedback.text, "Freq Echo was checked again and stays in your DAW.");
         }
+    }
+    #[test]
+    fn runtime_progress_is_bounded_and_cannot_mask_completion_or_another_operation() {
+        let mut feedback = RequestFeedback::captured(create_request().action);
+        feedback.operation = Some("current".into());
+        let mut op = serde_json::json!({"operation":"current","state":"running",
+            "runtime_verification":{"checked":12,"total":100}});
+        feedback.observe(&op);
+        assert!(feedback.text.contains("12 of 100"));
+        op["operation"] = "other".into();
+        op["runtime_verification"]["checked"] = 40.into();
+        feedback.observe(&op);
+        assert!(feedback.text.contains("12 of 100"));
+        op["operation"] = "current".into();
+        op["runtime_verification"]["total"] = 0.into();
+        assert!(runtime_verification_label(&op).is_none());
+        op["runtime_verification"]["total"] = 40001.into();
+        assert!(runtime_verification_label(&op).is_none());
+        op["runtime_verification"]["total"] = 10.into();
+        assert!(runtime_verification_label(&op).is_none());
+        op["runtime_verification"]["total"] = 100.into();
+        op["state"] = "completed".into();
+        feedback.observe(&op);
+        assert!(feedback.terminal);
+        assert!(!feedback.text.contains("Checking compatibility files"));
     }
     #[test]
     fn guided_check_keeps_the_offered_identity_and_queues_once() {

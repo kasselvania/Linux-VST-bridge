@@ -8,6 +8,27 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 mod wine_build;
 
+type VerificationObserver = Box<dyn FnMut(Option<(usize, usize)>)>;
+thread_local! {
+    static VERIFICATION_OBSERVER: RefCell<Option<VerificationObserver>> = const { RefCell::new(None) };
+}
+/// Optional control-plane progress. Counts describe checks, never admission
+/// authority. No paths, vendor data or file contents leave the verifier.
+pub fn with_verification_progress<T>(observer: impl FnMut(Option<(usize, usize)>) + 'static,
+    work: impl FnOnce() -> T) -> T {
+    struct Restore(Option<VerificationObserver>);
+    impl Drop for Restore {
+        fn drop(&mut self) { VERIFICATION_OBSERVER.with(|slot| *slot.borrow_mut() = self.0.take()); }
+    }
+    let _restore = Restore(VERIFICATION_OBSERVER.with(|slot| slot.replace(Some(Box::new(observer)))));
+    work()
+}
+fn verification_progress(value: Option<(usize, usize)>) {
+    VERIFICATION_OBSERVER.with(|slot| {
+        if let Some(observer) = slot.borrow_mut().as_mut() { observer(value); }
+    });
+}
+
 pub const ID: &str = "managed-ge-proton11-7-slr4-20260805-r3";
 const PLATFORM_FILES: &str = "SteamLinuxRuntime_4/steamrt4_platform_4.0.20260805.254769/files";
 const LIFETIME_LOCK: &str = "SteamLinuxRuntime_4/steamrt4_platform_4.0.20260805.254769/files/.ref";
@@ -379,6 +400,32 @@ pub fn record_path(m: &Manager) -> PathBuf { revision_record_path(m,&recommended
 pub fn installed_identity_records(m: &Manager) -> Result<Vec<Runner>> {
     Ok(record_states(m)?.into_iter().filter_map(|state|state.runner).collect())
 }
+/// Prefetch only owned runtime identities selected by current product setups.
+/// Historical/foreign or unresolved setup records never authorize prefetch;
+/// their ordinary launch/recovery paths retain the specific diagnosis.
+pub fn preparation_runners(m: &Manager, initial_setups: impl IntoIterator<Item=Environment>) -> Result<Vec<Runner>> {
+    let owned = installed_identity_records(m)?;
+    let mut bindings = m.registry()?.classes.into_values()
+        .map(|entry| entry.registration.environment).collect::<Vec<_>>();
+    bindings.extend(environment_revision::installer_records(m)?.into_iter()
+        .map(|record| record.environment));
+    bindings.extend(initial_setups);
+    let no_setups = bindings.is_empty();
+    let mut selected = Vec::new();
+    for bound in bindings {
+        if let Ok(current) = environment_revision::current_environment(m, &bound) {
+            if owned.contains(&current.runner) && !selected.contains(&current.runner) {
+                selected.push(current.runner);
+            }
+        }
+    }
+    // A new installation can prepare its default before its first setup exists.
+    // Do not make an unused recommendation compete with retained active setups.
+    if no_setups {
+        selected.extend(owned.into_iter().filter(|runner| runner.id == recommended_id()));
+    }
+    Ok(selected)
+}
 #[cfg(test)]
 fn identity_records(m: &Manager, revisions: &[Revision]) -> Result<Vec<Runner>> {
     Ok(states_for(m,revisions)?.into_iter().filter_map(|state|state.runner).collect())
@@ -447,11 +494,17 @@ fn verify_tree_mode(runner: &Runner, readback: bool) -> Result<()> {
     let rows: Vec<TreeEntry> = read_json(&manifest.path)?;
     let base = manifest.path.parent().ok_or("managed_runtime_parent")?;
     require(!rows.is_empty() && rows.len() <= 40000, "managed_runtime_tree_count")?;
+    struct Progress;
+    impl Drop for Progress { fn drop(&mut self) { verification_progress(None); } }
+    let _progress = Progress;
+    let total = rows.len();
+    verification_progress(Some((0, total)));
+    let mut last_progress = Instant::now();
     let mut seen = BTreeSet::new();
     let cached = cached_tree(manifest);
     let mut verified = VerifiedTree { schema:1, manifest_sha256:manifest.sha256.clone(),
         files:BTreeMap::new() };
-    for row in rows {
+    for (index, row) in rows.into_iter().enumerate() {
         safe_path(&row.path)?;
         require(seen.insert(row.path.clone()), "managed_runtime_tree_duplicate")?;
         let path = base.join(&row.path);
@@ -475,6 +528,10 @@ fn verify_tree_mode(runner: &Runner, readback: bool) -> Result<()> {
                     "managed_runtime_file_changed_during_verification")?;
             }
             verified.files.insert(row.path,identity);
+        }
+        if last_progress.elapsed() >= Duration::from_millis(500) {
+            verification_progress(Some((index + 1, total)));
+            last_progress = Instant::now();
         }
     }
     let actual = tree_inventory(base)?;
@@ -836,6 +893,45 @@ mod tests {
             assert!(seal_stage(&stage,&tmp.0.join("unpublished"),&revision,rows).is_err());
             assert!(!stage.join(TREE).exists());assert!(!stage.join("runtime.json").exists());
         }
+    }
+    #[test]
+    fn preparation_uses_selected_owned_generation_and_rejects_unproven_replacement() {
+        let mut f = test_fixture::Fixture::new();
+        let old = revisions().remove(0);
+        let runner = retained_revision(&f.m, &old);
+        let unused = revisions().remove(1);
+        retained_revision(&f.m, &unused);
+        f.r.environment.runner = runner.clone();
+        atomic_json(&f.r.environment.root.join("environment.json"), &f.r.environment).unwrap();
+        assert_eq!(preparation_runners(&f.m, [f.r.environment.clone()]).unwrap(), vec![runner.clone()],
+            "an unpublished initial setup selects its retained generation");
+        f.m.register(f.r.clone()).unwrap();
+        let mut other = f.r.clone();
+        other.metadata.class_id = "02".repeat(16);
+        f.m.register(other).unwrap();
+        assert_eq!(preparation_runners(&f.m, []).unwrap(), vec![runner]);
+        let mut changed = f.r.environment.clone();
+        changed.runner.version = "unproven replacement".into();
+        atomic_json(&changed.root.join("environment.json"), &changed).unwrap();
+        assert!(preparation_runners(&f.m, []).unwrap().is_empty());
+    }
+    #[test]
+    fn verification_progress_is_scoped_and_cleared_when_tree_verification_fails() {
+        let tmp = Scratch::new();
+        let m = Manager {root:tmp.0.clone(),publications:tmp.0.join("publications")};
+        let runner = retained_revision(&m, &revisions().remove(0));
+        let events = std::rc::Rc::new(RefCell::new(Vec::new()));
+        let captured = events.clone();
+        with_verification_progress(move |event| captured.borrow_mut().push(event), || {
+            runner.verify().unwrap();
+            // An unlisted file still refuses admission and clears progress.
+            fs::write(runner.proton.parent().unwrap().join("unexpected"), b"extra").unwrap();
+            assert!(runner.verify().is_err());
+        });
+        let events = events.borrow();
+        assert_eq!(events.iter().filter(|event| event.is_none()).count(), 2);
+        assert!(events.iter().any(|event| matches!(event,Some((0,total)) if *total > 0)));
+        assert!(VERIFICATION_OBSERVER.with(|slot| slot.borrow().is_none()));
     }
     #[test]
     fn retained_revisions_coexist_without_substitution_when_old_payload_is_missing() {
