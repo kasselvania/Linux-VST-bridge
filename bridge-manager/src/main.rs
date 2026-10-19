@@ -1630,11 +1630,15 @@ fn serve(m: Manager) -> Result<()> {
     let warm_manager = manager.clone();
     let warm_verification = launch_verification.clone();
     let _runtime_preparation = std::thread::Builder::new().spawn(move || {
-        let result = warm_verification.prepare(
-            Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS),
-            || runtime_delivery::installed(&warm_manager).map(|_| ()));
-        if let Err(error)=result {
-            eprintln!("owned runtime preparation did not authorize execution; each launch remains subject to its own exact admission: {error}");
+        match runtime_delivery::preparation_runners(&warm_manager) {
+            Ok(runners) => for runner in runners {
+                if let Err(error) = warm_verification.warm(
+                    Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS),
+                    || runner.verify()) {
+                    eprintln!("selected runtime preparation unavailable; launch admission remains exact: {error}");
+                }
+            },
+            Err(error) => eprintln!("selected runtime preparation unavailable: {error}"),
         }
     });
     if let Err(error) = &_runtime_preparation {

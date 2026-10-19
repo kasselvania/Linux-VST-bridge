@@ -151,6 +151,21 @@ impl LaunchVerification {
     /// and processing admission occur after this lock has been released.
     pub fn prepare<T>(&self, deadline: std::time::Instant,
         prepare: impl FnOnce() -> Result<T>) -> Result<(T, LaunchSnapshot)> {
+        let observed = self.observe(deadline, prepare)?;
+        // Late byte preparation remains useful, but cannot authorize this
+        // caller's execution after its existing admission boundary.
+        require(std::time::Instant::now() < deadline, "launch_verification_deadline")?;
+        Ok(observed)
+    }
+    /// Background preparation launches nothing. Its deadline bounds waiting
+    /// for another preparer, not reading the selected runtime from cold storage.
+    /// Execution must still use `prepare` and its own admission deadline.
+    pub fn warm(&self, wait_deadline: std::time::Instant,
+        verify: impl FnOnce() -> Result<()>) -> Result<()> {
+        self.observe(wait_deadline, verify).map(|_| ())
+    }
+    fn observe<T>(&self, deadline: std::time::Instant,
+        prepare: impl FnOnce() -> Result<T>) -> Result<(T, LaunchSnapshot)> {
         let mut records = loop {
             match self.records.try_lock() {
                 Ok(records) => break records,
@@ -172,11 +187,6 @@ impl LaunchVerification {
         let value = result?;
         require(observed.len() <= 200_000, "launch_verification_extent")?;
         *records = observed.clone();
-        // Completing verification after this caller's boundary cannot authorize
-        // its execution. The valid process-owned observations still help a later
-        // independent admission, which must reopen every path and run its ordinary
-        // identity/hash owners before it can execute.
-        require(std::time::Instant::now() < deadline, "launch_verification_deadline")?;
         Ok((value, LaunchSnapshot(observed)))
     }
 }
@@ -1272,6 +1282,23 @@ mod tests {
         drop(held);
         assert!(shared.prepare(std::time::Instant::now()-std::time::Duration::from_millis(1),
             || Ok(())).is_err());
+    }
+    #[test]
+    fn background_warm_retains_cold_reads_without_granting_late_execution() {
+        let f = Fixture::new();
+        let shared = LaunchVerification::default();
+        let deadline = std::time::Instant::now()+std::time::Duration::from_millis(100);
+        shared.warm(deadline, || {
+            digest(&f.r.host.path)?;
+            std::thread::sleep(deadline.saturating_duration_since(std::time::Instant::now())
+                +std::time::Duration::from_millis(20));
+            Ok(())
+        }).unwrap();
+        assert_eq!(shared.records.lock().unwrap().len(), 1);
+        assert!(shared.prepare(deadline, || Ok(())).is_err());
+        fs::write(&f.r.host.path, b"changed host").unwrap();
+        assert!(shared.prepare(std::time::Instant::now()+std::time::Duration::from_secs(2),
+            || f.r.host.verify()).is_err());
     }
     #[test]
     fn late_success_is_refused_but_retains_valid_launch_observations() {
