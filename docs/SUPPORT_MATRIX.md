@@ -860,53 +860,24 @@ Both hosts retire cleanly. The ordinary GUI records eight observed checks, leavi
 processing restart unchecked. The original project, twelve registrations and five
 preferences are unchanged. This is a short functional test, not audio deadline qualification.
 This repaired journey required several shared fixes; first-attempt qualification remains unmet.
-Test214 (2026-10-18) updates the Deck from Test126 through the ordinary package path
-(staged signed SteamOS package, then `package-update` run by the staged package's own
-manager, as Setup's Update Bridge does) in six minutes with all 26 published classes
-retained: 24 refreshed onto the new manager, the two LVB Completion classes on Steam's
-Proton 11.0 kept as they were. Test212 and Test213 refused the same update with
-"artifact missing or changed" because Steam had updated that Proton build in place
-(8 of 31 pinned files) and the catalogue check, then the publication refresh,
-verified a setup's runtime at update time; both checks are removed on PR #470 and
-the rule is recorded in the architecture. Afterwards the Kontakt 8 project saved
-under Test126 on 15 October (Pad Noir, 4 s phrase) reopens in REAPER on the Deck's
-NI runtime, renders 0–4 s offline at −4.7 dB peak and plays through PulseAudio at
-−4.7 dB track and master peak, the same level as the Test126 measurement; the
-instrument needed about 20 s after project open before it produced sound. Driven
-headlessly as a user service with project and Lua script as launch arguments.
+Test214–215 / Steam Deck / REAPER: ordinary signed-package update from Test126
+retains all 26 published classes, refreshing 24 and preserving two tied to a
+changed Steam-owned runtime. The retained Kontakt Pad Noir project recalls and
+plays at −4.7 dB peak. Unhealthy foreign runtime admission remains setup-scoped
+(#470); preserved classes are not a claim that their changed runtime can launch.
 
-On the same Deck/Test214, the Reference setup moved from r4 to r5 through the
-runtime selector, compatibility checks in plug-in Details, and explicit test
-replacement of both connections. REAPER loaded two Reference Instrument instances
-with gain/colour .37/.21 and .63/.79, plus the Reference Effect at gain .71.
-Both tracks played MIDI with nonzero peaks (.01785 and .02735). After saving and
-fully exiting REAPER, a fresh process recalled all five changed parameter values
-and played both tracks again (peaks .01785 and .02558). After exit and the normal
-idle retirement period: DSP 0, keepers 0, no pending transactions, stale transports
-or cleanup failure. Test214's setup connection job still incorrectly requested
-replacement after the explicit replacements. Test215 fixes that continuation:
-the same **Continue connecting plug-ins** action completes with both classes
-Available and no failures, without changing either selected publication. This
-same saved project also reopens on Test215 with all five settings retained and
-both tracks playing (peaks .01785 and .02558), then exits normally. This covers
-Reference on REAPER; Bitwig remains unqualified.
+Product-managed Reference r4 → r5 migration and explicit connection replacement
+pass: two instruments retain gain/colour .37/.21 and .63/.79, and an effect retains
+gain .71 across save/full exit/fresh reopen. Both tracks play; retirement reaches
+DSP 0/keepers 0 without cleanup failure. Continue connecting completes without
+another publication revision. This check covers REAPER, not Bitwig.
 
-On Deck/Test215, the existing Serum setup moved from the retained touch-routing
-runtime to managed r5 through the product, followed by fresh compatibility checks
-and explicit replacement of the instrument and FX connections. Before the move,
-the retained Serum project played a six-note MIDI phrase at peak .283317. A fresh
-REAPER process reopened that saved project on r5, played at the same peak, saved
-a new copy and exited normally. A further session loaded Serum 2 followed by
-Serum 2 FX and played at the same peak; the instrument editor visibly rendered.
-The operator then reported that the requested finger-operated OSC A waveform-menu
-selection/dismissal stalled or lost the editor. Thus r5 fails this Deck touch
-journey despite the playback/recall result. The previous touch-routing runtime and
-both connections were restored through the product. Playback again peaked at
-.283317, and the operator confirmed the same physical-touch test worked after
-restoration. The operator also confirmed the longstanding incorrect transparency
-remains (#330); visible rendering above does not mean correct graphic fills.
-Changed-parameter recall, FX editor behavior and Bitwig remain unchecked;
-Kontakt's setup has not yet moved to r5.
+Serum 2 / Deck / Test215: migration to r5 retains playback/recall at peak .283317,
+but finger-operated OSC A waveform menus stall or lose editor response. Restoring
+the retained touch runtime through product operations restores the same physical
+interaction and playback. r5 does not pass this touch journey (#469, FC-UI-003).
+Transparency remains incorrect (#330); changed-parameter recall and the FX editor
+are not covered by this comparison.
 
 Test35's ordinary GUI **Update Bridge** preserves twelve class/module/environment/
 compatibility bindings, five preferences, two saved projects and all 257 original
