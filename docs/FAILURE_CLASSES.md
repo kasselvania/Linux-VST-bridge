@@ -23,12 +23,11 @@ Kontakt 8's first inspection on a fresh setup can exceed the 30 s module-unload
 deadline ("stopped responding while it was being closed"); the ordinary Retry
 succeeded on Test210. Open: whether first-load work needs a longer exit deadline.
 
-Sticky "cleanup unconfirmed" after a failed admission (#468): the bridge service sets a
-process-wide flag when an exposed admission fails (for example Kontakt's first inspection
-exceeding the 30 s unload deadline, or a host ended by the manager's own vendor-operation
-pause). Nothing in production clears it; every action requiring inactivity, including
-Reconcile, is disabled until the service restarts, and the card offers no restart. After a
-restart the existing Reconcile does resume the stale pause record. Open.
+Failed-admission recovery (#468): #474 replaces the sticky cleanup flag with exact
+failed-lease tracking and keeps Reconcile reachable. Test217 recovered after a cleanup
+lock timeout, reopened the mixed Kontakt/Reference project, and retired all instances
+without restarting the service. Missing retirement proof remains a refusal. Open:
+cold verification lifetime/progress and isolation of genuinely uncertain setup custody.
 While a vendor app or installer is open, every setup's Install offer is disabled, not only
 the affected setup's (ARCHITECTURE §3 expects per-setup exclusivity). Open.
 

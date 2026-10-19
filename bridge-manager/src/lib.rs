@@ -123,6 +123,11 @@ pub fn with_readback_digests<T>(readback: impl FnOnce() -> T) -> T {
 /// after reopening and matching the complete file identity. Persisted runtime
 /// observations cannot authorize execution, even in a nested readback scope.
 pub fn with_launch_verification<T>(admission: impl FnOnce() -> T) -> T {
+    // Nested stages of the same operation already own byte observations.
+    // Preserve those observations, but never inherit a readback-only scope.
+    if FULL_BYTE_VERIFICATION.with(Cell::get) {
+        return admission();
+    }
     struct Restore(bool);
     impl Drop for Restore {
         fn drop(&mut self) { FULL_BYTE_VERIFICATION.with(|mode| mode.set(self.0)); }
@@ -1337,6 +1342,37 @@ mod tests {
         fs::remove_file(&path).unwrap();
         std::os::unix::fs::symlink(f.r.host.path.clone(), &path).unwrap();
         assert!(with_readback_digests(|| digest(&path)).is_err());
+    }
+    #[test]
+    fn nested_launch_stages_reuse_bytes_but_recheck_replaced_files_and_claims() {
+        let f = Fixture::new();
+        let path = f.outer.join("transition-runtime");
+        fs::write(&path, b"first").unwrap();
+        let expected = Artifact { path:path.clone(), sha256:digest(&path).unwrap() };
+        with_launch_verification(|| {
+            expected.verify().unwrap();
+            with_launch_verification(|| {
+                assert!(SCOPED_DIGESTS.with(|cache|cache.borrow().as_ref().unwrap()
+                    .contains_key(&path)), "nested transition must retain its byte observation");
+                expected.verify().unwrap();
+                let mut false_claim = expected.clone();
+                false_claim.sha256 = "0".repeat(64);
+                assert!(false_claim.verify().is_err(), "reuse cannot authorize a different digest");
+                // A replacement with identical length and restored mtime is
+                // still a different object. Metadata reuse must reject it.
+                let modified = fs::metadata(&path).unwrap().modified().unwrap();
+                let replacement = path.with_extension("new");
+                fs::write(&replacement, b"other").unwrap();
+                File::options().write(true).open(&replacement).unwrap()
+                    .set_times(fs::FileTimes::new().set_modified(modified)).unwrap();
+                fs::rename(&replacement, &path).unwrap();
+                assert!(expected.verify().is_err());
+            });
+            assert!(expected.verify().is_err(), "outer stage must also reject the replacement");
+        });
+        assert!(SCOPED_DIGESTS.with(|cache|cache.borrow().is_none()));
+        with_launch_verification(|| assert!(SCOPED_DIGESTS.with(|cache|
+            cache.borrow().as_ref().unwrap().is_empty()), "next operation starts fresh"));
     }
     #[test]
     fn nested_readbacks_retain_observations_without_lending_them_to_launch() {
