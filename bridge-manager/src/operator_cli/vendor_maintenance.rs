@@ -17,7 +17,7 @@ struct State {
 }
 /// A view of existing retained owners, never another registry or lease table.
 #[derive(Clone)]
-enum Target { Vendor(VendorBinding), Onboarding, Installer, InstallerReservation }
+enum Target { Vendor(Box<VendorBinding>), Onboarding, Installer, InstallerReservation }
 #[derive(Clone)]
 struct Binding {
     operation:String,before:Environment,environment:Environment,
@@ -25,7 +25,7 @@ struct Binding {
 }
 impl From<VendorBinding> for Binding {
     fn from(v:VendorBinding)->Self {Self {operation:v.operation.clone(),before:v.before.clone(),
-        environment:v.environment.clone(),vendor_operation:v.vendor_operation.clone(),target:Target::Vendor(v)}}
+        environment:v.environment.clone(),vendor_operation:v.vendor_operation.clone(),target:Target::Vendor(Box::new(v))}}
 }
 #[derive(Clone)]
 struct Execution {

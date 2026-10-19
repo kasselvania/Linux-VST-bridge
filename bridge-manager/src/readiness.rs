@@ -1531,7 +1531,7 @@ mod tests {
                 let unit=&unit;
                 let worker=scope.spawn(move ||with_unit_state_fixture(std::slice::from_ref(unit),"inactive",|| {
                     entered.send(()).unwrap();continue_read.recv_timeout(Duration::from_secs(5))
-                        .expect("later fixture scope was not released");bounded_user_unit_state(&unit)
+                        .expect("later fixture scope was not released");bounded_user_unit_state(unit)
                 }));
                 ready.recv_timeout(Duration::from_secs(5)).expect("later fixture scope did not enter");worker
             });
