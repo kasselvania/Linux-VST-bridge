@@ -1,13 +1,11 @@
 """Real ELF negative cases for the replacement-driver admission check."""
-import importlib.util
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import unittest
 
-spec=importlib.util.spec_from_file_location('compatibility', Path(__file__).with_name('compatibility.py'))
-compatibility=importlib.util.module_from_spec(spec);spec.loader.exec_module(compatibility)
+import compatibility
 
 @unittest.skipUnless(shutil.which('readelf') and shutil.which('gcc'), 'Linux ELF toolchain required')
 class CompatibilityTest(unittest.TestCase):
@@ -35,6 +33,18 @@ class CompatibilityTest(unittest.TestCase):
     def test_added_import(self):
         other=self.compile('changed','extern int puts(const char *); extern int new_requirement(void); int surface[2]; int call(void) { return puts("ok") + new_requirement(); }')
         with self.assertRaisesRegex(ValueError,'imports'):compatibility.compare(self.original,other)
+    def test_changed_required_symbol_version(self):
+        version=self.root/'versions.map'
+        source='extern int requirement(void); int surface[2]; int call(void) { return requirement(); }'
+        def dependency(label):
+            version.write_text(label + ' { global: requirement; };')
+            self.compile('dependency','int requirement(void) { return 1; }',
+                         soname='dependency.so',extra=('-Wl,--version-script='+str(version),))
+        dependency('REQUIRED_1')
+        old=self.compile('version_old',source,extra=(str(self.root/'dependency.so'),))
+        dependency('REQUIRED_2')
+        new=self.compile('version_new',source,extra=(str(self.root/'dependency.so'),))
+        with self.assertRaisesRegex(ValueError,'imports'):compatibility.compare(old,new)
     def test_added_dependency(self):
         self.compile('dependency','int dependency(void) { return 1; }',soname='dependency.so')
         other=self.compile('changed','extern int puts(const char *); int surface[2]; int call(void) { return puts("ok"); }',extra=('-Wl,--no-as-needed',str(self.root/'dependency.so')))
