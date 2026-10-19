@@ -7,6 +7,7 @@ use serde_json::{json, Value};
 mod current;
 mod plugin_setup;
 pub(super) mod automatic_install;
+pub(super) mod vendor_maintenance;
 pub(super) mod environment_install;
 pub(super) mod environment_runtime;
 mod environment_refresh;
@@ -234,6 +235,17 @@ fn vendor_projection(
     let a = vendor_cli::application(m, selector)?;
     let live = vendor_cli::live(selector)?;
     if a.user_selection.is_some() { return program_projection(m,selector,a,live,busy).map(Some); }
+    // A missing global busy reason already carries the caller's available
+    // service observation. When global users make it busy, obtain a fresh
+    // census before replacing that reason with this setup's exact owners.
+    let unavailable=busy.is_some() && live_capacity(m).is_err();
+    let scoped_reason=(||->Result<()> {
+        require(!unavailable,"The bridge service is unavailable")?;
+        require(pending_transactions(m)?==0,"operator_pending_transaction_reconcile")?;
+        require(!vendor_maintenance::blocks(m,&a.environment)?,"This setup has unfinished maintenance; recover or continue its task")?;
+        capacity::require_environment_inactive(m,&a.environment)
+    })().err().map(|error|error.to_string());
+    let busy=scoped_reason.as_deref();
     let valid = a.validate_record(&m.root).is_ok();
     let record = onboarding::retained_environment_record(m, &a.environment.id)?;
     let continuation = automatic_install::vendor_intent(m, selector)?;
@@ -661,6 +673,18 @@ fn require_operator_inactive_with(
     if !a.requires_inactive() || matches!(a, ui::Action::TransactionReconcile {}) {
         return Ok(());
     }
+    let owned=operation.map(|id|vendor_maintenance::owned(m,id)).transpose()?.flatten();
+    let vendor_action=matches!(a,ui::Action::VendorSoftwareInstall {..}|ui::Action::VendorApplicationOpen {..});
+    if owned.is_some() || vendor_action {
+        if let Some(environment)=vendor_maintenance::action_environment(m,a)? {
+            if let Some(bound)=&owned {require(*bound==environment,"vendor_maintenance_child_scope")?;}
+            let _admission=acquire_readback(m,ui::OperatorLock::Registry,operation,timeout,waits)?;
+            if let Some(id)=operation.filter(|_|owned.is_some()) {
+                require(vendor_maintenance::owned(m,id)?==Some(environment.clone()),"vendor_maintenance_generation_changed")?;
+            } else {require(!vendor_maintenance::blocks(m,&environment)?,"setup_maintenance_active")?;}
+            return capacity::require_environment_inactive(m,&environment);
+        }
+    }
     // Resolve immutable candidate history before taking the short admission lock.
     // A setup-scoped action names every class bound to the setup; an empty
     // scope still requires no maintenance owner (no class matches "").
@@ -682,6 +706,7 @@ fn require_operator_inactive_with(
     let cap = capacity_read().ok_or("capacity_readback_unavailable")?;
     let _admission = acquire_readback(m, ui::OperatorLock::Registry, operation, timeout, waits)?;
     require(cap.owners == capacity::owners(m)?, "operator_owners_changed")?;
+    require(!vendor_maintenance::any_held(m)?,"setup_maintenance_active")?;
     let retired = vendor_retired(m)? && onboarding::all_retired(m)?;
     let pending = pending_transactions(m)?;
     let reason = if let Some(classes) = &classes {
@@ -2068,7 +2093,13 @@ fn finish_operation(m: &Manager, id: &str) -> Result<()> {
     let finalized = finish_operation_with(m, id, |saved| restore_service(m, saved));
     installer_cleanup?;
     preparation_cleanup?;
-    finalized
+    finalized?;
+    // ExecStopPost can settle only after the exact worker relinquishes its
+    // existing execution lock. A late finish cannot release a resumed owner.
+    if let Ok(_worker)=m.lock(&format!("operator-worker-{id}.lock")) {
+        vendor_maintenance::settle_executor(m,id)?;
+    }
+    Ok(())
 }
 /// Everything the worker unit's ExecStopPost records except restoring the
 /// service that the operation suspended.
@@ -2093,13 +2124,17 @@ pub(super) fn worker_unit_live(operation: &str) -> Result<bool> {
 /// exactly as that step would have, including the service restoration it owns.
 /// Returns what could not be finished, for the service log.
 pub(super) fn reconcile_dead_workers(m: &Manager) -> Result<Vec<String>> {
-    reconcile_dead_workers_with(m, worker_unit_live, Some(|saved: &ResumeRecord| restore_service(m, saved)))
+    let mut failures=reconcile_dead_workers_with(m,worker_unit_live,Some(|saved:&ResumeRecord|restore_service(m,saved)))?;
+    match vendor_maintenance::reconcile(m,worker_unit_live) {
+        Ok(recovery)=>failures.extend(recovery.failures),Err(error)=>failures.push(error.to_string()),
+    }
+    Ok(failures)
 }
 /// Package gate: the same, except that no service is restored or waited on.
 /// Reservations the finished tasks (or their automatic-install checks) leave
 /// are carried by the package handoff or released by the service start,
 /// activation or Recover.
-pub(super) fn settle_dead_workers(m: &Manager, worker_live: impl FnMut(&str) -> Result<bool>)
+pub(super) fn settle_dead_workers(m: &Manager, mut worker_live: impl FnMut(&str) -> Result<bool>)
     -> Result<Vec<String>> {
     struct Restore;
     impl Drop for Restore {
@@ -2107,7 +2142,11 @@ pub(super) fn settle_dead_workers(m: &Manager, worker_live: impl FnMut(&str) -> 
     }
     RESTORATION_DEFERRED.with(|deferred| deferred.set(true));
     let _restore = Restore;
-    reconcile_dead_workers_with(m, worker_live, None::<fn(&ResumeRecord) -> Result<()>>)
+    let mut failures=reconcile_dead_workers_with(m,&mut worker_live,None::<fn(&ResumeRecord)->Result<()>>)?;
+    match vendor_maintenance::reconcile(m,&mut worker_live) {
+        Ok(recovery)=>failures.extend(recovery.failures),Err(error)=>failures.push(error.to_string()),
+    }
+    Ok(failures)
 }
 fn lock_within(m: &Manager, name: &str, limit: Duration) -> Result<Lock> {
     let deadline = Instant::now() + limit;
@@ -2188,6 +2227,9 @@ fn reconcile_dead_workers_with(
 /// Every operator receipt, and the latest pointer, is terminal. A request
 /// without a receipt is not.
 pub(super) fn all_operations_finished(m: &Manager) -> Result<bool> {
+    Ok(!vendor_maintenance::any_held(m)? && all_workers_finished(m)?)
+}
+pub(super) fn all_workers_finished(m: &Manager) -> Result<bool> {
     let directory = m.root.join("operator");
     if !directory.try_exists()? {
         return Ok(true);
@@ -2670,6 +2712,11 @@ fn execute_with_receipt_policy_progress(
 
     if preparation_cli::is_action(a) {
         let owner = operation.ok_or("operator_operation_identity")?;
+        if vendor_maintenance::owned(m,owner)?.is_some() {
+            drop(projection.take());
+            return preparation_cli::execute_with_progress(m,a,owner,||
+                acquire_readback(m,ui::OperatorLock::Registry,Some(owner),timeout,waits),progress);
+        }
         if matches!(
             a,
             ui::Action::CandidateGraphicsAssess { .. }
@@ -2937,6 +2984,12 @@ fn execute_with_receipt_policy_progress(
             Ok(value)
         }
         ui::Action::EnvironmentInstallerScan {environment} => {
+            let owner=operation.ok_or("operator_operation_identity")?;
+            if let Some(bound)=vendor_maintenance::owned(m,owner)? {
+                require(bound.id==*environment,"vendor_maintenance_child_scope")?;
+                drop(projection.take());
+                return rescan_environment_scoped(m,bound,owner);
+            }
             let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
             let env = environment_install::target(m,environment)?;
@@ -3032,6 +3085,14 @@ fn execute_with_receipt_policy_progress(
             Ok(json!({"capture":"disarmed"}))
         }
         ui::Action::TransactionReconcile {} => {
+            let recovery=vendor_maintenance::reconcile(m,worker_unit_live)?;
+            if recovery.settled>0 && recovery_capacity.as_ref().is_some_and(|cap|
+                cap.owners.iter().any(|owner|owner.kind==capacity::Kind::Dsp)) {
+                return Ok(json!({"reconciled_setups":recovery.settled,
+                    "remaining_setup_failures":recovery.failures,
+                    "publication_recovery":"deferred_while_playing"}));
+            }
+            require(recovery.failures.is_empty(),&recovery.failures.join("; "))?;
             // Read the service before acquiring registry.lock. A healthy idle
             // keeper may remain, but a missing or uncertain census cannot
             // authorize a retained owner. Empty proven retirement needs no service.
@@ -3296,8 +3357,12 @@ fn execute_with_receipt_policy_progress(
         }
         ui::Action::QuarantinedModuleRetry { environment, scan, module_index,
             module_sha256, report_sha256 } => {
-            let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
+            if vendor_maintenance::owned(m,owner)?.is_some() {
+                return retry_quarantined_module_scoped(m,environment,scan,*module_index,
+                    module_sha256,report_sha256,owner);
+            }
+            let _environment = m.lock("operator-environment.lock")?;
             suspend(m, owner, None, timeout, waits)?;
             let result = retry_quarantined_module(m, environment, scan, *module_index,
                 module_sha256, report_sha256);
@@ -3364,6 +3429,14 @@ impl PackageResume {
         require(self.saved()?.software == source.manager.sha256,"package_resume_binding")
     }
 }
+fn retire_setup_for_vendor(m:&Manager,owner:&str)->Result<()> {
+    let mut peer=UnixStream::connect(m.root.join("runtime/owner.sock"))?;
+    peer.set_read_timeout(Some(Duration::from_secs(35)))?;
+    peer.set_write_timeout(Some(Duration::from_secs(2)))?;
+    peer.write_all(b"LVM1\n")?;peer.write_all(owner.as_bytes())?;
+    let mut receipt=[0u8;13];peer.read_exact(&mut receipt)?;
+    require(&receipt==b"LVM1 retired\n","setup_keeper_retirement_unconfirmed")
+}
 fn open_vendor_owned(
     m: &Manager,
     application: &str,
@@ -3374,6 +3447,18 @@ fn open_vendor_owned(
     started: impl FnOnce() -> Result<()>,
 ) -> Result<Value> {
     vendor_application::ApplicationId::parse(application)?;
+    if let Some(environment)=vendor_maintenance::owned(m,owner)? {
+        let _environment=m.lock(&format!("operator-environment-{}.lock",environment.id))?;
+        retire_setup_for_vendor(m,owner)?;
+        vendor_cli::launch_owned(m,application,vendor_operation)?;
+        write_operation(m,owner,&json!({"schema":1,"operation":owner,"state":"vendor_running"}),false)?;
+        started()?;
+        while vendor_cli::live(application)? {std::thread::sleep(Duration::from_millis(500));}
+        vendor_cli::reconcile(m,application,vendor_operation)?;
+        let result=vendor_cli::result(m,application,vendor_operation)?;
+        require(result.retired(),"operator_vendor_cleanup_unconfirmed")?;
+        return Ok(json!({"vendor":"retired","service":"active","operation":vendor_operation,"result":result}));
+    }
     let _environment = m.lock("operator-environment.lock")?;
     suspend(m, owner, Some(vendor_operation.into()), timeout, waits)?;
     if let Err(error) = vendor_cli::launch_owned(m, application, vendor_operation) {
@@ -3415,7 +3500,7 @@ fn resumable_action(action: &ui::Action) -> bool {
         // leave the pause behind; restoring requires everything retired.
         | ui::Action::ProductUninstall {..} | ui::Action::InstallerCloseCheck {..})
 }
-fn control_artifact(path: PathBuf) -> Result<Artifact> {
+pub(super) fn control_artifact(path: PathBuf) -> Result<Artifact> {
     require(file(&path)?.metadata()?.len() <= 8*1024*1024,"operator_record_bound")?;
     Ok(Artifact {sha256:digest(&path)?,path})
 }
@@ -3767,6 +3852,15 @@ fn stop_vendor_with(
     restore: impl FnOnce(&ResumeRecord) -> Result<()>,
 ) -> Result<()> {
     vendor_application::ApplicationId::parse(application)?;
+    if let Some(intent)=automatic_install::vendor_intent(m,application)? {
+        if let Some(vendor)=&intent.vendor {
+            if vendor_maintenance::for_vendor(m,&vendor.operation)?.is_some() {
+                let job:vendor_application::Operation=read_json(&vendor_cli::directory(m,application)?.join("operation.json"))?;
+                require(job.operation_id==vendor.operation,"operator_vendor_open_binding_changed")?;
+                return cancel(&vendor.operation);
+            }
+        }
+    }
     let _resume = resume_lock(m)?;
     let saved = resume_record(m)?.ok_or("operator_vendor_open_owner_absent")?;
     let request = recovery_request(m, &saved)?;
@@ -3949,6 +4043,24 @@ fn retry_quarantined_module(m: &Manager, environment: &str, scan: &str,
         report_sha256: report_sha256.into(),
     }))
 }
+fn retry_quarantined_module_scoped(m:&Manager,environment:&str,scan:&str,
+    module_index:usize,module_sha256:&str,report_sha256:&str,owner:&str)->Result<Value> {
+    let lock=m.lock("registry.lock")?;
+    let env=vendor_maintenance::owned(m,owner)?.ok_or("vendor_maintenance_owner_missing")?;
+    require(env.id==environment,"vendor_maintenance_child_scope")?;
+    vendor_maintenance::require_inactive(m,&env)?;
+    let sw=software(m)?;
+    let db=m.registry()?;
+    let catalogue=operator_catalogue(m,&sw,&db)?;
+    let bindings=managed_environment_bindings(m,catalogue.as_ref(),&db)?;
+    require(quarantined_retry_binding(m,&bindings,&db,environment,true)?==Some(env.clone()),
+        "operator_environment_unmanaged")?;
+    drop(lock);
+    rescan_environment_work(m,env,sw,Some(QuarantinedRetry {
+        scan:scan.into(),module_index,module_sha256:module_sha256.into(),
+        report_sha256:report_sha256.into(),
+    }),Some(owner))
+}
 fn rescan_environment(m: &Manager, env: Environment) -> Result<Value> {
     let id = env.id.clone();
     let value = rescan_environment_with_retry(m, env, None)?;
@@ -4010,21 +4122,40 @@ fn rescan_environment_admitted(m:&Manager,env:Environment,retry:Option<Quarantin
     let sw = software(m)?;
     rescan_environment_locked(m, env, sw, retry)
 }
+fn rescan_environment_scoped(m:&Manager,env:Environment,owner:&str)->Result<Value> {
+    let sw=software(m)?;
+    rescan_environment_work(m,env,sw,None,Some(owner))
+}
 fn rescan_environment_locked(
     m: &Manager,
     env: Environment,
     sw: Software,
     retry: Option<QuarantinedRetry>,
 ) -> Result<Value> {
+    rescan_environment_work(m,env,sw,retry,None)
+}
+fn rescan_environment_work(m:&Manager,env:Environment,sw:Software,
+    retry:Option<QuarantinedRetry>,owner:Option<&str>)->Result<Value> {
+    let admit=||->Result<Option<Lock>> {
+        if let Some(owner)=owner {
+            let lock=m.lock("registry.lock")?;
+            require(vendor_maintenance::owned(m,owner)?==Some(env.clone()),"vendor_maintenance_child_scope")?;
+            vendor_maintenance::require_inactive(m,&env)?;
+            Ok(Some(lock))
+        } else {Ok(None)}
+    };
     let environment = env.id.clone();
     let modules = managed_cli::modules(&env)?;
     require(modules.len() <= 64, "operator_scan_module_bound")?;
     let prior_path = m.root.join("inventory").join(format!("{environment}.json"));
+    let initial=admit()?;
+    let prior_identity=if prior_path.try_exists()? {Some(digest(&prior_path)?)} else {None};
     let prior = if prior_path.exists() {
         Some(read_json::<inventory::Scan>(&prior_path)?)
     } else {
         None
     };
+    drop(initial);
     let retry_target=retry.as_ref().map(|retry|exact_retry_target(prior.as_ref(),&env,
         &sw.host,&sw.source_sha256,&modules,retry).map(|module|module.artifact.clone()))
         .transpose()?;
@@ -4041,6 +4172,7 @@ fn rescan_environment_locked(
             "operator_scan_time_bound",
         )?;
         let stamp = observation::ModuleStamp::read(&module.path)?;
+        let reservation=admit()?;
         let (job, path) = spec(
             m,
             HostBinding {
@@ -4062,7 +4194,9 @@ fn rescan_environment_locked(
         #[cfg(test)]
         SCAN_SPAWN_COUNT.with(|count| count.set(count.get() + 1));
         let child = spawn(m, &sw, &path, None)?;
-        vendor_product_cli::finish_scan(child, &job, &path, pending)?;
+        drop(reservation);
+        if owner.is_some() {vendor_product_cli::finish_scan_with_registry(m,child,&job,&path,pending)?;}
+        else {vendor_product_cli::finish_scan(child,&job,&path,pending)?;}
         module.verify()?;
         require(
             observation::ModuleStamp::read(&module.path)? == stamp,
@@ -4085,6 +4219,9 @@ fn rescan_environment_locked(
             inspection_error: raw["error"].as_str().map(|s| s.chars().take(256).collect()),
         });
     }
+    let _commit=admit()?;
+    require((if prior_path.try_exists()? {Some(digest(&prior_path)?)} else {None})==prior_identity,
+        "inventory_changed_during_scan")?;
     let scan = inventory::Scan {
         schema: 1,
         id: random_id()?,
@@ -5595,9 +5732,6 @@ pub(crate) mod tests {
                 module_sha256: "cd".repeat(32),
                 report_sha256: "ef".repeat(32),
             },
-            ui::Action::VendorApplicationOpen {
-                application: ASC.into(),
-            },
             ui::Action::OrdinaryRollback {
                 class_id: f.r.key(),
                 publication: "a".repeat(32),
@@ -5627,6 +5761,33 @@ pub(crate) mod tests {
         }
         assert!(!f.m.root.join("registry.json").exists());
         assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    #[test]
+    fn vendor_admission_uses_exact_setup_owners_instead_of_global_capacity() {
+        let (f,record,_)=vendor_cli::selection::tests::installed_app();
+        let selector=vendor_cli::selection::choices(&f.m,&record).unwrap()[0].application.selector().unwrap();
+        let action=ui::Action::VendorApplicationOpen {application:selector};
+        let session=random_id().unwrap();
+        let report=f.m.root.join("runtime/results").join(format!("windows-{session}.json"));
+        let lease=f.m.root.join("runtime/leases").join(format!("{session}.json"));
+        private_dir(report.parent().unwrap()).unwrap();private_dir(lease.parent().unwrap()).unwrap();
+        let mut other=record.environment.clone();other.id=random_id().unwrap();
+        other.root=f.m.root.join("environments").join(&other.id);
+        for environment in [&other,&record.environment] {
+            let owner=environment.root.join("compatdata/pfx/drive_c/bridge/sessions")
+                .join(&session).join("owner.json");
+            private_dir(owner.parent().unwrap()).unwrap();
+            atomic_json(&owner,&json!({"session":session,"report":report,"lease":lease,
+                "keeper":false,"inspect":false,"vendor_access":false,
+                "registration":{"metadata":{"class_id":f.r.key()},"environment":environment}})).unwrap();
+            atomic_json(&lease,&report).unwrap();
+            let result=require_operator_inactive_with(&f.m,&action,
+                &||panic!("Global capacity cannot decide setup exclusivity"),None,
+                Duration::from_secs(1),&mut vec![]);
+            if environment==&other {result.unwrap();}
+            else {assert_eq!(result.unwrap_err().to_string(),"active_device_lease");}
+            fs::remove_file(owner).unwrap();
+        }
     }
     #[test]
     fn environment_creation_rechecks_live_capacity_at_mutation() {
@@ -6975,6 +7136,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn candidate_only_history_is_readable_with_scoped_recovery_and_corrupt_records_refuse() {
+        readiness::with_unit_state_fixture(&[onboarding::unit(&"cd".repeat(16)).unwrap()],"inactive",|| {
         use linux_vst_bridge::preparation as prep;
         let (f, mut candidate) = preparation_cli::tests::projection_fixture();
         candidate.origin = prep::Origin::RetainedSv1;
@@ -7084,6 +7246,7 @@ pub(crate) mod tests {
         assert_eq!(failure.to_string(), "candidate_lineage_identity");
         assert_eq!(fs::read(&lineage_path).unwrap(), corrupt);
         assert_eq!(fs::read(&candidate_path).unwrap(), candidate_bytes);
+        });
     }
     #[test]
     fn catalogue_free_missing_lineage_preserves_selected_publication_and_rollback_readback() {
@@ -8165,7 +8328,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         let f = test_fixture::Fixture::new();
         let owner = "ab".repeat(16);
         let mut waits = vec![];
-        let (job, _) = contended_registry(&f.m, |entered| {
+        let (job, _, admission) = contended_registry(&f.m, |entered| {
             preparation_cli::admitted_inspection_spec(&f.m, f.r.clone().into(), || {
                 entered.send(()).unwrap();
                 acquire_readback(
@@ -8179,6 +8342,9 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         })
         .unwrap();
         assert!(job.inspect && !job.first_audio);
+        assert!(matches!(f.m.try_lock("registry.lock").unwrap(),
+            linux_vst_bridge::operator_lock::LockAttempt::Busy));
+        drop(admission);
         assert_eq!(waits.len(), 1);
         assert_eq!(waits[0].name, ui::OperatorLock::Registry);
         assert_eq!(waits[0].purpose, ui::LockPurpose::OperatorValidationReadback);

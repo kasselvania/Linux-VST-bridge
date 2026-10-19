@@ -152,14 +152,14 @@ pub(super) fn assess(m: &Manager, binding: HostBinding,
             &binding.host_source_sha256, &binding.compatibility)?;
         context.fingerprint()?;
         let registry = registry_admission()?;
-        m.require_inactive(None)?;
+        operator_cli::vendor_maintenance::require_inactive(m,&binding.environment)?;
         let (mut job, path) = spec(m, binding, true, false, false)?;
         job.graphics_assessment = true;
         atomic_json(&path, &job)?;
         let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AdmissionCleanup::default()));
         let child = spawn(m, &sw, &path, None)?;
         drop(registry);
-        vendor_product_cli::finish_scan(child, &job, &path, pending)?;
+        vendor_product_cli::finish_scan_with_registry(m,child,&job,&path,pending)?;
         job.registration.module.verify()?;
         require(
             observation::ModuleStamp::read(&job.registration.module.path)? == module_stamp,

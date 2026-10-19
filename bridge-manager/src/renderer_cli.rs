@@ -45,6 +45,7 @@ pub(super) fn launch(m: &Manager, identity: &str, policy: renderer::RendererPoli
     let sw=linux_vst_bridge::preparation::build::launch_software(m)?;let d=operation_dir(m,op)?;
     let spec=native_access_dependency::bind_session(m,&app,&sw,op,policy,&d.join("result.json"))?;
     let _guard=m.lock("registry.lock")?;m.require_inactive(None)?;
+    require(!operator_cli::vendor_maintenance::blocks(m,&app.environment)?,"setup_maintenance_active")?;
     require(all_retired(m)?,"renderer_previous_cleanup_unconfirmed")?;
     lifecycle::submit_with(m,&spec,|path|Ok(Command::new("systemd-run").args(["--user","--collect","--slice=app.slice","--property=UMask=0077","--property=KillMode=mixed",
         "--property=TimeoutStopSec=90","--property=StandardOutput=null","--property=StandardError=null"])

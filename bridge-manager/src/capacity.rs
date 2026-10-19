@@ -516,7 +516,7 @@ fn terminal_status(
 pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
     owners_for(m, None)
 }
-fn owners_for(m: &Manager, environment: Option<&Environment>) -> Result<Vec<Owner>> {
+pub fn owners_for(m: &Manager, environment: Option<&Environment>) -> Result<Vec<Owner>> {
     let leases = m.root.join("runtime/leases");
     if !leases.try_exists()? {
         return Ok(Vec::new());

@@ -767,42 +767,24 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
             Ok(())
         }
         "cancel" => {
-            let registry = m.lock("registry.lock")?;
+            let writer=m.lock(directory.join("writer.lock").strip_prefix(&m.root)?.to_str().ok_or("vendor_writer_gate")?)?;
             let job:vendor_application::Operation=read_json(&directory.join("operation.json"))?;
             let prior=result(m,&args[1],&job.operation_id)?;
-            if !live(&args[1])? {
-                if let Some(id) = operation {
-                    require(job.operation_id == id && prior.operation_id.as_deref() == Some(id),
-                        "vendor_application_operation_changed")?;
-                }
-                return recover_stopped(m,&args[1],&job.operation_id,registry,reconcile);
-            }
+            // The writer pins this submission. Reject a changed job or result
+            // before a service observation can mask the identity failure.
             if let Some(id) = operation {
-                let job: serde_json::Value = read_json(&directory.join("operation.json"))?;
                 require(
-                    job["operation_id"] == id && prior.operation_id.as_deref() == Some(id),
+                    job.operation_id == id && prior.operation_id.as_deref() == Some(id),
                     "vendor_application_operation_changed",
                 )?;
             }
-            if prior.retired() {
-                let state = Command::new("systemctl")
-                    .args([
-                        "--user",
-                        "show", &unit,
-                        "-p",
-                        "ActiveState",
-                        "--value"])
-                    .output()?;
-                if state.status.success()
-                    && matches!(
-                        std::str::from_utf8(&state.stdout)?.trim(),
-                        "inactive" | "failed"
-                    )
-                {
-                    println!("{}", serde_json::to_string(&prior)?);
-                    return Ok(());
-                }
+            let running=live(&args[1])?;
+            let registry=m.lock("registry.lock")?;
+            if !running {
+                drop(writer);
+                return recover_stopped(m,&args[1],&job.operation_id,registry,reconcile);
             }
+            drop(registry);
             let result = Command::new("systemctl")
                 .args([
                     "--user",
@@ -846,8 +828,19 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
             let launcher = if managed.is_some() || app.user_selection.is_some() {
                 sw.installer_launch.clone()
             } else {None};
+            // The per-app writer excludes another submission while the unit is
+            // observed without holding native admission's registry lock.
+            let old_job=directory.join("operation.json");
+            let prior_job=if old_job.try_exists()? {Some(operator_cli::control_artifact(old_job.clone())?)} else {None};
+            if prior_job.is_some() {require(!live(&args[1])?,"vendor_application_owner_active")?;}
             let _guard = m.lock("registry.lock")?;
-            m.require_inactive(None)?;
+            if let Some(environment)=operator_cli::vendor_maintenance::for_vendor(m,operation.unwrap())? {
+                require(environment==app.environment,"vendor_maintenance_environment_changed")?;
+                capacity::require_environment_inactive(m,&environment)?;
+            } else {
+                require(!operator_cli::vendor_maintenance::blocks(m,&app.environment)?,"setup_maintenance_active")?;
+                m.require_inactive(None)?;
+            }
             require(current_application(m,&record)? == app, "vendor_application_selection_changed")?;
             require(
                 app.selector()? == args[1],
@@ -866,17 +859,7 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
                     old.retired(),
                     "vendor_application_operation_requires_retirement",
                 )?;
-                let state = Command::new("systemctl")
-                    .args(["--user", "show", &unit, "-p", "ActiveState", "--value"])
-                    .output()?;
-                require(
-                    state.status.success()
-                        && matches!(
-                            std::str::from_utf8(&state.stdout)?.trim(),
-                            "inactive" | "failed"
-                        ),
-                    "vendor_application_owner_active",
-                )?;
+                require(prior_job==Some(operator_cli::control_artifact(job.clone())?),"vendor_application_operation_changed")?;
                 let history = directory.join(format!("retired-{}", random_id()?));
                 private_dir(&history)?;
                 fs::rename(&job, history.join("operation.json"))?;
@@ -884,9 +867,6 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
                     directory.join("operation-result.json"),
                     history.join("result.json"),
                 )?;
-                let _ = Command::new("systemctl")
-                    .args(["--user", "reset-failed", &unit])
-                    .status()?;
             }
             let operation_id = match operation {
                 Some(id) => id.to_owned(),
@@ -906,6 +886,10 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
                     managed,capability_notice:inspected.missing_capability},
             )?;
             atomic_json(&directory.join("operation-result.json"),&json!({"schema":3,"operation_id":operation_id,"state":"unknown","launcher_exit":null,"owned_live":null,"cleanup_confirmed":false,"error":null,"discarded_diagnostic_bytes":0,"account_posture":"unknown"}))?;
+            drop(_guard);
+            if prior_job.is_some() {
+                let _=Command::new("systemctl").args(["--user","reset-failed",&unit]).status()?;
+            }
             let mut command=Command::new("systemd-run");
             command.args([
                     "--user",

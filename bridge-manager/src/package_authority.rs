@@ -1197,6 +1197,7 @@ fn stage(m: &Manager, inputs: &Inputs, manifest: PackageManifest,
     Ok(result)
 }
 fn preflight(m: &Manager, service: &impl ServiceControl) -> Result<()> {
+    require(operator_cli::all_operations_finished(m)?,"package_operator_active_or_ambiguous")?;
     require(!reconcile_leases(m)?, "package_cleanup_unconfirmed")?;
     m.require_inactive(None)?;
     require(capacity::owners(m)?.is_empty(), "package_owner_active")?;
@@ -1229,8 +1230,10 @@ fn settle_interrupted(m: &Manager, service: &impl ServiceControl) -> Result<()> 
             eprintln!("An interrupted bridge task was not completely finished: {failure}");
         }
         // A live task may own its app session and that session's writer.
-        if !operator_cli::all_operations_finished(m)? { return Ok(()); }
-        service.reverify_vendor(m, deadline.saturating_duration_since(Instant::now()))
+        if !operator_cli::all_workers_finished(m)? { return Ok(()); }
+        service.reverify_vendor(m, deadline.saturating_duration_since(Instant::now()))?;
+        let recovery=operator_cli::vendor_maintenance::reconcile(m, |operation| service.worker_live(operation))?;
+        require(recovery.failures.is_empty(),&recovery.failures.join("; "))
     })().map_err(gate_refusal)
 }
 /// Setup has no per-app Recover; its refusals end with Setup's own next step.
@@ -1295,6 +1298,7 @@ fn running_package_census_tools() -> Result<(Artifact, Artifact)> {
 }
 fn recovery_preflight(m: &Manager,
     transition: &CoordinatedTransition, service: &impl ServiceControl) -> Result<()> {
+    require(operator_cli::all_operations_finished(m)?,"package_operator_active_or_ambiguous")?;
     require(!reconcile_leases(m)?, "package_cleanup_unconfirmed")?;
     m.require_inactive(None)?;
     require(capacity::owners(m)?.is_empty(), "package_owner_active")?;
@@ -1719,6 +1723,7 @@ fn settle_resume_handoff_with_registry(m: &Manager, service: &impl ServiceContro
     {
         let registry = acquire_registry()?;
         registry.require_registry(m)?;
+        require(operator_cli::all_operations_finished(m)?,"package_operator_active_or_ambiguous")?;
         m.require_inactive(None)?;
         require(owners == capacity::owners(m)?,"package_owners_changed")?;
         require(transition.setup.is_after()?
@@ -2531,6 +2536,7 @@ fn stop_gate(m: &Manager, service: &impl ServiceControl,
     {
         let registry = acquire_registry()?;
         registry.require_registry(m)?;
+        require(operator_cli::all_operations_finished(m)?,"package_operator_active_or_ambiguous")?;
         m.require_inactive(None)?;
         require(capacity::owners(m)? == before, "package_owners_changed")?;
         require(operator_cli::pending_transactions(m)? == 0,
@@ -5105,6 +5111,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
 
     #[test]
     fn updater_registry_admission_covers_stop_refresh_commit_and_contended_recovery() {
+        readiness::with_unit_state_fixture(&[vendor_cli::unit("arturia-software-center").unwrap()],"inactive",|| {
         use operator_model::LockOutcome;
         // Cleanup refusal (13), and refusal during resumed target settlement (19).
         // The success case also settles the retained suspension (19).
@@ -5177,6 +5184,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
             assert!(!f.base.m.root.join("package-transition.json").exists());
             assert!(!f.base.m.publication_pending(&f.base.r.key()).unwrap());
         }
+        });
     }
 
     #[test]
@@ -5329,6 +5337,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
 
     #[test]
     fn package_update_settles_retired_suspension_after_clean_target_readback() {
+        readiness::with_unit_state_fixture(&[vendor_cli::unit("arturia-software-center").unwrap()],"inactive",|| {
         let f = Fixture::new();
         f.adopt().unwrap();
         let (first, next, receipt, setup) = staged_transition(&f);
@@ -5351,6 +5360,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
         assert!(f.current() == first);
         assert!(!reservation.exists());
         assert_eq!(fs::read(&failed).unwrap(),failed_bytes);
+        });
     }
     #[test]
     fn package_resume_snapshot_verification_requires_exact_registry_guard() {
@@ -5373,6 +5383,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
     }
     #[test]
     fn package_resume_crash_boundaries_preserve_or_settle_exact_owner() {
+        readiness::with_unit_state_fixture(&[vendor_cli::unit("arturia-software-center").unwrap()],"inactive",|| {
         for boundary in ["before_switch","after_switch","settling_present","consumed"] {
             let f = Fixture::new();
             f.adopt().unwrap();
@@ -5402,6 +5413,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
             assert_eq!(fs::read(&failed).unwrap(),failed_bytes);
             assert!(!journal.exists());
         }
+        });
     }
     #[test]
     fn package_resume_target_failure_restores_paused_origin_and_raw_reservation() {
@@ -5489,6 +5501,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
     }
     #[test]
     fn package_resume_active_origin_rollback_is_readable_by_the_old_decoder() {
+        readiness::with_unit_state_fixture(&[vendor_cli::unit("arturia-software-center").unwrap()],"inactive",|| {
         for starts in [1,2] {
             let f = Fixture::new();
             f.adopt().unwrap();
@@ -5513,6 +5526,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
             assert!(!journal.exists());
             assert_eq!(f.service.show().unwrap().active,"active");
         }
+        });
     }
     #[test]
     fn package_resume_cannot_be_bypassed_by_another_generation_switch() {

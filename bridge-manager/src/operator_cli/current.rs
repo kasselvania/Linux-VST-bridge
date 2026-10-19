@@ -1765,6 +1765,7 @@ pub(super) mod tests {
     }
     #[test]
     fn live_vendor_progress_preserves_exact_current_readback() {
+        readiness::with_unit_state_fixture(&[vendor_cli::unit(ASC).unwrap()],"inactive",|| {
         let f = test_fixture::Fixture::new();
         let m = &f.m;
         let directory = app_directory(m);
@@ -1836,6 +1837,7 @@ pub(super) mod tests {
             fs::rename(moved.join(name),directory.join(name)).unwrap();
         }
         assert!(context.recheck_with(m,||Ok(())).is_err());
+        });
     }
     #[test]
     fn current_recheck_refuses_revision_and_publication_drift_before_ready() {
