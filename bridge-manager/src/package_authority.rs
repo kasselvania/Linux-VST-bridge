@@ -1062,7 +1062,7 @@ fn selected_generation(m: &Manager, current: &Software) -> Result<Option<Generat
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             // Only the retained pre-package helper layout has no package record.
             // A missing or damaged modern record must never become legacy.
-            require(valid_hex(dir.file_name().and_then(|name| name.to_str()).unwrap_or(""),64)
+            require(!dir.file_name().and_then(|name| name.to_str()).unwrap_or("").starts_with("source-")
                 && current.supervisor.path == dir.join("session.py")
                 && current.ownership.path == dir.join("ownership.py"),
                 "package_generation_record_missing")?;
@@ -1089,7 +1089,7 @@ fn selected_generation_record(m: &Manager, current: &Software) -> Result<Option<
     match fs::symlink_metadata(dir.join("package-generation.json")) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             require(
-                valid_hex(dir.file_name().and_then(|name| name.to_str()).unwrap_or(""),64)
+                !dir.file_name().and_then(|name| name.to_str()).unwrap_or("").starts_with("source-")
                     && current.supervisor.path == dir.join("session.py")
                     && current.ownership.path == dir.join("ownership.py"),
                 "package_generation_record_missing",
@@ -3040,7 +3040,7 @@ with zipfile.ZipFile(kit,'w') as z:
         }
         fn setup_legacy_with_catalogue(&self, native: NativeArtifact) {
             let m = &self.base.m;
-            let dir = m.root.join("software").join("ef".repeat(32));
+            let dir = m.root.join("software/legacy");
             private_dir(&dir).unwrap();
             for name in NAMES {
                 let old_name = match name {
@@ -4097,6 +4097,18 @@ assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
         assert_eq!(fs::read(&original_record).unwrap(), original_record_bytes);
         f.adopt().unwrap();
         assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected_bytes);
+    }
+
+    #[test]
+    fn descriptive_legacy_source_layout_remains_selected_without_a_package_record() {
+        let (base,_,_,native)=test_fixture::prepared();
+        let f=Fixture::with_base(base);
+        f.setup_legacy_with_catalogue(native);
+        let retained=f.current();
+        assert_eq!(retained.manager.path.parent().unwrap().file_name().unwrap(),"legacy");
+        assert!(!retained.manager.path.parent().unwrap().join("package-generation.json").exists());
+        assert!(selected_generation(&f.base.m,&retained).unwrap().is_none());
+        assert!(selected_generation_record(&f.base.m,&retained).unwrap().is_none());
     }
 
     #[test]
