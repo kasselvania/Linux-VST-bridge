@@ -3781,12 +3781,12 @@ mod tests {
         let session = job.session;
         let lease = job.lease;
         atomic_json(&lease, &report).unwrap();
-        assert!(reconcile_leases(&m).unwrap());
+        assert!(reconcile_leases(m).unwrap());
         assert!(lease.exists());
         atomic_json(&report, &serde_json::json!({"cleanup_confirmed":false})).unwrap();
-        assert!(reconcile_leases(&m).unwrap());
+        assert!(reconcile_leases(m).unwrap());
         atomic_json(&report, &serde_json::json!({"cleanup_confirmed":true})).unwrap();
-        assert!(!reconcile_leases(&m).unwrap());
+        assert!(!reconcile_leases(m).unwrap());
         assert!(!lease.exists());
         assert!(report.exists());
         atomic_json(&lease, &report).unwrap();
@@ -3795,13 +3795,13 @@ mod tests {
             &serde_json::json!({"ownership_schema":1,"cleanup_confirmed":true}),
         )
         .unwrap();
-        assert!(reconcile_leases(&m).unwrap()); // physical report alone cannot retire new transport
+        assert!(reconcile_leases(m).unwrap()); // physical report alone cannot retire new transport
         let receipt = report.with_extension("ownership.json");
         atomic_json(&receipt,&serde_json::json!({"session":"wrong","cleanup_confirmed":true,"transport_retired":true})).unwrap();
-        assert!(reconcile_leases(&m).unwrap());
+        assert!(reconcile_leases(m).unwrap());
         atomic_json(&receipt,&serde_json::json!({"session":session,"cleanup_confirmed":true,"transport_retired":true,"reporting_error":"disk refusal"})).unwrap();
         fs::remove_file(&report).unwrap();
-        assert!(!reconcile_leases(&m).unwrap());
+        assert!(!reconcile_leases(m).unwrap());
         assert!(!lease.exists());
     }
 }

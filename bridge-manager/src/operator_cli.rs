@@ -2630,6 +2630,11 @@ fn execute_with_receipt_policy_progress(
     }
     timing::measure(Stage::WorkerAdmission, ||
         require_operator_inactive_with(m, a, capacity_read, operation, timeout, waits))?;
+    // Service readback takes registry.lock itself, so capture it before the
+    // mutation boundary. Reconcile rechecks the exact owner set under its lock.
+    let recovery_capacity = if matches!(a, ui::Action::TransactionReconcile {}) {
+        capacity_read()
+    } else { None };
     #[cfg(test)]
     if matches!(a, ui::Action::BufferingSet { .. } | ui::Action::DeliverySet { .. }
         | ui::Action::TransactionReconcile {}) {
@@ -3029,7 +3034,7 @@ fn execute_with_receipt_policy_progress(
             // Read the service before acquiring registry.lock. A healthy idle
             // keeper may remain, but a missing or uncertain census cannot
             // authorize a retained owner. Empty proven retirement needs no service.
-            let capacity = capacity_read();
+            let capacity = recovery_capacity;
             let mut remaining_wait=timeout;
             let mut registry_admission=|| {
                 let started=Instant::now();
@@ -5509,6 +5514,22 @@ pub(crate) mod tests {
         require_operator_inactive_with(&f.m, &ui::Action::TransactionReconcile {},
             &|| panic!("recovery cannot depend on healthy capacity"), None,
             Duration::from_secs(1), &mut waits).unwrap();
+    }
+    #[test]
+    fn reconcile_allows_a_known_idle_keeper_but_retains_uncertain_custody() {
+        let f = test_fixture::Fixture::new();
+        let (job, owner) = spec(&f.m, f.r.clone().into(), true, false, true).unwrap();
+        f.m.retain_lease_owner(&owner).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        let read = || capacity_fixture(&f.m);
+        let action = ui::Action::TransactionReconcile {};
+        assert_eq!(execute_with_receipt_capacity(&f.m, &action, None, &read).unwrap(),
+            json!({"reconciled":true}));
+        assert!(job.lease.exists());
+        let uncertain = || read().map(|mut cap| { cap.cleanup_unconfirmed = true; cap });
+        assert!(execute_with_receipt_capacity(&f.m, &action, None, &uncertain).is_err());
+        assert!(execute_with_receipt_capacity(&f.m, &action, None, &|| None).is_err());
+        assert!(job.lease.exists());
     }
     #[test]
     fn crafted_inactive_actions_refuse_each_live_boundary_before_any_mutation() {
