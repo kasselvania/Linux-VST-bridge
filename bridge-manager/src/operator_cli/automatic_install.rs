@@ -53,6 +53,7 @@ pub(crate) struct FailedModule {
     report: Artifact,
 }
 
+
 type ExecuteStage<'a> = dyn FnMut(&ui::Action, &str, &mut dyn FnMut(&str)) -> Result<Value> + 'a;
 type VendorStage<'a> = dyn FnMut(&dyn InstallationTarget, &mut Intent, &mut Vec<ui::LockFacts>) -> Result<()> + 'a;
 
@@ -128,13 +129,15 @@ pub(super) fn current_vendor_bindings(m: &Manager) -> Result<Vec<environment_rev
     Ok(selected.into_values().collect())
 }
 pub(super) fn vendor_checkpoint_authority(m: &Manager) -> Result<Vec<Value>> {
-    current_vendor_bindings(m)?.into_iter().map(|binding| {
+    let mut result=current_vendor_bindings(m)?.into_iter().map(|binding| {
         let path=checkpoint(m,&binding.operation)?;
         let artifact=if path.exists() { Some(control_artifact(path)?) } else { None };
         let maintenance=job_dir(m,&binding.operation)?.join("vendor-maintenance-state.json");
         let maintenance=if maintenance.try_exists()? {Some(control_artifact(maintenance)?)} else {None};
         Ok(json!({"binding":binding,"checkpoint":artifact,"maintenance":maintenance}))
-    }).collect()
+    }).collect::<Result<Vec<_>>>()?;
+    result.extend(vendor_maintenance::installation_authority(m)?);
+    Ok(result)
 }
 
 pub(super) fn record_intent(m: &Manager, record: &onboarding::Record) -> Result<Option<Intent>> {
@@ -764,14 +767,14 @@ fn execute_with_vendor(m:&Manager,action:&ui::Action,operation:&str,
     if let Err(error) = &result {
         fail_early_preparation(m, operation, error)?;
     }
-    if matches!(action,ui::Action::VendorSoftwareInstall {..}|ui::Action::SoftwareInstallResume {..}) {
+    {
         let cleanup=vendor_maintenance::settle_executor(m,operation);
         match (result,cleanup) {
             (Ok(value),Ok(()))=>Ok(value),
             (Err(error),_)=>Err(error),
             (Ok(_),Err(error))=>Err(error),
         }
-    } else {result}
+    }
 }
 
 fn fail_early_preparation(m: &Manager, operation: &str, error: impl ToString) -> Result<()> {
@@ -826,6 +829,89 @@ fn recommended_runtime(
         .to_owned())
 }
 
+/// Replace only the old global inactivity explanation. Other retained refusal
+/// reasons (including non-retryable work) remain authoritative.
+pub(super) fn project_initial_admission(m:&Manager,setups:&mut [ui::InstallerSetup],
+    cap:Option<&CapacityReadback>,pending:usize,busy:Option<&str>)->Result<()> {
+    for setup in setups {
+        for offer in setup.primary.iter_mut().chain(setup.secondary.iter_mut()) {
+            let initial=offer.action.software_install().is_some()
+                || matches!(&offer.action,ui::Action::SoftwareInstallResume {onboarding}
+                    if onboarding::retained_environment_record(m,onboarding)?.as_ref()
+                        .map(|r|record_intent(m,r)).transpose()?.flatten().is_some_and(|i|i.vendor.is_none()));
+            let companion=matches!(&offer.action,ui::Action::EnvironmentRefreshResume {operation}
+                if job_dir(m,operation)?.join("installation.json").try_exists()?);
+            if !initial && !companion {continue;}
+            if offer.disabled_reason.as_deref().is_some_and(|reason|Some(reason)!=busy) {continue;}
+            offer.disabled_reason=if companion {companion_admission(m,&offer.action,cap,pending)}
+                else {initial_admission(m,&offer.action,cap,pending)}.err().map(|e|e.to_string());
+        }
+    }
+    Ok(())
+}
+pub(super) fn project_companion_admission(m:&Manager,rows:&mut [ui::EnvironmentInstaller],
+    cap:Option<&CapacityReadback>,pending:usize,busy:Option<&str>)->Result<()> {
+    for row in rows {
+        for offer in row.choices.iter_mut().chain(row.actions.iter_mut()) {
+            if offer.action.environment_installer_start().is_none() {continue;}
+            if offer.disabled_reason.as_deref().is_some_and(|reason|Some(reason)!=busy) {continue;}
+            offer.disabled_reason=companion_admission(m,&offer.action,cap,pending).err().map(|e|e.to_string());
+        }
+    }
+    Ok(())
+}
+fn companion_admission(m:&Manager,action:&ui::Action,cap:Option<&CapacityReadback>,pending:usize)->Result<()> {
+    require_installation_capacity(m,cap)?;
+    require(pending==0,"Reconcile the interrupted publication first")?;
+    let environment=vendor_maintenance::action_environment(m,action)?.ok_or("installer_existing_setup_required")?;
+    require(!vendor_maintenance::blocks(m,&environment)?,"setup_maintenance_active")?;
+    capacity::require_environment_inactive(m,&environment)
+}
+fn initial_admission(m:&Manager,action:&ui::Action,cap:Option<&CapacityReadback>,pending:usize)->Result<()> {
+    require_installation_capacity(m,cap)?;
+    require(pending==0,"Reconcile the interrupted publication first")?;
+    if let Some(record)=initial_target(m,action)? {
+        require(!vendor_maintenance::blocks(m,&record.environment)?,"setup_maintenance_active")?;
+        capacity::require_environment_inactive(m,&record.environment)
+    } else {capacity::require_creation_inactive(m,None)}
+}
+pub(super) fn require_installation_capacity(m:&Manager,cap:Option<&CapacityReadback>)->Result<()> {
+    let cleanup=cap.map(|cap|cap.cleanup_unconfirmed).or_else(||pulse_cleanup(m))
+        .ok_or("Service capacity unavailable; refresh before installation")?;
+    if let Some(cap)=cap {
+        require(cap.dsp==cap.owners.iter().filter(|o|o.kind==capacity::Kind::Dsp).count()
+            && cap.keepers==cap.owners.iter().filter(|o|o.kind==capacity::Kind::Keeper).count()
+            && cap.maintenance==cap.owners.iter().filter(|o|matches!(o.kind,
+                capacity::Kind::Inspection|capacity::Kind::VendorAccess)).count(),"operator_owner_census_unresolved")?;
+    }
+    if cleanup {
+        // Only the existing scoped census may exclude a positively identified
+        // failed keeper. An unexplained service cleanup flag stays a refusal.
+        require(capacity::owners(m).is_err() && capacity::owners_for_creation(m).is_ok(),
+            "operator_cleanup_unconfirmed")?;
+    }
+    Ok(())
+}
+/// None is a genuinely new setup. A linked retry still changes its predecessor's
+/// retained attempt, so that exact predecessor participates in admission.
+pub(super) fn initial_target(m:&Manager,action:&ui::Action)->Result<Option<onboarding::Record>> {
+    if let ui::Action::SoftwareInstallResume {onboarding}=action {
+        return Ok(Some(onboarding::retained_environment_record(m,onboarding)?
+            .ok_or("automatic_installation_record_missing")?));
+    }
+    let (installer,_,_)=action.software_install().ok_or("automatic_installation_action")?;
+    let history=onboarding::history_records(m)?;
+    let existing:Vec<_>=history.iter().filter(|r|r.installer==installer).collect();
+    let current:Vec<_>=existing.iter().copied().filter(|r|
+        !existing.iter().any(|other|other.previous_attempt.as_deref()==Some(&r.id))).collect();
+    require(current.len()<=1 && (existing.is_empty() || !current.is_empty()),
+        "automatic_installation_existing_attempt_requires_resume")?;
+    let Some(record)=current.first() else {return Ok(None)};
+    require((record.installation_operation.is_none() && record.automatic.is_none()
+        && !linux_vst_bridge::runtime_delivery::superseded_revision(m,&record.environment.runner))
+        || runtime_retry(m,record,&history)?,"automatic_installation_existing_attempt_requires_resume")?;
+    Ok(Some((*record).clone()))
+}
 fn execute_owned(
     m: &Manager,
     action: &ui::Action,
@@ -838,24 +924,8 @@ fn execute_owned(
     let (record, mut intent): (Box<dyn InstallationTarget>, Intent) = match action {
         action if action.software_install().is_some() => {
             let (installer,daw,installer_policy)=action.software_install().unwrap();
-            let history = onboarding::history_records(m)?;
-            let existing: Vec<_> = history
-                .iter()
-                .filter(|r| r.installer == installer)
-                .collect();
-            // A Retry chain continues in its newest attempt; earlier attempts
-            // stay retained history. Unrelated setups for the same bytes remain
-            // ambiguous and still need their own resume.
-            let current: Vec<_> = existing
-                .iter()
-                .copied()
-                .filter(|r| !existing.iter().any(|other| other.previous_attempt.as_deref() == Some(&r.id)))
-                .collect();
-            require(
-                current.len() <= 1 && (existing.is_empty() || !current.is_empty()),
-                "automatic_installation_existing_attempt_requires_resume",
-            )?;
-            let record = if let Some(&leaf) = current.first() {
+            let selected=initial_target(m,action)?;
+            let record = if let Some(leaf) = selected.as_ref() {
                 if leaf.installation_operation.is_none() && leaf.automatic.is_none()
                     && !linux_vst_bridge::runtime_delivery::superseded_revision(m, &leaf.environment.runner) {
                     onboarding::load(m, &leaf.id)?
@@ -864,8 +934,6 @@ fn execute_owned(
                     // attempt linked to this one. Earlier attempts keep their
                     // runtime and stay history. A kept installation, another
                     // runner, or interrupted owned work still needs its resume.
-                    require(runtime_retry(m, leaf, &history)?,
-                        "automatic_installation_existing_attempt_requires_resume")?;
                     let runner = recommended_runtime(m, operation, capacity_read, timeout, waits)?;
                     let _serialized = acquire_readback(m, ui::OperatorLock::Canonical,
                         Some(operation), timeout, waits)?;
@@ -929,6 +997,7 @@ fn execute_owned(
                 },
             };
             save(m, &record, &intent, operation)?;
+            vendor_maintenance::acquire_onboarding(m,&record,&intent)?;
             let installed = execute_with_receipt_policy(
                 m,
                 &initial_installer_action(m,&record,&intent)?,
@@ -1048,6 +1117,11 @@ fn execute_owned(
                 "automatic_installation_intent_binding",
             )?;
             let mut intent = intent;
+            intent.active_operation=operation.into();
+            if intent.vendor.is_none() {
+                save(m,&record,&intent,operation)?;
+                vendor_maintenance::acquire_onboarding(m,&record,&intent)?;
+            }
             let record: Box<dyn InstallationTarget> = if intent.vendor.is_some() {
                 intent.active_operation=operation.into();
                 save(m,&record,&intent,operation)?;
@@ -1453,10 +1527,8 @@ fn continue_with(
 fn discovery_action(record: &dyn InstallationTarget, intent: &Intent) -> ui::Action {
     if intent.vendor.is_none() && record.installation().is_none() {
         ui::Action::EnvironmentRescan {environment:record.id().into()}
-    } else if intent.vendor.is_some() {
-        ui::Action::EnvironmentInstallerScan {environment: record.id().to_owned()}
     } else {
-        ui::Action::InstallerScan {onboarding: record.id().to_owned()}
+        ui::Action::EnvironmentInstallerScan {environment: record.id().to_owned()}
     }
 }
 /// A setup that ran a Windows installer. Refresh, renderer and vendor-app
@@ -2556,12 +2628,44 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
         }
         cleanup_connections(m,&intent)?;
     }
-    Ok(())
+    vendor_maintenance::settle_executor(m,operation)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    // Initial-install fixtures now use the same LVM1 handoff as vendor work.
+    // Run the real service retirement handler with an empty owned keeper set;
+    // this substitutes only the service socket, not setup/custody admission.
+    fn execute(m:&Manager,action:&ui::Action,operation:&str,capacity:&dyn Fn()->Option<CapacityReadback>,
+        timeout:Duration,waits:&mut Vec<ui::LockFacts>)->Result<Value> {
+        if action.software_install().is_none() && !matches!(action,ui::Action::SoftwareInstallResume {..}) {
+            return super::execute(m,action,operation,capacity,timeout,waits);
+        }
+        let socket=m.root.join("runtime/owner.sock");private_dir(socket.parent().unwrap()).unwrap();
+        if socket.exists() {fs::remove_file(&socket).unwrap();}
+        let listener=UnixListener::bind(&socket).unwrap();listener.set_nonblocking(true).unwrap();
+        let stopped=Arc::new(std::sync::atomic::AtomicBool::new(false));let stop=stopped.clone();
+        let manager=Manager {root:m.root.clone(),publications:m.publications.clone()};
+        let server=std::thread::spawn(move || {
+            let deadline=Instant::now()+Duration::from_secs(10);
+            while !stop.load(Ordering::SeqCst) && Instant::now()<deadline {
+                let (mut peer,_)=match listener.accept() {
+                    Ok(peer)=>peer,
+                    Err(e) if e.kind()==std::io::ErrorKind::WouldBlock=> {std::thread::sleep(Duration::from_millis(1));continue;},
+                    Err(e)=>panic!("{e}"),
+                };
+                peer.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+                let mut greeting=[0;5];peer.read_exact(&mut greeting).unwrap();
+                if &greeting==b"LVP1\n" {continue;} // No synthetic capacity for unavailable-service tests.
+                assert_eq!(&greeting,b"LVM1\n");let mut owner=[0;32];peer.read_exact(&mut owner).unwrap();
+                crate::retire_vendor_keeper(&manager,std::str::from_utf8(&owner).unwrap(),&Mutex::new(vec![])).unwrap();
+                peer.write_all(b"LVM1 retired\n").unwrap();
+            }
+        });
+        let result=super::execute(m,action,operation,capacity,timeout,waits);
+        stopped.store(true,Ordering::SeqCst);server.join().unwrap();fs::remove_file(socket).unwrap();result
+    }
     #[test]
     fn a_busy_check_offers_its_continuation_not_a_new_installer_attempt() {
         let busy = failure(ui::InstallationFailureStage::Inspection,
@@ -2825,7 +2929,8 @@ mod tests {
         let operation=intent.owner.clone();
         save(&f.m,&record.environment,&intent,&operation).unwrap();
         write_operation(&f.m,&operation,&json!({"schema":1,"operation":operation,"state":"refused"}),false).unwrap();
-        finish(&f.m,&operation,&ui::Action::VendorSoftwareInstall { application:selector.clone(),daw:ui::DawChoice::Bitwig }).unwrap();
+        readiness::with_unit_state_fixture(&[vendor_cli::unit(&selector).unwrap()],"inactive",||
+            finish(&f.m,&operation,&ui::Action::VendorSoftwareInstall { application:selector.clone(),daw:ui::DawChoice::Bitwig })).unwrap();
         let retained=vendor_intent(&f.m,&selector).unwrap().unwrap();
         let failed=retained.journey.failure.as_ref().unwrap();
         assert_eq!(failed.stage,ui::InstallationFailureStage::VendorInstallation);assert_eq!(failed.code,"vendor_cancelled");assert!(!failed.retryable);
@@ -2889,9 +2994,12 @@ mod tests {
         progressed.journey.phase=ui::InstallationPhase::NeedsAttention;
         progressed.journey.failure=Some(failure(ui::InstallationFailureStage::Preparation,"latest_owned_checkpoint"));
         let resume=random_id().unwrap();private_dir(&job_dir(&f.m,&resume).unwrap()).unwrap();
+        atomic_json(&job_dir(&f.m,&resume).unwrap().join("request.json"),&ui::Request {
+            schema:ui::OPERATOR_SCHEMA,state_token:"fixture".into(),action:ui::Action::SoftwareInstallResume {onboarding:record.id.clone()}}).unwrap();
         save(&f.m,&record.environment,&progressed,&resume).unwrap();
         write_operation(&f.m,&resume,&json!({"schema":1,"operation":resume,"state":"refused"}),false).unwrap();
-        finish(&f.m,&resume,&ui::Action::SoftwareInstallResume {onboarding:record.id.clone()}).unwrap();
+        readiness::with_unit_state_fixture(&[vendor_cli::unit(&selector).unwrap()],"inactive",||
+            finish(&f.m,&resume,&ui::Action::SoftwareInstallResume {onboarding:record.id.clone()})).unwrap();
         let resolved=record_intent(&f.m,&record).unwrap().unwrap();
         assert_eq!(resolved.active_operation,resume);assert_eq!(resolved.prior_modules,progressed.prior_modules);
         assert_eq!(resolved.scan,progressed.scan);
@@ -3194,9 +3302,229 @@ mod tests {
         };
         (f, c, record, intent)
     }
+    fn scoped_initial() -> (test_fixture::Fixture,onboarding::Record,Intent) {
+        let (f,_,record,intent)=setup();
+        atomic_json(&job_dir(&f.m,&intent.owner).unwrap().join("request.json"),&ui::Request {
+            schema:ui::OPERATOR_SCHEMA,state_token:"fixture".into(),action:ui::Action::SoftwareInstall {
+                installer:record.installer.clone(),daw:intent.journey.daw}}).unwrap();
+        save(&f.m,&record,&intent,&intent.owner).unwrap();
+        (f,record,intent)
+    }
+    #[test]
+    fn scoped_initial_admission_resolves_fresh_reused_and_resumed_targets_before_census() {
+        let (f,record,intent)=scoped_initial();
+        let resumed=ui::Action::SoftwareInstallResume {onboarding:record.id.clone()};
+        assert_eq!(initial_target(&f.m,&resumed).unwrap().unwrap().environment,record.environment);
+        let fresh=ui::Action::SoftwareInstall {installer:"cd".repeat(32),daw:ui::DawChoice::Reaper};
+        assert!(initial_target(&f.m,&fresh).unwrap().is_none());
+        let mut cap=idle_capacity_test().unwrap();
+        let session=random_id().unwrap();
+        let lease=f.m.root.join("runtime/leases").join(format!("{session}.json"));
+        private_dir(lease.parent().unwrap()).unwrap();
+        let mut other=record.environment.clone();other.id=random_id().unwrap();other.root=f.m.root.join("environments").join(&other.id);
+        let record_path=onboarding::directory(&f.m,&record.id).unwrap().join("record.json");
+        let original=fs::read(&record_path).unwrap();
+        for (action,unstarted) in [(&resumed,false),(&ui::Action::SoftwareInstall {
+            installer:record.installer.clone(),daw:intent.journey.daw},true)] {
+            if unstarted {let mut reused=record.clone();reused.automatic=None;reused.installation_operation=None;
+                atomic_json(&record_path,&reused).unwrap();}
+            assert_eq!(initial_target(&f.m,action).unwrap().unwrap().id,record.id);
+            for failed_keeper in [false,true] {
+            let report=f.m.root.join("runtime/results").join(format!("{}-{session}.json",if failed_keeper {"environment"} else {"windows"}));
+            if failed_keeper {private_dir(report.parent().unwrap()).unwrap();
+                atomic_json(&report,&json!({"ready":false,"cleanup_confirmed":false})).unwrap();}
+            for environment in [&other,&record.environment] {
+                let owner=environment.root.join("compatdata/pfx/drive_c/bridge/sessions").join(&session).join("owner.json");
+                private_dir(owner.parent().unwrap()).unwrap();
+                atomic_json(&owner,&json!({"session":session,"report":report,"lease":lease,"keeper":failed_keeper,
+                    "inspect":failed_keeper,"vendor_access":false,"registration":{"metadata":{"class_id":"01".repeat(16)},
+                    "environment":environment}})).unwrap();atomic_json(&lease,&report).unwrap();
+                cap.owners=capacity::owners_for_creation(&f.m).unwrap();cap.dsp=usize::from(!failed_keeper);
+                cap.keepers=usize::from(failed_keeper);cap.cleanup_unconfirmed=failed_keeper;
+                initial_admission(&f.m,&fresh,Some(&cap),0).unwrap();
+                let admitted=initial_admission(&f.m,action,Some(&cap),0);
+                if environment==&other {admitted.unwrap();}
+                else if failed_keeper {assert!(admitted.is_err());}
+                else {assert_eq!(admitted.unwrap_err().to_string(),"active_device_lease");}
+                fs::remove_file(owner).unwrap();
+            }
+            assert!(initial_admission(&f.m,&fresh,Some(&cap),0).is_err(),"Unknown scope cannot be excluded");
+            assert!(initial_admission(&f.m,action,Some(&cap),0).is_err());
+            fs::remove_file(&lease).unwrap();
+            }
+            fs::write(&record_path,&original).unwrap();
+        }
+        cap.owners.clear();cap.dsp=1;cap.keepers=0;cap.cleanup_unconfirmed=false;
+        assert!(initial_admission(&f.m,&fresh,Some(&cap),0).is_err(),"A count with no identified owner remains unresolved");
+    }
+    #[test]
+    fn scoped_initial_custody_spans_children_and_settles_only_positive_retirement() {
+        let (f,record,mut intent)=scoped_initial();
+        let units=[onboarding::unit(&intent.owner).unwrap()];
+        readiness::with_unit_state_fixture(&units,"inactive",|| {
+            vendor_maintenance::acquire_onboarding(&f.m,&record,&intent).unwrap();
+            assert_eq!(vendor_maintenance::owned(&f.m,&intent.owner).unwrap(),Some(record.environment.clone()));
+            let before=token(&f.m).unwrap();let pulse_before=pulse_generation(&f.m).unwrap();
+            let child=random_id().unwrap();
+            intent.work.push(ClassWork {selection:"ab".repeat(32),predecessor:None,result_index:0,
+                check:None,candidate:None,active_operation:Some(child.clone())});
+            save(&f.m,&record,&intent,&intent.owner).unwrap();
+            assert_eq!(vendor_maintenance::owned(&f.m,&child).unwrap(),Some(record.environment.clone()));
+            assert!(vendor_maintenance::any_held(&f.m).unwrap());
+            readiness::with_unit_state_fixture(&units,"active",|| {
+                assert!(vendor_maintenance::settle_executor(&f.m,&intent.owner).is_err());
+            });
+            assert!(vendor_maintenance::blocks(&f.m,&record.environment).unwrap());
+            vendor_maintenance::settle_executor(&f.m,&intent.owner).unwrap();
+            assert!(!vendor_maintenance::blocks(&f.m,&record.environment).unwrap());
+            assert!(!vendor_maintenance::any_held(&f.m).unwrap());
+            assert_ne!(before,token(&f.m).unwrap());
+            assert_ne!(pulse_before,pulse_generation(&f.m).unwrap());
+            assert!(!f.m.root.join("operator/resume.json").exists());
+        });
+    }
+    #[test]
+    fn scoped_initial_enrollment_without_state_blocks_only_its_setup_and_reconciles() {
+        let (f,record,intent)=scoped_initial();
+        let before=token(&f.m).unwrap();
+        vendor_maintenance::enroll(&f.m,&intent.owner,&record.environment).unwrap();
+        assert_ne!(before,token(&f.m).unwrap());
+        assert!(vendor_maintenance::blocks(&f.m,&record.environment).unwrap());
+        let mut other=record.environment.clone();other.id=random_id().unwrap();other.root=f.m.root.join("environments").join(&other.id);
+        assert!(!vendor_maintenance::blocks(&f.m,&other).unwrap());
+        require_operator_inactive_with(&f.m,&ui::Action::TransactionReconcile {},&||panic!("reconcile stays reachable"),
+            None,Duration::from_millis(100),&mut vec![]).unwrap();
+        readiness::with_unit_state_fixture(&[onboarding::unit(&intent.owner).unwrap()],"inactive",|| {
+            let recovered=vendor_maintenance::reconcile(&f.m,|_|Ok(false)).unwrap();
+            assert_eq!(recovered.settled,1);assert!(recovered.failures.is_empty());
+        });
+        assert!(!vendor_maintenance::any_held(&f.m).unwrap());
+    }
+    #[test]
+    fn scoped_initial_receipt_metadata_is_preserved_and_binding_is_immutable() {
+        let (f,record,intent)=scoped_initial();let owner=&intent.owner;
+        vendor_maintenance::enroll(&f.m,owner,&record.environment).unwrap();
+        let path=job_dir(&f.m,owner).unwrap().join("result.json");
+        let authority=read_json::<Value>(&path).unwrap()["setup_custody"].clone();
+        write_operation(&f.m,owner,&json!({"schema":1,"operation":owner,"state":"running","progress":"checking"}),false).unwrap();
+        assert_eq!(read_json::<Value>(&path).unwrap()["setup_custody"],authority);
+        let mut changed=authority.clone();changed["software"]["sha256"]=json!("ff".repeat(32));
+        assert!(write_operation(&f.m,owner,&json!({"schema":1,"operation":owner,"state":"running","setup_custody":changed}),false).is_err());
+        let mut wrong_request=authority.clone();wrong_request["request"]["sha256"]=json!("ee".repeat(32));
+        assert!(write_operation(&f.m,owner,&json!({"schema":1,"operation":owner,"state":"running","setup_custody":wrong_request}),false).is_err());
+        let mut wrong_environment=record.environment.clone();wrong_environment.revision+=1;
+        assert!(vendor_maintenance::enroll(&f.m,owner,&wrong_environment).is_err());
+        let mut changed_environment=authority.clone();changed_environment["environment"]=serde_json::to_value(wrong_environment).unwrap();
+        assert!(write_operation(&f.m,owner,&json!({"schema":1,"operation":owner,"state":"running","setup_custody":changed_environment}),false).is_err());
+        readiness::with_unit_state_fixture(&[onboarding::unit(owner).unwrap()],"inactive",|| {
+            let (installer,preparation)=finish_owned_work(&f.m,owner);
+            installer.unwrap();preparation.unwrap();
+        });
+        assert_eq!(read_json::<Value>(&path).unwrap()["setup_custody"],authority);
+        write_operation(&f.m,owner,&json!({"schema":1,"operation":owner,"state":"refused","reason":"fixture_cleanup"}),false).unwrap();
+        let terminal=fs::read(&path).unwrap();
+        write_operation(&f.m,owner,&json!({"schema":1,"operation":owner,"state":"running","setup_custody":changed}),false).unwrap();
+        assert_eq!(fs::read(&path).unwrap(),terminal);
+        assert_eq!(read_json::<Value>(&path).unwrap()["setup_custody"],authority);
+    }
+    #[test]
+    fn scoped_initial_old_resume_requires_exact_terminal_request_and_no_live_worker() {
+        let (f,record,mut intent)=scoped_initial();
+        readiness::with_unit_state_fixture(&[onboarding::unit(&intent.owner).unwrap()],"inactive",|| {
+            vendor_maintenance::acquire_onboarding(&f.m,&record,&intent).unwrap();
+            vendor_maintenance::settle_executor(&f.m,&intent.owner).unwrap();
+        });
+        let old=random_id().unwrap();private_dir(&job_dir(&f.m,&old).unwrap()).unwrap();
+        let request=ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"old-reader".into(),
+            action:ui::Action::SoftwareInstallResume {onboarding:record.id.clone()}};
+        atomic_json(&job_dir(&f.m,&old).unwrap().join("request.json"),&request).unwrap();
+        atomic_json(&job_dir(&f.m,&old).unwrap().join("result.json"),&json!({"schema":1,"operation":old,"state":"completed"})).unwrap();
+        intent.active_operation=old.clone();save(&f.m,&record,&intent,&old).unwrap();
+        assert!(!vendor_maintenance::blocks(&f.m,&record.environment).unwrap());
+        {
+            let _live=f.m.lock(&format!("operator-worker-{old}.lock")).unwrap();
+            assert!(vendor_maintenance::blocks(&f.m,&record.environment).is_err());
+        }
+        let state_path=job_dir(&f.m,&intent.owner).unwrap().join("vendor-maintenance-state.json");
+        let original_state=fs::read(&state_path).unwrap();
+        let mut held:Value=serde_json::from_slice(&original_state).unwrap();held["held"]=true.into();
+        atomic_json(&state_path,&held).unwrap();
+        assert!(vendor_maintenance::blocks(&f.m,&record.environment).is_err(),"A held executor is never historical");
+        fs::write(&state_path,&original_state).unwrap();
+        let mut wrong_executor:Value=serde_json::from_slice(&original_state).unwrap();wrong_executor["executor"]=random_id().unwrap().into();
+        atomic_json(&state_path,&wrong_executor).unwrap();
+        assert!(vendor_maintenance::blocks(&f.m,&record.environment).is_err());
+        fs::write(&state_path,&original_state).unwrap();
+        let mut wrong=request.clone();wrong.action=ui::Action::CaptureDisarm {};
+        atomic_json(&job_dir(&f.m,&old).unwrap().join("request.json"),&wrong).unwrap();
+        assert!(vendor_maintenance::blocks(&f.m,&record.environment).is_err());
+        atomic_json(&job_dir(&f.m,&old).unwrap().join("request.json"),&request).unwrap();
+        atomic_json(&job_dir(&f.m,&old).unwrap().join("result.json"),&json!({"schema":1,"operation":old,"state":"running"})).unwrap();
+        assert!(vendor_maintenance::blocks(&f.m,&record.environment).is_err());
+        atomic_json(&job_dir(&f.m,&old).unwrap().join("result.json"),&json!({"schema":1,"operation":old,"state":"completed"})).unwrap();
+        let mut wrong=record.environment.clone();wrong.revision+=1;
+        atomic_json(&wrong.root.join("environment.json"),&wrong).unwrap();
+        assert!(vendor_maintenance::blocks(&f.m,&record.environment).is_err());
+    }
+    #[test]
+    fn scoped_initial_settlement_survives_vendor_revision_companion_and_legacy_resume() {
+        let (f,c,record,mut initial)=setup();
+        atomic_json(&job_dir(&f.m,&initial.owner).unwrap().join("request.json"),&ui::Request {
+            schema:ui::OPERATOR_SCHEMA,state_token:"fixture".into(),action:ui::Action::SoftwareInstall {
+                installer:record.installer.clone(),daw:initial.journey.daw}}).unwrap();
+        save(&f.m,&record,&initial,&initial.owner).unwrap();
+        readiness::with_unit_state_fixture(&[onboarding::unit(&initial.owner).unwrap()],"inactive",|| {
+            vendor_maintenance::acquire_onboarding(&f.m,&record,&initial).unwrap();
+            vendor_maintenance::settle_executor(&f.m,&initial.owner).unwrap();
+        });
+        let initial_state=job_dir(&f.m,&initial.owner).unwrap().join("vendor-maintenance-state.json");
+        let original_state=fs::read(&initial_state).unwrap();
+        let mut vendor=initial.clone();vendor.owner=random_id().unwrap();vendor.active_operation=vendor.owner.clone();
+        private_dir(&job_dir(&f.m,&vendor.owner).unwrap()).unwrap();
+        let after=vendor_edge(&f,&c,&record,&mut vendor);
+        let units=[onboarding::unit(&initial.owner).unwrap(),vendor_cli::unit(&vendor.vendor.as_ref().unwrap().application).unwrap()];
+        readiness::with_unit_state_fixture(&units,"inactive",|| {
+            reserve_vendor_revision(&f.m,&record,&vendor).unwrap();
+            vendor_maintenance::settle_executor(&f.m,&vendor.owner).unwrap();
+        });
+        assert!(!vendor_maintenance::any_held(&f.m).unwrap());
+        // The retained old executor saves the same strict record shape at its
+        // current owned revision. Its completed Resume never claims new custody.
+        let old=random_id().unwrap();private_dir(&job_dir(&f.m,&old).unwrap()).unwrap();
+        atomic_json(&job_dir(&f.m,&old).unwrap().join("request.json"),&ui::Request {
+            schema:ui::OPERATOR_SCHEMA,state_token:"old-reader".into(),
+            action:ui::Action::SoftwareInstallResume {onboarding:record.id.clone()}}).unwrap();
+        atomic_json(&job_dir(&f.m,&old).unwrap().join("result.json"),&json!({"schema":1,"operation":old,"state":"completed"})).unwrap();
+        initial.active_operation=old.clone();save(&f.m,&record,&initial,&old).unwrap();
+        assert_eq!(read_json::<onboarding::Record>(&onboarding::directory(&f.m,&record.id).unwrap().join("record.json")).unwrap().environment,after);
+        assert!(!vendor_maintenance::blocks(&f.m,&after).unwrap());
+        // A later accepted companion owns the next exact edge. The settled
+        // initial job is historical, not a competing current setup owner.
+        let op=random_id().unwrap();private_dir(&job_dir(&f.m,&op).unwrap()).unwrap();
+        let mut next=after.clone();next.revision+=1;
+        atomic_json(&job_dir(&f.m,&op).unwrap().join("request.json"),&ui::Request {
+            schema:ui::OPERATOR_SCHEMA,state_token:"fixture".into(),action:ui::Action::EnvironmentInstallerStart {
+                environment:after.id.clone(),installer:record.installer.clone()}}).unwrap();
+        vendor_maintenance::enroll(&f.m,&op,&after).unwrap();
+        let binding=environment_revision::InstallerBinding {schema:1,operation:op.clone(),installer:record.installer.clone(),
+            before:after.clone(),environment:next.clone(),created_at:1,preserve_existing_prefix:Some(true),automatic_request:None};
+        atomic_json(&job_dir(&f.m,&op).unwrap().join("installation.json"),&binding).unwrap();
+        atomic_json(&job_dir(&f.m,&op).unwrap().join("installation-result.json"),&json!({"schema":2,"operation":op,
+            "state":"completed","cleanup_confirmed":true,"owned_live":0})).unwrap();
+        {
+            let _registry=f.m.lock("registry.lock").unwrap();
+            vendor_maintenance::acquire_installer(&f.m,&binding).unwrap();
+            atomic_json(&next.root.join("environment.json"),&next).unwrap();
+        }
+        let mut units=units.to_vec();units.push(onboarding::unit(&op).unwrap());
+        readiness::with_unit_state_fixture(&units,"inactive",||vendor_maintenance::settle_executor(&f.m,&op)).unwrap();
+        assert!(!vendor_maintenance::any_held(&f.m).unwrap());
+        assert_eq!(fs::read(initial_state).unwrap(),original_state,"Later owners never rewrite the settled initial generation");
+    }
     fn actual(m: &Manager, action: &ui::Action, operation: &str) -> Result<Value> {
         match action {
-            ui::Action::InstallerScan { onboarding } => {
+            ui::Action::InstallerScan { onboarding }
+            | ui::Action::EnvironmentInstallerScan {environment:onboarding} => {
                 let scan: inventory::Scan =
                     read_json(&m.root.join("inventory").join(format!("{onboarding}.json")))?;
                 Ok(json!({"scan":scan.id}))
@@ -3606,6 +3934,8 @@ with zipfile.ZipFile(kit,'w') as z:
                     && offer.action.software_install().is_some_and(|(id,_,selected)|id==installer.id && selected==policy))
                     .unwrap().action.software_install_with_daw(ui::DawChoice::Reaper).unwrap()
             };
+            assert_eq!(initial_target(&f.m,&install).unwrap().unwrap().id,unstarted.id,
+                "A linked runtime retry must admit its exact predecessor before creating its successor");
             let launched=readiness::with_unit_state_fixture(&idle(&f),"inactive",||test_submit_offered(&f.m,&install)).unwrap();
             let mut units=idle(&f);units.push(onboarding::unit(&launched).unwrap());
             let error=readiness::with_unit_state_fixture(&units,"inactive",||
@@ -3822,14 +4152,16 @@ with zipfile.ZipFile(kit,'w') as z:
             let snapshot=readiness::with_unit_state_fixture(&installer_units(&f.m),"inactive",||snapshot_idle_test(&f.m)).unwrap();
             let row=snapshot.onboarding.iter().find(|row|row.environment.as_deref()==Some(closed.id.as_str())).unwrap();
             assert_eq!(row.required_human_action,onboarding::NOT_STARTED);
-            assert!(row.actions.iter().all(|offer|!matches!(offer.action,ui::Action::InstallerScan {..})));
+            assert!(row.actions.iter().all(|offer|!matches!(offer.action,
+                ui::Action::InstallerScan {..}|ui::Action::EnvironmentInstallerScan {..})));
             let card=snapshot.installer_setups.iter().find(|setup|setup.installer==installer.id).unwrap();
             assert_eq!(card.environment.as_deref(),Some(closed.id.as_str()));
             assert_eq!(card.status,OLDER_RUNTIME);
             let retry=card.primary.clone().unwrap();assert_eq!(retry.label,"Retry");
             assert_eq!(retry.action,ui::Action::software_install_action(installer.id.clone(),ui::DawChoice::Reaper,policy));
             assert!(card.primary.iter().chain(&card.secondary).all(|offer|
-                !matches!(offer.action,ui::Action::InstallerNewAttempt {..} | ui::Action::InstallerScan {..})
+                !matches!(offer.action,ui::Action::InstallerNewAttempt {..}
+                    | ui::Action::InstallerScan {..}|ui::Action::EnvironmentInstallerScan {..})
                 && offer.action.software_install().is_none_or(|(_,daw,_)|daw==ui::DawChoice::Reaper)));
             let launched=readiness::with_unit_state_fixture(&installer_units(&f.m),"inactive",||test_submit_offered(&f.m,&retry.action)).unwrap();
             let mut units=installer_units(&f.m);units.push(onboarding::unit(&launched).unwrap());
@@ -3928,6 +4260,8 @@ with zipfile.ZipFile(kit,'w') as z:
         let report=job_dir(&f.m,&first).unwrap().join("installation-result.json");
         atomic_json(&report,&json!({"schema":2,"operation":first,"state":"cancelled","raw_exit":2,
             "cleanup_confirmed":true,"owned_live":0})).unwrap();
+        readiness::with_unit_state_fixture(&installer_units(&f.m),"inactive",||
+            vendor_maintenance::settle_executor(&f.m,&first)).unwrap();
         let snapshot=readiness::with_unit_state_fixture(&installer_units(&f.m),"inactive",||snapshot_idle_test(&f.m)).unwrap();
         let retry=snapshot.environment_installers.iter().find(|target|target.environment==record.id).unwrap().actions.iter()
             .find(|offer|offer.label=="Retry" && offer.disabled_reason.is_none()).unwrap().action.clone();
@@ -4092,7 +4426,7 @@ with zipfile.ZipFile(kit,'w') as z:
         assert!(matches!(
             calls.as_slice(),
             [
-                ui::Action::InstallerScan { .. },
+                ui::Action::EnvironmentInstallerScan { .. },
                 ui::Action::CompatibilityCheck { .. },
                 ui::Action::CompatibilityPublishTest {
                     expected_current: None,
@@ -4262,7 +4596,8 @@ with zipfile.ZipFile(kit,'w') as z:
         let connection=record_intent(&f.m,&current).unwrap().unwrap();assert_eq!(connection.owner,owner.as_str());
         assert_eq!(connection.journey.phase,ui::InstallationPhase::Available);
         assert_eq!(environment_refresh::capture_request(&f.m,&binding.environment).unwrap(),binding.automatic_request);
-        finish(&f.m,&owner,&action).unwrap();
+        readiness::with_unit_state_fixture(&[onboarding::unit(&owner).unwrap()],"inactive",||
+            finish(&f.m,&owner,&action)).unwrap();
         assert_eq!(environment_refresh::load(&f.m,&owner).unwrap().intent.journey.phase,ui::InstallationPhase::Available);
         let candidate=prep::candidate_record(&f.m,connection.work[0].candidate.as_ref().unwrap()).unwrap();
         assert!(prep::selected_publication_candidate_record(&f.m,&candidate).unwrap());
@@ -4442,6 +4777,9 @@ finally:
             }
             if interrupted {
                 let resume=random_id().unwrap();private_dir(&job_dir(&f.m,&resume).unwrap()).unwrap();
+                atomic_json(&job_dir(&f.m,&resume).unwrap().join("request.json"),&ui::Request {
+                    schema:ui::OPERATOR_SCHEMA,state_token:"accepted-resume".into(),
+                    action:ui::Action::EnvironmentRefreshResume {operation:owner.clone()}}).unwrap();
                 let resumed=readiness::with_unit_state_fixture(&units,"inactive",||
                     environment_refresh::execute_with(&f.m,&ui::Action::EnvironmentRefreshResume {operation:owner.clone()},&resume,
                         &mut |environment,intent|continue_refresh_fixture(&f.m,environment,intent,&resume,
@@ -4548,12 +4886,12 @@ finally:
             let recovered=readiness::with_unit_state_fixture(&units,"inactive",||current::capture(&f.m)).unwrap();
             server.join().unwrap();
             assert!(recovered.snapshot.installer_setups.iter().any(|setup|setup.environment.as_ref()==Some(&original.id)
-                && setup.primary.as_ref().is_some_and(|offer|offer.disabled_reason.is_none()
+                && setup.primary.as_ref().is_some_and(|offer|offer.disabled_reason.is_some()
                     && offer.action==(ui::Action::VendorSoftwareInstall {application:selector.clone(),daw:ui::DawChoice::Reaper}))));
             assert!(!directory.join("refresh.json").exists(),"readback must not create a checkpoint");
-            environment_refresh::finish(&f.m,owner,action).unwrap();
+            readiness::with_unit_state_fixture(&units,"inactive",||environment_refresh::finish(&f.m,owner,action)).unwrap();
             let checkpoint=fs::read(directory.join("refresh.json")).unwrap();
-            environment_refresh::finish(&f.m,owner,action).unwrap();
+            readiness::with_unit_state_fixture(&units,"inactive",||environment_refresh::finish(&f.m,owner,action)).unwrap();
             assert_eq!(fs::read(directory.join("refresh.json")).unwrap(),checkpoint);
         } else {
             let mut scans=0;
@@ -4562,6 +4900,7 @@ finally:
                     assert!(matches!(stage,ui::Action::EnvironmentRescan {..}));scans+=1;Ok(json!({"scan":scan.id}))
                 }))).unwrap_err().to_string();
             assert_eq!(error,"no_supported_instruments_or_effects_discovered");assert_eq!(scans,1);
+            readiness::with_unit_state_fixture(&units,"inactive",||environment_refresh::finish(&f.m,owner,action)).unwrap();
         }
         let connection=record_intent(&f.m,&current).unwrap().unwrap();assert_eq!(connection.owner,owner.as_str());
         assert!(empty_bootstrap_handoff(&f.m,&current,&connection,&selector).unwrap());
@@ -4617,7 +4956,7 @@ finally:
             let operation = intent.owner.clone();
             let mut publication = false;
             let result = continue_with(&f.m, &r, &mut intent, &operation, &mut |a, o, _| match a {
-                ui::Action::InstallerScan { .. } if discovery => {
+                ui::Action::EnvironmentInstallerScan { .. } if discovery => {
                     Err("factory_discovery_failed".into())
                 }
                 ui::Action::CompatibilityCheck { .. } => {
@@ -4725,7 +5064,7 @@ finally:
         }
         let (mut scans, mut checked) = (0, vec![]);
         continue_with(&f.m, &r, &mut intent, &operation, &mut |a, _, _| match a {
-            ui::Action::InstallerScan { onboarding } => {
+            ui::Action::EnvironmentInstallerScan { environment:onboarding } => {
                 assert_eq!(onboarding, &r.id);
                 scans += 1;
                 rescan(&f.m, &r, &host, |_| {})
@@ -4764,7 +5103,7 @@ finally:
         failed_check(&f, &r, &mut intent);
         let (host, _) = update_host(&f);
         let error = continue_with(&f.m, &r, &mut intent, &operation, &mut |a, _, _| match a {
-            ui::Action::InstallerScan { .. } => {
+            ui::Action::EnvironmentInstallerScan { .. } => {
                 rescan(&f.m, &r, &host, |_| {})?;
                 Ok(json!({"scan":random_id()?}))
             }
@@ -4812,7 +5151,7 @@ finally:
             failed_check(&f, &r, &mut intent);
             let (host, _) = update_host(&f);
             continue_with(&f.m, &r, &mut intent, &operation, &mut |a, _, _| match a {
-                ui::Action::InstallerScan { .. } => rescan(&f.m, &r, &host, |scan| match edit {
+                ui::Action::EnvironmentInstallerScan { .. } => rescan(&f.m, &r, &host, |scan| match edit {
                     "removed" => scan.modules.clear(),
                     "changed" => scan.modules[0].artifact.sha256 = "ab".repeat(32),
                     _ => {
@@ -4860,7 +5199,7 @@ finally:
         let mut checked = vec![];
         continue_with(&f.m, &r, &mut intent, &operation, &mut |a, _, _| match a {
             // The second file was removed before the update's rescan.
-            ui::Action::InstallerScan { .. } => rescan(&f.m, &r, &host, |scan| scan.modules.truncate(1)),
+            ui::Action::EnvironmentInstallerScan { .. } => rescan(&f.m, &r, &host, |scan| scan.modules.truncate(1)),
             ui::Action::CompatibilityCheck { selection, .. } => {
                 checked.push(selection.clone());
                 Err("fixture_stops_at_the_new_check".into())
@@ -4915,7 +5254,7 @@ finally:
             let (host, _) = update_host(&f);
             let mut checked = vec![];
             continue_with(&f.m, &r, &mut intent, &operation, &mut |a, _, _| match a {
-                ui::Action::InstallerScan { .. } => rescan(&f.m, &r, &host, |scan| {
+                ui::Action::EnvironmentInstallerScan { .. } => rescan(&f.m, &r, &host, |scan| {
                     if reads_now {
                         scan.modules[1].inspection_error = None;
                         scan.modules[1].classes = classes.clone();

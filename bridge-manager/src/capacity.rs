@@ -517,6 +517,11 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
     owners_for(m, None)
 }
 pub fn owners_for(m: &Manager, environment: Option<&Environment>) -> Result<Vec<Owner>> {
+    owners_for_scope(m,environment,false)
+}
+/// A fresh setup excludes only positively identified existing setup custody.
+pub fn owners_for_creation(m:&Manager)->Result<Vec<Owner>> {owners_for_scope(m,None,true)}
+fn owners_for_scope(m:&Manager,environment:Option<&Environment>,fresh:bool)->Result<Vec<Owner>> {
     let leases = m.root.join("runtime/leases");
     if !leases.try_exists()? {
         return Ok(Vec::new());
@@ -586,6 +591,7 @@ pub fn owners_for(m: &Manager, environment: Option<&Environment>) -> Result<Vec<
             if report.try_exists()? {
                 let result: serde_json::Value = read_json(&report)?;
                 if result["ready"] == false && result["cleanup_confirmed"] == false
+                    && !(fresh && m.lease_environment(sid).is_ok())
                     && !environment.is_some_and(|selected| m.lease_environment(sid)
                         .is_ok_and(|owner| owner.id != selected.id && owner.root != selected.root)) {
                     return Err(Refusal::CleanupUnconfirmed.into());
@@ -626,6 +632,15 @@ pub fn owners_for(m: &Manager, environment: Option<&Environment>) -> Result<Vec<
     }
     result.sort_by(|a, b| a.session.cmp(&b.session));
     Ok(result)
+}
+
+/// Creating a separate setup never mutates existing owners. Their scopes must
+/// nevertheless be known, and a linked predecessor must have no active users.
+/// Caller holds registry.lock at the mutation boundary.
+pub fn require_creation_inactive(m:&Manager,previous:Option<&Environment>)->Result<()> {
+    for owner in owners_for_creation(m)? {m.lease_environment(&owner.session)?;}
+    if let Some(previous)=previous {require_environment_inactive(m,previous)?;}
+    Ok(())
 }
 
 /// Caller holds registry.lock. Keepers may be retired only when this setup
@@ -906,6 +921,30 @@ mod tests {
             || Ok(false))), Refusal::CleanupUnconfirmed.code());
         assert!(owners(&f.m).is_err(), "Global readback still reports unresolved custody");
         assert!(lease.exists());
+    }
+    #[test]
+    fn fresh_creation_keeps_other_setup_dsp_and_refuses_affected_or_unknown_scope() {
+        let f=Fixture::new();let class=limits().classes[0].class_id.clone();
+        scoped_lease(&f,&class,Kind::Dsp);
+        assert!(require_creation_inactive(&f.m,None).is_ok());
+        assert!(require_creation_inactive(&f.m,Some(&other_environment(&f))).is_ok());
+        assert_eq!(require_creation_inactive(&f.m,Some(&f.r.environment)).unwrap_err().to_string(),"active_device_lease");
+        lease(&f,&class,Kind::Dsp);
+        assert!(require_creation_inactive(&f.m,None).is_err());
+    }
+    #[test]
+    fn fresh_creation_excludes_known_other_failed_keeper_but_never_unknown_custody() {
+        let f=Fixture::new();let class=limits().classes[0].class_id.clone();
+        let owned=scoped_lease(&f,&class,Kind::Keeper);let report:PathBuf=read_json(&owned).unwrap();
+        atomic_json(&report,&serde_json::json!({"ready":false,"cleanup_confirmed":false})).unwrap();
+        assert!(owners(&f.m).is_err(),"Global maintenance stays strict");
+        assert!(require_creation_inactive(&f.m,None).is_ok());
+        assert!(require_creation_inactive(&f.m,Some(&other_environment(&f))).is_ok());
+        assert!(require_creation_inactive(&f.m,Some(&f.r.environment)).is_err());
+        let unknown=lease(&f,&class,Kind::Keeper);let report:PathBuf=read_json(&unknown).unwrap();
+        atomic_json(&report,&serde_json::json!({"ready":false,"cleanup_confirmed":false})).unwrap();
+        assert!(require_creation_inactive(&f.m,None).is_err());
+        assert!(owned.exists() && unknown.exists());
     }
     #[test]
     fn maintenance_wait_observes_new_owner_before_granting_authority() {

@@ -46,6 +46,7 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
         paths.insert(binding.result.path);
     }
     paths.insert(m.root.join("daw-workspaces/fl-studio/workspace.json"));
+    paths.extend(vendor_maintenance::state_paths(m)?);
     let deleted = linux_vst_bridge::deleted_setup::directory(m);
     paths.insert(deleted.clone());
     let deleted_scan = linux_vst_bridge::deleted_setup::scan(m)?;
@@ -343,7 +344,7 @@ impl CurrentOverviewContext {
                 OPERATOR_WAIT, &mut vec![])?;
             require(self.snapshot.state_token == token(m)?
                 && self.current_generation == pulse_generation(m)?
-                && self.owners == capacity::owners(m)?
+                && self.owners == capacity::owners_for_creation(m)?
                 && self.snapshot.system.pending_transactions == pending_transactions(m)?,
                 "operator_state_changed_refresh")?;
             let mut progress = installer_progress.clone();
@@ -709,7 +710,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     // owners and external state before exposing any offered action.
     let _registry_guard = timing::measure(Stage::CaptureRegistry, ||
         acquire_readback(m, ui::OperatorLock::Registry, None, OPERATOR_WAIT, &mut vec![]))?;
-    let owners = capacity::owners(m)?;
+    let owners = capacity::owners_for_creation(m)?;
     let db = m.registry()?;
     drop(_registry_guard);
     let current_generation = pulse_generation(m)?;
@@ -831,10 +832,11 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
                 reason:Some(NO_NATIVE_CONNECTION.into())});
         }
     }
-    let environment_installers = environment_install::projection(m,&products,busy,|operation| {
+    let mut environment_installers = environment_install::projection(m,&products,busy,|operation| {
         let live = installer_is_live(operation)?;
         installer_live.insert(operation.to_owned(),live);Ok(live)
     })?;
+    automatic_install::project_companion_admission(m,&mut environment_installers,cap.as_ref(),pending,busy)?;
     let mut vendor_applications = vendor_projections(m,busy)?;
     let environments=environment_projection_from(m,&sw,&managed_bindings,&db,busy)?;
     environment_refresh::project(m,&mut installer_setups,&environments,&products,busy)?;
@@ -853,6 +855,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     }
     automatic_install::settle_busy_offers(&mut installer_setups);
     let workspace_at = Instant::now(); phases.push(("workspace_and_cards",workspace_at.duration_since(joined_at).as_millis()));
+    automatic_install::project_initial_admission(m,&mut installer_setups,cap.as_ref(),pending,busy)?;
     let uninstallers=uninstall::project(m,&installer_setups,&records,&db,&managed_bindings,busy)?;
     phases.push(("uninstallers",workspace_at.elapsed().as_millis()));
     #[cfg(feature = "pb0-c0-audit")]

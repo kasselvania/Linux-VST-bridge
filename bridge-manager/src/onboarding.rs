@@ -391,6 +391,10 @@ fn prepare_linked(m: &Manager, r: Record, runner: &str) -> Result<PreparedCreati
     Ok(prepared)
 }
 impl PreparedCreation {
+    pub(crate) fn previous_environment(&self,m:&Manager)->Result<Option<Environment>> {
+        self.previous_attempt.as_deref().map(|id|retained_environment_record(m,id)?
+            .map(|r|r.environment).ok_or_else(||"onboarding_previous_missing".into())).transpose()
+    }
     fn recheck(&self, m: &Manager) -> Result<()> {
         require(
             installer_import::load_record(m, &self.installer.id)? == self.installer,
@@ -435,7 +439,11 @@ fn create_exact(
 ) -> Result<Value> {
     guard.require_registry(m)?;
     require(valid_hex(owner, 32), "onboarding_creation_operation")?;
-    m.require_inactive(None)?;
+    let previous=previous_attempt.as_deref().map(|id|->Result<Environment> {
+        retained_environment_record(m,id)?.map(|r|r.environment)
+            .ok_or_else(||"onboarding_previous_missing".into())
+    }).transpose()?;
+    capacity::require_creation_inactive(m,previous.as_ref())?;
     if let Some(previous) = &previous_attempt {
         // Recheck under the same registry guard that commits the new environment.
         // Two prevalidated requests cannot both create a linked successor.

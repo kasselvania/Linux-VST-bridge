@@ -126,29 +126,35 @@ fn target_with_application(m: &Manager, environment: &str,
 
 pub(super) fn reserve(m: &Manager, environment: &str, installer: &str,
     operation: &str) -> Result<Binding> {
-    reserve_with(m,environment,installer,operation,||vendor_retired(m),onboarding::live)
+    let before=target(m,environment)?;
+    let observed=vendor_maintenance::observe_retired(m,&before)?;
+    reserve_prepared(m,environment,installer,operation,||Ok(true),onboarding::live,Some(observed))
 }
+#[cfg(test)]
 fn reserve_with(m: &Manager, environment: &str, installer: &str,
     operation: &str, vendor_retirement: impl FnOnce()->Result<bool>,
-    mut is_live: impl FnMut(&str)->Result<bool>) -> Result<Binding> {
+    is_live: impl FnMut(&str)->Result<bool>) -> Result<Binding> {
+    reserve_prepared(m,environment,installer,operation,vendor_retirement,is_live,None)
+}
+fn reserve_prepared(m:&Manager,environment:&str,installer:&str,operation:&str,
+    vendor_retirement:impl FnOnce()->Result<bool>,mut is_live:impl FnMut(&str)->Result<bool>,
+    retirement:Option<vendor_maintenance::RetirementObservation>)->Result<Binding> {
     require(valid_product_environment(environment),"installer_environment_identity")?;
     // A disconnected setup must retain its identity. Check this before any
     // historical readback can replace the useful refusal with a missing-file IO
     // error; the normal ownership owners still perform all positive admission.
     require(m.root.join("environments").join(environment).is_dir(),MISSING_INSTALLATION)?;
     let _ownership = m.lock("onboarding.lock")?;
-    let _registry = m.lock("registry.lock")?;
-    m.require_inactive(None)?;
-    require(onboarding::all_retired(m)? && vendor_retirement()?, "operator_installer_active")?;
+    let before = target(m,environment)?;
+    require(vendor_retirement()?, "operator_installer_active")?;
     // A final receipt may precede the supervisor unit's exit. Both its owned
     // resources and its exact process owner must retire before another launch.
     for owner in onboarding::history_records(m)?.into_iter()
-        .filter_map(|r|r.installation_operation)
-        .chain(records(m)?.into_iter().map(|r|r.operation)) {
+        .filter(|r|r.environment.id==environment).filter_map(|r|r.installation_operation)
+        .chain(records(m)?.into_iter().filter(|r|r.environment.id==environment).map(|r|r.operation)) {
         require(!is_live(&owner)?, "operator_installer_active")?;
     }
     environment_runtime::require_settled(m,environment)?;
-    let before = target(m,environment)?;
     let preserve_existing_prefix = require_preserved_prefix(m,&before,None)?;
     let automatic_request = environment_refresh::capture_request(m,&before)?;
     before.runner.verify()?;
@@ -160,11 +166,18 @@ fn reserve_with(m: &Manager, environment: &str, installer: &str,
             .duration_since(std::time::UNIX_EPOCH)?.as_micros().try_into()?,
         preserve_existing_prefix:Some(preserve_existing_prefix),automatic_request};
     let dir = job_dir(m,operation)?;
+    vendor_maintenance::enroll(m,operation,&r.before)?;
+    let _registry=m.lock("registry.lock")?;
+    if let Some(retirement)=retirement {retirement.verify(m)?;}
+    require(current_environment(m,&r.before)?==r.before,"installer_environment_binding_changed")?;
+    vendor_maintenance::admit_installer_reservation(m,operation,&r.before)?;
+    capacity::require_environment_inactive(m,&r.before)?;
     require(!dir.join("installation.json").try_exists()?, "installer_transaction_already_used")?;
     atomic_json(&dir.join("installation-result.json"),
         &json!({"schema":2,"operation":operation,"state":"reserved",
             "cleanup_confirmed":false,"owned_live":null}))?;
     atomic_json(&dir.join("installation.json"),&r)?;
+    vendor_maintenance::acquire_installer(m,&r)?;
     // Invalidate old registration/inspection authority before a vendor can mutate
     // shared state. No old publication or vendor data is rewritten or deleted.
     atomic_json(&r.environment.root.join("environment.json"),&r.environment)?;
@@ -524,6 +537,82 @@ mod tests {
         atomic_json(&job_dir(m,&r.operation).unwrap().join("installation-result.json"),
             &json!({"schema":2,"operation":r.operation,"state":state,
                 "cleanup_confirmed":true,"owned_live":0})).unwrap();
+        readiness::with_unit_state_fixture(&[onboarding::unit(&r.operation).unwrap()],"inactive",||
+            vendor_maintenance::settle_executor(m,&r.operation)).unwrap();
+    }
+    #[test]
+    fn enrolled_reservation_crash_blocks_only_target_and_reconciles_without_installation_history() {
+        for contradiction in ["none","live","unavailable","environment","spec","receipt","lease"] {
+            let (f,installer)=fixture();let environment=f.r.environment.clone();
+            let op=job(&f.m,&environment.id,&installer.id);
+            let history=test_fixture::snapshot(&environment.root);
+            let token_before=token(&f.m).unwrap();
+            vendor_maintenance::enroll(&f.m,&op,&environment).unwrap();
+            assert_ne!(token_before,token(&f.m).unwrap());
+            assert!(vendor_maintenance::blocks(&f.m,&environment).unwrap());
+            assert!(vendor_maintenance::any_held(&f.m).unwrap(),"Package operations must see the reservation");
+            let mut other=environment.clone();other.id=random_id().unwrap();other.root=f.m.root.join("environments").join(&other.id);
+            assert!(!vendor_maintenance::blocks(&f.m,&other).unwrap());
+            capacity::require_environment_inactive(&f.m,&other).unwrap();
+            require_operator_inactive_with(&f.m,&ui::Action::TransactionReconcile {},&||panic!("Reconcile remains reachable"),
+                None,Duration::from_millis(100),&mut vec![]).unwrap();
+            match contradiction {
+                "environment"=> {let mut changed=environment.clone();changed.revision+=1;
+                    atomic_json(&environment.root.join("environment.json"),&changed).unwrap();},
+                "spec"=>atomic_json(&job_dir(&f.m,&op).unwrap().join("installer-spec.json"),&json!({"operation":op})).unwrap(),
+                "receipt"=>atomic_json(&job_dir(&f.m,&op).unwrap().join("installation-result.json"),
+                    &json!({"schema":2,"operation":op,"state":"completed","cleanup_confirmed":true,"owned_live":0})).unwrap(),
+                "lease"=> {
+                    let session=random_id().unwrap();let report=f.m.root.join("runtime/results").join(format!("windows-{session}.json"));
+                    let lease=f.m.root.join("runtime/leases").join(format!("{session}.json"));
+                    let owner=environment.root.join("compatdata/pfx/drive_c/bridge/sessions").join(&session).join("owner.json");
+                    private_dir(owner.parent().unwrap()).unwrap();private_dir(lease.parent().unwrap()).unwrap();
+                    atomic_json(&owner,&json!({"session":session,"report":report,"lease":lease,"keeper":false,
+                        "inspect":false,"vendor_access":false,"registration":{"metadata":{"class_id":f.r.key()},
+                        "environment":environment}})).unwrap();atomic_json(&lease,&report).unwrap();
+                },
+                _=>{},
+            }
+            let unit_state=match contradiction {"live"=>"active","unavailable"=>"unavailable",_=>"inactive"};
+            let recovered=readiness::with_unit_state_fixture(&[onboarding::unit(&op).unwrap()],unit_state,||
+                vendor_maintenance::reconcile(&f.m,|_|Ok(false))).unwrap();
+            if contradiction=="none" {
+                assert_eq!(recovered.settled,1);assert!(recovered.failures.is_empty());
+                assert!(!vendor_maintenance::blocks(&f.m,&environment).unwrap());
+                assert_eq!(test_fixture::snapshot(&environment.root),history);
+                assert!(!job_dir(&f.m,&op).unwrap().join("installation.json").exists());
+            } else {
+                assert_eq!(recovered.settled,0);assert_eq!(recovered.failures.len(),1);
+                assert!(vendor_maintenance::blocks(&f.m,&environment).unwrap());
+            }
+        }
+    }
+    #[test]
+    fn enrollment_rejects_a_different_request_target_before_claiming_custody() {
+        let (f,installer)=fixture();
+        let op=job(&f.m,&random_id().unwrap(),&installer.id);
+        assert!(vendor_maintenance::enroll(&f.m,&op,&f.r.environment).is_err());
+        assert!(optional(&job_dir(&f.m,&op).unwrap().join("result.json")).unwrap().get("setup_custody").is_none());
+        assert!(!vendor_maintenance::any_held(&f.m).unwrap());
+        assert!(!job_dir(&f.m,&op).unwrap().join("installation.json").exists());
+    }
+    #[test]
+    fn enrolled_reservation_worker_finish_preserves_authority_without_inventing_history() {
+        let (f,installer)=fixture();let environment=f.r.environment.clone();
+        let op=job(&f.m,&environment.id,&installer.id);
+        vendor_maintenance::enroll(&f.m,&op,&environment).unwrap();
+        let receipt=job_dir(&f.m,&op).unwrap().join("result.json");
+        let authority=read_json::<Value>(&receipt).unwrap()["setup_custody"].clone();
+        readiness::with_unit_state_fixture(&[onboarding::unit(&op).unwrap()],"inactive",|| {
+            let (installation,preparation)=finish_owned_work(&f.m,&op);
+            installation.unwrap();preparation.unwrap();
+            refuse_unfinished(&f.m,&op,"operator_worker_terminated").unwrap();
+        });
+        assert!(!vendor_maintenance::any_held(&f.m).unwrap());
+        assert_eq!(read_json::<Value>(&receipt).unwrap()["setup_custody"],authority);
+        assert_eq!(read_json::<Value>(&receipt).unwrap()["state"],"refused");
+        assert!(!job_dir(&f.m,&op).unwrap().join("installation.json").exists());
+        assert!(!job_dir(&f.m,&op).unwrap().join("refresh.json").exists());
     }
     fn wrong_installer_setup(f: &test_fixture::Fixture, installer: &installer_import::Installer,
         state: Option<&str>) -> onboarding::Record {
@@ -622,7 +711,7 @@ mod tests {
         assert!(projection(&f.m,&[],None,|_|Ok(false)).unwrap().iter()
             .all(|target| target.environment != initial.id));
         assert_eq!(reserve_with(&f.m,&initial.id,&right.id,&op,||Ok(true),|_|Ok(false))
-            .unwrap_err().to_string(),"operator_installer_active");
+            .unwrap_err().to_string(),"installer_initial_retirement_required");
         // A stopped replacement with a live owner is also excluded; Retry must
         // keep that replacement's bytes after its owner actually retires.
         unresolved["cleanup_confirmed"] = true.into();unresolved["owned_live"] = 0.into();

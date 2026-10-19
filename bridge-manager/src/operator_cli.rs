@@ -533,7 +533,8 @@ fn pulse_generation(m: &Manager) -> Result<String> {
     let runtime_records=linux_vst_bridge::runtime_delivery::record_paths(m);
     let paths = paths.into_iter().map(|relative|m.root.join(relative))
         .chain(std::iter::once(m.root.join("runners")))
-        .chain(runtime_records.iter().cloned());
+        .chain(runtime_records.iter().cloned())
+        .chain(vendor_maintenance::state_paths(m)?);
     let mut stamps = Vec::new();
     for path in paths {
         let relative = path.strip_prefix(&m.root)?;
@@ -674,8 +675,9 @@ fn require_operator_inactive_with(
         return Ok(());
     }
     let owned=operation.map(|id|vendor_maintenance::owned(m,id)).transpose()?.flatten();
-    let vendor_action=matches!(a,ui::Action::VendorSoftwareInstall {..}|ui::Action::VendorApplicationOpen {..});
-    if owned.is_some() || vendor_action {
+    let setup_action=matches!(a,ui::Action::VendorSoftwareInstall {..}|ui::Action::VendorApplicationOpen {..})
+        || a.environment_installer_start().is_some();
+    if owned.is_some() || setup_action {
         if let Some(environment)=vendor_maintenance::action_environment(m,a)? {
             if let Some(bound)=&owned {require(*bound==environment,"vendor_maintenance_child_scope")?;}
             let _admission=acquire_readback(m,ui::OperatorLock::Registry,operation,timeout,waits)?;
@@ -1446,7 +1448,7 @@ fn snapshot_readonly_depth(
             waits,
         )?;
     }
-    let owners = capacity::owners(m)?;
+    let owners = capacity::owners_for_creation(m)?;
     let cap = cap.filter(|c| c.owners == owners);
     let before = token(m)?;
     // The same change samples the overview takes: scan results, pending
@@ -1632,14 +1634,16 @@ fn snapshot_readonly_depth(
     automatic_install::settle_busy_offers(&mut installer_setups);
     let deleted_setups = setup_removal::project(m, &mut installer_setups, &records, &db,
         &managed_bindings, &class_scope, &mut |operation| onboarding::live(operation))?;
+    automatic_install::project_initial_admission(m,&mut installer_setups,cap.as_ref(),pending,busy)?;
     let uninstallers = uninstall::project(m, &installer_setups, &records, &db, &managed_bindings, busy)?;
     automatic_install::project_revalidation(m,&mut products,&records)?;
     plugin_setup::project(m,&mut products,&mut installer_setups,busy)?;
-    let environment_installers = environment_install::projection(m,&products,busy,onboarding::live)?;
+    let mut environment_installers = environment_install::projection(m,&products,busy,onboarding::live)?;
+    automatic_install::project_companion_admission(m,&mut environment_installers,cap.as_ref(),pending,busy)?;
     let recheck = acquire_readback(m, ui::OperatorLock::Registry, id, timeout, waits)?;
     let after = token(m)?;
     require(
-        before == after && owners == capacity::owners(m)?
+        before == after && owners == capacity::owners_for_creation(m)?
             && generation == pulse_generation(m)? && pending == pending_transactions(m)?,
         "operator_state_changed_refresh",
     )?;
@@ -1968,7 +1972,10 @@ fn validate_current_worker(m: &Manager, request: &ui::Request, id: &str,
         registry = acquire_readback(m, ui::OperatorLock::Registry,
             Some(id), deadline.saturating_duration_since(Instant::now()), waits)?;
     }
-    let owners = capacity::owners(m)?;
+    let scoped=request.action.software_install().is_some()
+        || request.action.environment_installer_start().is_some()
+        || matches!(request.action,ui::Action::SoftwareInstallResume {..}|ui::Action::EnvironmentRefreshResume {..});
+    let owners=if scoped {capacity::owners_for_creation(m)?} else {capacity::owners(m)?};
     require(cap.as_ref().is_none_or(|read| read.owners == owners),
         "operator_owners_changed")?;
     require(request.state_token == token(m)?, "operator_stale_request_refresh")?;
@@ -2031,8 +2038,13 @@ fn write_operation(m: &Manager, id: &str, value: &Value, make_latest: bool) -> R
     if value.get("lock_waits").is_none() && prior.get("lock_waits").is_some() {
         value["lock_waits"] = prior["lock_waits"].clone();
     }
+    if let Some(authority)=prior.get("setup_custody") {
+        require(value.get("setup_custody").is_none_or(|next|next==authority),
+            "setup_maintenance_enrollment_changed")?;
+        value["setup_custody"]=authority.clone();
+    }
     // Child owner progress must keep the same initial DAW intent visible.
-    for field in ["journey", "onboarding", "environment", "application", "renderer_owner"] {
+    for field in ["journey", "onboarding", "environment", "application", "renderer_owner", "setup_custody"] {
         if value.get(field).is_none() && prior.get(field).is_some() {value[field]=prior[field].clone();}
     }
     if value["state"]=="vendor_running" && value["journey"].is_object() {
@@ -2316,7 +2328,11 @@ fn finish_owned_work(m: &Manager, id: &str) -> (Result<()>, Result<()>) {
         }
         Ok(())
     })();
-    (installer_cleanup, cleanup_preparation_work(m, id))
+    let preparation_cleanup=cleanup_preparation_work(m,id);
+    let installer_cleanup=installer_cleanup.and_then(|()| {
+        if preparation_cleanup.is_ok() {vendor_maintenance::settle_executor(m,id)} else {Ok(())}
+    });
+    (installer_cleanup,preparation_cleanup)
 }
 fn cleanup_preparation_work(m: &Manager, id: &str) -> Result<()> {
     let fresh = preparation::build::cleanup_work(m, id);
@@ -2573,12 +2589,13 @@ fn create_environment_prepared(
     let before = token(m)?;
     let prepared = prepare()?;
     let controls = creation_control_stamp(m)?;
-    let retired = vendor_retired(m)? && onboarding::all_retired(m)?;
     require(
         controls == creation_control_stamp(m)?,
         "operator_creation_posture_changed",
     )?;
     let cap = capacity_read();
+    automatic_install::require_installation_capacity(m,cap.as_ref())?;
+    let owners=capacity::owners_for_creation(m)?;
     // Exactly one registry acquisition for the mutation. No owner below this
     // point reacquires it, hashes an installer/runner, or queries systemd.
     let guard = match m.lock_bounded(
@@ -2603,15 +2620,10 @@ fn create_environment_prepared(
         before == token(m)? && controls == creation_control_stamp(m)?,
         "operator_creation_posture_changed",
     )?;
-    let cap = cap.ok_or("capacity_readback_unavailable")?;
-    require(
-        cap.owners == capacity::owners(m)?,
-        "operator_creation_owners_changed",
-    )?;
-    if let Some(reason) = inactive_reason(Some(&cap), retired, pending_transactions(m)?, false) {
-        return Err(reason.into());
-    }
-    m.require_inactive(None)?;
+    require(owners==capacity::owners_for_creation(m)?,"operator_creation_owners_changed")?;
+    require(cap.as_ref().is_none_or(|cap|cap.owners==owners),"operator_creation_owners_changed")?;
+    require(pending_transactions(m)?==0,"operator_pending_transaction_reconcile")?;
+    capacity::require_creation_inactive(m,prepared.previous_environment(m)?.as_ref())?;
     let result = onboarding::create_prepared(m, prepared, owner, &guard);
     drop(guard);
     result
@@ -2833,19 +2845,24 @@ fn execute_with_receipt_policy_progress(
         }
         ui::Action::InstallerStart { onboarding: id }
         | ui::Action::InstallerStartWithPolicy { onboarding: id, .. } => {
-            let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
             let prior = onboarding::load(m, id)?;
+            let scoped=vendor_maintenance::owned(m,owner)?;
+            require(scoped.as_ref().is_none_or(|e|*e==prior.environment),"setup_maintenance_child_scope")?;
+            let _environment = m.lock(&if scoped.is_some() {format!("operator-environment-{id}.lock")}
+                else {"operator-environment.lock".into()})?;
             require(
                 prior.installation_operation.is_none(),
                 "installer_initial_transaction_already_used",
             )?;
-            suspend(m, owner, None, timeout, waits)?;
+            drop(projection.take());
+            if scoped.is_some() {retire_setup_for_vendor(m,owner)?;}
+            else {suspend(m, owner, None, timeout, waits)?;}
             let reserved = onboarding::reserve(m, id, owner);
             let r = match reserved {
                 Ok(r) => r,
                 Err(e) => {
-                    let _ = resume_owned(m, owner);
+                    if scoped.is_none() {let _ = resume_owned(m, owner);}
                     return Err(e);
                 }
             };
@@ -2868,7 +2885,7 @@ fn execute_with_receipt_policy_progress(
             }
             let v = onboarding::result(m, &r)?;
             require(onboarding::retired(&v), "installer_cleanup_unconfirmed")?;
-            resume_owned(m, owner)?;
+            if scoped.is_none() {resume_owned(m, owner)?;}
             launched?;
             Ok(v)
         }
@@ -2881,7 +2898,7 @@ fn execute_with_receipt_policy_progress(
             operation: owner,
         } => {
             let v = onboarding::stop(m, id, owner)?;
-            resume_owned(m, owner)?;
+            if vendor_maintenance::for_installer(m,owner)?.is_none() {resume_owned(m, owner)?;}
             Ok(v)
         }
         ui::Action::InstallerScan { onboarding: id } => {
@@ -2902,10 +2919,12 @@ fn execute_with_receipt_policy_progress(
         action @ (ui::Action::EnvironmentInstallerStart {..}
             | ui::Action::EnvironmentInstallerStartWithPolicy {..}) => {
             let (environment,installer,_)=action.environment_installer_start().unwrap();
-            let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
-            suspend(m,owner,None,timeout,waits)?;
+            drop(projection.take());
+            let result=vendor_maintenance::with_executor(owner,||->Result<Value> {
+            let _environment = m.lock(&format!("operator-environment-{environment}.lock"))?;
             let r = environment_install::reserve(m,environment,installer,owner)?;
+            retire_setup_for_vendor(m,owner)?;
             let launched = environment_install::launch(m,&r);
             drop(projection.take());
             if launched.is_ok() {
@@ -2920,9 +2939,6 @@ fn execute_with_receipt_policy_progress(
                 let retirement=environment_install::finish(m,owner)
                     .and_then(|_|environment_install::result(m,&r));
                 if retirement.as_ref().is_ok_and(onboarding::retired) {
-                    if resume_owned(m,owner).is_err() {
-                        return Err(format!("{error} The bridge could not restart. Send Setup details before retrying.").into());
-                    }
                     return Err(error);
                 }
                 return Err(format!("{error} Closing this attempt is still unconfirmed. Send Setup details before retrying.").into());
@@ -2934,13 +2950,15 @@ fn execute_with_receipt_policy_progress(
                 // fail. A later finish can reconstruct this same owned record.
                 environment_refresh::initialize_replacement(m,owner)?;
             }
-            resume_owned(m,owner)?;
             drop(_environment);
             if r.automatic_request.is_some() && value["state"]=="completed" && value["raw_exit"]==0 {
                 // The same accepted replacement owns a fresh normal connection
                 // checkpoint. Its executor discovers once; no old scan is reused.
                 environment_refresh::execute(m,a,owner,capacity_read,timeout,waits)
             } else {Ok(value)}
+            });
+            let cleanup=vendor_maintenance::settle_executor(m,owner);
+            match (result,cleanup) {(Ok(value),Ok(()))=>Ok(value),(Err(error),_)=>Err(error),(Ok(_),Err(error))=>Err(error)}
         }
         ui::Action::InstallerCloseCheck {operation: owned} => {
             let _environment = m.lock("operator-environment.lock")?;
@@ -2980,7 +2998,7 @@ fn execute_with_receipt_policy_progress(
                 return uninstall::stop(m,operation);
             }
             let value = environment_install::stop(m,operation)?;
-            resume_owned(m,operation)?;
+            if vendor_maintenance::for_installer(m,operation)?.is_none() {resume_owned(m,operation)?;}
             Ok(value)
         }
         ui::Action::EnvironmentInstallerScan {environment} => {
@@ -3346,6 +3364,12 @@ fn execute_with_receipt_policy_progress(
             }
         }
         ui::Action::EnvironmentRescan { environment } => {
+            let owner=operation.ok_or("operator_operation_identity")?;
+            if let Some(bound)=vendor_maintenance::owned(m,owner)? {
+                require(bound.id==*environment,"vendor_maintenance_child_scope")?;
+                drop(projection.take());
+                return rescan_environment_scoped(m,bound,owner);
+            }
             let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
             suspend(m, owner, None, timeout, waits)?;
@@ -5513,7 +5537,7 @@ pub(crate) mod tests {
         assert!(validate(&request, &snapshot).is_err());
     }
     pub(super) fn capacity_json(blocked: bool, dsp: usize, maintenance: usize) -> Value {
-        json!({"ok":true,"capacity":{"schema":1,"dsp":dsp,"maintenance":maintenance,"keepers":1,"cleanup_unconfirmed":blocked,"owners":[],"limits":{"global_dsp":6}}})
+        json!({"ok":true,"capacity":{"schema":1,"dsp":dsp,"maintenance":maintenance,"keepers":0,"cleanup_unconfirmed":blocked,"owners":[],"limits":{"global_dsp":6}}})
     }
     fn service_reply(m: &Manager, value: Value) -> std::thread::JoinHandle<()> {
         private_dir(&m.root.join("runtime")).unwrap();

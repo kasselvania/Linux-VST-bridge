@@ -298,9 +298,11 @@ pub(super) fn project(m: &Manager, setups: &mut [ui::InstallerSetup],
 pub(super) fn execute(m: &Manager, action: &ui::Action, operation: &str,
     capacity: &dyn Fn()->Option<CapacityReadback>, timeout: Duration,
     waits: &mut Vec<ui::LockFacts>) -> Result<Value> {
-    execute_with(m,action,operation,&mut |environment,intent| {
+    let result=execute_with(m,action,operation,&mut |environment,intent| {
         automatic_install::continue_refresh(m,environment,intent,operation,capacity,timeout,waits)
-    })
+    });
+    let cleanup=vendor_maintenance::settle_executor(m,operation);
+    match (result,cleanup) {(Ok(value),Ok(()))=>Ok(value),(Err(error),_)=>Err(error),(Ok(_),Err(error))=>Err(error)}
 }
 pub(super) fn execute_with(m:&Manager,action:&ui::Action,operation:&str,
     continue_connection:&mut dyn FnMut(&Environment,&mut Intent)->Result<Value>)->Result<Value> {
@@ -358,7 +360,15 @@ pub(super) fn execute_with(m:&Manager,action:&ui::Action,operation:&str,
         retained=retain(m,retained.environment,retained.intent,retained.preserved_performance)?;
     }
     require_preserved_baseline(m,&retained.intent)?;
-    let result=continue_connection(&retained.environment,&mut retained.intent);
+    retained.intent.active_operation=operation.into();
+    save(m,&retained.environment,&retained.intent,operation)?;
+    let installer=job_dir(m,&retained.intent.owner)?.join("installation.json");
+    if installer.try_exists()? {
+        let binding=environment_install::load(m,&retained.intent.owner)?;
+        vendor_maintenance::reacquire_installer(m,&binding)?;
+    }
+    let result=vendor_maintenance::with_executor(operation,||
+        continue_connection(&retained.environment,&mut retained.intent));
     if let Err(error)=&result {
         retained.intent.journey.phase=ui::InstallationPhase::NeedsAttention;
         if retained.intent.journey.failure.is_none() {
@@ -377,6 +387,10 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
     };
     if !path(m,owner)?.try_exists()? {
         if action.environment_installer_start().is_none() {return Ok(());}
+        // A dead worker can have enrolled its accepted request before it wrote
+        // an installation binding. That reservation has no refresh to finish;
+        // its existing setup-custody owner still proves unstarted retirement.
+        if !job_dir(m,owner)?.join("installation.json").try_exists()? {return Ok(());}
         let Some(retained)=replacement_checkpoint(m,owner,true)? else {return Ok(())};
         retain(m,retained.environment,retained.intent,retained.preserved_performance)?;
     }
@@ -393,7 +407,8 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
             ui::InstallationFailureStage::Preparation,"automatic_refresh_interrupted"));
         save(m,&retained.environment,&retained.intent,operation)?;
     }
-    automatic_install::cleanup_connections(m,&retained.intent)
+    automatic_install::cleanup_connections(m,&retained.intent)?;
+    vendor_maintenance::settle_executor(m,operation)
 }
 
 #[cfg(test)] mod tests {

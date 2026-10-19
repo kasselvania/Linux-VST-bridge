@@ -1033,7 +1033,13 @@ impl Action {
     /// use the manager's exact offered refusal and repeat that check on execution.
     pub fn requires_global_inactive(&self) -> bool {
         self.requires_inactive() && !matches!(self,
-            Self::VendorSoftwareInstall { .. }
+            Self::SoftwareInstall { .. }
+                | Self::SoftwareInstallWithPolicy { .. }
+                | Self::SoftwareInstallResume { .. }
+                | Self::EnvironmentInstallerStart { .. }
+                | Self::EnvironmentInstallerStartWithPolicy { .. }
+                | Self::EnvironmentRefreshResume { .. }
+                | Self::VendorSoftwareInstall { .. }
                 | Self::VendorApplicationOpen { .. }
                 | Self::CandidateHistoryComplete { .. }
                 | Self::CompatibilityPublishTest { .. }
@@ -1062,6 +1068,14 @@ mod tests {
         let candidate = "candidate".to_string();
         let current = PublicationIdentity {id:"publication".into(),sha256:"digest".into()};
         for action in [
+            Action::SoftwareInstall {installer:"installer".into(),daw:DawChoice::Reaper},
+            Action::SoftwareInstallWithPolicy {installer:"installer".into(),daw:DawChoice::Reaper,
+                powershell:Powershell::Inherited},
+            Action::SoftwareInstallResume {onboarding:"setup".into()},
+            Action::EnvironmentInstallerStart {environment:"setup".into(),installer:"installer".into()},
+            Action::EnvironmentInstallerStartWithPolicy {environment:"setup".into(),installer:"installer".into(),
+                powershell:Powershell::Inherited},
+            Action::EnvironmentRefreshResume {operation:"operation".into()},
             Action::CandidateHistoryComplete {candidate:candidate.clone(),expected_history:"history".into()},
             Action::CompatibilityPublishTest {candidate:candidate.clone(),expected_current:Some(current.clone())},
             Action::CompatibilityResult {candidate:candidate.clone(),expected_current:current.clone(),
