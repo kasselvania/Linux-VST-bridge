@@ -5,26 +5,27 @@ installs and authorizes Native Access/Kontakt, plays in native REAPER and recall
 changed state after full exit and reboot, without terminal recovery or blocking
 an unrelated setup. Architecture and beta scope remain in `docs/ARCHITECTURE.md`.
 
-Reference comparison:
+Delivered reference comparison:
+- Test225 / PR 484 delivers exact signed supervisor source, isolated launch and
+  the enforced CPython 3.13/3.14 range, tested on both real interpreters.
+  Ordinary old bytecode → source → exact old restore → source passed Reference
+  playback, saved-instance recall, full exit and clean retirement on CachyOS.
+  The original long-home account also launches and retires with the repaired
+  home-independent keeper endpoint. Historical generation records stay exact.
 - #468 recovery and setup isolation are complete through #474–#480. Test223
   admits new Reference instances during NI maintenance and preserves mixed recall.
 - Fresh NI installation passed on r5; r7 migration did not prove fresh r7 install.
   Deck/Test216 remains earlier cross-generation qualification.
 
-Next changes, in small reviewed increments:
-1. New generations ship exact signed session.py/ownership.py source. Keep old
-   bytecode generations truthful and runnable, including exact predecessor restore.
-   Use a fixed isolated bootstrap loading both verified absolute paths; preserve
-   arguments/display/scheduler handoff, reject ambient imports, write no bytecode.
-   Declare/enforce only physically tested host-Python versions (test 3.13/3.14).
-2. Prove old bytecode → source update → first-party launch/retire → exact old
-   restore → old launch/retire → source update; cover package/bootstrap/recovery.
-3. With that exact signed package, use a fresh CachyOS account for ordinary r7
-   acquisition, Native Access install/sign-in, Kontakt + Factory Selection install,
-   discovery/publication, REAPER MIDI/audio/editor and changed-state save/recall.
+Remaining journey, using the same signed Test225 package:
+1. In a fresh CachyOS account and normal graphical login, acquire r7 through the
+   product, install Native Access and reach its managed usable window/sign-in.
+2. Install Kontakt + Factory Selection, discover/publish, play MIDI/audio and use
+   the editor in REAPER; recall changed instrument state after full exit and reboot.
+3. Keep unrelated Reference audio working, admit a new instance during NI
+   maintenance and follow-up, and preserve its saved state and ownership.
 
 Working completion:
-- Exact source packaging, interpreter range and isolated launch pass; rollback works.
 - Kontakt identity and changed state survive full DAW exit/reopen and reboot.
 - During NI maintenance, Reference plays, admits a new instance and recalls state.
 - Progress and Stop/Cancel/Retry remain reachable; normal close/follow-up completes.
@@ -37,4 +38,6 @@ belongs to #382. Loading failure origin is unestablished; repeated Retry fails.
 SteamOS, Serum transparency, Blackhole/BEAM, DirectComposition, old Bitwig project,
 empty editor, Rust port, broad endurance and manager redesign are separate.
 Preserve licensed setups, activation, original projects and retained predecessors.
+Old Download and update cannot read source-only bundles; use the signed installer
+and Open Setup. The retained Test223 no-prefix fixture remains unrecovered.
 Confirm Storage2 is mounted before homelab writes under /mnt/Storage2/LinuxPluginBridge.

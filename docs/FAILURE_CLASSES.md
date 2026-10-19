@@ -35,7 +35,18 @@ Native Access/runtime responsiveness (#481) remains open: cold preparation excee
 showed Loading Products Failed and reached Home after one ordinary Retry; origin
 is unestablished. Unrelated Reference playback and new admission worked throughout
 the tested maintenance phases. Live status-read invalidation and hidden controls
-remain #382. Fresh r7 NI installation and supervisor source delivery are #482.
+remain #382. Fresh r7 NI installation remains #482.
+
+Supervisor source delivery and the long-home keeper endpoint refusal are accepted
+on CachyOS Test225 ([PR 484](https://github.com/kasselvania/Linux-VST-bridge/pull/484)):
+the declared CPython 3.13/3.14 range passes tests on both real interpreters. Installed
+ordinary source update, exact bytecode predecessor restore and source update again
+pass first-party launch, audio and normal retirement on host 3.14.8. Historical
+generation records stay exact. Retained old Download and update cannot read the
+source-only bundle; migration uses the
+new signed standalone installer and Open Setup. The retained Test223 fixture's
+invalid-graphical-session attempt with no initialized folder remains unrecovered:
+Continue rescans, while Run refuses the missing installation. Fresh NI stays open.
 
 PACE/iLok load-time stalls (#414/#417) remain open. Same-setup dependency assistance
 uses local service registration and current scan observations; a timeout alone does
