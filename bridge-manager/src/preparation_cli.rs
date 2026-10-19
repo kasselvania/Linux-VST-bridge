@@ -1251,7 +1251,7 @@ fn inspect_unretained(
         },
         admission,
     )?;
-    let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
+    let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AdmissionCleanup::default()));
     let report = job.report.clone();
     bind_session_report(&job.session, &report, || -> Result<prep::Inspection> {
         let child = spawn(m, sw, &path, None)?;

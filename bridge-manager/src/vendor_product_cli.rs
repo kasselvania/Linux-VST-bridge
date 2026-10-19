@@ -162,7 +162,7 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
         compatibility: Compatibility::default(),
     };
     let (job, path) = spec(m, r, true, true, false)?;
-    let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
+    let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AdmissionCleanup::default()));
     let child = spawn(m, &sw, &path, None)?;
     finish_scan(child, &job, &path, pending)?;
     module.verify()?;
@@ -224,11 +224,11 @@ mod tests {
             child
         };
         // Receipt alone cannot hide a still-present transport/session directory.
-        let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
+        let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AdmissionCleanup::default()));
         assert!(finish_scan(owner(), &job, &path, pending).is_err());
         assert!(job.lease.exists());
         fs::remove_dir_all(&job.directory).unwrap();
-        let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
+        let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AdmissionCleanup::default()));
         finish_scan(owner(), &job, &path, pending).unwrap();
         assert!(!job.lease.exists());
     }
@@ -237,7 +237,7 @@ mod tests {
         let f = test_fixture::Fixture::new();
         let (job, path) = spec(&f.m, f.r.clone().into(), true, true, false).unwrap();
         atomic_json(&job.lease, &job.report).unwrap();
-        let blocked = Arc::new(AtomicBool::new(false));
+        let blocked = Arc::new(AdmissionCleanup::default());
         let pending = PendingAdmission::new(job.lease.clone(), blocked.clone());
         let child = Command::new("/bin/sh")
             .args([
@@ -252,7 +252,7 @@ mod tests {
         assert!(finish_scan(child, &job, &path, pending).is_err());
         assert!(!job.lease.exists());
         assert!(!job.directory.exists());
-        assert!(!blocked.load(Ordering::Acquire));
+        assert!(!blocked.blocked());
     }
     #[test]
     fn nomination_is_bounded_and_not_sdk_authority() {
