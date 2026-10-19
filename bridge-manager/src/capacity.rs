@@ -514,6 +514,9 @@ fn terminal_status(
 /// Caller holds registry.lock. Bound both collections before opening owner
 /// documents. Malformed, missing or duplicate ownership never counts as free.
 pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
+    owners_for(m, None)
+}
+fn owners_for(m: &Manager, environment: Option<&Environment>) -> Result<Vec<Owner>> {
     let leases = m.root.join("runtime/leases");
     if !leases.try_exists()? {
         return Ok(Vec::new());
@@ -582,7 +585,9 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
             // alone cannot authorize the readback or another reservation.
             if report.try_exists()? {
                 let result: serde_json::Value = read_json(&report)?;
-                if result["ready"] == false && result["cleanup_confirmed"] == false {
+                if result["ready"] == false && result["cleanup_confirmed"] == false
+                    && !environment.is_some_and(|selected| m.lease_environment(sid)
+                        .is_ok_and(|owner| owner.id != selected.id && owner.root != selected.root)) {
                     return Err(Refusal::CleanupUnconfirmed.into());
                 }
             }
@@ -675,6 +680,27 @@ pub fn reserve(m: &Manager, limits: &Limits, class: Option<&str>, blocked: bool)
         }
     })?;
     validate_reservation(m, limits, class)?;
+    Ok(lock)
+}
+
+/// Native admission is independent of maintenance and uncertain cleanup in
+/// other exact setups. Global DSP and per-class ceilings still count every
+/// instance. Unknown ownership remains a refusal, not an assumed other setup.
+pub fn reserve_environment(
+    m: &Manager, limits: &Limits, class: &str, environment: &Environment,
+    blocked: impl FnOnce() -> Result<bool>,
+) -> Result<Lock> {
+    let lock = m.lock("registry.lock").map_err(|e| {
+        if e.is::<crate::operator_lock::LockBusy>() { Refusal::ServiceBusy.into() } else { e }
+    })?;
+    if blocked()? { return Err(Refusal::CleanupUnconfirmed.into()); }
+    let mut records = owners_for(m, Some(environment)).map_err(|_| Refusal::CleanupUnconfirmed)?;
+    records.retain(|owner| !matches!(owner.kind, Kind::Inspection | Kind::VendorAccess)
+        || !m.lease_environment(&owner.session).is_ok_and(|scope|
+            scope.id != environment.id && scope.root != environment.root));
+    let unfamiliar = if limits.classes.iter().any(|policy| policy.class_id == class) { None }
+        else { unfamiliar_managed_capacity(m, limits.native_image_hard, class)? };
+    check_selected(&records, limits, Some(class), unfamiliar)?;
     Ok(lock)
 }
 
@@ -804,6 +830,70 @@ mod tests {
         private_dir(path.parent().unwrap()).unwrap();
         atomic_json(&path, &report).unwrap();
         path
+    }
+    fn scoped_lease(f: &Fixture, class: &str, kind: Kind) -> PathBuf {
+        let lease = lease(f, class, kind);
+        let session = lease.file_stem().unwrap().to_str().unwrap();
+        let report: PathBuf = read_json(&lease).unwrap();
+        let (mut owner, path) = f.m.lease_owner(session, &report).unwrap();
+        owner["lease"] = serde_json::to_value(&lease).unwrap();
+        owner["registration"]["environment"] = serde_json::to_value(&f.r.environment).unwrap();
+        atomic_json(&path, &owner).unwrap();
+        f.m.retain_lease_owner(&path).unwrap();
+        lease
+    }
+    fn other_environment(f: &Fixture) -> Environment {
+        let mut other = f.r.environment.clone();
+        other.id = "22222222-2222-4222-8222-222222222222".into();
+        other.root = f.m.root.join("environments").join(&other.id);
+        other
+    }
+    #[test]
+    fn native_admission_isolated_from_exact_other_setup_maintenance() {
+        let f = Fixture::new();
+        let class = limits().classes[0].class_id.clone();
+        let owned = scoped_lease(&f, &class, Kind::Inspection);
+        let other = other_environment(&f);
+        assert!(reserve_environment(&f.m, &limits(), &class, &other, || Ok(false)).is_ok());
+        assert_eq!(reason(reserve_environment(&f.m, &limits(), &class, &f.r.environment,
+            || Ok(false))), Refusal::MaintenanceActive.code());
+        let mut revised = f.r.environment.clone();
+        revised.revision += 1;
+        assert_eq!(reason(reserve_environment(&f.m, &limits(), &class, &revised,
+            || Ok(false))), Refusal::MaintenanceActive.code());
+        assert!(owned.exists(), "Unrelated admission never retires another setup's owner");
+        // An unbound historical lease is not permission to assume independence.
+        lease(&f, &class, Kind::VendorAccess);
+        assert_eq!(reason(reserve_environment(&f.m, &limits(), &class, &other,
+            || Ok(false))), Refusal::MaintenanceActive.code());
+    }
+    #[test]
+    fn native_setup_scope_keeps_global_and_class_limits() {
+        let f = Fixture::new();
+        let class = limits().classes[0].class_id.clone();
+        scoped_lease(&f, &class, Kind::Inspection);
+        let other = other_environment(&f);
+        lease(&f, &class, Kind::Dsp);
+        lease(&f, &class, Kind::Dsp);
+        assert_eq!(reason(reserve_environment(&f.m, &limits(), &class, &other,
+            || Ok(false))), Refusal::ClassCapacity.code());
+        let second = limits().classes[1].class_id.clone();
+        lease(&f, &second, Kind::Dsp);
+        assert_eq!(reason(reserve_environment(&f.m, &limits(), &second, &other,
+            || Ok(false))), Refusal::GlobalCapacity.code());
+    }
+    #[test]
+    fn failed_keeper_custody_blocks_its_setup_and_global_maintenance() {
+        let f = Fixture::new();
+        let class = limits().classes[0].class_id.clone();
+        let lease = scoped_lease(&f, &class, Kind::Keeper);
+        let report: PathBuf = read_json(&lease).unwrap();
+        atomic_json(&report, &serde_json::json!({"ready":false,"cleanup_confirmed":false})).unwrap();
+        assert!(reserve_environment(&f.m, &limits(), &class, &other_environment(&f), || Ok(false)).is_ok());
+        assert_eq!(reason(reserve_environment(&f.m, &limits(), &class, &f.r.environment,
+            || Ok(false))), Refusal::CleanupUnconfirmed.code());
+        assert!(owners(&f.m).is_err(), "Global readback still reports unresolved custody");
+        assert!(lease.exists());
     }
     #[test]
     fn maintenance_wait_observes_new_owner_before_granting_authority() {
