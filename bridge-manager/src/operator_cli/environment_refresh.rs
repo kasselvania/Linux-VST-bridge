@@ -247,7 +247,10 @@ pub(super) fn require_preserved_baseline(m:&Manager,intent:&Intent)->Result<()> 
         automatic_install::owned_revalidation_successor(m,&retained.intent,original,&retained.environment)?
             .as_ref()==Some(reference)
     };
-    require(entry.publication==Publication::Published && (unchanged || owned_successor)
+    let package_successor=if unchanged || owned_successor {false} else {
+        automatic_install::package_renewed_publication(m,original)?.is_some()
+    };
+    require(entry.publication==Publication::Published && (unchanged || owned_successor || package_successor)
         && retained.preserved_performance.get(class)==Some(&m.performance(&original.registration.key())?),
         "automatic_refresh_preserved_publication_changed")?;
     if unchanged {

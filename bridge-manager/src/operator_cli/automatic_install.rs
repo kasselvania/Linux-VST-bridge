@@ -2072,6 +2072,28 @@ fn connect_class(
             intent.journey.plugins[result_index].stage = ui::InstallationPluginStage::ReplacementRequired;
             return Err("existing_working_configuration_requires_separate_change_review".into());
         }
+        if owned_revalidation_successor(m,intent,original,record.environment())?.is_some() {
+            let child=intent.work[index].check.as_ref().ok_or("unchanged_publication_checkpoint_missing")?;
+            let action=ui::Action::CompatibilityRevalidate {selection:selection.id()?,
+                expected_current:ui::PublicationIdentity {id:predecessor.id.clone(),sha256:predecessor.sha256.clone()}};
+            let candidate=preparation_cli::revalidation_candidate_checkpoint(m,child,&action)?
+                .ok_or("unchanged_publication_checkpoint_missing")?;
+            require(candidate.selection==selection,"unchanged_publication_candidate_changed")?;
+            intent.work[index].candidate=Some(candidate.id()?);
+            intent.journey.plugins[result_index].stage=ui::InstallationPluginStage::Available;
+            return save(m,record,intent,operation);
+        }
+        if let Some(renewed)=package_renewed_publication(m,original)? {
+            require(renewed.registration.environment==selection.environment
+                && renewed.registration.module==selection.module
+                && renewed.class_id==selection.class.id,"unchanged_publication_configuration_changed")?;
+            let records=prep::RecordReadback::capture(m)?;
+            let candidate=records.publication_candidate_record(m,&renewed.profile,&renewed.registration)?
+                .ok_or("unchanged_publication_candidate_changed")?;
+            intent.work[index].candidate=Some(candidate.id()?);
+            intent.journey.plugins[result_index].stage=ui::InstallationPluginStage::Available;
+            return save(m,record,intent,operation);
+        }
         let expected_action=ui::Action::CompatibilityRevalidate{selection:selection.id()?,
             expected_current:ui::PublicationIdentity{id:predecessor.id.clone(),sha256:predecessor.sha256.clone()}};
         let mut retained_candidate=None;
@@ -2260,8 +2282,25 @@ fn connect_class(
     save(m, record, intent, operation)
 }
 
-// A child may commit before the parent writes its terminal checkpoint. Only
-// that retained revalidation child can explain a changed selected publication.
+// A package may renew a publication without changing its content or settings.
+// Parent ancestry discovers history; only the package receipt authorizes it.
+pub(super) fn package_renewed_publication(m:&Manager,original:&Revision)->Result<Option<Revision>> {
+    let db=m.registry()?;
+    let entry=db.classes.get(&original.class_id).ok_or("unchanged_publication_candidate_changed")?;
+    let selected=entry.managed_revision.as_ref().ok_or("unchanged_publication_candidate_changed")?;
+    if selected.id==original.id {return Ok(None);}
+    let renewed=package_authority::renewed_predecessor(m,original)?;
+    require(entry.publication==Publication::Published && entry.registration==renewed.registration
+        && selected.id==renewed.id && !m.publication_pending(&original.class_id)?
+        && linux_vst_bridge::publication::physical(&m.link(&original.class_id))?==Some(renewed.target.clone()),
+        "unchanged_publication_candidate_changed")?;
+    m.verify_completed_publication(&renewed,selected)?;
+    renewed.registration.module.verify()?;
+    Ok(Some(renewed))
+}
+
+// A child may commit before its worker writes a result. Its bound candidate
+// and committed transaction remain authority after exact package renewal.
 pub(super) fn owned_revalidation_successor(m:&Manager,intent:&Intent,original:&Revision,
     environment:&Environment)->Result<Option<RevisionRef>> {
     let mut owners=intent.work.iter().filter(|work|work.predecessor.as_ref()
@@ -2275,19 +2314,56 @@ pub(super) fn owned_revalidation_successor(m:&Manager,intent:&Intent,original:&R
     let action=ui::Action::CompatibilityRevalidate {selection:work.selection.clone(),
         expected_current:ui::PublicationIdentity {id:predecessor.id.clone(),sha256:predecessor.sha256.clone()}};
     let Some(candidate)=preparation_cli::revalidation_candidate_checkpoint(m,child,&action)? else {return Ok(None)};
+    let candidate_id=candidate.id()?;
     require(candidate.selection.environment==*environment
-        && work.candidate.as_ref().is_none_or(|id|candidate.id().is_ok_and(|actual|actual==*id)),
+        && work.candidate.as_ref().is_none_or(|id|candidate_id==*id),
         "unchanged_publication_candidate_changed")?;
-    if !prep::selected_publication_candidate_record(m,&candidate)? {return Ok(None);}
     let db=m.registry()?;
-    let selected=db.classes.get(&original.class_id).and_then(|entry|entry.managed_revision.as_ref())
+    let entry=db.classes.get(&original.class_id).ok_or("unchanged_publication_candidate_changed")?;
+    let selected=entry.managed_revision.as_ref()
         .ok_or("unchanged_publication_candidate_changed")?;
-    let revision=m.load_revision(&original.class_id,selected)?;
-    require(revision.parent.as_ref()==Some(predecessor)
-        && revision.registration.compatibility==original.registration.compatibility
-        // The musician's settings as they are now, which the re-check carries.
-        && revision.performance==m.performance(&original.class_id)?,"unchanged_publication_configuration_changed")?;
-    Ok(Some(selected.clone()))
+    let records=prep::RecordReadback::capture(m)?;
+    let mut cursor=Some(selected.clone());
+    for _ in 0..256 {
+        let Some(reference)=cursor else {return Ok(None)};
+        if reference==*predecessor {return Ok(None);}
+        let revision=m.load_revision_record(&original.class_id,&reference)?;
+        if revision.parent.as_ref()==Some(predecessor) {
+            let bound=records.publication_candidate_record(m,&revision.profile,&revision.registration)?;
+            if bound.map(prep::Candidate::id).transpose()?.as_deref()!=Some(candidate_id.as_str()) {
+                return Ok(None);
+            }
+            m.verify_completed_publication(&revision,&reference)?;
+            require(revision.registration.environment==*environment
+                && revision.registration.compatibility==original.registration.compatibility
+                && revision.performance==m.performance(&original.class_id)?,
+                "unchanged_publication_configuration_changed")?;
+            let receipt=optional(&job_dir(m,child)?.join("result.json"))?;
+            if !receipt.is_null() {
+                let expected=serde_json::to_value(&action)?;
+                require(receipt["schema"]==1 && receipt["operation"]==*child
+                    && receipt.get("action").is_none_or(|value|*value==expected),
+                    "unchanged_publication_receipt_changed")?;
+                if receipt["state"]=="completed" || !receipt["result"].is_null() {
+                    require(receipt["result"]["candidate"]==candidate_id
+                        && receipt["result"]["revalidated"]==true
+                        && serde_json::from_value::<RevisionRef>(receipt["result"]["publication"].clone())?==reference,
+                        "unchanged_publication_receipt_changed")?;
+                }
+            }
+            let renewed=package_renewed_publication(m,&revision)?.unwrap_or(revision);
+            require(entry.publication==Publication::Published && entry.registration==renewed.registration
+                && renewed.id==selected.id && !m.publication_pending(&original.class_id)?
+                && linux_vst_bridge::publication::physical(&m.link(&original.class_id))?==Some(renewed.target.clone()),
+                "unchanged_publication_candidate_changed")?;
+            m.verify_completed_publication(&renewed,selected)?;
+            renewed.registration.native.verify()?;
+            renewed.registration.module.verify()?;
+            return Ok(Some(selected.clone()));
+        }
+        cursor=revision.parent;
+    }
+    Err("unchanged_publication_history_bound".into())
 }
 
 pub(super) fn project_revalidation(m: &Manager, products: &mut [ui::Product],
@@ -4789,14 +4865,24 @@ finally:
             }
             let retained=environment_refresh::load(&f.m,&owner).unwrap();
             let candidate=prep::candidate_record(&f.m,retained.intent.work[0].candidate.as_ref().unwrap()).unwrap();
+            assert_eq!(owned_revalidation_successor(&f.m,&retained.intent,&predecessor,&binding.environment).unwrap(),Some(successor.clone()));
+            let selected_native=f.m.load_revision(&c.selection.class.id,&successor).unwrap().registration.native;
+            let bytes=fs::read(&selected_native.path).unwrap();let permissions=fs::metadata(&selected_native.path).unwrap().permissions();
+            fs::set_permissions(&selected_native.path,fs::Permissions::from_mode(0o600)).unwrap();
+            fs::write(&selected_native.path,b"tampered selected native fixture").unwrap();
+            assert!(owned_revalidation_successor(&f.m,&retained.intent,&predecessor,&binding.environment).is_err());
+            fs::write(&selected_native.path,bytes).unwrap();fs::set_permissions(&selected_native.path,permissions).unwrap();
+            assert_eq!(owned_revalidation_successor(&f.m,&retained.intent,&predecessor,&binding.environment).unwrap(),Some(successor.clone()));
             // A separately selected configuration cannot borrow this child's
             // completed publication, even with the same module and class.
             let other=prep::configuration::prepare_settings(&f.m,&candidate,
                 &ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
                     accessibility:ui::AccessibilityChoice::ProfileDefault},Some(&successor)).unwrap();
             prep::replace(&f.m,&other,&successor).unwrap();
+            // This loose-software fixture has no package generation that
+            // could authorize the separately selected successor.
             assert_eq!(environment_refresh::require_preserved_baseline(&f.m,&retained.intent)
-                .unwrap_err().to_string(),"automatic_refresh_preserved_publication_changed");
+                .unwrap_err().to_string(),"package_generation_path");
         }
         assert_eq!(fs::read(&state).unwrap(),state_bytes);assert_eq!(fs::read(&project).unwrap(),project_bytes);
         assert_eq!(fs::read(history.join("record.json")).unwrap(),history_bytes);

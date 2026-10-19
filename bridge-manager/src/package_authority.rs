@@ -4822,6 +4822,204 @@ print('LVO0 '+j['session']+' ready',flush=True)
         f
     }
 
+    fn package_continuation_fixture(own_child:bool,child_state:&str,edges:usize) -> (Fixture,String,String,Vec<u8>) {
+        use linux_vst_bridge::operator_model as ui;
+        let f=refreshing_update_fixture();let m=&f.base.m;let key=f.base.r.key();
+        let mut units=vec![vendor_cli::unit("arturia-software-center").unwrap()];
+        readiness::with_unit_state_fixture(&units,"inactive",||update_from(m,&f.home,&f.inputs,f.owner,&f.service)).unwrap();
+        let baseline=m.registry().unwrap().classes[&key].managed_revision.clone().unwrap();
+        let prior=m.load_revision(&key,&baseline).unwrap();
+        let mut environment=prior.registration.environment.clone();
+        let mut pe=vec![0u8;1024];pe[..2].copy_from_slice(b"MZ");pe[60]=128;
+        pe[128..132].copy_from_slice(b"PE\0\0");pe[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        pe[148]=2;pe[150]=2;pe[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+        let input=f.base.outer.join("first-party-companion.exe");fs::write(&input,pe).unwrap();
+        let installer=installer_import::import(m,file(&input).unwrap()).unwrap();
+        let record=onboarding::Record {schema:1,id:environment.id.clone(),installer:installer.id.clone(),
+            environment:environment.clone(),created_at:1,creation_operation:random_id().unwrap(),
+            installation_operation:None,published:false,automatic:None,previous_attempt:None};
+        let record_dir=onboarding::directory(m,&environment.id).unwrap();private_dir(&record_dir).unwrap();
+        atomic_json(&record_dir.join("record.json"),&record).unwrap();
+        let mut scan:linux_vst_bridge::inventory::Scan=read_json(&m.root.join("inventory").join(format!("{}.json",environment.id))).unwrap();
+        let owner=random_id().unwrap();let child=random_id().unwrap();
+        let directory=m.root.join("operator").join(&owner);private_dir(&directory).unwrap();
+        let request=ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"accepted-first-party".into(),
+            action:ui::Action::EnvironmentRefresh {environment:environment.id.clone(),daw:ui::DawChoice::Reaper}};
+        atomic_json(&directory.join("request.json"),&request).unwrap();
+        let mut work=vec![];let mut plugins=vec![];
+        let prior_selections=if own_child {
+            // A real owned setup edge precedes the revalidation; it is not a
+            // package edge and must never be traversed as one.
+            let operation=random_id().unwrap();let job=m.root.join("operator").join(&operation);private_dir(&job).unwrap();
+            let before=environment.clone();environment.revision+=1;
+            let binding=linux_vst_bridge::environment_revision::InstallerBinding {schema:1,operation:operation.clone(),
+                installer:installer.id.clone(),before,environment:environment.clone(),created_at:1,
+                preserve_existing_prefix:Some(true),automatic_request:None};
+            units.push(onboarding::unit(&operation).unwrap());
+            atomic_json(&job.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"accepted-companion".into(),
+                action:ui::Action::EnvironmentInstallerStart {environment:environment.id.clone(),installer:installer.id}}).unwrap();
+            atomic_json(&job.join("installation.json"),&binding).unwrap();
+            atomic_json(&job.join("installation-result.json"),&serde_json::json!({"schema":2,"operation":operation,
+                "state":"completed","raw_exit":0,"owned_live":0,"cleanup_confirmed":true})).unwrap();
+            atomic_json(&job.join("result.json"),&serde_json::json!({"schema":1,"operation":operation,
+                "state":"completed"})).unwrap();
+            atomic_json(&environment.root.join("environment.json"),&environment).unwrap();
+            linux_vst_bridge::environment_revision::require_owned_revision(m,&prior.registration.environment,&environment).unwrap();
+            scan.environment=environment.clone();scan.id=random_id().unwrap();
+            atomic_json(&m.root.join("inventory").join(format!("{}.json",environment.id)),&scan).unwrap();
+            let sw=f.current();let selection=preparation::selections(m,&sw.host,&sw.source_sha256).unwrap().pop().unwrap();
+            let action=ui::Action::CompatibilityRevalidate {selection:selection.id().unwrap(),expected_current:ui::PublicationIdentity {
+                id:baseline.id.clone(),sha256:baseline.sha256.clone()}};
+            let job=m.root.join("operator").join(&child);private_dir(&job).unwrap();
+            atomic_json(&job.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"accepted-check".into(),action:action.clone()}).unwrap();
+            let records=preparation::RecordReadback::capture(m).unwrap();
+            let mut probe=records.publication_candidate_record(m,&prior.profile,&prior.registration).unwrap().unwrap().clone();
+            probe.inspection.selection=selection.clone();
+            let result=preparation_cli::with_automatic_fixture(&probe,||preparation_cli::execute(m,&action,&child,||m.lock("registry.lock"))).unwrap();
+            {
+                let receipt=if child_state=="completed" {serde_json::json!({"schema":1,"operation":child,"state":"completed",
+                    "action":action,"parent_operation":owner,"result":result})}
+                    else if child_state=="running" {serde_json::json!({"schema":1,"operation":child,"state":"running",
+                        "action":action,"parent_operation":owner})}
+                    else {serde_json::json!({"schema":1,"operation":child,"state":"refused","action":action,
+                        "parent_operation":owner,"result":null,"reason":"fixture_interrupted_after_committed_successor"})};
+                atomic_json(&job.join("result.json"),&receipt).unwrap();
+            }
+            work.push(serde_json::json!({"selection":selection.id().unwrap(),"predecessor":baseline,"result_index":0,
+                "check":child,"candidate":null,"active_operation":child}));
+            plugins.push(serde_json::json!({"selection":selection.id().unwrap(),"class_id":key,"name":selection.class.name,
+                "stage":"preparing","failure":null}));
+            vec![]
+        } else {
+            let records=preparation::RecordReadback::capture(m).unwrap();
+            let candidate=records.publication_candidate_record(m,&prior.profile,&prior.registration).unwrap().unwrap();
+            plugins.push(serde_json::json!({"selection":candidate.selection.id().unwrap(),"class_id":key,
+                "name":candidate.selection.class.name,"stage":"pending","failure":null}));
+            work.push(serde_json::json!({"selection":candidate.selection.id().unwrap(),"predecessor":baseline,"result_index":0,
+                "check":null,"candidate":null,"active_operation":null}));
+            vec![format!("{}:{}",prior.registration.module.sha256,key)]
+        };
+        let checkpoint=serde_json::json!({"schema":1,"request":Artifact {sha256:digest(&directory.join("request.json")).unwrap(),path:directory.join("request.json")},
+            "environment":environment,"preserved_performance":{key.clone():m.performance(&key).unwrap()},
+            "intent":{"owner":owner,"active_operation":owner,"journey":{"daw":"reaper","phase":"needs_attention","plugins":plugins,"failure":null},
+                "scan":scan.id,"prior_selections":prior_selections,"prior_modules":[],"failed_modules":[],"work":work,
+                "predecessors":[prior],"previous":null}});
+        atomic_json(&directory.join("refresh.json"),&checkpoint).unwrap();
+        atomic_json(&directory.join("result.json"),&serde_json::json!({"schema":1,"operation":owner,"state":"refused","reason":"operator_worker_terminated"})).unwrap();
+        let bytes=fs::read(directory.join("refresh.json")).unwrap();let initial=f.current();
+        for edge in 0..edges {
+            let kit=f.base.outer.join(format!("continued-kit-{edge}.zip"));
+            test_fixture::reusable_kit(&kit,&initial.host,&initial.source_manifest,&format!("continued-engine-{edge}"));
+            f.add_kit_archive(&fs::read(kit).unwrap());f.replace("linux-vst-bridge",format!("continued manager {edge}").as_bytes(),true);
+            readiness::with_unit_state_fixture(&units,"inactive",||update_from(m,&f.home,&f.inputs,f.owner,&f.service))
+                .unwrap_or_else(|error|panic!("package edge {edge}, child {child_state}, own {own_child}: {error}"));
+        }
+        assert!(f.current().preparation_kit!=initial.preparation_kit);
+        assert_eq!(fs::read(directory.join("refresh.json")).unwrap(),bytes,"Package update preserves the original checkpoint");
+        (f,owner,child,bytes)
+    }
+    #[test]
+    fn companion_continuation_settles_committed_child_after_real_package_updates() {
+        for state in ["completed","refused","running"] {
+            let (f,owner,_,before)=package_continuation_fixture(true,state,2);let m=&f.base.m;
+            let selected=fs::read(m.root.join("registry.json")).unwrap();let publication=m.package_publication_snapshot().unwrap();
+            let resume=random_id().unwrap();let job=m.root.join("operator").join(&resume);private_dir(&job).unwrap();
+            atomic_json(&job.join("request.json"),&linux_vst_bridge::operator_model::Request {schema:linux_vst_bridge::operator_model::OPERATOR_SCHEMA,
+                state_token:"accepted-resume".into(),action:linux_vst_bridge::operator_model::Action::EnvironmentRefreshResume {operation:owner.clone()}}).unwrap();
+            let result=operator_cli::continue_package_refresh_fixture(m,&owner,&resume).unwrap();
+            assert_eq!(result["available"],true,"{state}");assert_eq!(fs::read(m.root.join("registry.json")).unwrap(),selected);
+            assert_eq!(m.package_publication_snapshot().unwrap(),publication);
+            let old:serde_json::Value=serde_json::from_slice(&before).unwrap();
+            let now:serde_json::Value=read_json(&m.root.join("operator").join(&owner).join("refresh.json")).unwrap();
+            assert_eq!(now["intent"]["predecessors"],old["intent"]["predecessors"]);
+            assert_eq!(now["intent"]["work"][0]["check"],old["intent"]["work"][0]["check"]);
+            assert_eq!(now["intent"]["journey"]["phase"],"available");
+        }
+    }
+    #[test]
+    fn companion_continuation_accepts_only_exact_package_renewal_of_unchanged_baseline() {
+        let (f,owner,_,_)=package_continuation_fixture(false,"completed",2);
+        let registry=fs::read(f.base.m.root.join("registry.json")).unwrap();
+        let resume=random_id().unwrap();let job=f.base.m.root.join("operator").join(&resume);private_dir(&job).unwrap();
+        atomic_json(&job.join("request.json"),&linux_vst_bridge::operator_model::Request {schema:linux_vst_bridge::operator_model::OPERATOR_SCHEMA,
+            state_token:"accepted-resume".into(),action:linux_vst_bridge::operator_model::Action::EnvironmentRefreshResume {operation:owner.clone()}}).unwrap();
+        assert_eq!(operator_cli::continue_package_refresh_fixture(&f.base.m,&owner,&resume).unwrap()["available"],true);
+        assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(),registry);
+        let checkpoint:serde_json::Value=read_json(&f.base.m.root.join("operator").join(owner).join("refresh.json")).unwrap();
+        assert!(checkpoint["intent"]["work"][0]["check"].is_null());
+        assert_eq!(checkpoint["intent"]["journey"]["plugins"][0]["stage"],"available");
+    }
+    #[test]
+    fn companion_continuation_refuses_broken_renewal_or_changed_inputs() {
+        use linux_vst_bridge::operator_model as ui;
+        for fault in ["missing_receipt","corrupt_receipt","child_candidate","child_publication","child_action","child_operation",
+            "uncommitted_child","unowned_publication","content","environment","settings"] {
+            let (f,owner,child,checkpoint)=package_continuation_fixture(true,"completed",1);let m=&f.base.m;
+            let retained:serde_json::Value=serde_json::from_slice(&checkpoint).unwrap();
+            let receipt_path=m.root.join("operator").join(&child).join("result.json");
+            match fault {
+                "missing_receipt" | "corrupt_receipt"=> {
+                    let sw=f.current();let directory=sw.manager.path.parent().unwrap().join("package-refreshes");
+                    let path=fs::read_dir(directory).unwrap().next().unwrap().unwrap().path();
+                    if fault=="missing_receipt" {fs::remove_file(path).unwrap();}
+                    else {fs::set_permissions(&path,fs::Permissions::from_mode(0o600)).unwrap();fs::write(path,b"{}").unwrap();}
+                },
+                "child_candidate" | "child_publication" | "child_action" | "child_operation"=> {
+                    let mut receipt:serde_json::Value=read_json(&receipt_path).unwrap();
+                    match fault {
+                        "child_candidate"=>receipt["result"]["candidate"]="cd".repeat(32).into(),
+                        "child_publication"=>receipt["result"]["publication"]["id"]="cd".repeat(16).into(),
+                        "child_operation"=>receipt["operation"]="cd".repeat(16).into(),
+                        _=>receipt["action"]=serde_json::to_value(ui::Action::EnvironmentRescan {environment:"cd".repeat(16)}).unwrap(),
+                    }
+                    atomic_json(&receipt_path,&receipt).unwrap();
+                },
+                "uncommitted_child"=> {
+                    let receipt:serde_json::Value=read_json(&receipt_path).unwrap();
+                    let reference:publication::RevisionRef=serde_json::from_value(receipt["result"]["publication"].clone()).unwrap();
+                    let revision=m.load_revision(&f.base.r.key(),&reference).unwrap();
+                    fs::remove_file(m.root.join("transactions").join(format!("{}.result.json",revision.transaction))).unwrap();
+                },
+                "unowned_publication"=> {
+                    let class=f.base.r.key();let reference=m.registry().unwrap().classes[&class].managed_revision.clone().unwrap();
+                    let prior=m.load_revision(&class,&reference).unwrap();
+                    let records=preparation::RecordReadback::capture(m).unwrap();
+                    let candidate=records.publication_candidate_record(m,&prior.profile,&prior.registration).unwrap().unwrap();
+                    // A real committed successor and its parent are insufficient:
+                    // this extra transaction has no package-owned renewal receipt.
+                    let transition=m.prepare_package_refresh(candidate,&reference).unwrap();
+                    m.commit_package_publication(&transition).unwrap();
+                    assert_ne!(m.registry().unwrap().classes[&class].managed_revision.as_ref(),Some(&reference));
+                },
+                "content"=> {
+                    // A completed row skips connect_class: the baseline proof
+                    // must still reject a changed installed Windows module.
+                    let path=m.root.join("operator").join(&owner).join("refresh.json");
+                    let mut record:serde_json::Value=read_json(&path).unwrap();
+                    record["intent"]["journey"]["plugins"][0]["stage"]="available".into();atomic_json(&path,&record).unwrap();
+                    fs::write(&f.base.r.module.path,b"changed first-party module").unwrap();
+                },
+                "environment"=> {
+                    let mut environment:Environment=serde_json::from_value(retained["environment"].clone()).unwrap();
+                    environment.revision+=1;atomic_json(&environment.root.join("environment.json"),&environment).unwrap();
+                },
+                "settings"=> {
+                    let mut performance=m.performance(&f.base.r.key()).unwrap();performance.added_frames=1024;
+                    private_dir(&m.root.join("performance")).unwrap();
+                    atomic_json(&m.root.join("performance").join(format!("{}.json",f.base.r.key())),&performance).unwrap();
+                },
+                _=>unreachable!(),
+            }
+            let resume=random_id().unwrap();let job=m.root.join("operator").join(&resume);private_dir(&job).unwrap();
+            atomic_json(&job.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"accepted-resume".into(),
+                action:ui::Action::EnvironmentRefreshResume {operation:owner.clone()}}).unwrap();
+            let error=operator_cli::continue_package_refresh_fixture(m,&owner,&resume).unwrap_err().to_string();
+            assert_ne!(error,"package_continuation_repeated_completed_work","{fault}");
+            let now:serde_json::Value=read_json(&m.root.join("operator").join(&owner).join("refresh.json")).unwrap();
+            assert_eq!(now["intent"]["predecessors"],retained["intent"]["predecessors"],"{fault}");
+            assert_eq!(now["intent"]["work"],retained["intent"]["work"],"{fault}");
+        }
+    }
     #[test]
     fn adding_back_after_an_update_rechecks_the_same_plugin_with_the_installed_bridge() {
         let f = refreshing_update_fixture();
