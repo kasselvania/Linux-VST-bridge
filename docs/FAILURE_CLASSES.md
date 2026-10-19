@@ -1,5 +1,12 @@
 # Shared failure classes
 
+Deck/Test216 follow-ups under #469: an older KontaktStereo Bitwig project opens
+with a missing-device placeholder although the factory/saved class identity
+matches; fresh insertion and a newly saved mixed-project recall work. Its old
+package baseline must be recovered before attributing the failure to migration.
+The no-custom-editor Reference fixture also opens an empty small editor frame;
+capability handling should avoid offering that unusable window. Both remain open.
+
 This ledger is the current map from reusable failure mechanisms to fixes, artifacts, physical coverage, and remaining gaps. It is organized by shared boundary rather than by chronological campaign or plug-in name.
 
 Problem reports (#361): the manager now collects a bounded local report and offers
@@ -372,12 +379,13 @@ were its own reads of a Wine stub, not evidence that Serum called that API.
 Serum 2 2.1.5 on Steam Deck: verified-fixed for the exact waveform popup
 interaction under candidate D. Candidate C's failure remains retained.
 
-Managed GE r5 omits the released-contact and per-window XI2 touch corrections:
-its stock X11 driver retains INCONTACT on release and uses root-raw touch routing.
-On Deck/Test215, Serum's finger-operated OSC A waveform menu stalls or loses
-response on r5; restoring the retained touch runtime restores that interaction.
-Playback/recall pass on both. Integrate and qualify the shared X11 correction on
-the maintained line (#469); transparency is a separate graphics defect (#330).
+Managed GE r5 omits the released-contact and per-window XI2 corrections, retaining
+INCONTACT on release and root-raw touch routing. Serum's finger waveform popup
+fails on r5 and works after restoring the retained touch runtime. Managed GE r7
+integrates both corrections: the operator confirms Serum waveform selection/
+reopening/dismissal and Kontakt menu/Cutoff interaction remain responsive on
+Deck/Test216. Musical state/recall checks pass; see `SUPPORT_MATRIX.md`. This is
+bounded cross-plug-in evidence, not universal touch support. Transparency is #330.
 
 ### Claim limit
 
@@ -389,26 +397,13 @@ FC-UI-001, FC-UI-002, FC-UI-005, FC-UI-006.
 
 ### Remaining gate
 
-The [exact lineage check](../evidence/serum-x11-touch-routing/cross-plugin-lineage.json)
-shows Blackhole's DComp Wine already has the per-window route; do not apply
-Serum's routing patch to it. Kontakt's NI Wine still has the root-raw route
-and accepts both source patches, but its managed runner/candidate transition
-needs a separately closed NI authority before a physical product check. Do
-not assign this Serum result to either product or Pigments' older release tail.
-
-### Evidence and historical sources
-
-[PLUGIN_RELIABILITY_FOLLOWUP](PLUGIN_RELIABILITY_FOLLOWUP.md), [candidate-C action capture](../evidence/serum-x11-touch-routing/candidate-c-action-capture.json), [candidate-D physical result](../evidence/serum-x11-touch-routing/candidate-d-physical.json), [PR #151](https://github.com/kasselvania/Linux-VST-bridge/pull/151).
-
-### Tracking issue
-
-No dedicated shared issue yet.
-
-### Last reviewed
-
-2026-09-24.
-
----
+Retain exact-runtime checks for other plug-ins. Blackhole's older DComp runtime
+already has per-window routing; do not infer its behavior from Serum or Kontakt.
+NI's r7 migration and physical check now pass; its fresh r7 installation journey
+remains required before beta. Track this integration in #469. Retained evidence: [lineage comparison](../evidence/serum-x11-touch-routing/cross-plugin-lineage.json),
+[candidate C](../evidence/serum-x11-touch-routing/candidate-c-action-capture.json),
+[candidate D](../evidence/serum-x11-touch-routing/candidate-d-physical.json),
+and [PR #151](https://github.com/kasselvania/Linux-VST-bridge/pull/151).
 
 ## FC-UI-004 — Windows touch-release processing continues long after X11 release
 
@@ -1115,6 +1110,11 @@ the live row offers exact Focus/Stop. Retired results retain the full stamp
 watch. Seven focused current-readback tests and all-target Clippy passed.
 Internal28 was built, installed and selected through normal product controls.
 Live installer recovery verification is pending.
+
+Live vendor-application readback also refuses `operator_current_artifact_changed_refresh`,
+hiding Stop while Native Access is at Home (Deck/Test216, retained NI runtime).
+Normal window close completes the product operation and post-close checks. Isolate
+the changing watched artifact; the installer fix does not cover this path (#468).
 
 The integrated successor separates exact Installer Focus/Stop admission from
 runtime verification and global DSP capacity. It retains current operation,

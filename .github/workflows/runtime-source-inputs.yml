@@ -7,6 +7,7 @@ on:
       - 'tools/runtime/**'
       - 'tools/runtime-uia-guard/**'
       - 'tools/runtime-msi-reader/**'
+      - 'tools/runtime-touch/**'
       - '.github/workflows/runtime-source-inputs.yml'
   workflow_dispatch:
 
@@ -14,6 +15,13 @@ permissions:
   contents: read
 
 jobs:
+  touch-component:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: python3 -m unittest discover -s tools/runtime-touch -p 'test_*.py'
+
   runtime-source-inputs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5

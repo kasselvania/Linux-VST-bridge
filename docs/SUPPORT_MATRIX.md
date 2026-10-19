@@ -879,6 +879,37 @@ interaction and playback. r5 does not pass this touch journey (#469, FC-UI-003).
 Transparency remains incorrect (#330); changed-parameter recall and the FX editor
 are not covered by this comparison.
 
+Test216 / Deck Desktop / managed GE r7:
+- Serum 2 instrument/FX in REAPER retain Main Vol .37/.61 across save/full exit/
+  fresh reopen; playback peaks match at .136029 and retirement is clean. The
+  operator confirms finger waveform selection/reopening/dismissal stays responsive.
+  FX editor behavior and Serum in Bitwig are untested; transparency remains #330.
+- Migrated Kontakt Pad Noir in REAPER plays/recalls at peak .579848 before and
+  after the runtime move. Native Access reaches signed-in Home after a transient
+  Loading Products Failed screen clears without confirmed Retry. Fresh NI
+  installation/update on r7 remains untested.
+- Bitwig 6.1 Flatpak plays two Reference Instrument/Effect chains on r5 alongside
+  Kontakt on r7. Instrument Level/Colour .585/.365 and .675/.295, effect .375/.660
+  and Pad Noir survive save/full exit/reopen. Removing/reloading one chain leaves
+  siblings playing (DSP 5 → 3 → 5). Both 18.09-second output captures peak at
+  .044678; both exits retire to DSP 0/keepers 0 without cleanup failure. The
+  operator confirms Kontakt menu reopen/dismissal and Cutoff respond to fingers.
+  This covers cross-generation mixed use, not all-r7, Game Mode or audio deadlines.
+
+Test216 / Steam Deck Desktop / REAPER 7.82 / r7: TyrellN6 3.0.0 (16976)
+completes ordinary Install and connect in a new setup. Its editor opens; Output
+.3700000048, the same FX instance and 16 MIDI notes survive confirmed full DAW
+exit and fresh reopen. Track peaks are .165937/.164045; both desktop-output
+captures contain audio (peaks .166412/.165833). The loaded X11 driver matches the
+unchanged r7 artifact checked against GE. Final retirement reaches DSP 0/keepers 0
+with no pending transactions, stale transports or cleanup failure. This is a short
+baseline, not endurance or Game Mode qualification.
+
+Open limits (#469): an older September KontaktStereo project copy resolves as
+missing despite matching class identity; its pre-migration baseline is unknown
+and original bytes are preserved. Reference has no custom editor, but the bridge
+offers an empty frame. Live Native Access overview can hide Stop (#468).
+
 Test35's ordinary GUI **Update Bridge** preserves twelve class/module/environment/
 compatibility bindings, five preferences, two saved projects and all 257 original
 candidate/lineage records; each history now holds 269. Exact Test33 remains the

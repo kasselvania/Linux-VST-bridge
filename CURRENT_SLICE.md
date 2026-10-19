@@ -1,36 +1,38 @@
-# Current slice — move the Deck beta setups to r5 (#469)
+# Current slice — Deck managed GE migration and mixed use (#469)
 
-Goal: use the maintained managed runtime on the Deck without losing installed
-plug-ins, activation or saved projects, then prove the Bitwig mixed-use journey.
-The completed Native Access recovery (#465) is the reference for that vendor
-journey. `docs/ARCHITECTURE.md` fixes the boundaries and beta scope.
+Goal: use the maintained runtime without losing installations, authorization or
+saved projects, and prove the Bitwig mixed-use journey. `docs/ARCHITECTURE.md`
+fixes boundaries and beta scope; the completed NI recovery (#465) is the reference.
 
-Reference: preserve the existing Deck setups and their previous runtimes. Compare
-each saved project before and after its product-managed runtime move. Test215 is
-installed; the Reference setup already plays and recalls independent instance
-settings on r5 in REAPER, with clean retirement. This is not Bitwig qualification.
+Observed on Test216:
+- Serum uses r7 (same GE line, UIA/MSI plus both retained X11 touch corrections).
+  Instrument/FX playback and changed-state recall pass. The operator confirms
+  finger-operated waveform selection/reopening/dismissal stays responsive.
+- NI uses r7. Kontakt Pad Noir playback, save/reopen and visible editor pass.
+  The operator confirms finger-operated menu reopening/dismissal and Cutoff
+  adjustment remain responsive in the reopened Bitwig project.
+  Native Access reaches signed-in Home; an initial Loading Products Failed screen
+  cleared before the operator touched Retry. Installation/update is not retested.
+- Bitwig 6.1 Desktop plays two distinct Reference chains from the r5 setup plus
+  Kontakt from r7. Removing/reloading one chain leaves siblings playing. Save,
+  full exit/reopen retain settings and Pad Noir, with matching capture peaks.
+  Clean retirement after both full exits passes. See `docs/SUPPORT_MATRIX.md`.
 
-Next changes and checks:
-1. Serum's retained runtime is restored; the operator confirms touch works again.
-   Carry the released-contact and per-window routing corrections into the
-   maintained GE line, then repeat playback/recall and physical popup checks.
-   r5 playback and rendering passed; finger menu use stalled or lost the editor.
-   Correct transparency remains an open, separate graphics defect (#330).
-2. Move the Native Instruments setup through the same product journey. Preserve
-   signed-in Native Access, licensed installations and content. Reopen the saved
-   Kontakt Pad Noir project and verify the managed application still works.
-3. Connect Bitwig and run two distinct instances from one setup plus a plug-in
-   from another: simultaneous playback, independent removal/reload, changed
-   state, save, full exit and fresh-process recall, followed by clean retirement.
+- Tyrell on r7 installs, opens its editor, plays MIDI/audio and retains Output
+  .37 and its instance across full exit/reopen, then retires cleanly. The X11 driver passes
+  the GE binary-interface comparison; packaging now enforces that comparison.
 
-Use the existing homelab backup. Never rewrite licensed setup files outside
-product operations. No synthetic Deck key events; mouse and captures are allowed.
-Keep the old runtimes while any setup or rollback uses them. Preserve BEAM,
-Blackhole, Arturia and the FL Studio workspace. Game Mode secondary-window work,
-r6, DirectComposition integration and supervisor redesign are outside this slice.
+Remaining:
+1. #470 is merged. Final review and land #471 against main. No new implementation
+   PR until this runtime increment lands.
+2. Resolve the live Native Access overview refusal hiding Stop controls, the
+   empty editor offered for a fixture with no custom editor, and an older Bitwig
+   Kontakt project's missing-device result. Preserve the old project and compare
+   its known prior package before attributing that result to this runtime move.
+   Serum transparency remains separate and open (#330).
 
-Done: the named Deck beta setups use the managed runtime, retain authorization
-and saved musical state, and complete the Bitwig mixed-use checks above. A
-compatibility scan or publication alone does not establish working musical use.
-Record only observed combinations in `docs/SUPPORT_MATRIX.md`; open shared defects
-belong in the existing issue and failure-class map.
+Keep existing setups, projects, activation and old runtimes while any setup or
+rollback uses them. Use the retained homelab backup. No synthetic Deck key events;
+mouse and captures are allowed. Preserve BEAM, Blackhole, Arturia and FL Studio.
+Game Mode secondary-window work, r6, DirectComposition and supervisor redesign
+remain outside this slice. Do not turn these bounded checks into a beta claim.

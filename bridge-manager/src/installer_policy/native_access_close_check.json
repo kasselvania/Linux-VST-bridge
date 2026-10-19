@@ -10,7 +10,8 @@
   },
   "managed_runtime_revisions": [
     "managed-ge-proton11-7-slr4-20260805-r4",
-    "managed-ge-proton11-7-slr4-20260805-r5"
+    "managed-ge-proton11-7-slr4-20260805-r5",
+    "managed-ge-proton11-7-slr4-20260805-r7"
   ],
   "powershell": "intentionally_unavailable",
   "reason": "This installer falsely detects a running application and cannot pass its close check with the runtime's PowerShell implementation."

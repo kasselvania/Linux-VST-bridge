@@ -47,6 +47,9 @@ const MSI_READER: Correction = Correction {root:"msi-reader",
     artifacts:&["source","recipe","build_record","staging_cabinet_patch","upstream_padding_patch",
         "upstream_strref_width_patch","ambiguous_strref_patch","modification_notice_patch",
         "notices","license"]};
+const X11_TOUCH: Correction = Correction {root:"x11-touch",
+    artifacts:&["source","recipe","build_record","release_patch","routing_patch",
+        "ge_recipe","test_source","notices","license"]};
 #[derive(Clone, Copy)]
 enum Layout {
     RetainedGeCorrections(&'static [Correction]),
@@ -85,6 +88,12 @@ fn revisions() -> Vec<Revision> {
         sha256:"4ca51dec54f6085bd2050d8714018c3ba95bae7c00277de31e66d2c3ec7c9058".into(),
         size:59653803,root:"msi-reader".into(),compression:"gzip".into(),
     });
+    let mut touch=msi_reader.clone();
+    touch.push(Download {
+        url:"https://github.com/kasselvania/Linux-VST-bridge/releases/download/runtime-touch-r7/x11-touch.tar.gz".into(),
+        sha256:"ca86baa047d98504faae52af1118403ff4860cf4aae039bdce68113f18360bf3".into(),
+        size:198570659,root:"x11-touch".into(),compression:"gzip".into(),
+    });
     vec![Revision { id:ID,
         version:"GE-Proton11-7; SLR 4.0.20260805.254769; managed download v3",
         downloads:downloads(),layout:Layout::RetainedGeCorrections(&[]) },
@@ -93,7 +102,10 @@ fn revisions() -> Vec<Revision> {
             downloads:corrected,layout:Layout::RetainedGeCorrections(&[UIA_GUARD])},
         Revision {id:"managed-ge-proton11-7-slr4-20260805-r5",
             version:"GE-Proton11-7; SLR 4.0.20260805.254769; managed UIA guard + MSI reader v5",
-            downloads:msi_reader,layout:Layout::RetainedGeCorrections(&[UIA_GUARD,MSI_READER])}]
+            downloads:msi_reader,layout:Layout::RetainedGeCorrections(&[UIA_GUARD,MSI_READER])},
+        Revision {id:"managed-ge-proton11-7-slr4-20260805-r7",
+            version:"GE-Proton11-7; SLR 4.0.20260805.254769; managed UIA + MSI + X11 touch v7",
+            downloads:touch,layout:Layout::RetainedGeCorrections(&[UIA_GUARD,MSI_READER,X11_TOUCH])}]
 }
 fn recommended() -> Revision {
     // Recommendations apply to acquisition and new environments. Retained
@@ -805,7 +817,7 @@ mod tests {
             assert!(!stage.join(TREE).exists());assert!(!stage.join("runtime.json").exists());
         }
         assert!(revisions().iter().all(|revision|matches!(revision.layout,Layout::RetainedGeCorrections(_))));
-        assert_eq!(recommended_id(),"managed-ge-proton11-7-slr4-20260805-r5");
+        assert_eq!(recommended_id(),"managed-ge-proton11-7-slr4-20260805-r7");
     }
     #[test]
     fn whole_archive_missing_or_malformed_build_declaration_never_seals_or_falls_back() {
@@ -930,15 +942,18 @@ mod tests {
     const MSI_FILES: &[Replacement] = &[
         ("files/lib/wine/i386-windows/msi.dll",b"original x86 MSI","i386-windows/msi.dll",b"corrected x86 MSI"),
         ("files/lib/wine/x86_64-windows/msi.dll",b"original x64 MSI","x86_64-windows/msi.dll",b"corrected x64 MSI")];
+    const TOUCH_FILES: &[Replacement] = &[("files/lib/wine/x86_64-unix/winex11.so",
+        b"original X11 driver","winex11.so",b"corrected X11 driver")];
     fn fixture_files(component: &Correction) -> &'static [Replacement] {
-        if *component==UIA_GUARD {UIA_FILES} else {MSI_FILES}
+        if *component==UIA_GUARD {UIA_FILES} else if *component==MSI_READER {MSI_FILES}
+        else {assert_eq!(*component,X11_TOUCH);TOUCH_FILES}
     }
     fn composition_fixture(tmp: &Scratch, id: &'static str, components: &'static [Correction])
         -> (PathBuf,Revision,Vec<TreeEntry>) {
         let stage=tmp.0.join("guard-stage");
         fs::DirBuilder::new().mode(0o700).create(&stage).unwrap();
         let mut base=vec![(format!("{GE}/proton"),b"proton".to_vec()),(format!("{GE}/files/bin/wine"),b"wine".to_vec())];
-        for &(path,original,_,_) in UIA_FILES.iter().chain(MSI_FILES) {base.push((format!("{GE}/{path}"),original.to_vec()));}
+        for &(path,original,_,_) in UIA_FILES.iter().chain(MSI_FILES).chain(TOUCH_FILES) {base.push((format!("{GE}/{path}"),original.to_vec()));}
         let entries=base.iter().map(|(name,data)|(name.as_str(),data.as_slice())).collect::<Vec<_>>();
         let (archive,mut ge)=tmp.archive(&entries);
         ge.root=GE.into();let mut rows=unpack(&archive,&ge,&stage).unwrap();
@@ -980,7 +995,8 @@ mod tests {
     }
     #[test]
     fn retained_layout_sealing_preserves_command_bytes_and_artifact_order() {
-        let cases:[&'static [Correction];3]=[&[],&[UIA_GUARD],&[UIA_GUARD,MSI_READER]];
+        let cases:[&'static [Correction];4]=[&[],&[UIA_GUARD],&[UIA_GUARD,MSI_READER],
+            &[UIA_GUARD,MSI_READER,X11_TOUCH]];
         for components in cases {
             let tmp=Scratch::new();let (stage,revision,rows)=composition_fixture(&tmp,"retained-test",components);
             let dest=tmp.0.join("destination");
@@ -1082,6 +1098,25 @@ mod tests {
         assert!(runner.verify().unwrap_err().to_string().contains("managed_runtime_file_changed"));
     }
     #[test]
+    fn touch_revision_retains_prior_corrections_and_seals_the_x11_driver() {
+        let tmp=Scratch::new();
+        let (stage,revision,mut rows)=composition_fixture(&tmp,"managed-touch-test",&[UIA_GUARD,MSI_READER,X11_TOUCH]);
+        let component=compose_components(&stage,&revision,&mut rows).unwrap();
+        for &(path,_,_,corrected) in UIA_FILES.iter().chain(MSI_FILES).chain(TOUCH_FILES) {
+            assert_eq!(fs::read(stage.join(GE).join(path)).unwrap(),corrected);
+        }
+        for retained in ["x11-touch/wine-source.tar.gz","x11-touch/THIRD_PARTY_NOTICES.txt"] {
+            assert!(rows.iter().any(|row|row.path==Path::new(retained)),"{retained}");
+        }
+        let runner=seal_composed(&stage,&revision,rows,&component);
+        runner.verify().unwrap();
+        let driver=stage.join(GE).join(TOUCH_FILES[0].0);
+        fs::set_permissions(&driver,fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&driver,b"changed X11 driver").unwrap();
+        fs::set_permissions(&driver,fs::Permissions::from_mode(0o500)).unwrap();
+        assert!(runner.verify().unwrap_err().to_string().contains("managed_runtime_file_changed"));
+    }
+    #[test]
     fn msi_reader_damage_refuses_before_any_component_changes_a_byte() {
         let damages:[(&str,&str);4]=[
             ("GE-Proton11-7-x86_64/files/lib/wine/i386-windows/msi.dll","guard_preimage_changed"),
@@ -1103,7 +1138,7 @@ mod tests {
             let error=compose_components(&stage,&revision,&mut rows).unwrap_err().to_string();
             assert!(error.contains(expected),"{damaged}: {error}");
             // The UIA component is verified first, yet nothing was replaced.
-            for &(path,original,_,_) in UIA_FILES.iter().chain(MSI_FILES) {
+            for &(path,original,_,_) in UIA_FILES.iter().chain(MSI_FILES).chain(TOUCH_FILES) {
                 if Path::new(GE).join(path)==Path::new(damaged) {continue;}
                 assert_eq!(fs::read(stage.join(GE).join(path)).unwrap(),original,"{damaged}");
             }
@@ -1131,16 +1166,17 @@ mod tests {
         let error=compose_components(&stage,&revision,&mut rows).unwrap_err().to_string();
         assert!(error.contains("runtime_guard_replacement_identity"),"{error}");
         assert_eq!(rows.iter().map(|row|row.sha256.clone()).collect::<Vec<_>>(),before);
-        for &(path,original,_,_) in UIA_FILES.iter().chain(MSI_FILES) {
+        for &(path,original,_,_) in UIA_FILES.iter().chain(MSI_FILES).chain(TOUCH_FILES) {
             assert_eq!(fs::read(stage.join(GE).join(path)).unwrap(),original);
         }
         assert!(!stage.join(GE).join("native-command-session.json").exists());
     }
     #[test]
-    fn msi_reader_revision_is_recommended_without_changing_prior_identities() {
+    fn touch_revision_is_recommended_without_changing_prior_identities() {
         let declared=revisions();
         assert_eq!(declared.iter().map(|revision|revision.id).collect::<Vec<_>>(),[ID,
-            "managed-ge-proton11-7-slr4-20260805-r4","managed-ge-proton11-7-slr4-20260805-r5"]);
+            "managed-ge-proton11-7-slr4-20260805-r4","managed-ge-proton11-7-slr4-20260805-r5",
+            "managed-ge-proton11-7-slr4-20260805-r7"]);
         assert_eq!(declared[0].downloads,downloads());assert!(declared[0].corrections().is_empty());
         assert_eq!(declared[1].version,"GE-Proton11-7; SLR 4.0.20260805.254769; managed UIA guard v4");
         assert_eq!(declared[1].corrections(),[UIA_GUARD]);
@@ -1151,8 +1187,13 @@ mod tests {
         let msi=declared[2].downloads.last().unwrap();
         assert_eq!((msi.root.as_str(),msi.compression.as_str()),("msi-reader","gzip"));
         assert!(msi.url.ends_with("/releases/download/runtime-msi-r5/msi-reader.tar.gz"));
-        assert_eq!(recommended_id(),"managed-ge-proton11-7-slr4-20260805-r5");
-        assert_eq!(recommended_downloads(),declared[2].downloads);
+        assert_eq!(recommended_id(),"managed-ge-proton11-7-slr4-20260805-r7");
+        assert_eq!(declared[3].downloads[..4],declared[2].downloads[..]);
+        assert_eq!(declared[3].corrections(),[UIA_GUARD,MSI_READER,X11_TOUCH]);
+        let touch=declared[3].downloads.last().unwrap();
+        assert_eq!((touch.root.as_str(),touch.compression.as_str()),("x11-touch","gzip"));
+        assert!(touch.url.ends_with("/releases/download/runtime-touch-r7/x11-touch.tar.gz"));
+        assert_eq!(recommended_downloads(),declared[3].downloads);
         for revision in &declared {
             assert!(revision.downloads.iter().all(|d| d.url.starts_with("https://") &&
                 !d.url.contains("latest") && valid_hex(&d.sha256,64) && d.size>0));

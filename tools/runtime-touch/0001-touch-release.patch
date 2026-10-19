@@ -1,0 +1,36 @@
+diff --git a/dlls/winex11.drv/mouse.c b/dlls/winex11.drv/mouse.c
+--- a/dlls/winex11.drv/mouse.c
++++ b/dlls/winex11.drv/mouse.c
+@@ -59,4 +59,5 @@
+ #include "wine/server.h"
+ #include "wine/debug.h"
++#include "touch_message_flags.h"
+ 
+ WINE_DEFAULT_DEBUG_CHANNEL(cursor);
+@@ -1935,7 +1936,7 @@ static BOOL X11DRV_RawTouchEvent( HWND hwnd, XGenericEventCookie *xev )
+     }
+ 
+     input.hi.wParamL = event->detail;
+-    input.hi.wParamH = POINTER_MESSAGE_FLAG_INRANGE | POINTER_MESSAGE_FLAG_INCONTACT | flags;
++    input.hi.wParamH = x11drv_touch_message_flags( event->evtype, flags );
+     NtUserSendHardwareInput( hwnd, 0, &input, MAKELPARAM( pos.x, pos.y ) );
+ 
+     return TRUE;
+diff --git a/dlls/winex11.drv/touch_message_flags.h b/dlls/winex11.drv/touch_message_flags.h
+new file mode 100644
+--- /dev/null
++++ b/dlls/winex11.drv/touch_message_flags.h
+@@ -0,0 +1,13 @@
++/* XInput2 touch contact state for the Win32 pointer message. */
++#ifndef __WINE_X11_TOUCH_MESSAGE_FLAGS_H
++#define __WINE_X11_TOUCH_MESSAGE_FLAGS_H
++
++static inline unsigned int x11drv_touch_message_flags( int evtype, unsigned int flags )
++{
++    if (evtype != XI_RawTouchEnd)
++        flags |= POINTER_MESSAGE_FLAG_INCONTACT;
++
++    return POINTER_MESSAGE_FLAG_INRANGE | flags;
++}
++
++#endif
