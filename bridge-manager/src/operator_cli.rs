@@ -5732,9 +5732,6 @@ pub(crate) mod tests {
                 module_sha256: "cd".repeat(32),
                 report_sha256: "ef".repeat(32),
             },
-            ui::Action::VendorApplicationOpen {
-                application: ASC.into(),
-            },
             ui::Action::OrdinaryRollback {
                 class_id: f.r.key(),
                 publication: "a".repeat(32),
@@ -5764,6 +5761,33 @@ pub(crate) mod tests {
         }
         assert!(!f.m.root.join("registry.json").exists());
         assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    #[test]
+    fn vendor_admission_uses_exact_setup_owners_instead_of_global_capacity() {
+        let (f,record,_)=vendor_cli::selection::tests::installed_app();
+        let selector=vendor_cli::selection::choices(&f.m,&record).unwrap()[0].application.selector().unwrap();
+        let action=ui::Action::VendorApplicationOpen {application:selector};
+        let session=random_id().unwrap();
+        let report=f.m.root.join("runtime/results").join(format!("windows-{session}.json"));
+        let lease=f.m.root.join("runtime/leases").join(format!("{session}.json"));
+        private_dir(report.parent().unwrap()).unwrap();private_dir(lease.parent().unwrap()).unwrap();
+        let mut other=record.environment.clone();other.id=random_id().unwrap();
+        other.root=f.m.root.join("environments").join(&other.id);
+        for environment in [&other,&record.environment] {
+            let owner=environment.root.join("compatdata/pfx/drive_c/bridge/sessions")
+                .join(&session).join("owner.json");
+            private_dir(owner.parent().unwrap()).unwrap();
+            atomic_json(&owner,&json!({"session":session,"report":report,"lease":lease,
+                "keeper":false,"inspect":false,"vendor_access":false,
+                "registration":{"metadata":{"class_id":f.r.key()},"environment":environment}})).unwrap();
+            atomic_json(&lease,&report).unwrap();
+            let result=require_operator_inactive_with(&f.m,&action,
+                &||panic!("Global capacity cannot decide setup exclusivity"),None,
+                Duration::from_secs(1),&mut vec![]);
+            if environment==&other {result.unwrap();}
+            else {assert_eq!(result.unwrap_err().to_string(),"active_device_lease");}
+            fs::remove_file(owner).unwrap();
+        }
     }
     #[test]
     fn environment_creation_rechecks_live_capacity_at_mutation() {
@@ -7112,6 +7136,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn candidate_only_history_is_readable_with_scoped_recovery_and_corrupt_records_refuse() {
+        readiness::with_unit_state_fixture(&[onboarding::unit(&"cd".repeat(16)).unwrap()],"inactive",|| {
         use linux_vst_bridge::preparation as prep;
         let (f, mut candidate) = preparation_cli::tests::projection_fixture();
         candidate.origin = prep::Origin::RetainedSv1;
@@ -7221,6 +7246,7 @@ pub(crate) mod tests {
         assert_eq!(failure.to_string(), "candidate_lineage_identity");
         assert_eq!(fs::read(&lineage_path).unwrap(), corrupt);
         assert_eq!(fs::read(&candidate_path).unwrap(), candidate_bytes);
+        });
     }
     #[test]
     fn catalogue_free_missing_lineage_preserves_selected_publication_and_rollback_readback() {
