@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import signal
 import socket
+import stat
 import subprocess
 import time
 
@@ -83,6 +84,33 @@ def powerdown():
                     raise RuntimeError("QMP powerdown acknowledgement timed out")
 
 
+def prepare_qmp():
+    # QEMU creates this private socket as container root on every boot.
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline:
+        try:
+            if stat.S_ISSOCK(QMP.lstat().st_mode):
+                observed = QMP.lstat()
+                try:
+                    run("docker", "exec", VM, "chown", "--no-dereference",
+                        f"{os.getuid()}:{os.getgid()}", "/vm/qmp.sock")
+                except subprocess.CalledProcessError:
+                    current = QMP.lstat()
+                    if (current.st_dev, current.st_ino) == (observed.st_dev, observed.st_ino):
+                        raise  # A persistent ownership failure needs attention.
+                    continue
+                with socket.socket(socket.AF_UNIX) as sock:
+                    sock.settimeout(1)
+                    sock.connect(str(QMP))
+                    with sock.makefile("rb") as stream:
+                        if "QMP" in json.loads(stream.readline()):
+                            return
+        except (FileNotFoundError, ConnectionRefusedError, TimeoutError, ValueError):
+            pass  # A stale socket from the preceding boot is not readiness.
+        time.sleep(0.2)
+    raise RuntimeError("fixture control socket did not appear")
+
+
 def retire():
     """Keep both locks until positive shutdown, even if graceful shutdown fails."""
     requested = False
@@ -149,6 +177,7 @@ def main():
         signal.signal(signal.SIGUSR1, renew)
         try:
             run("docker", "start", VM)
+            prepare_qmp()
             last_sample = 0
             while not stopping and time.monotonic() < deadline:
                 if not inspect()["State"]["Running"]:
