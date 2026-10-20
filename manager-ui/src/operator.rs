@@ -2256,7 +2256,7 @@ impl Operator {
                                 ui.label(consequence);
                             }
                             let actions: Vec<_> = app.actions.iter().filter(|offer|match offer.action {
-                                Action::VendorApplicationFocus { .. } => app.state == "running",
+                                Action::VendorApplicationFocus { .. } => matches!(app.state.as_str(),"starting"|"running"),
                                 Action::VendorApplicationStop { .. } => app.state != "closed"
                                     || offer.disabled_reason.is_none(),
                                 _ => true,
@@ -8357,6 +8357,32 @@ mod tests {
         f.refreshed();
         assert!(!f.blocking);
         assert!(f.text.contains("reason"));
+    }
+    #[test]
+    fn starting_application_keeps_its_show_and_stop_buttons_visible() {
+        for state in ["starting","running"] {
+            let mut overview:CurrentOverview=overview_fixture().into();
+            let environment=overview.current.products[0].environment.clone();
+            overview.current.products.clear();overview.current.installer_setups.clear();
+            let application="exact-source-owned-hub".to_owned();
+            overview.current.vendor_applications=vec![VendorApplication {id:application.clone(),
+                name:"Starting hub".into(),version:"1".into(),state:state.into(),
+                details:serde_json::json!({"environment":environment}),actions:vec![
+                    AvailableAction {label:"Show hub window".into(),disabled_reason:None,
+                        action:Action::VendorApplicationFocus {application:application.clone()}},
+                    AvailableAction {label:"Stop hub session".into(),disabled_reason:None,
+                        action:Action::VendorApplicationStop {application}}]}];
+            let ctx=result_form_context();let mut chosen=None;
+            let mut output=ctx.run_ui(egui::RawInput::default(),|ui| {
+                Operator::fast_setup(ui,&overview,true,false,(&mut false,&mut chosen,&mut false,
+                    &mut Page::Setup,&mut crate::library::Library::default(),&mut RouteFocus::default(),
+                    &mut Some(DawChoice::Reaper)));
+            });
+            let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
+            assert!(labels.iter().any(|(label,_)|label=="Show hub window"),"{state}");
+            assert!(labels.iter().any(|(label,_)|label=="Stop hub session"),"{state}");
+            output.textures_delta.clear();
+        }
     }
     #[test]
     fn real_button_release_survives_background_poll_start() {
