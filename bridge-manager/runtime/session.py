@@ -3585,7 +3585,9 @@ def vendor_focus(scope,app,installer=False,close=False,selected_image=None,newes
         class Client(C.Structure):
             _fields_=[('type',I),('serial',U),('send_event',I),('display',P),('window',U),('message',U),('format',I),('data',C.c_long*5)]
         class Event(C.Union):_fields_=[('client',Client),('pad',C.c_long*24)]
-        event=Event();event.client.type=33;event.client.display=display;event.client.window=window;event.client.message=x.XInternAtom(display,b'_NET_CLOSE_WINDOW' if close else b'_NET_ACTIVE_WINDOW',0);event.client.format=32;event.client.data[0]=0 if close else 1
+        # Focus consumes an explicit user control. EWMH 9.11 assigns source 2
+        # to clients representing direct user actions, not just pagers.
+        event=Event();event.client.type=33;event.client.display=display;event.client.window=window;event.client.message=x.XInternAtom(display,b'_NET_CLOSE_WINDOW' if close else b'_NET_ACTIVE_WINDOW',0);event.client.format=32;event.client.data[0]=0 if close else 2
         bind('XSendEvent',I,[P,U,I,C.c_long,C.POINTER(Event)])
         if not x.XSendEvent(display,root,0,(1<<19)|(1<<20),C.byref(event)):raise RuntimeError('focus request refused')
         if close:return 'close_requested'

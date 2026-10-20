@@ -25,8 +25,8 @@ class Function:
 
 class Desktop:
     """X11 property/event fixture, including the observed active window."""
-    def __init__(self,windows,activate=True):
-        self.windows=windows;self.activate=activate;self.active=99
+    def __init__(self,windows,activate=True,direct_user_only=False):
+        self.windows=windows;self.activate=activate;self.active=99;self.direct_user_only=direct_user_only
         self.atoms={};self.buffers=[];self.events=[];self.pid_reads={};self.changed_pid=None
         self.XOpenDisplay=Function(lambda *_:1);self.XCloseDisplay=Function(lambda *_:0)
         self.XDefaultRootWindow=Function(lambda *_:1);self.XSetErrorHandler=Function(lambda *_:0)
@@ -56,7 +56,7 @@ class Desktop:
         value=event._obj.client
         name=next(k for k,v in self.atoms.items() if v==value.message)
         self.events.append((name,value.window,value.data[0]))
-        if name==b'_NET_ACTIVE_WINDOW' and self.activate:self.active=value.window
+        if name==b'_NET_ACTIVE_WINDOW' and self.activate and (not self.direct_user_only or value.data[0]==2):self.active=value.window
         return 1
 
 class OperatorFocus(unittest.TestCase):
@@ -76,7 +76,13 @@ class OperatorFocus(unittest.TestCase):
             with self.subTest(close=close):
                 desktop=Desktop({100:12,101:90})
                 self.assertEqual(self.control(OwnedScope([11,12]),desktop,close=close),expected)
-                self.assertEqual(desktop.events[0][:2],(b'_NET_CLOSE_WINDOW' if close else b'_NET_ACTIVE_WINDOW',100))
+                self.assertEqual(desktop.events[0],(b'_NET_CLOSE_WINDOW' if close else b'_NET_ACTIVE_WINDOW',100,0 if close else 2))
+
+    def test_explicit_focus_is_a_direct_user_action(self):
+        desktop=Desktop({100:12,101:90},direct_user_only=True)
+        with patch.object(session.time,'monotonic',side_effect=[0,1]):
+            self.assertEqual(self.control(OwnedScope([11,12]),desktop),'focused')
+        self.assertEqual(desktop.active,100)
 
     def test_session_control_refuses_unowned_ambiguous_or_changed_window_owners(self):
         for case in ['unowned','ambiguous','reused_pid','departed','changed_window_pid']:
