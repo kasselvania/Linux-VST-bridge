@@ -82,6 +82,53 @@ class RuntimeTests(unittest.TestCase):
    self.assertEqual(self.owner.ledger.launcher.call_args.args[1],'dependency_runtime')
    runtime.close();self.assertEqual(runtime.child.returncode,0);self.assertEqual(runtime.close_errors,[])
   finally:runtime.close()
+ def test_slow_runtime_start_remains_bounded_cancellable_and_exact(self):
+  # Use real pipes/anchor lifetime, advancing only the supervisor's clock.
+  # A cold Wine start can outlast 30 seconds without losing its exact owner.
+  for outcome in ('ready','timeout','cancelled','wrong_anchor'):
+   with self.subTest(outcome=outcome),tempfile.TemporaryDirectory() as tmp:
+    root=pathlib.Path(tmp).resolve();(root/'home').mkdir();(root/'compatdata/pfx').mkdir(parents=True)
+    (root/'pressure-vessel/bin').mkdir(parents=True);(root/'files/bin').mkdir(parents=True)
+    entry=root/'entry';go=root/'go'
+    anchor='c'*32 if outcome=='wrong_anchor' else 'a'*32
+    entry.write_text(f'#!{sys.executable}\nimport pathlib,sys,time\n'
+     'request=sys.argv[-1]\n'
+     'if request.startswith("Z:"):request=request[2:].replace("\\\\","/")\n'
+     'hold=pathlib.Path(request+".hold")\n'
+     'sys.stderr.write("\\t--bus-name=:1.77\\n");sys.stderr.flush()\n'
+     f'while hold.exists() and not pathlib.Path({str(go)!r}).exists():time.sleep(.01)\n'
+     f'if hold.exists():sys.stdout.write("NAD1_RUNTIME_V1 {anchor} {"b"*64}\\n");sys.stdout.flush()\n'
+     'while hold.exists():time.sleep(.01)\n')
+    paths=(entry,root/'proton',root/'files/bin/wine',root/'pressure-vessel/bin/steam-runtime-launch-client',
+           root/'pressure-vessel/bin/steam-runtime-launcher-interface-0')
+    for path in paths:
+     if not path.exists():path.write_bytes(b'source-owned')
+     path.chmod(0o700)
+    owner=types.SimpleNamespace(**vars(self.owner));owner.root=root;owner.directory=root;owner.ledger=Mock()
+    owner.spec={'installer_launch':{'path':'/fixed/adapter.exe'},'application':{'environment':{'root':str(root),
+     'runner':{'entry_point':str(entry),'proton':str(root/'proton'),
+     'files':[{'path':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest()} for path in paths]}}}}
+    elapsed=[0.];wall_clock=s.time.monotonic;wall_end=wall_clock()+5
+    def harvest():
+     runtime.child.poll()
+     elapsed[0]=121. if outcome=='timeout' or wall_clock()>wall_end else 35.
+     if outcome in ('ready','wrong_anchor'):go.touch()
+    owner.ledger.harvest.side_effect=harvest
+    owner.cancelled=lambda:outcome=='cancelled'
+    runtime=s.Nad1Runtime(owner)
+    try:
+     with patch.object(s.time,'monotonic',side_effect=lambda:elapsed[0]):
+      if outcome=='ready':
+       runtime.start({'PATH':'/usr/bin:/bin'})
+       self.assertTrue(runtime.ready);self.assertEqual(runtime.bus_name,':1.77')
+      else:
+       error={'timeout':'dependency_runtime_start_timeout','cancelled':'dependency_cancelled',
+              'wrong_anchor':'dependency_runtime_anchor_identity'}[outcome]
+       with self.assertRaisesRegex(ValueError,error):runtime.start({'PATH':'/usr/bin:/bin'})
+       self.assertFalse(runtime.ready);self.assertIsNone(runtime.bus_name)
+     runtime.close()
+     self.assertEqual(runtime.child.returncode,0);self.assertEqual(runtime.close_errors,[])
+    finally:runtime.close()
  def test_commands_reuse_exact_proton_session_and_only_forward_closed_diagnostics(self):
   r=self.runtime;r.bus_name=':1.42';r.ready=True;r.child=Mock(returncode=None)
   with patch.object(r,'start') as start,patch.object(r,'drain'),patch.object(r,'verify_tools'):

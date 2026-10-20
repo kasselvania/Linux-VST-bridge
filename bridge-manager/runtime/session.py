@@ -4678,7 +4678,8 @@ class Nad1Runtime:
             os.set_blocking(pipe.fileno(),False);self.sel.register(pipe,selectors.EVENT_READ,name)
         self.pump_thread=threading.Thread(target=self._pump,name="dependency-runtime-output",daemon=True)
         self.pump_thread.start()
-        deadline=time.monotonic()+30
+        # Allow cold runtime startup the same bound as prefix initialization.
+        deadline=time.monotonic()+120
         while not self.ready:
             self.owner.ledger.harvest();self.drain(.05)
             if self.child.returncode is not None:raise ValueError('dependency_runtime_start_failed')
