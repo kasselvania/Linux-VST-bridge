@@ -808,4 +808,241 @@ mod tests {
         assert_eq!(card.lead.unwrap().offer.label, "Add back to my DAW");
         assert!(card.offers.offers.is_empty());
     }
+
+    use crate::operator::Page;
+    use crate::preview_states::{self, STATES};
+    use offers::Availability;
+
+    fn sample(page: Page, state: &str) -> Snapshot {
+        preview_states::snapshot(page, Some(state))
+    }
+
+    fn context(snapshot: &Snapshot, pending: bool, expanded: bool) -> Context<'_> {
+        Context { busy: snapshot.system.inactive_reason(), pending, expanded }
+    }
+
+    fn card(snapshot: &Snapshot, index: usize, pending: bool, expanded: bool) -> PluginCard {
+        PluginCard::build(snapshot, &snapshot.products[index], context(snapshot, pending, expanded))
+    }
+
+    /// Every offer on a card, with the notes printed beside it.
+    fn offers_with_notes(card: &PluginCard) -> Vec<(&Offer, Vec<&str>)> {
+        fn details<'a>(content: &'a [Detail], out: &mut Vec<(&'a Offer, Vec<&'a str>)>) {
+            for detail in content {
+                match detail {
+                    Detail::Offers(row) => out.extend(row.offers.iter()
+                        .map(|offer| (offer, row.notes.iter().map(String::as_str).collect()))),
+                    Detail::Choice(choice) => out.push((&choice.offer,
+                        choice.notes.iter().map(String::as_str).collect())),
+                    Detail::Disclosure(inner) => details(&inner.content, out),
+                    Detail::Text(_) | Detail::Divider => {}
+                }
+            }
+        }
+        let mut out = Vec::new();
+        if let Some(lead) = &card.lead {
+            out.push((&lead.offer, lead.offer.availability.reason().into_iter().collect()));
+        }
+        for row in std::iter::once(&card.offers).chain(card.uninstallers.iter().map(|u| &u.row)) {
+            out.extend(row.offers.iter().map(|offer| (offer, row.notes.iter().map(String::as_str).collect())));
+        }
+        for section in [&card.settings, &card.help, &card.availability, &card.other_setups,
+            &card.previous_setups].into_iter().flatten().chain([&card.technical]) {
+            details(&section.content, &mut out);
+        }
+        out
+    }
+
+    /// Every action the manager offers anywhere in these records.
+    fn manager_offers(snapshot: &Snapshot) -> Vec<&Action> {
+        let mut offered: Vec<&Action> = Vec::new();
+        for product in &snapshot.products {
+            offered.extend(product.actions.iter().map(|offer| &offer.action));
+            if let Some(workflow) = &product.compatibility {
+                offered.extend(workflow.primary.iter().chain(&workflow.alternatives).map(|offer| &offer.action));
+            }
+        }
+        offered.extend(snapshot.vendor_applications.iter().flat_map(|app| &app.actions).map(|offer| &offer.action));
+        offered.extend(snapshot.environments.iter().flat_map(|e| &e.actions).map(|offer| &offer.action));
+        offered.extend(snapshot.uninstallers.iter().map(|u| &u.action.action));
+        offered
+    }
+
+    #[test]
+    fn sample_states_offer_only_manager_actions_with_every_refusal_visible() {
+        let mut checked = 0;
+        for state in STATES {
+            for page in [Page::Plugins, Page::Setup] {
+                let snapshot = sample(page, state);
+                let offered = manager_offers(&snapshot);
+                for pending in [false, true] {
+                    for index in 0..snapshot.products.len() {
+                        let card = card(&snapshot, index, pending, true);
+                        for (offer, notes) in offers_with_notes(&card) {
+                            assert!(offered.contains(&&offer.intent),
+                                "{state}: {} sends an action the manager did not offer", offer.label);
+                            if let Some(reason) = offer.availability.reason() {
+                                assert!(notes.contains(&reason), "{state}: {} hides its refusal {reason}", offer.label);
+                            }
+                            if pending {
+                                assert!(!offer.availability.enabled(), "{state}: {} pressable while pending", offer.label);
+                            }
+                            let shared = offer.intent.requires_global_inactive()
+                                && !matches!(offer.intent, Action::CompatibilityResult { .. });
+                            if shared && snapshot.system.inactive_reason().is_some() {
+                                assert!(!offer.availability.enabled(), "{state}: shared {} ignores busy service", offer.label);
+                            }
+                            checked += 1;
+                        }
+                    }
+                }
+            }
+        }
+        assert!(checked > 500, "only {checked} offers checked");
+    }
+
+    #[test]
+    fn sample_state_lists_group_by_vendor_and_open_exactly_one_plug_in() {
+        for state in STATES {
+            let snapshot = sample(Page::Plugins, state);
+            let all = query("");
+            let list = PluginList::build(&snapshot, &all, false, context(&snapshot, false, false));
+            let cards: Vec<_> = list.groups.iter().flat_map(|group| &group.cards).collect();
+            assert_eq!(cards.len(), snapshot.products.len(), "{state}");
+            assert!(list.groups.iter().all(|group| group.heading.is_some()), "{state}");
+            assert_eq!(list.summary[0], format!("{0} of {0} plug-ins · grouped by vendor", snapshot.products.len()));
+            assert_eq!(list.empty.is_some(), snapshot.products.is_empty(), "{state}");
+            for card in cards {
+                assert_eq!(ProductKey::from(&snapshot.products[card.record]), card.key, "{state}");
+                let keys = [card.key.clone()];
+                let opened = Query { focus: Some(&keys), ..all };
+                let detail = PluginList::build(&snapshot, &opened, true, context(&snapshot, false, false));
+                assert!(detail.summary.is_empty() && detail.groups.len() == 1, "{state}");
+                assert!(detail.groups[0].heading.is_none(), "{state}");
+                assert_eq!(detail.groups[0].cards.len(), 1, "{state}");
+                assert_eq!(detail.groups[0].cards[0].key, card.key);
+                let loading = LoadingList::build(&snapshot, &opened, true, false);
+                assert_eq!(loading.focus_title, Some("Showing the selected plug-in"));
+                assert!(loading.rows.iter().all(|row| row.manage.is_none()), "{state}");
+            }
+            let loading = LoadingList::build(&snapshot, &all, true, false);
+            assert!(loading.rows.iter().all(|row| row.manage == Some(MANAGE)), "{state}");
+            assert_eq!(loading.count, format!("{0} of {0} current plug-ins", snapshot.products.len()));
+        }
+    }
+
+    #[test]
+    fn prepared_plug_in_leads_with_making_it_available() {
+        let snapshot = sample(Page::Plugins, "plugin_action");
+        let card = card(&snapshot, 0, false, false);
+        let lead = card.lead.expect("a prepared plug-in has one next step");
+        assert_eq!(lead.offer.label, "Make available in your DAW");
+        assert_eq!(lead.offer.importance, Importance::Primary);
+        assert_eq!(lead.offer.availability, Availability::Enabled);
+        assert!(matches!(lead.offer.intent, Action::CompatibilityPublishTest { expected_current: None, .. }));
+        assert!(lead.offer.consequence.unwrap().starts_with("Makes the native VST3 bridge available"));
+        assert!(card.notes.contains(&Text::body(
+            "The native bridge is prepared. Make it available below, then choose it in your DAW.")));
+        let waiting = self::card(&snapshot, 0, true, false).lead.unwrap().offer.availability;
+        assert_eq!(waiting, Availability::Waiting);
+    }
+
+    #[test]
+    fn available_plug_in_gives_daw_guidance_and_no_lead() {
+        for state in ["plugin_ready", "plugin_details", "available"] {
+            let snapshot = sample(Page::Plugins, state);
+            let card = card(&snapshot, 0, false, false);
+            assert_eq!(card.status, Status { words: "Available in your DAW", class: StatusClass::Ready }, "{state}");
+            assert_eq!(card.notes[0], Text::body(daw_guidance(None)), "{state}");
+            assert_eq!(crate::screen_model::fact_line(&card.facts), "Instrument · 8.13.1");
+        }
+        let snapshot = sample(Page::Plugins, "plugin_ready");
+        assert!(card(&snapshot, 0, false, false).lead.is_none());
+        let snapshot = sample(Page::Plugins, "available");
+        let available = Query { status: StatusFilter::Available, ..query("") };
+        assert_eq!(matching(&snapshot, &available).len(), snapshot.products.len());
+        let attention = Query { status: StatusFilter::NeedsAttention, ..query("") };
+        assert!(matching(&snapshot, &attention).is_empty());
+    }
+
+    #[test]
+    fn retained_setups_are_counted_named_and_keep_their_refusal() {
+        for (state, expanded) in [("plugin_history", false), ("plugin_history_open", true)] {
+            let snapshot = sample(Page::Plugins, state);
+            let card = card(&snapshot, 0, false, expanded);
+            assert!(card.lead.is_none(), "an available plug-in's re-check is optional");
+            let other = card.other_setups.as_ref().unwrap();
+            assert_eq!(other.title, "Other setup options (1)");
+            assert_eq!(other.id_salt, Some("other-setup-options"));
+            assert!(matches!(&other.content[1], Detail::Choice(choice) if choice.offer.label == "Check this plug-in again"));
+            let previous = card.previous_setups.as_ref().unwrap();
+            assert_eq!(previous.title, "Previous setups (12)");
+            assert_eq!(previous.force_open, expanded);
+            let Detail::Choice(first) = &previous.content[0] else { panic!("a setup choice") };
+            assert_eq!(first.offer.availability, Availability::Refused("Previous files are unavailable".into()));
+            assert_eq!(first.notes, ["Previous files are unavailable"]);
+            assert!(first.offer.label.starts_with("Restore previous setup"));
+            assert_eq!(first.exact_action, serde_json::to_string(&first.offer.intent).unwrap());
+            let settings = card.settings.as_ref().expect("audio delivery is a setting");
+            assert_eq!(settings.force_open, expanded);
+            assert!(settings.content.contains(&Text::body("512 added bridge frames").into()));
+            assert_eq!(card.technical.force_open, expanded);
+        }
+    }
+
+    #[test]
+    fn guided_states_separate_optional_results_from_the_next_step() {
+        let snapshot = sample(Page::Plugins, "guided");
+        let beam = card(&snapshot, 0, false, false);
+        assert!(beam.lead.is_none(), "recording a result is optional");
+        let help = beam.help.as_ref().unwrap();
+        assert!(matches!(&help.content[0], Detail::Offers(row)
+            if row.offers[0].label == "Record a test result or problem"));
+        assert!(help.content.contains(&Text::body(
+            "Available in your DAW using this setup. You can record a result after trying it.").into()));
+        let bismuth = card(&snapshot, 1, false, false);
+        assert_eq!(bismuth.status.class, StatusClass::NeedsYou);
+        assert_eq!(bismuth.lead.unwrap().offer.label, "Prepare for your DAW");
+
+        let snapshot = sample(Page::Plugins, "guided_pending");
+        let beam = card(&snapshot, 0, false, false);
+        let lead = beam.lead.unwrap();
+        assert_eq!(lead.offer.label, "Finish plug-in recovery");
+        assert_eq!(lead.offer.availability, Availability::Refused("Previous instance cleanup is unconfirmed".into()));
+        assert_eq!(beam.notes[0].role, crate::screen_model::TextRole::Caution);
+    }
+
+    #[test]
+    fn shared_class_sessions_stay_class_level_and_recent_failures_say_cleanup() {
+        let snapshot = sample(Page::Plugins, "shared");
+        let fragments: Vec<_> = snapshot.products.iter().enumerate()
+            .filter(|(_, p)| p.class_id == "fixture-fragments").map(|(index, _)| index).collect();
+        assert_eq!(fragments.len(), 2);
+        for index in fragments {
+            assert_eq!(card(&snapshot, index, false, false).technical.content[0],
+                Text::detail("1 active in this plug-in class · exact build unavailable").into());
+        }
+        let kontakt = snapshot.products.iter().position(|p| p.class_id == "fixture-kontakt").unwrap();
+        let card = card(&snapshot, kontakt, false, false);
+        assert!(card.notes.contains(&Text::caution("most recent session: Editor or controller failed")));
+        assert!(card.notes.contains(&Text::detail("Cleanup and transport retirement confirmed.")));
+    }
+
+    #[test]
+    fn first_use_and_stale_lists_say_what_is_missing() {
+        let snapshot = sample(Page::Plugins, "first_use");
+        let all = query("");
+        let list = PluginList::build(&snapshot, &all, false, context(&snapshot, false, false));
+        assert_eq!(list.empty.unwrap().0, "No plug-ins discovered yet");
+        assert!(list.groups.is_empty());
+        assert_eq!(LoadingList::build(&snapshot, &all, true, false).empty,
+            Some("No plug-ins discovered yet. Open Setup to add and scan an installer."));
+        let snapshot = sample(Page::Plugins, "stale");
+        let stale = LoadingList::build(&snapshot, &all, false, false);
+        assert_eq!(stale.notice, Text::caution(
+            "Current plug-in status could not be loaded. Refresh on Home before continuing."));
+        assert!(stale.rows.iter().all(|row| row.status.is_none()));
+        let failed = LoadingList::build(&snapshot, &all, true, true);
+        assert_eq!(failed.retry, Some("Load plug-in controls again"));
+    }
 }

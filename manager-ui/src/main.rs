@@ -7,6 +7,9 @@ mod library;
 mod model;
 mod operator;
 mod presentation;
+#[cfg(test)]
+#[allow(dead_code)]
+mod preview_states;
 mod screen_model;
 mod updates;
 mod widgets;

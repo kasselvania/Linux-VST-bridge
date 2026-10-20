@@ -10,7 +10,8 @@ const SOURCES: [(&str, &str); 5] = [
 #[test]
 fn screen_model_names_no_ui_toolkit_and_no_window_module() {
     for (file, source) in SOURCES {
-        let model = source;
+        // Unit tests may use the preview's sample states; the model may not.
+        let model = source.split("#[cfg(test)]\nmod tests {").next().unwrap();
         for toolkit in ["egui", "eframe", "epaint", "winit", "glow", "makepad", "rfd"] {
             assert!(!model.to_lowercase().contains(toolkit), "{file} names {toolkit}");
         }
