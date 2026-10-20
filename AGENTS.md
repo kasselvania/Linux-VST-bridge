@@ -69,6 +69,9 @@ The homelab's production services take priority over bridge work:
   guest measurements and separate container limits do not establish host safety.
   If capacity is insufficient, reduce our workload or leave it stopped.
 - Use a bounded, renewable VM lease only during attended installed testing.
+  Run the retained CachyOS fixture through `tools/homelab/attended_vm.py` on
+  the homelab; renew with SIGUSR1 and end with SIGTERM to its recorded guard PID.
+  Do not start the container directly or reuse historical VM launch drivers.
   Save the test project, retire its applications and shut down the VM normally
   before handing back or waiting for user input. Cleanup must not automatically
   restart another VM. Never force shutdown to make a checkpoint look clean.
