@@ -29,6 +29,14 @@ def publish(path,value):
         try:os.fsync(fd)
         finally:os.close(fd)
     finally:os.unlink(tmp)
+def build_adapter(zig,source,output,*,env=None,verbose=False):
+    """Execute the fixed adapter recipe; return its actual command and link output."""
+    args=[str(zig),'c++','-target','x86_64-windows-gnu','-std=c++20','-O2',
+          '-municode','-DUNICODE','-D_UNICODE',str(source),'-lbcrypt','-ladvapi32',
+          '-o',str(output)]
+    if verbose:args.append('-v')
+    return subprocess.run(args,env=env,check=True,timeout=180,
+                          stdout=subprocess.PIPE,stderr=subprocess.PIPE)
 def verify(package,seal):
     p=pathlib.Path(package)
     if digest(p/'manifest.json')!=seal:raise ValueError('package_seal')
@@ -51,7 +59,8 @@ def build(repo,out,context):
     with tempfile.TemporaryDirectory(prefix='naui2-build-') as d:
         for name,src,libs in [('payload.exe','application.cpp',[]),('adapter.exe','launch.cpp',['-lbcrypt','-ladvapi32'])]:
             built=pathlib.Path(d)/name
-            subprocess.run([zig,'c++','-target','x86_64-windows-gnu','-std=c++20','-O2','-municode','-DUNICODE','-D_UNICODE',str(out/src),*libs,'-o',str(built)],check=True,timeout=180)
+            if name=='adapter.exe':build_adapter(zig,out/src,built)
+            else:subprocess.run([zig,'c++','-target','x86_64-windows-gnu','-std=c++20','-O2','-municode','-DUNICODE','-D_UNICODE',str(out/src),*libs,'-o',str(built)],check=True,timeout=180)
             shutil.copyfile(built,out/name)
     with (out/'payload.exe').open('ab') as f:f.truncate(67*1024*1024)
     env=dict(os.environ,IS4_ZIG=zig,CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=str(repo/'tools/is4/linker.py'))
