@@ -1,6 +1,9 @@
 import fcntl
+import json
 from pathlib import Path
+import socket
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -53,6 +56,29 @@ class AdmissionTests(unittest.TestCase):
             vm.retire()
             self.assertEqual(inspect.call_count, 2)
             down.assert_called_once()
+
+    def test_prepare_control_socket_requires_a_live_qmp_greeting(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "qmp.sock"
+            with socket.socket(socket.AF_UNIX) as server:
+                server.bind(str(path))
+                server.listen()
+                server.settimeout(3)
+
+                def greet():
+                    with server.accept()[0] as client:
+                        client.sendall((json.dumps({"QMP": {"capabilities": []}}) + "\n").encode())
+
+                worker = threading.Thread(target=greet)
+                worker.start()
+                try:
+                    with patch.object(vm, "QMP", path), patch.object(vm, "run") as run:
+                        vm.prepare_qmp()
+                        self.assertEqual(run.call_args.args[:5],
+                                         ("docker", "exec", vm.VM, "chown", "--no-dereference"))
+                finally:
+                    worker.join(3)
+                self.assertFalse(worker.is_alive())
 
 
 if __name__ == "__main__":
