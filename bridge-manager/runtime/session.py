@@ -3981,7 +3981,8 @@ class RendererCallback:
             pid,uid,_=struct.unpack('3i',peer.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12))
             if uid!=os.getuid() or pid<=0 or self.attempts>=4:peer.close();return
             peer.setblocking(False);self.peer=peer;self.deadline=time.monotonic()+5
-        if time.monotonic()>self.deadline:self.finish(2,'delivery_unconfirmed');return
+        if time.monotonic()>self.deadline:
+            self.finish(2,'adapter_ack_timeout' if self.phase=='ack' else 'delivery_unconfirmed');return
         if self.phase=='ack':return
         try:data=self.peer.recv(2053)
         except BlockingIOError:return
@@ -4007,9 +4008,10 @@ class RendererCallback:
             frame=bytes(self.pending[4:])+b'\n'
             n=os.write(self.child.stdin.fileno(),frame)
             if n!=len(frame):raise OSError('short_callback_write')
-        except OSError:self.finish(2,'delivery_unconfirmed');return
+        except OSError:self.finish(2,'adapter_write_failed');return
         for i in range(len(self.pending)):self.pending[i]=0
-        self.pending.clear();self.phase='ack';self.deadline=time.monotonic()+22
+        # Adapter: 60 seconds for the secondary, then up to five for retirement.
+        self.pending.clear();self.phase='ack';self.deadline=time.monotonic()+67
     def feed_ack(self,data):
         # Only complete fixed adapter frames survive; all other output is discarded.
         for b in data:
@@ -4017,7 +4019,8 @@ class RendererCallback:
                 if len(self.acks)<=128:
                     parts=bytes(self.acks).split()
                     if len(parts)==4 and parts[:2]==[b'NA_AUTH_V1',self.op.encode()] and parts[2]==str(self.attempts).encode() and parts[3] in (b'0',b'1',b'2') and self.phase=='ack':
-                        code=int(parts[3]);self.delivered+=int(code==0);self.finish(code,'dispatched' if code==0 else 'delivery_unconfirmed')
+                        code=int(parts[3]);self.delivered+=int(code==0)
+                        self.finish(code,('dispatched','adapter_refused','secondary_timeout')[code])
                 self.acks.clear()
             elif len(self.acks)<=128:self.acks.append(b)
     def value(self):return {'schema':1,'scheme':'native-access','attempts':self.attempts,'dispatched':self.delivered,'last_result':self.last,'authentication':'not_observed','secret_retained':False}

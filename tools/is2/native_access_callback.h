@@ -53,7 +53,10 @@ class NativeAccessCallback {
         bool exact=opened!=INVALID_HANDLE_VALUE&&same_file(image,opened)&&time_of(pi.hProcess)!=0&&WaitForSingleObject(primary,0)==WAIT_TIMEOUT;
         if(opened!=INVALID_HANDLE_VALUE)CloseHandle(opened);
         if(!exact||ResumeThread(pi.hThread)==static_cast<DWORD>(-1)){TerminateProcess(pi.hProcess,128);WaitForSingleObject(pi.hProcess,5000);CloseHandle(pi.hProcess);reply(1);}
-        else{child=pi.hProcess;deadline=GetTickCount64()+15000;}
+        // A cold vendor secondary can take longer than 15 seconds to hand the
+        // URI to its primary. Keep a finite wait; the supervisor allows this
+        // minute plus the existing five-second retirement below.
+        else{child=pi.hProcess;deadline=GetTickCount64()+60000;}
         CloseHandle(pi.hThread);
     }
 public:

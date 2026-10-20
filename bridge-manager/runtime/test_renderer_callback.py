@@ -1,6 +1,6 @@
 """Opaque return delivery and privacy, with fake bytes and no browser account."""
 import os,pathlib,socket,struct,tempfile,time,types,unittest
-from unittest.mock import Mock
+from unittest.mock import Mock,patch
 import session as s
 class UriTests(unittest.TestCase):
  def test_closed_uri(self):
@@ -36,6 +36,37 @@ class CallbackTests(unittest.TestCase):
   p=self.connect();p.recv(4);uri=b'native-access:fixture';p.sendall(struct.pack('<I',len(uri))+uri);self.b.tick();os.read(self.read,4096)
   self.b.feed_ack(b'NA_AUTH_V1 '+self.op.encode()+b' 2 0\n');self.assertEqual(self.b.delivered,0)
   self.b.deadline=0;self.b.tick();self.assertEqual(p.recv(1),b'\x02');self.assertEqual(self.b.attempts,1)
+  self.assertEqual(self.b.value()['last_result'],'adapter_ack_timeout')
+  self.b.feed_ack(b'NA_AUTH_V1 '+self.op.encode()+b' 1 0\n')
+  self.assertEqual(self.b.delivered,0)
+ def test_slow_secondary_ack_survives_the_previous_deadline(self):
+  p=self.connect();p.recv(4);uri=b'native-access:fixture'
+  started=time.monotonic()
+  p.sendall(struct.pack('<I',len(uri))+uri);self.b.tick();os.read(self.read,4096)
+  with patch.object(s.time,'monotonic',return_value=started+30):
+   self.b.tick()
+   self.b.feed_ack(b'NA_AUTH_V1 '+self.op.encode()+b' 1 0\n')
+  self.assertEqual(p.recv(1),b'\0')
+  self.assertEqual(self.b.value()['last_result'],'dispatched')
+  self.assertEqual(self.b.value()['authentication'],'not_observed')
+ def test_fixed_adapter_failures_remain_distinct_without_secret_output(self):
+  for code,status in [(1,'adapter_refused'),(2,'secondary_timeout')]:
+   with self.subTest(code=code):
+    p=self.connect();p.recv(4);uri=b'native-access:generated-secret'
+    p.sendall(struct.pack('<I',len(uri))+uri);self.b.tick();os.read(self.read,4096)
+    self.b.feed_ack(b'NA_AUTH_V1 '+self.op.encode()+b' '+str(self.b.attempts).encode()+b' '+str(code).encode()+b'\n')
+    self.assertEqual(p.recv(1),bytes([code]))
+    self.assertEqual(self.b.value()['last_result'],status)
+    self.assertEqual(self.b.delivered,0)
+    self.assertNotIn('generated-secret',str(self.b.value()))
+ def test_write_failure_is_not_an_adapter_timeout_or_retry(self):
+  p=self.connect();p.recv(4);uri=b'native-access:fixture'
+  p.sendall(struct.pack('<I',len(uri))+uri)
+  with patch.object(s.os,'write',side_effect=BlockingIOError):self.b.tick()
+  self.assertEqual(p.recv(1),b'\x02')
+  self.assertEqual(self.b.value()['last_result'],'adapter_write_failed')
+  self.assertEqual(self.b.attempts,1)
+  self.assertEqual(self.b.pending,b'')
  def test_primary_exit_revokes_socket_without_launch(self):
   p=self.connect();p.recv(4);self.child.returncode=0;self.b.tick();self.assertTrue(self.b.closed);self.cut.assert_not_called()
 

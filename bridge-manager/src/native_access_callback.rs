@@ -54,6 +54,9 @@ fn exchange(peer: &mut UnixStream, operation: &str, url: &[u8]) -> Result<()> {
     require(&ready == b"NAC1", "native_access_callback_not_ready")?;
     peer.write_all(&(url.len() as u32).to_le_bytes())?;
     peer.write_all(url)?;
+    // The supervisor allows 60 seconds for the vendor secondary, five for
+    // retirement and two for acknowledgement. Transport retains a small margin.
+    peer.set_read_timeout(Some(Duration::from_secs(70)))?;
     let mut result = [0; 1];
     peer.read_exact(&mut result)?;
     require(result == [0], "native_access_callback_delivery_unconfirmed")
