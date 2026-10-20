@@ -57,6 +57,28 @@ on the system drive. Existing `/home/pk/lvb-*` paths may be compatibility
 symlinks. Before large writes, confirm Storage2 is mounted at `/mnt/Storage2`
 and stop if it is not, so a missing mount cannot silently use the system drive.
 
+The homelab's production services take priority over bridge work:
+
+- Run one bridge VM session **or** one heavy build/test job, never both.
+  Acquire the existing `heavy-build.lock` then `vm.lock`, and hold both for
+  the entire job or VM lease. Verify actual running project containers and
+  QEMU processes before starting.
+- Limit either workload to two CPUs. Before starting it, require host
+  `MemAvailable` to cover its complete container/process memory ceiling plus
+  at least 4 GiB of reserve. Read host CPU, memory, swap and I/O pressure;
+  guest measurements and separate container limits do not establish host safety.
+  If capacity is insufficient, reduce our workload or leave it stopped.
+- Use a bounded, renewable VM lease only during attended installed testing.
+  Run the retained CachyOS fixture through `tools/homelab/attended_vm.py` on
+  the homelab; renew with SIGUSR1 and end with SIGTERM to its recorded guard PID.
+  Do not start the container directly or reuse historical VM launch drivers.
+  Save the test project, retire its applications and shut down the VM normally
+  before handing back or waiting for user input. Cleanup must not automatically
+  restart another VM. Never force shutdown to make a checkpoint look clean.
+- After a host outage, keep bridge workloads stopped, preserve the previous
+  boot/resource evidence and resolve the operating limits before resuming.
+  Do not restart Docker or stop unrelated services to make room for our work.
+
 ## What needs the operator first
 
 - Anything that could destroy or alter user projects, licensed plug-in

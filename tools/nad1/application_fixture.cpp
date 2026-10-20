@@ -27,6 +27,7 @@ int wmain(int argc,wchar_t**argv){
  if(argc==2&&std::wstring(argv[1])==L"--memory-child")return 65;
  if(argc==2&&std::wstring(argv[1])==L"--memory-control")return child_memory_probe(L"C:\\NAD1Fixture\\memory-control.json")?0:72;
  if(argc==3&&std::wstring(argv[1])==L"--disable-gpu"&&std::wstring(argv[2])==callback_value){
+  if(marker(L"C:\\NAD1Fixture\\delay-callback"))Sleep(20000);
   HANDLE pipe=CreateFileW(callback_pipe,GENERIC_WRITE,0,nullptr,OPEN_EXISTING,0,nullptr);if(pipe==INVALID_HANDLE_VALUE)return 15;
   DWORD n=0;bool ok=WriteFile(pipe,"returned",8,&n,nullptr)&&n==8;CloseHandle(pipe);return ok?0:16;
  }

@@ -2792,6 +2792,44 @@ mod tests {
             scan:Some(random_id().unwrap()), prior_selections:vec![], prior_modules:vec![],
             failed_modules:vec![], work:vec![], predecessors:vec![], previous:None }
     }
+    #[test]
+    fn first_bootstrap_app_handoff_reaches_held_vendor_stage_with_unrelated_dsp() {
+        let (f, mut record, _) = vendor_cli::selection::tests::installed_app();
+        record.automatic = Some(initial_intent(&record));
+        atomic_json(&onboarding::directory(&f.m, &record.id).unwrap().join("record.json"), &record).unwrap();
+        let sw = Software {manager:f.r.host.clone(),supervisor:f.r.host.clone(),ownership:f.r.host.clone(),
+            host:f.r.host.clone(),source_manifest:f.r.host.clone(),source_sha256:f.r.host.sha256.clone(),
+            installer_launch:None,preparation_kit:None,operator_frontend:None,native_catalogue:None};
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let choice = vendor_cli::selection::choices(&f.m, &record).unwrap().remove(0);
+        let selector = choice.application.selector().unwrap();
+        assert!(!vendor_cli::directory(&f.m, &selector).unwrap().join("application.json").exists());
+        let mut other = record.environment.clone();
+        other.id = random_id().unwrap();other.root = f.m.root.join("environments").join(&other.id);
+        let lease = vendor_cli::selection::tests::dsp_lease(&f, Some(&other));
+        let owner = random_id().unwrap();private_dir(&job_dir(&f.m, &owner).unwrap()).unwrap();
+        let action = ui::Action::VendorSoftwareInstall {application:selector.clone(),daw:ui::DawChoice::Reaper};
+        atomic_json(&job_dir(&f.m, &owner).unwrap().join("request.json"), &ui::Request {
+            schema:ui::OPERATOR_SCHEMA,state_token:"test".into(),action:action.clone()}).unwrap();
+        write_operation(&f.m, &owner, &json!({"schema":1,"operation":owner,"state":"running"}), false).unwrap();
+        let units = [onboarding::unit(record.installation_operation.as_ref().unwrap()).unwrap(),
+            vendor_cli::unit(&selector).unwrap()];
+        let mut reached = false;
+        let error = readiness::with_unit_state_fixture(&units, "inactive", ||
+            execute_with_vendor(&f.m, &action, &owner, &||None, Duration::ZERO, &mut vec![],
+                &mut |environment, intent, _| {
+                    reached = true;
+                    assert_eq!(environment.environment().id, record.id);
+                    assert_eq!(intent.vendor.as_ref().unwrap().application, selector);
+                    assert!(vendor_maintenance::blocks(&f.m, environment.environment()).unwrap());
+                    assert!(!vendor_maintenance::blocks(&f.m, &other).unwrap());
+                    assert_eq!(vendor_maintenance::owned(&f.m, &owner).unwrap(), Some(environment.environment().clone()));
+                    assert!(lease.exists());
+                    Err("fixture_stops_at_held_vendor_stage".into())
+                })).unwrap_err().to_string();
+        assert_eq!(error, "fixture_stops_at_held_vendor_stage");assert!(reached);
+        assert!(lease.exists());
+    }
     fn owned_app_visit(f: &test_fixture::Fixture, record: &onboarding::Record) -> (String, Intent) {
         let choice=vendor_cli::selection::choices(&f.m, record).unwrap().into_iter()
             .find(|c|c.image_name == "Main").unwrap();

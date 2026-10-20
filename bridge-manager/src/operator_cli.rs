@@ -286,7 +286,8 @@ fn vendor_projection(
         name: name.clone(),
         version: a.observed_installer_version,
         state: if live {
-            "running"
+            if report.as_ref().is_some_and(|r|r.state == vendor_application::OperationState::Unknown
+                && r.owned_live.is_none()) {"starting"} else {"running"}
         } else if retired {
             "closed"
         } else {
@@ -3890,10 +3891,10 @@ fn stop_vendor_with(
         job["operation_id"] == vendor,
         "operator_vendor_open_binding_changed",
     )?;
-    // cancel_owned rechecks this identity under the registry lock. It stops a
-    // running launch while holding it; a launch that is no longer running is
-    // re-checked after releasing it, under the app's writer lock. Either way it
-    // requires positive retirement of that same launch.
+    // cancel_owned rechecks this identity under the registry lock and only
+    // queues the running launch's stop there. Retirement waits release it;
+    // an already stopped launch retains the app's writer/census recovery.
+    // Either path requires positive retirement of that same launch.
     cancel(vendor)?;
     resume_locked(m, &saved.owner_operation, restore)
 }

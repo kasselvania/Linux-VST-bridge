@@ -99,22 +99,26 @@ def run(build):
   assert subprocess.run([str(build/'nad1-application-fixture.exe'),'--disable-gpu'],timeout=10).returncode==0
   assert (root/'application-started').exists()
   # Exact secondary-instance browser return through the same retained adapter.
-  (root/'application-started').unlink();(root/'await-callback').touch()
+  (root/'await-callback').touch()
   payload=build/'nad1-application-fixture.exe';callback_sha=hashlib.sha256(payload.read_bytes()).hexdigest()
   request=root/'application-request';request.write_bytes(('\n'.join(['NAUI2_AUTH_LAUNCH_V1',op,token,'2',callback_sha,str(payload.stat().st_size),str(payload),'software_rendering',''])).encode('utf-16le'))
-  adapter=subprocess.Popen([str(build/'is2-launch.exe'),str(request)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-  try:
-   deadline=time.monotonic()+15
-   while not (root/'callback-ready').exists() and time.monotonic()<deadline:time.sleep(.05)
-   assert (root/'callback-ready').exists()
-   value=b'native-access:source-owned-fixture'
-   out,err=adapter.communicate(value+b'\n',timeout=20)
-   assert adapter.returncode==0,(adapter.returncode,out,err)
-   assert (b'NA_AUTH_V1 '+op.encode()+b' 1 0') in out
-   assert (root/'callback-received').exists()
-   assert value not in out+err
-  finally:
-   if adapter.poll() is None:adapter.kill();adapter.wait(timeout=10)
+  for delayed in (False,True):
+   for name in ('application-started','callback-ready','callback-received'):(root/name).unlink(missing_ok=True)
+   if delayed:(root/'delay-callback').touch()
+   adapter=subprocess.Popen([str(build/'is2-launch.exe'),str(request)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+   try:
+    deadline=time.monotonic()+15
+    while not (root/'callback-ready').exists() and time.monotonic()<deadline:time.sleep(.05)
+    assert (root/'callback-ready').exists()
+    value=b'native-access:source-owned-fixture'
+    out,err=adapter.communicate(value+b'\n',timeout=75)
+    assert adapter.returncode==0,(adapter.returncode,out,err)
+    assert (b'NA_AUTH_V1 '+op.encode()+b' 1 0') in out
+    assert (root/'callback-received').exists()
+    assert value not in out+err
+   finally:
+    if adapter.poll() is None:adapter.kill();adapter.wait(timeout=10)
+    (root/'delay-callback').unlink(missing_ok=True)
   stopped=command('stop')
   assert 'NAD1_RETIRE_V1 '+op+' '+token+' 1 ' in stopped
   assert ' exact 0 1 0 0 none ' in stopped

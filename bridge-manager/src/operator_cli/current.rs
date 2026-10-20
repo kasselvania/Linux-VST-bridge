@@ -397,7 +397,10 @@ fn require_live_vendor_report(operation: &vendor_application::Operation) -> Resu
     require(result.schema == 3
         && result.operation_id.as_deref() == Some(operation.operation_id.as_str())
         && matches!(result.state,OperationState::Running | OperationState::Unknown)
-        && !result.cleanup_confirmed && result.owned_live.is_some_and(|count|count > 0),
+        && !result.cleanup_confirmed
+        && (result.owned_live.is_some_and(|count|count > 0)
+            || (result.state == OperationState::Unknown && result.owned_live.is_none()
+                && result.launcher_exit.is_none())),
         "operator_vendor_state_changed_refresh")
 }
 fn live_vendor_progress(m: &Manager) -> Result<Option<vendor_application::Operation>> {
@@ -1014,6 +1017,59 @@ pub(super) mod tests {
                 "The selected application or installation changed");
             server.join().unwrap();
         });
+    }
+    #[test]
+    fn starting_vendor_keeps_current_status_and_exact_controls_readable() {
+        let (f,app)=selected_vendor_fixture();
+        let mut other=app.environment.clone();other.id=random_id().unwrap();
+        other.root=f.m.root.join("environments").join(&other.id);
+        let lease=vendor_cli::selection::tests::dsp_lease(&f,Some(&other));
+        let selector=app.selector().unwrap();
+        let directory=vendor_cli::directory(&f.m,&selector).unwrap();
+        let operation=random_id().unwrap();
+        let report=directory.join("operation-result.json");
+        atomic_json(&directory.join("operation.json"),&vendor_application::Operation {
+            application:app.clone(),report:report.clone(),mode:vendor_application::LaunchMode::Normal,
+            operation_id:operation.clone(),launcher:None,managed:None,capability_notice:None}).unwrap();
+        atomic_json(&report,&json!({"schema":3,"operation_id":operation,"state":"unknown",
+            "launcher_exit":null,"owned_live":null,"cleanup_confirmed":false,
+            "discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
+        let record=onboarding::retained_environment_record(&f.m,&app.environment.id).unwrap().unwrap();
+        let installer=onboarding::unit(record.installation_operation.as_deref().unwrap()).unwrap();
+        readiness::with_unit_state_fixture(&[installer],"inactive",||
+            readiness::with_unit_state_fixture(&[vendor_cli::unit(&selector).unwrap()],"active",|| {
+                for (state,count,exit,label) in [("unknown",None,None,"starting"),
+                    ("running",Some(3),None,"running"),("unknown",Some(3),Some(0),"running"),
+                    ("unknown",Some(3),Some(42),"running")] {
+                    atomic_json(&report,&json!({"schema":3,"operation_id":operation,"state":state,
+                        "launcher_exit":exit,"owned_live":count,"cleanup_confirmed":false,
+                        "discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
+                    let current=current_overview(&f.m).unwrap();
+                    let row=current.current.vendor_applications.iter().find(|row|row.id==selector).unwrap();
+                    assert_eq!(row.state,label);
+                    for action in [ui::Action::VendorApplicationFocus {application:selector.clone()},
+                        ui::Action::VendorApplicationStop {application:selector.clone()}] {
+                        assert!(row.actions.iter().any(|offer|offer.action==action
+                            && offer.disabled_reason.is_none()));
+                        validate_current_request(&f.m,&ui::Request {schema:ui::OPERATOR_SCHEMA,
+                            state_token:current.current.state_token.clone(),action}).unwrap();
+                    }
+                    assert!(lease.exists());
+                }
+                let original:Value=read_json(&report).unwrap();
+                for (field,value) in [("operation_id",json!(random_id().unwrap())),("schema",json!(4)),
+                    ("owned_live",json!(0)),("state",json!("completed")),
+                    ("cleanup_confirmed",json!(true)),("unexpected",json!(true))] {
+                    let mut changed=original.clone();changed[field]=value;
+                    atomic_json(&report,&changed).unwrap();
+                    assert!(current_overview(&f.m).is_err(),"accepted {field}");
+                }
+                let mut contradictory=original;
+                contradictory["owned_live"]=Value::Null;
+                contradictory["launcher_exit"]=0.into();
+                atomic_json(&report,&contradictory).unwrap();
+                assert!(current_overview(&f.m).is_err(),"an exited launcher with no observed cohort is not starting");
+            }));
     }
     #[test]
     fn vendor_checkpoint_change_invalidates_captured_watch_and_action_token() {
