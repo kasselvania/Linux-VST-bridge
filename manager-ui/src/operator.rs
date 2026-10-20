@@ -1,7 +1,8 @@
 use crate::{
     client::{self, Query, Reply},
     model::*,
-    presentation::{self, AttemptKey, Destination, ProductKey},
+    presentation::{self, AttemptKey, Destination},
+    screen_model::{self, ProductKey},
 };
 use eframe::egui;
 use std::{
@@ -1145,7 +1146,7 @@ impl Operator {
         pending: bool,
         chosen: &mut Option<Action>,
     ) {
-        crate::library::action_buttons(ui, actions, busy, pending, chosen);
+        crate::widgets::action_buttons(ui, actions, busy, pending, chosen);
     }
     fn resolve_import_route(&mut self, snapshot: &Snapshot) {
         let Some((installer, newly_imported, label)) = self.pending_import_route.take() else { return };
@@ -1526,7 +1527,7 @@ fn existing_setup_installer(ui: &mut egui::Ui, snapshot: &Snapshot,
             ui.label(&app.version);
             if let Some(path) = app.details["executable"]["path"].as_str() {ui.small(path);}
             ui.add_enabled_ui(fresh,|ui|
-                crate::library::action_buttons(ui,&app.actions,snapshot.system.inactive_reason(),pending,chosen));
+                crate::widgets::action_buttons(ui,&app.actions,snapshot.system.inactive_reason(),pending,chosen));
         }
     }
     // An exact running owner's Stop remains visible even if no setup is selected.
@@ -1534,7 +1535,7 @@ fn existing_setup_installer(ui: &mut egui::Ui, snapshot: &Snapshot,
         if target.actions.iter().any(|a|matches!(a.action,Action::EnvironmentInstallerStop { .. })) {
             ui.strong(&target.name);
             ui.add_enabled_ui(fresh, |ui|
-                crate::library::action_buttons(ui,&target.actions,None,pending,chosen));
+                crate::widgets::action_buttons(ui,&target.actions,None,pending,chosen));
         }
     }
 }
@@ -1617,7 +1618,7 @@ fn current_plugin_state<'a>(journey: &InstallationJourney, plugin: &Installation
     let (snapshot, environment) = current?;
     snapshot.products.iter().find(|product| product.environment == environment
         && product.class_id.eq_ignore_ascii_case(&plugin.class_id))
-        .map(|product| crate::library::status(product).0)
+        .map(|product| screen_model::product::status(product).words)
 }
 fn current_journey_label(journey: &InstallationJourney, current: Option<(&Snapshot, &str)>) -> &'static str {
     if journey.phase == InstallationPhase::Available && !journey.plugins.is_empty() {
@@ -1631,7 +1632,7 @@ fn current_journey_label(journey: &InstallationJourney, current: Option<(&Snapsh
 }
 fn journey_results(ui: &mut egui::Ui, journey: &InstallationJourney, current: Option<(&Snapshot, &str)>,
     next: Option<&AvailableAction>) {
-    ui.small(format!("Your DAW: {}", presentation::daw_name(journey.daw)));
+    ui.small(format!("Your DAW: {}", screen_model::product::daw_name(journey.daw)));
     if journey.phase == InstallationPhase::Available && journey.plugins.is_empty() {
         ui.label("No plug-ins were added during this visit.");
     }
@@ -1667,7 +1668,7 @@ fn journey_results(ui: &mut egui::Ui, journey: &InstallationJourney, current: Op
 fn installation_failure_text(failure: &InstallationFailure, next: Option<&AvailableAction>) -> String {
     let reason = match next.and_then(|offer| continuation_offer(std::slice::from_ref(offer))) {
         Some(offer) if linux_vst_bridge::operator_lock::is_busy_text(&failure.code) =>
-            linux_vst_bridge::operator_lock::busy_sentence_naming(&presentation::action_label(offer)),
+            linux_vst_bridge::operator_lock::busy_sentence_naming(&screen_model::offers::action_label(offer)),
         _ => failure.reason.clone(),
     };
     let phase = match failure.stage {
@@ -1880,10 +1881,10 @@ impl Operator {
             .min_by_key(|setup| setup_attention_priority(setup));
         // A plug-in the musician removed from the DAW is not unfinished setup.
         let needs_setup = overview.current.products.iter().find(|product|
-            crate::library::status(product).1 != "published"
+            screen_model::product::status(product).class != screen_model::StatusClass::Ready
                 && !matches!(product.disposition.as_str(), "removed_from_daw" | "uninstalled"));
         let recovery = overview.current.products.iter().find(|product|
-            crate::library::recovery_pending(product));
+            screen_model::product::recovery_pending(product));
         let owned_pause = presentation::owned_service_pause(overview.current.operation.as_ref())
             && overview.current.system.pending_transactions == 0
             && overview.current.system.stale_transports == 0
@@ -1959,7 +1960,7 @@ impl Operator {
                 if ui.button("Review setup details").clicked() {*page = Page::Diagnostics;}
             } else if let Some(product) = needs_setup {
                 ui.strong(format!("Next: set up {} for your DAW", product.name));
-                ui.label(crate::library::status(product).0);
+                ui.label(screen_model::product::status(product).words);
                 if ui.add(presentation::primary_button("Continue plug-in setup", ui)).clicked() {
                     library.focus_product(ProductKey::from(product));
                     *page = Page::Plugins;
@@ -1972,12 +1973,12 @@ impl Operator {
                 }
             } else {
                 let mut daws = overview.current.products.iter()
-                    .map(|product| presentation::product_daw(&overview.current, product));
+                    .map(|product| screen_model::product::product_daw(&overview.current, product));
                 let daw = daws.next().flatten()
                     .filter(|first| daws.all(|other| other == Some(*first)));
                 ui.strong(match daw {
                     Some(daw @ (DawChoice::Bitwig | DawChoice::Reaper)) =>
-                        format!("Plug-ins available in {}", presentation::daw_name(daw)),
+                        format!("Plug-ins available in {}", screen_model::product::daw_name(daw)),
                     _ => "Plug-ins available in your DAW".into(),
                 });
                 egui::CollapsingHeader::new("Using your plug-ins").show(ui, |ui| {
@@ -2002,8 +2003,8 @@ impl Operator {
                             *page = Page::Plugins;
                         }
                     });
-                    let progress = presentation::installation_progress(&overview.current, current);
-                    if fresh { ui.label(progress.unwrap_or_else(|| crate::library::status(current).0)); }
+                    let progress = screen_model::product::installation_progress(&overview.current, current);
+                    if fresh { ui.label(progress.unwrap_or_else(|| screen_model::product::status(current).words)); }
                     if let Some(product) = assessment.and_then(|assessment| assessment.products.iter()
                         .find(|product| product.class_id == current.class_id
                             && product.module_sha256 == current.module_sha256)) {
@@ -2262,7 +2263,7 @@ impl Operator {
                             } else { ui.label("Open this app to install or manage its plug-ins."); }
                             if let Some(notice) = presentation::vendor_default_notice(app) { ui.label(notice); }
                             if let Some(consequence) = app.actions.iter().find_map(|offer|
-                                presentation::vendor_install_consequence(&overview.current, &offer.action)) {
+                                screen_model::product::vendor_install_consequence(&overview.current, &offer.action)) {
                                 ui.label(consequence);
                             }
                             let actions: Vec<_> = app.actions.iter().filter(|offer|match offer.action {
@@ -2293,7 +2294,7 @@ impl Operator {
                         if let Some(app) = app {
                             if let Some(offer) = app.actions.iter().find(|offer|
                                 matches!(offer.action,Action::VendorSoftwareInstall { .. })) {
-                                if let Some(consequence) = presentation::vendor_install_consequence(&overview.current,&offer.action) {
+                                if let Some(consequence) = screen_model::product::vendor_install_consequence(&overview.current,&offer.action) {
                                     ui.label(consequence);
                                 }
                                 ui.add_enabled_ui(fresh, |ui| crate::library::primary_action(ui,offer,
@@ -2367,7 +2368,7 @@ impl Operator {
                             ui.small(format!("Stale transports {}",system.stale_transports));
                         } else { ui.small("DSP and capacity unknown"); }
                         ui.small(format!("Pending transactions {}",system.pending_transactions));
-                        ui.small(presentation::activity_certainty(system).cleanup_label());
+                        ui.small(screen_model::product::activity_certainty(system).cleanup_label());
                     });
                 } else {ui.small("Current service capacity and cleanup are unknown.");}
                 ui.small("Plug-in availability is shown separately.");
@@ -2501,14 +2502,14 @@ impl Operator {
                 let state = if row["recent"] == true {
                     format!(
                         "Most recent failed session · {}",
-                        presentation::terminal_text(row["terminal"].as_str().unwrap_or(""))
+                        screen_model::product::terminal_text(row["terminal"].as_str().unwrap_or(""))
                     )
                 } else if row["state"] == "cleanup_unconfirmed" {
                     "Cleanup unconfirmed · this owner is not proof of live audio".into()
                 } else if let Some(terminal) = row["terminal"].as_str() {
                     format!(
                         "Session unavailable · {}",
-                        presentation::terminal_text(terminal)
+                        screen_model::product::terminal_text(terminal)
                     )
                 } else {
                     "Running bridge session".into()
@@ -3437,10 +3438,10 @@ fn removal_confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirm
 
 fn daw_choice_control(ui: &mut egui::Ui, daw: &mut Option<DawChoice>) {
     egui::ComboBox::from_id_salt("software-install-daw")
-        .selected_text(daw.map(presentation::daw_name).unwrap_or("Choose your DAW"))
+        .selected_text(daw.map(screen_model::product::daw_name).unwrap_or("Choose your DAW"))
         .show_ui(ui, |ui| {
             for choice in [DawChoice::Bitwig, DawChoice::Reaper, DawChoice::Other] {
-                ui.selectable_value(daw, Some(choice), presentation::daw_name(choice));
+                ui.selectable_value(daw, Some(choice), screen_model::product::daw_name(choice));
             }
         });
 }
@@ -4208,19 +4209,19 @@ mod tests {
             module_sha256:first.module_sha256.clone(),class_id:first.class_id.clone(),name:first.name.clone()}];
         overview.current.installer_setups = vec![setup];overview.current.products.push(sibling);
         let first = &overview.current.products[0];
-        assert_eq!(presentation::installation_progress(&overview.current,first),Some("Checking this plug-in"));
-        assert!(presentation::installation_progress(&overview.current,&overview.current.products[1]).is_none());
+        assert_eq!(screen_model::product::installation_progress(&overview.current,first),Some("Checking this plug-in"));
+        assert!(screen_model::product::installation_progress(&overview.current,&overview.current.products[1]).is_none());
         let mut another = first.clone();another.module_sha256 = "different-module".into();
-        assert!(presentation::installation_progress(&overview.current,&another).is_none());
+        assert!(screen_model::product::installation_progress(&overview.current,&another).is_none());
         another = first.clone();another.disposition = "needs_attention".into();
-        assert!(presentation::installation_progress(&overview.current,&another).is_none());
+        assert!(screen_model::product::installation_progress(&overview.current,&another).is_none());
         let mut ambiguous = overview.current.clone();
         let mut duplicate = ambiguous.installer_setups[0].discovered[0].clone();duplicate.module_sha256 = "other-module".into();
         ambiguous.installer_setups[0].discovered.push(duplicate);
-        assert!(presentation::installation_progress(&ambiguous,first).is_none());
+        assert!(screen_model::product::installation_progress(&ambiguous,first).is_none());
         let mut failed = overview.current.clone();
         failed.operation.as_mut().unwrap()["journey"]["plugins"][0]["stage"] = serde_json::json!("needs_attention");
-        assert!(presentation::installation_progress(&failed,first).is_none());
+        assert!(screen_model::product::installation_progress(&failed,first).is_none());
         for home in [true,false] {
             let ctx = result_form_context();let mut chosen = None;
             let mut output = ctx.run_ui(egui::RawInput {screen_rect:Some(egui::Rect::from_min_size(
@@ -4315,7 +4316,7 @@ mod tests {
             let mut output=ctx.run_ui(egui::RawInput::default(),|ui|
                 library.show(ui,&snapshot,false,&mut None,|_,_|{}));
             let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
-            assert!(labels.iter().any(|(label,_)|label==presentation::daw_guidance(Some(daw))));
+            assert!(labels.iter().any(|(label,_)|label==screen_model::product::daw_guidance(Some(daw))));
             if daw!=DawChoice::Reaper {
                 assert!(!labels.iter().any(|(label,_)|label.starts_with("In REAPER") || label.starts_with("REAPER:")));
             }
@@ -4864,7 +4865,7 @@ mod tests {
             // The named button is one the card actually shows; never the
             // installer's "Retry", which would run the installer again.
             let shown: Vec<_> = setup.primary.iter().chain(&setup.secondary)
-                .map(presentation::action_label).collect();
+                .map(screen_model::offers::action_label).collect();
             assert!(shown.iter().any(|button| text.contains(&format!("\u{201c}{button}\u{201d}"))),
                 "{text} names none of {shown:?}");
             assert!(!text.contains("Retry"), "{text}");
@@ -7024,7 +7025,7 @@ mod tests {
                 target.operation=Some("retired-replacement".into());
                 target.result=serde_json::json!({"state":"completed","cleanup_confirmed":true,"owned_live":0});
                 let offer=AvailableAction {label:"Connect installed plug-ins".into(),action:action.clone(),disabled_reason:None};
-                let label=presentation::action_label(&offer);
+                let label=screen_model::offers::action_label(&offer);
                 let setup=&mut overview.current.installer_setups[0];
                 if secondary {setup.secondary=vec![offer];} else {setup.primary=Some(offer);}
                 let mut focus=RouteFocus {setup_installer:Some(setup.installer.clone()),..Default::default()};
@@ -7797,7 +7798,7 @@ mod tests {
         assert!(!system.capacity_available());
         assert!(!system.cleanup_unconfirmed);
         assert_eq!(
-            presentation::activity_certainty(system).cleanup_label(),
+            screen_model::product::activity_certainty(system).cleanup_label(),
             "Cleanup unknown"
         );
     }
