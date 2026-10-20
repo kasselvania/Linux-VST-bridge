@@ -103,6 +103,11 @@ impl From<&fs::Metadata> for DigestFileIdentity {
             mtime:m.mtime(), mtime_ns:m.mtime_nsec(), ctime:m.ctime(), ctime_ns:m.ctime_nsec()}
     }
 }
+impl DigestFileIdentity {
+    fn matches_except_ctime(self, other: Self) -> bool {
+        Self { ctime: other.ctime, ctime_ns: other.ctime_ns, ..self } == other
+    }
+}
 thread_local! {
     static SCOPED_DIGESTS: RefCell<Option<HashMap<PathBuf, (DigestFileIdentity, String)>>> =
         const { RefCell::new(None) };
@@ -227,37 +232,59 @@ fn readback_digests_active() -> bool {
         && !FULL_BYTE_VERIFICATION.with(Cell::get)
 }
 pub fn digest(p: &Path) -> Result<String> {
-    let mut f = file(p)?;
-    let before = DigestFileIdentity::from(&f.metadata()?);
-    if let Some(value) = SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref()
-        .and_then(|records| records.get(p))
-        .filter(|(identity, _)| *identity == before)
-        .map(|(_, value)| value.clone())) {
-        require(DigestFileIdentity::from(&fs::symlink_metadata(p)?) == before,
-            "artifact_changed_during_verification")?;
-        return Ok(value);
-    }
-    let mut h = Sha256::new();
-    let mut b = [0u8; 65536];
-    loop {
-        let n = f.read(&mut b)?;
-        if n == 0 {
-            break;
+    Ok(digest_identity(p)?.0)
+}
+fn digest_identity(p: &Path) -> Result<(String, DigestFileIdentity)> {
+    digest_observed(p, |_| Ok(()))
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DigestReadStep { Opened(u8), BeforeReread }
+fn digest_observed(p: &Path, mut observe: impl FnMut(DigestReadStep) -> Result<()>)
+    -> Result<(String, DigestFileIdentity)> {
+    let mut original = None;
+    for attempt in 0..2 {
+        let mut f = file(p)?;
+        let before = DigestFileIdentity::from(&f.metadata()?);
+        if let Some(original) = original {
+            require(before.matches_except_ctime(original), "artifact_changed_during_verification")?;
         }
-        h.update(&b[..n]);
-    }
-    let value = hex(&h.finalize());
-    if SCOPED_DIGESTS.with(|cache| cache.borrow().is_some()) {
-        require(DigestFileIdentity::from(&f.metadata()?) == before
-            && DigestFileIdentity::from(&fs::symlink_metadata(p)?) == before,
-            "artifact_changed_during_verification")?;
+        observe(DigestReadStep::Opened(attempt))?;
+        // Only the first observation may reuse process-owned bytes. The one
+        // reread below always reopens and hashes the entire file from byte zero.
+        let cached = (attempt == 0).then(|| SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref()
+            .and_then(|records| records.get(p))
+            .filter(|(identity, _)| *identity == before)
+            .map(|(_, value)| value.clone()))).flatten();
+        let value = if let Some(value) = cached { value } else {
+            let mut h = Sha256::new();
+            let mut b = [0u8; 65536];
+            loop {
+                let n = f.read(&mut b)?;
+                if n == 0 { break; }
+                h.update(&b[..n]);
+            }
+            hex(&h.finalize())
+        };
+        let fd_after = DigestFileIdentity::from(&f.metadata()?);
+        let path_after = DigestFileIdentity::from(&fs::symlink_metadata(p)?);
+        if fd_after != before || path_after != before {
+            // Pressure-vessel creates/removes runtime hard links during another
+            // setup's startup. A ctime-only race invalidates this observation;
+            // it never authorizes cached bytes or a different file object.
+            require(attempt == 0 && before.matches_except_ctime(fd_after)
+                && before.matches_except_ctime(path_after), "artifact_changed_during_verification")?;
+            original = Some(before);
+            observe(DigestReadStep::BeforeReread)?;
+            continue;
+        }
         SCOPED_DIGESTS.with(|cache| {
             if let Some(records) = cache.borrow_mut().as_mut() {
                 records.insert(p.to_path_buf(), (before, value.clone()));
             }
         });
+        return Ok((value, before));
     }
-    Ok(value)
+    unreachable!("the second unstable observation refuses")
 }
 pub fn read_json<T: for<'de> Deserialize<'de>>(p: &Path) -> Result<T> {
     Ok(serde_json::from_slice(&read_control_bytes(p, 8 * 1024 * 1024)?)?)
@@ -1252,6 +1279,128 @@ mod tests {
             "file ownership/type differs");
         assert_eq!(record.read_record::<serde_json::Value>(32).unwrap_err().to_string(),
             "file ownership/type differs");
+    }
+    fn change_link_count(path: &Path) {
+        let before = DigestFileIdentity::from(&fs::symlink_metadata(path).unwrap());
+        let alias = path.with_extension("digest-link");
+        fs::hard_link(path, &alias).unwrap();
+        fs::remove_file(alias).unwrap();
+        let after = DigestFileIdentity::from(&fs::symlink_metadata(path).unwrap());
+        assert_ne!(before, after);
+        assert!(before.matches_except_ctime(after));
+    }
+    #[test]
+    fn digest_ctime_reread_hashes_fresh_bytes_for_cached_and_fresh_races() {
+        let f = Fixture::new();
+        let path = &f.r.environment.runner.entry_point;
+        for cached in [false, true] {
+            with_launch_verification(|| {
+                let expected = f.r.environment.runner.files[1].sha256.clone();
+                if cached { assert_eq!(digest(path).unwrap(), expected); }
+                let mut opened = Vec::new();
+                let (actual, identity) = digest_observed(path, |step| {
+                    match step {
+                        DigestReadStep::Opened(attempt) => {
+                            opened.push(attempt);
+                            if attempt == 0 { change_link_count(path); }
+                        }
+                        DigestReadStep::BeforeReread => {
+                            // Even a matching cache entry at the reread boundary
+                            // cannot supply bytes for the mandatory full read.
+                            let current = DigestFileIdentity::from(&fs::symlink_metadata(path)?);
+                            SCOPED_DIGESTS.with(|cache| cache.borrow_mut().as_mut().unwrap()
+                                .insert(path.to_path_buf(), (current, "invalid cached digest".into())));
+                        }
+                    }
+                    Ok(())
+                }).unwrap();
+                assert_eq!(opened, vec![0, 1]);
+                assert_eq!(actual, expected);
+                assert_eq!(identity, DigestFileIdentity::from(&fs::symlink_metadata(path).unwrap()));
+                assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap()[path].clone()),
+                    (identity, expected));
+            });
+        }
+    }
+    #[test]
+    fn digest_ctime_reread_does_not_hide_changed_content_with_restored_mtime() {
+        let f = Fixture::new();
+        let record = &f.r.environment.runner.files[1];
+        let modified = fs::metadata(&record.path).unwrap().modified().unwrap();
+        with_launch_verification(|| {
+            record.verify().unwrap();
+            let (actual, _) = digest_observed(&record.path, |step| {
+                match step {
+                    DigestReadStep::Opened(0) => change_link_count(&record.path),
+                    DigestReadStep::BeforeReread => {
+                        fs::write(&record.path, b"changed")?;
+                        File::open(&record.path)?.set_times(fs::FileTimes::new().set_modified(modified))?;
+                    }
+                    _ => {}
+                }
+                Ok(())
+            }).unwrap();
+            assert_ne!(actual, record.sha256);
+            assert_eq!(record.verify().unwrap_err().to_string(), "artifact missing or changed");
+        });
+    }
+    #[test]
+    fn digest_ctime_reread_refuses_replacement_across_attempts_and_repeat_churn() {
+        for replacement in [false, true] {
+            let f = Fixture::new();
+            let path = &f.r.environment.runner.entry_point;
+            with_launch_verification(|| {
+                digest(path).unwrap();
+                let mut opened = Vec::new();
+                let error = digest_observed(path, |step| {
+                    match step {
+                        DigestReadStep::Opened(attempt) => {
+                            opened.push(attempt);
+                            change_link_count(path);
+                        }
+                        DigestReadStep::BeforeReread if replacement => {
+                            // Keep the original inode alive to rule out inode
+                            // reuse, and preserve bytes, mode, size and mtime.
+                            let modified = fs::metadata(path)?.modified()?;
+                            fs::rename(path, path.with_extension("original"))?;
+                            fs::write(path, b"runtime")?;
+                            File::open(path)?.set_times(fs::FileTimes::new().set_modified(modified))?;
+                        }
+                        _ => {}
+                    }
+                    Ok(())
+                }).unwrap_err().to_string();
+                assert_eq!(error, "artifact_changed_during_verification");
+                assert_eq!(opened, if replacement { vec![0] } else { vec![0, 1] });
+            });
+        }
+    }
+    #[test]
+    fn digest_non_ctime_changes_refuse_without_rereading() {
+        let f = Fixture::new();
+        let path = &f.r.environment.runner.entry_point;
+        with_launch_verification(|| {
+            digest(path).unwrap();
+            let mut opened = Vec::new();
+            let error = digest_observed(path, |step| {
+                assert_eq!(step, DigestReadStep::Opened(0));
+                opened.push(step);
+                fs::set_permissions(path, fs::Permissions::from_mode(0o400))?;
+                Ok(())
+            }).unwrap_err().to_string();
+            assert_eq!(error, "artifact_changed_during_verification");
+            assert_eq!(opened.len(), 1);
+        });
+        let before = DigestFileIdentity::from(&fs::symlink_metadata(path).unwrap());
+        for changed in [
+            DigestFileIdentity { device: before.device+1, ..before },
+            DigestFileIdentity { inode: before.inode+1, ..before },
+            DigestFileIdentity { length: before.length+1, ..before },
+            DigestFileIdentity { mode: before.mode^0o100, ..before },
+            DigestFileIdentity { uid: before.uid+1, ..before },
+            DigestFileIdentity { mtime: before.mtime+1, ..before },
+            DigestFileIdentity { mtime_ns: before.mtime_ns^1, ..before },
+        ] { assert!(!before.matches_except_ctime(changed)); }
     }
     #[test]
     fn shared_launch_observations_recheck_mutation_and_restore_scopes() {
