@@ -88,6 +88,7 @@ def prepare_qmp():
     # QEMU creates this private socket as container root on every boot.
     deadline = time.monotonic() + 15
     while time.monotonic() < deadline:
+        observed = None
         try:
             if stat.S_ISSOCK(QMP.lstat().st_mode):
                 observed = QMP.lstat()
@@ -105,6 +106,15 @@ def prepare_qmp():
                     with sock.makefile("rb") as stream:
                         if "QMP" in json.loads(stream.readline()):
                             return
+        except PermissionError:
+            if observed is None:
+                raise
+            try:
+                current = QMP.lstat()
+            except FileNotFoundError:
+                continue
+            if (current.st_dev, current.st_ino) == (observed.st_dev, observed.st_ino):
+                raise
         except (FileNotFoundError, ConnectionRefusedError, TimeoutError, ValueError):
             pass  # A stale socket from the preceding boot is not readiness.
         time.sleep(0.2)
