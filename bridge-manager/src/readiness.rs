@@ -167,8 +167,8 @@ fn bounded_command(program: &str, args: &[&str]) -> Probe<String> {
     bounded_child(child, Duration::from_secs(3))
 }
 
-/// A fixed, read-only systemd query with the same process-cohort and output
-/// bounds as platform probes. Callers supply only manager-derived unit names.
+/// Fixed systemd queries and stop submission use the process-cohort and output
+/// bounds of platform probes. Callers supply only manager-derived unit names.
 #[cfg(test)]
 static UNIT_STATE_FIXTURE: std::sync::Mutex<std::collections::BTreeMap<String,Vec<(u64,String)>>> =
     std::sync::Mutex::new(std::collections::BTreeMap::new());

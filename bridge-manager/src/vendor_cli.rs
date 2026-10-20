@@ -703,7 +703,9 @@ fn cancel_with(m:&Manager,selector:&str,operation:Option<&str>,timeout:Duration,
     // pins the immutable submission while only the nonblocking stop is queued.
     // Reject a changed job/result before any external unit action.
     current()?;
+    drop(registry);
     let running=unit_live()?;
+    let registry=m.lock("registry.lock")?;
     current()?;
     if !running {
         return recover_stopped(m,selector,&job.operation_id,registry,reconcile);
@@ -1416,7 +1418,13 @@ print(json.dumps(session.vendor_recover_census(json.loads(sys.argv[2]),proc=path
         let writer=RefCell::new(Some(f.m.lock(gate.strip_prefix(&f.m.root).unwrap().to_str().unwrap()).unwrap()));
         let submitted=Cell::new(false);let polls=Cell::new(0);
         cancel_with(&f.m,&selector,Some(operation),Duration::from_secs(2),|| {
-            if !submitted.get() {return Ok(true);}
+            if !submitted.get() {
+                std::thread::scope(|scope|scope.spawn(|| {
+                    let _registry=f.m.lock("registry.lock").expect("initial unit observation never holds registry");
+                    assert!(lease.exists());
+                }).join().unwrap());
+                return Ok(true);
+            }
             polls.set(polls.get()+1);
             // A separate status/admission user acquires the real registry
             // while this exact supervisor still owns its lifetime writer.
@@ -1443,7 +1451,7 @@ print(json.dumps(session.vendor_recover_census(json.loads(sys.argv[2]),proc=path
     #[test]
     fn stop_keeps_exact_target_and_cleanup_failures_uncertain() {
         use std::cell::Cell;
-        for case in ["changed_job","changed_result","unit_unavailable","enqueue_failed",
+        for case in ["changed_job","changed_result","unit_unavailable","changed_during_observation","enqueue_failed",
             "changed_after_enqueue","cleanup_timeout","missing_dependency_cleanup"] {
             let (f,job)=assisted();let selector=job.application.selector().unwrap();
             let directory=directory(&f.m,&selector).unwrap();
@@ -1459,9 +1467,14 @@ print(json.dumps(session.vendor_recover_census(json.loads(sys.argv[2]),proc=path
                 let mut changed=running.clone();changed["operation_id"]=random_id().unwrap().into();
                 atomic_json(&job.report,&changed).unwrap();
             }
-            let submitted=Cell::new(false);
+            let submitted=Cell::new(false);let observed=Cell::new(false);
             let error=cancel_with(&f.m,&selector,Some(&job.operation_id),Duration::from_millis(20),|| {
+                observed.set(true);
                 if case=="unit_unavailable" {return Err("unit_unavailable".into());}
+                if case=="changed_during_observation" && !submitted.get() {
+                    let mut changed=job.clone();changed.operation_id=random_id().unwrap();
+                    atomic_json(&directory.join("operation.json"),&changed)?;
+                }
                 if submitted.get() {
                     drop(f.m.lock("registry.lock").expect("retirement never holds registry"));
                 }
@@ -1480,7 +1493,8 @@ print(json.dumps(session.vendor_recover_census(json.loads(sys.argv[2]),proc=path
                 }
                 Ok(())
             }).unwrap_err().to_string();
-            assert_eq!(submitted.get(),!matches!(case,"changed_job"|"changed_result"|"unit_unavailable"),"{case}: {error}");
+            assert_eq!(observed.get(),!matches!(case,"changed_job"|"changed_result"),"{case}: {error}");
+            assert_eq!(submitted.get(),!matches!(case,"changed_job"|"changed_result"|"unit_unavailable"|"changed_during_observation"),"{case}: {error}");
             assert!(!result(&f.m,&selector,&job.operation_id).is_ok_and(|r|r.retired()),"{case}");
             assert_eq!(error,match case {
                 "unit_unavailable"=>"unit_unavailable","enqueue_failed"=>"enqueue_failed",
