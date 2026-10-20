@@ -41,11 +41,29 @@ class AdmissionTests(unittest.TestCase):
         stopped = {"State": {"Running": False}}
         with patch.object(vm, "inspect", side_effect=[running, running, stopped]), \
              patch.object(vm, "powerdown", side_effect=[OSError("not ready"), None]) as down, \
+             patch.object(vm, "prepare_qmp"), \
              patch.object(vm.time, "sleep"), \
              patch.object(vm, "run") as command:
             vm.retire()
             self.assertEqual(down.call_count, 2)
             command.assert_not_called()
+
+    def test_unowned_control_socket_is_prepared_again_before_shutdown_retry(self):
+        running = {"State": {"Running": True}}
+        stopped = {"State": {"Running": False}}
+        calls = []
+
+        def powerdown():
+            calls.append("powerdown")
+            if calls.count("powerdown") == 1:
+                raise PermissionError("root-owned control socket")
+
+        with patch.object(vm, "inspect", side_effect=[running, running, stopped]), \
+             patch.object(vm, "powerdown", side_effect=powerdown), \
+             patch.object(vm, "prepare_qmp", side_effect=lambda: calls.append("prepare")), \
+             patch.object(vm.time, "sleep"):
+            vm.retire()
+        self.assertEqual(calls, ["powerdown", "prepare", "powerdown"])
 
     def test_broken_log_pipe_does_not_abandon_shutdown_observation(self):
         with patch.object(vm, "inspect", side_effect=[

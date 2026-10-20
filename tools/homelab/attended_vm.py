@@ -124,6 +124,7 @@ def prepare_qmp():
 def retire():
     """Keep both locks until positive shutdown, even if graceful shutdown fails."""
     requested = False
+    failed = False
     last_notice = 0
     while True:
         try:
@@ -131,10 +132,15 @@ def retire():
                 emit("VM stopped; both workload locks can be released.")
                 return
             if not requested:
+                if failed:
+                    # Boot may have ended before the socket was owned, or QEMU
+                    # replaced it; without ownership powerdown can never succeed.
+                    prepare_qmp()
                 powerdown()
                 requested = True
                 emit("Graceful guest shutdown requested.")
         except Exception as error:
+            failed = True
             if time.monotonic() - last_notice >= 60:
                 emit(f"Shutdown needs attention; retaining both locks: {error}")
                 last_notice = time.monotonic()
