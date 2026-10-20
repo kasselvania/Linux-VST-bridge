@@ -268,10 +268,12 @@ pub(crate) fn select(m: &Manager, selector: &str) -> Result<Application> {
     if let Some(reason) = &choice.missing_capability { return Err(reason.clone().into()); }
     // Execution rechecks the exact installed content and its real original witness.
     choice.application.verify(&m.root)?;
+    let retirement = operator_cli::vendor_maintenance::observe_retired(m, &choice.application.environment)?;
     let guard = m.lock("registry.lock")?;
-    m.require_inactive(None)?;
-    require(operator_cli::vendor_retired(m)? && onboarding::all_retired(m)?,
-        "vendor_application_operation_requires_retirement")?;
+    capacity::require_environment_inactive(m, &choice.application.environment)?;
+    require(!operator_cli::vendor_maintenance::blocks(m, &choice.application.environment)?,
+        "setup_maintenance_active")?;
+    retirement.verify(m)?;
     // Regenerate the exact receipt-bound choice under registration admission.
     let current = observed(m, selector)?.ok_or("vendor_application_choice_unavailable")?;
     require(current.application == choice.application, "vendor_application_choice_changed")?;
@@ -284,6 +286,52 @@ pub(crate) fn select(m: &Manager, selector: &str) -> Result<Application> {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+
+    pub(crate) fn dsp_lease(f: &test_fixture::Fixture, environment: Option<&Environment>) -> PathBuf {
+        let session = random_id().unwrap();
+        let lease = f.m.root.join("runtime/leases").join(format!("{session}.json"));
+        private_dir(lease.parent().unwrap()).unwrap();
+        let report = f.m.root.join("runtime/results").join(format!("windows-{session}.json"));
+        let root = environment.unwrap_or(&f.r.environment).root.clone();
+        let owner = root.join("compatdata/pfx/drive_c/bridge/sessions").join(&session).join("owner.json");
+        private_dir(owner.parent().unwrap()).unwrap();
+        let mut registration = json!({"metadata":{"class_id":"01".repeat(16)}});
+        if let Some(environment) = environment { registration["environment"] = json!(environment); }
+        atomic_json(&owner, &json!({"session":session,"report":report,"lease":lease,
+            "keeper":false,"inspect":false,"vendor_access":false,"registration":registration})).unwrap();
+        atomic_json(&lease, &report).unwrap();
+        lease
+    }
+
+    #[test]
+    fn first_observed_registration_is_scoped_to_its_setup() {
+        for owner in ["other", "same", "unknown", "corrupt_target"] {
+            let (f, record, _) = installed_app();
+            let choice = choices(&f.m, &record).unwrap().remove(0);
+            let selector = choice.application.selector().unwrap();
+            assert!(!directory(&f.m, &selector).unwrap().join("application.json").exists());
+            let mut other = record.environment.clone();
+            other.id = random_id().unwrap();other.root = f.m.root.join("environments").join(&other.id);
+            let mut units = vec![onboarding::unit(record.installation_operation.as_ref().unwrap()).unwrap()];
+            let lease = if owner == "corrupt_target" {
+                let sibling = choices(&f.m, &record).unwrap().remove(1).application;
+                let guard = f.m.lock("registry.lock").unwrap();
+                register_application(&f.m, &sibling, &guard).unwrap();drop(guard);
+                let sibling_selector = sibling.selector().unwrap();
+                units.push(unit(&sibling_selector).unwrap());
+                fs::write(directory(&f.m, &sibling_selector).unwrap().join("operation.json"), b"invalid receipt").unwrap();
+                None
+            } else { Some(dsp_lease(&f, match owner {"other"=>Some(&other),"same"=>Some(&record.environment),_=>None})) };
+            let result = readiness::with_unit_state_fixture(&units, "inactive", || select(&f.m, &selector));
+            if owner == "other" {
+                assert_eq!(result.unwrap(), choice.application);
+            } else {
+                assert!(result.is_err(), "{owner} owner must refuse first registration");
+                assert!(!directory(&f.m, &selector).unwrap().join("application.json").exists());
+            }
+            if let Some(lease) = lease { assert!(lease.exists(), "registration must preserve the running instance"); }
+        }
+    }
 
     pub(crate) fn installed_app() -> (test_fixture::Fixture, onboarding::Record, PathBuf) {
         let mut f = test_fixture::Fixture::new();
