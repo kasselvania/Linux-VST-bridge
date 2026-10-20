@@ -2509,9 +2509,17 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
             if setup.journey.as_ref().unwrap().phase == ui::InstallationPhase::Available {
                 setup.secondary.clear();
             } else if setup.journey.as_ref().unwrap().phase == ui::InstallationPhase::AwaitingApplication {
-                setup.primary=Some(action("Open the installed app",ui::Action::VendorSoftwareInstall {
-                    application:intent.vendor.as_ref().ok_or("automatic_vendor_intent_missing")?.application.clone(),
-                    daw:intent.journey.daw },busy));
+                let application=&intent.vendor.as_ref().ok_or("automatic_vendor_intent_missing")?.application;
+                // The setup card and Apps expose the same exact app action.
+                // Reuse its scoped authority rather than the global busy reason.
+                setup.primary=vendor_projection(m,application,busy)?.and_then(|app|
+                    app.actions.into_iter().find(|offer|matches!(offer.action,
+                        ui::Action::VendorSoftwareInstall {..}))).map(|mut offer| {
+                            offer.label="Open the installed app".into();
+                            offer.action=ui::Action::VendorSoftwareInstall {
+                                application:application.clone(),daw:intent.journey.daw};
+                            offer
+                        });
                 setup.status="No instruments or effects were installed. Open the app to install them.".into();
                 setup.secondary.clear();
             } else if intent.journey.phase == ui::InstallationPhase::NeedsAttention
@@ -2855,6 +2863,49 @@ mod tests {
             assert!(row.actions.iter().any(|a|a.disabled_reason.is_none()
                 && matches!(&a.action,ui::Action::VendorSoftwareInstall {application,..} if application == &selector)));
         });
+        let sw=Software {manager:f.r.host.clone(),supervisor:f.r.host.clone(),ownership:f.r.host.clone(),
+            host:f.r.host.clone(),source_manifest:f.r.host.clone(),source_sha256:f.r.host.sha256.clone(),
+            installer_launch:None,preparation_kit:None,operator_frontend:None,native_catalogue:None};
+        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
+        let mut other=record.environment.clone();other.id=random_id().unwrap();
+        other.root=f.m.root.join("environments").join(&other.id);
+        let mut units=installer_units(&f.m);units.push(vendor_cli::unit(&selector).unwrap());
+        let custody=job_dir(&f.m,&intent.owner).unwrap().join("vendor-maintenance-state.json");
+        let retired_custody=fs::read(&custody).unwrap();
+        for scope in ["other","same","unknown","held","corrupt"] {
+            let lease=vendor_cli::selection::tests::dsp_lease(&f,match scope {
+                "same"=>Some(&record.environment),"unknown"=>None,_=>Some(&other)});
+            if scope=="held" {
+                let mut held:Value=serde_json::from_slice(&retired_custody).unwrap();held["held"]=true.into();
+                atomic_json(&custody,&held).unwrap();
+            } else if scope=="corrupt" {fs::write(&custody,b"invalid target custody").unwrap();}
+            let mut cap=super::super::tests::capacity_json(false,1,0);
+            cap["capacity"]["owners"]=json!(capacity::owners(&f.m).unwrap());
+            readiness::with_unit_state_fixture(&units,"inactive",|| {
+                let server=super::super::tests::overview_service_reply_with_counts(&f.m,cap.clone(),(7,6));
+                let current=current_overview(&f.m).unwrap();
+                let setup=current.current.installer_setups.iter()
+                    .find(|setup|setup.environment.as_ref()==Some(&record.id)).unwrap();
+                assert_eq!(setup.journey.as_ref().unwrap().phase,ui::InstallationPhase::AwaitingApplication);
+                let primary=setup.primary.as_ref().unwrap();
+                let app=current.current.vendor_applications.iter().find(|app|app.id==selector).unwrap();
+                let app_offer=app.actions.iter().find(|offer|matches!(offer.action,
+                    ui::Action::VendorSoftwareInstall {..})).unwrap();
+                let request=ui::Request {schema:ui::OPERATOR_SCHEMA,
+                    state_token:current.current.state_token.clone(),action:primary.action.clone()};
+                let admitted=validate_current_request(&f.m,&request);
+                assert_eq!(admitted.is_ok(),scope=="other","{scope}: {admitted:?}");
+                assert_eq!(primary.disabled_reason,app_offer.disabled_reason,
+                    "The return-visit card and the app card must carry the same setup authority ({scope})");
+                assert_eq!(primary.disabled_reason.is_none(),scope=="other");
+                assert!(matches!(&primary.action,ui::Action::VendorSoftwareInstall {application,daw}
+                    if application==&selector && *daw==intent.journey.daw));
+                server.join().unwrap();
+                assert!(lease.exists(),"Readback and admission must preserve the unrelated owner");
+            });
+            fs::remove_file(lease).unwrap();
+            fs::write(&custody,&retired_custody).unwrap();
+        }
         assert!(f.m.registry().unwrap().classes.is_empty());
         assert_eq!(test_fixture::snapshot(&onboarding::directory(&f.m,&record.id).unwrap()),before);
     }
