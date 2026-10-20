@@ -81,8 +81,11 @@ pub struct SetupChoice {
 /// moved here unchanged and is retired when the service supplies that refusal
 /// on each offer (#489). The same rule filters routine steps in `plugins.rs`.
 pub fn refusal<'a>(offer: &'a AvailableAction, busy: Option<&'a str>) -> Option<&'a str> {
-    // Opening the result form must remain possible to report a problem while
-    // the target is active. Successful submission uses its exact offered refusal.
+    // Window policy, overriding the manager's refusal: opening the result form
+    // must remain possible to report a problem while the target is active.
+    // Submitting "Worked" still applies the exact offered refusal
+    // (`compatibility_result_refusal` in operator.rs). Retired when the service
+    // offers separate refusals for opening the form and submitting a result.
     if matches!(offer.action, Action::CompatibilityResult { .. }) { return None; }
     offer.disabled_reason.as_deref().or_else(|| {
         offer.action.requires_global_inactive().then_some(busy).flatten()

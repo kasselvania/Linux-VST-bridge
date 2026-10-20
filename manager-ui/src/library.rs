@@ -151,7 +151,9 @@ impl Library {
                 ui.strong(heading);
             }
             for card in &group.cards {
-                plugin_card(ui, card, pending, chosen, |ui| details(ui, &snapshot.products[card.record]));
+                plugin_card(ui, card, pending, chosen, |ui| {
+                    if let Some(record) = card.record { details(ui, &snapshot.products[record]); }
+                });
             }
         }
     }

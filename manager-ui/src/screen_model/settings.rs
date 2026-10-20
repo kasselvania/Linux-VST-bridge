@@ -5,7 +5,9 @@ use super::{Detail, Disclosure, Text};
 use crate::model::{Action, AvailableAction, Product};
 
 /// Settings controls offered for this plug-in. Legacy graphics trials are
-/// hidden once the shared configuration record exists.
+/// hidden once the shared configuration record exists. That hiding is a window
+/// rule over a manager offer, moved unchanged; the service should stop offering
+/// the trial instead (#489).
 pub fn settings_actions(product: &Product) -> Vec<AvailableAction> {
     let shared = !product.details["configuration"].is_null();
     product.actions.iter().filter(|offer| match offer.action {

@@ -189,7 +189,8 @@ impl PluginList {
 pub struct PluginCard {
     pub key: ProductKey,
     /// Position in the manager's product list, for records drawn by the caller.
-    pub record: usize,
+    /// None when the product is not in that snapshot; no other record stands in.
+    pub record: Option<usize>,
     pub name: String,
     pub status: Status,
     pub facts: Vec<Fact>,
@@ -397,8 +398,7 @@ impl PluginCard {
 
         Self {
             key: ProductKey::from(p),
-            record: snapshot.products.iter().position(|candidate| std::ptr::eq(candidate, p))
-                .unwrap_or_default(),
+            record: snapshot.products.iter().position(|candidate| std::ptr::eq(candidate, p)),
             name: p.name.clone(),
             status: progress.map(|words| Status { words, class: StatusClass::Working }).unwrap_or(status),
             facts: vec![
@@ -913,7 +913,8 @@ mod tests {
             assert_eq!(list.summary[0], format!("{0} of {0} plug-ins · grouped by vendor", snapshot.products.len()));
             assert_eq!(list.empty.is_some(), snapshot.products.is_empty(), "{state}");
             for card in cards {
-                assert_eq!(ProductKey::from(&snapshot.products[card.record]), card.key, "{state}");
+                let record = card.record.expect("a listed card has its own record");
+                assert_eq!(ProductKey::from(&snapshot.products[record]), card.key, "{state}");
                 let keys = [card.key.clone()];
                 let opened = Query { focus: Some(&keys), ..all };
                 let detail = PluginList::build(&snapshot, &opened, true, context(&snapshot, false, false));
