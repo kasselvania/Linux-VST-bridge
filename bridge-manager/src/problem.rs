@@ -406,10 +406,17 @@ pub fn from_load_record(outcome: &str, phase: Option<&str>, refusal: Option<&str
         (Some("bridge_update_required"), _) => Explanation::new("bridge_updated_daw_old", NOT_LOADED,
             "The bridge was updated while your DAW still had the older bridge plug-in loaded; reopening a project keeps that older one.",
             "Quit and restart your DAW, then open the project. Do not save before restarting: the older bridge module still loaded can drop this plug-in's settings from the project."),
-        (_, Some("admission_global_capacity" | "admission_class_capacity" | "admission_native_image_capacity")) =>
-            Explanation::new("bridge_plugin_limit", NOT_LOADED,
-            "The bridge was already running as many plug-ins as it allows at once, in total or of this plug-in.",
+        (_, Some("admission_global_capacity")) => Explanation::new("bridge_plugin_limit", NOT_LOADED,
+            format!("The bridge was already running {} bridged plug-ins, the most it runs at once across all your DAWs.",
+                crate::capacity::service_limits().global_dsp),
             format!("Remove a bridged plug-in you do not need, then reopen the project or restart your DAW. {SAVING_NOT_LOADED}")),
+        (_, Some(code @ ("admission_native_image_capacity" | "admission_class_capacity"))) =>
+            Explanation::new("plugin_instance_limit", NOT_LOADED,
+            if code == "admission_native_image_capacity" {
+                format!("The bridge was already running {} instances of this plug-in, the most it runs of one plug-in at once.",
+                    crate::capacity::NATIVE_IMAGE_SLOTS)
+            } else { "The bridge was already running as many instances of this plug-in as it allows at once.".into() },
+            format!("Remove an instance of this plug-in you do not need, then reopen the project or restart your DAW. {SAVING_NOT_LOADED}")),
         (_, Some("admission_maintenance_active")) => Explanation::new("manager_busy_with_plugin", NOT_LOADED,
             "The manager was checking a plug-in, or had a vendor application such as an installer or sign-in window open.",
             format!("Close the vendor application or wait for the manager's check to finish, then reopen the project or restart your DAW. {SAVING_NOT_LOADED}")),
@@ -805,5 +812,18 @@ mod tests {
             &dir.join("missing.json"));
         assert!(unbound.downcast_ref::<BoundFailure>().is_none());
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn refused_loads_name_the_limit_that_refused_them() {
+        let refused = |code: &str| from_load_record("refused", Some("binding_verified"), Some(code)).unwrap();
+        let global = refused("admission_global_capacity");
+        assert_eq!(global.code, "bridge_plugin_limit");
+        assert!(global.likely_cause.contains("8 bridged plug-ins"), "{}", global.likely_cause);
+        let image = refused("admission_native_image_capacity");
+        assert_eq!(image.code, "plugin_instance_limit");
+        assert!(image.likely_cause.contains("4 instances of this plug-in"), "{}", image.likely_cause);
+        assert_eq!(refused("admission_class_capacity").code, "plugin_instance_limit");
+        assert_eq!(refused("admission_maintenance_active").code, "manager_busy_with_plugin");
     }
 }

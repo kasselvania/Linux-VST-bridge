@@ -431,6 +431,16 @@ impl AdmissionCleanup {
         Ok(())
     }
 }
+// Caller holds registry.lock. Vendor maintenance on this exact setup refuses a
+// native load as maintenance, not as an invalid binding. The result reports
+// whether unconfirmed cleanup blocks this setup.
+fn native_admission_blocked(m:&Manager,blocked:&AdmissionCleanup,environment:&Environment)
+    -> Result<bool> {
+    if operator_cli::vendor_maintenance::blocks(m,environment)? {
+        return Err(capacity::Refusal::MaintenanceActive.into());
+    }
+    blocked.blocks_environment(m,environment)
+}
 // Unexposed admission owns only a reservation. Once the native binding is
 // exposed, only positive supervisor retirement can release that ownership.
 struct PendingAdmission {
@@ -1705,7 +1715,7 @@ fn serve(m: Manager) -> Result<()> {
         blocked.record(&entry?.path());
     }
     let keepers = Arc::new(Mutex::new(Vec::new()));
-    let limits = capacity::service_limits()?;
+    let limits = capacity::service_limits();
     let workers = Arc::new(AtomicUsize::new(0));
     let idle_manager = manager.clone();
     let idle_keepers = keepers.clone();
@@ -2000,11 +2010,7 @@ fn serve(m: Manager) -> Result<()> {
                     let mut observed=None;
                     let reservation=wait_for_keeper(keeper_deadline,
                         || capacity::reserve_environment(&m,&limits,&class,&r.environment,
-                            || {
-                                require(!operator_cli::vendor_maintenance::blocks(&m,&r.environment)?,
-                                    "setup_maintenance_active")?;
-                                blocked.blocks_environment(&m,&r.environment)
-                            }),
+                            || native_admission_blocked(&m,&blocked,&r.environment)),
                         || {
                             let registry=m.registry()?;
                             require(registry.classes.get(&class).is_some_and(|entry|
@@ -2058,11 +2064,7 @@ fn serve(m: Manager) -> Result<()> {
                     ready_verified.run(|| {
                     let _reservation=wait_for_keeper(keeper_deadline,
                         || capacity::reserve_environment(&m,&limits,&class,&r.environment,
-                            || {
-                                require(!operator_cli::vendor_maintenance::blocks(&m,&r.environment)?,
-                                    "setup_maintenance_active")?;
-                                blocked.blocks_environment(&m,&r.environment)
-                            }),
+                            || native_admission_blocked(&m,&blocked,&r.environment)),
                         || {
                             let registry=m.registry()?;
                             require(registry.classes.get(&class).is_some_and(|entry|

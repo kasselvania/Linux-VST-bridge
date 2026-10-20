@@ -5666,6 +5666,13 @@ pub(crate) mod tests {
         assert!(a.system.inactive_reason().unwrap().contains("unavailable"));
     }
     #[test]
+    fn production_capacity_status_shows_its_instance_limit_as_the_ceiling() {
+        let f = test_fixture::Fixture::new();
+        let status = capacity::status(&f.m, capacity::service_limits(), 0, false).unwrap();
+        let cap: CapacityReadback = serde_json::from_value(serde_json::to_value(&status).unwrap()).unwrap();
+        assert_eq!(system_from_capacity(Some(&cap), 0, 0).ceiling, 8);
+    }
+    #[test]
     fn malformed_or_refused_capacity_is_unavailable_not_safe() {
         let f = test_fixture::Fixture::new();
         let mut missing = capacity_json(false, 0, 0);

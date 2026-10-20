@@ -174,9 +174,15 @@ pub struct Limits {
     pub native_image_hard: usize,
 }
 
-/// AP17's independently reviewed exact-fixture envelope for the exact retained Arturia
-/// fixture. These are class identities, never friendly-name dispatch. The
-/// native four-slot mechanic is deliberately not raised to match the service.
+/// Slots in one native engine image's instance registry
+/// (`native-vst3-proxy/backend/src/instances.rs`). The service applies this
+/// structural bound to each plug-in class; it is not a workload claim.
+pub const NATIVE_IMAGE_SLOTS: usize = 4;
+
+/// Historical qualification policy only: AP17's independently reviewed
+/// envelope for the exact retained Arturia fixture, kept for its sealed review
+/// and regression tests. Production admission uses `service_limits`. These are
+/// class identities, never friendly-name dispatch.
 pub fn fixture_limits() -> Limits {
     Limits {
         global_dsp: 6,
@@ -196,14 +202,24 @@ pub fn fixture_limits() -> Limits {
     }
 }
 
-/// Single additional AP18 class; the accepted AP17 two-class table is intact.
-/// Successful capacity reservation still requires exact retained publication
-/// and host admission before a processing instance can be exposed.
-pub fn service_limits() -> Result<Limits> {
-    let mut limits = fixture_limits();
-    limits.classes.push(ClassLimit { class_id: crate::profiles::pigments_verified()?.class.class_id, dsp: 1 });
-    limits.classes.push(ClassLimit {class_id: crate::managed_candidate::candidate()?.class.class_id, dsp:1});
-    Ok(limits)
+/// Production admission policy: one finite reservation with no class table.
+/// - up to eight live bridged instances across all of this user's DAWs and setups;
+/// - up to `NATIVE_IMAGE_SLOTS` instances of any one plug-in class;
+/// - one maintenance owner (inspection or vendor application) at a time;
+/// - sixteen service workers. Every live instance and the maintenance owner
+///   holds one worker for its lifetime, so seven stay free for status,
+///   recovery and refusals when instances and maintenance are both full.
+///
+/// A reservation grants no authority: exact publication and host admission
+/// still decide whether a class may run at all.
+pub fn service_limits() -> Limits {
+    Limits {
+        global_dsp: 8,
+        classes: Vec::new(),
+        service_workers: 16,
+        maintenance: 1,
+        native_image_hard: NATIVE_IMAGE_SLOTS,
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -211,9 +227,9 @@ pub fn service_limits() -> Result<Limits> {
 pub struct Status {
     pub schema: u32,
     pub limits: Limits,
-    pub engineering_classes: Vec<ClassLimit>,
-    #[serde(default)]
-    pub verified_additional_classes: Vec<ClassLimit>,
+    /// Every class ceiling in force: historical table rows and each exactly
+    /// published class bounded by the native image.
+    pub class_ceilings: Vec<ClassLimit>,
     pub current_workers: usize,
     pub dsp: usize,
     pub available_dsp: usize,
@@ -223,7 +239,9 @@ pub struct Status {
     pub maintenance_admissible: bool,
     pub cleanup_unconfirmed: bool,
     pub owners: Vec<Owner>,
-    pub envelope: Envelope,
+    /// Present only for the historical qualification policy it describes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub envelope: Option<Envelope>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -267,32 +285,52 @@ fn status_with_wait(
         None,
         wait,
     )?;
-    let extended = limits == service_limits()?;
-    let ordinary_limits = fixture_limits();
-    let verified = retained_qualification_envelope(m, if extended { &ordinary_limits } else { &limits })?;
-    let additional_verified = extended && retained_additional_qualification(m)?;
-    let mut engineering_classes = if extended && !additional_verified { vec![limits.classes[2].clone()] } else { Vec::new() };
-    if extended { engineering_classes.push(limits.classes[3].clone()); }
-    let mut current_classes=limits.classes.clone();
+    // The envelope describes the sealed historical fixture policy. Production
+    // admission is a different policy and claims no qualification envelope.
+    let envelope = if limits == fixture_limits() {
+        let verified = retained_qualification_envelope(m, &limits)?;
+        Some(Envelope {
+            claim: if verified { EnvelopeClaim::VerifiedExactFixture } else { EnvelopeClaim::EngineeringCandidate },
+            parallel_tracks: 3,
+            serial_bridged_depth: 3,
+            simultaneous_editors: 2,
+            evidence: "docs/AP17.md".into(),
+            fixture: "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit".into(),
+            seven: "unqualified".into(),
+            eight: "excluded_for_tested_workload".into(),
+        })
+    } else {
+        None
+    };
+    let mut class_ceilings = limits.classes.clone();
+    let mut setups = BTreeMap::new();
     for (key,e) in m.registry()?.classes {
-        if e.publication!=Publication::Published || current_classes.iter().any(|c|c.class_id==key){continue;}
-        // Publication eligibility controls only this class's extra slots. An
-        // invalid or pending publication must not hide canonical owners or
-        // prevent its ordinary reconciliation. Admission below still returns
-        // the exact publication error; malformed owners still fail readback.
-        let Ok(Some(capacity)) = unfamiliar_managed_capacity_with(m, limits.native_image_hard, &key, false) else { continue; };
-        let limit=ClassLimit{class_id:key,dsp:capacity};
-        engineering_classes.push(limit.clone());current_classes.push(limit);
+        if e.publication!=Publication::Published {continue;}
+        if !class_ceilings.iter().any(|c|c.class_id==key) {
+            // Publication eligibility controls only this class's slots. An
+            // invalid or pending publication must not hide canonical owners or
+            // prevent its ordinary reconciliation. Admission below still returns
+            // the exact publication error; malformed owners still fail readback.
+            let Ok(Some(capacity)) = image_capacity_with(m, limits.native_image_hard, &key, false) else { continue; };
+            class_ceilings.push(ClassLimit{class_id:key.clone(),dsp:capacity});
+        }
+        setups.insert(key, e.registration.environment);
     }
-    let verified_additional_classes = if additional_verified { vec![limits.classes[2].clone()] } else { Vec::new() };
     let owners = owners(m)?;
     let dsp = owners.iter().filter(|o| o.kind == Kind::Dsp).count();
     let maintenance = owners
         .iter()
         .filter(|o| matches!(o.kind, Kind::Inspection | Kind::VendorAccess))
         .count();
+    // Admission excludes maintenance only from its own setup, and an owner
+    // without a resolvable setup from every setup (reserve_environment).
+    let maintained = owners
+        .iter()
+        .filter(|o| matches!(o.kind, Kind::Inspection | Kind::VendorAccess))
+        .map(|o| m.lease_environment(&o.session).ok())
+        .collect::<Option<Vec<_>>>();
     let keepers = owners.iter().filter(|o| o.kind == Kind::Keeper).count();
-    let per_class: BTreeMap<_, _> = current_classes
+    let per_class: BTreeMap<_, _> = class_ceilings
         .iter()
         .map(|c| {
             (
@@ -304,21 +342,22 @@ fn status_with_wait(
             )
         })
         .collect();
+    let available_dsp = match maintained {
+        Some(maintained) if !blocked => limits.global_dsp.saturating_sub(dsp).min(
+            class_ceilings
+                .iter()
+                .filter(|c| setups.get(&c.class_id).is_none_or(|setup: &Environment|
+                    !maintained.iter().any(|scope| scope.id == setup.id || scope.root == setup.root)))
+                .map(|c| c.dsp.saturating_sub(per_class[&c.class_id]))
+                .sum(),
+        ),
+        _ => 0,
+    };
     Ok(Status {
         schema: 1,
-        available_dsp: if blocked || maintenance != 0 {
-            0
-        } else {
-            limits.global_dsp.saturating_sub(dsp).min(
-                current_classes
-                    .iter()
-                    .map(|c| c.dsp.saturating_sub(per_class[&c.class_id]))
-                    .sum(),
-            )
-        },
+        available_dsp,
         limits,
-        engineering_classes,
-        verified_additional_classes,
+        class_ceilings,
         current_workers: workers,
         dsp,
         per_class,
@@ -327,16 +366,7 @@ fn status_with_wait(
         maintenance_admissible: !blocked && dsp == 0 && maintenance == 0,
         cleanup_unconfirmed: blocked,
         owners,
-        envelope: Envelope {
-            claim: if verified { EnvelopeClaim::VerifiedExactFixture } else { EnvelopeClaim::EngineeringCandidate },
-            parallel_tracks: 3,
-            serial_bridged_depth: 3,
-            simultaneous_editors: 2,
-            evidence: "docs/AP17.md".into(),
-            fixture: "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit".into(),
-            seven: "unqualified".into(),
-            eight: "excluded_for_tested_workload".into(),
-        },
+        envelope,
     })
 }
 
@@ -346,20 +376,6 @@ fn status_with_wait(
 /// retain their independent current checks.
 fn retained_qualification_envelope(m: &Manager, limits: &Limits) -> Result<bool> {
     retained_qualification_envelope_for(m, limits, &crate::profiles::ap17_profiles()?)
-}
-fn retained_additional_qualification(m: &Manager) -> Result<bool> {
-    let p = crate::profiles::pigments_verified()?;
-    let db = m.registry()?;
-    let Some(e) = db.classes.get(&p.class.class_id) else { return Ok(false); };
-    let Some(reference) = &e.managed_revision else { return Ok(false); };
-    let r = m.load_revision_record(&p.class.class_id, reference)?;
-    if (r.profile != p && r.profile != crate::profiles::pigments_eleven()?) || r.qualification.is_some() || e.publication != Publication::Published
-        || r.registration != e.registration || m.publication_pending(&p.class.class_id)?
-        || crate::publication::physical(&m.link(&p.class.class_id))? != Some(r.target.clone()) {
-        return Ok(false);
-    }
-    m.verify_completed_publication(&r, reference)?;
-    Ok(true)
 }
 pub(crate) fn retained_qualification_envelope_for(
     m: &Manager,
@@ -395,13 +411,14 @@ pub(crate) fn retained_qualification_envelope_for(
 
 impl Limits {
     fn verify(&self) -> Result<()> {
+        // Production has no class table; the historical one has two rows.
         require(
             (1..=8).contains(&self.global_dsp)
                 && self.service_workers > self.global_dsp + self.maintenance
                 && self.service_workers <= 16
                 && self.maintenance == 1
-                && self.native_image_hard == 4
-                && ((1..=2).contains(&self.classes.len()) || *self == service_limits()?),
+                && self.native_image_hard == NATIVE_IMAGE_SLOTS
+                && self.classes.len() <= 2,
             "capacity_policy_invalid",
         )?;
         let mut ids = std::collections::BTreeSet::new();
@@ -642,7 +659,7 @@ pub fn require_environment_inactive(m: &Manager, environment: &Environment) -> R
 
 fn check_selected(
     owners: &[Owner], limits: &Limits, class: Option<&str>,
-    unfamiliar_managed_capacity: Option<usize>,
+    image_capacity: Option<usize>,
 ) -> Result<()> {
     limits.verify()?;
     if owners
@@ -659,9 +676,12 @@ fn check_selected(
             Err(Refusal::MaintenanceActive.into())
         };
     };
-    let policy = limits.classes.iter().find(|c| c.class_id == class);
-    let ceiling=policy.map(|p|p.dsp).or(unfamiliar_managed_capacity)
-        .ok_or(Refusal::BindingInvalid)?;
+    // A historical table row names its own class ceiling. Every other class is
+    // bounded by the slots of one native engine image, and says so on refusal.
+    let (ceiling, full) = match limits.classes.iter().find(|c| c.class_id == class) {
+        Some(row) => (row.dsp, Refusal::ClassCapacity),
+        None => (image_capacity.ok_or(Refusal::BindingInvalid)?, Refusal::NativeImageCapacity),
+    };
     if dsp >= limits.global_dsp {
         return Err(Refusal::GlobalCapacity.into());
     }
@@ -671,7 +691,7 @@ fn check_selected(
         .count()
         >= ceiling
     {
-        return Err(Refusal::ClassCapacity.into());
+        return Err(full.into());
     }
     Ok(())
 }
@@ -710,9 +730,9 @@ pub fn reserve_environment(
     records.retain(|owner| !matches!(owner.kind, Kind::Inspection | Kind::VendorAccess)
         || !m.lease_environment(&owner.session).is_ok_and(|scope|
             scope.id != environment.id && scope.root != environment.root));
-    let unfamiliar = if limits.classes.iter().any(|policy| policy.class_id == class) { None }
-        else { unfamiliar_managed_capacity(m, limits.native_image_hard, class)? };
-    check_selected(&records, limits, Some(class), unfamiliar)?;
+    let image = if limits.classes.iter().any(|policy| policy.class_id == class) { None }
+        else { image_capacity(m, limits.native_image_hard, class)? };
+    check_selected(&records, limits, Some(class), image)?;
     Ok(lock)
 }
 
@@ -750,24 +770,25 @@ fn reserve_maintenance_with_wait(
 }
 fn validate_reservation(m: &Manager, limits: &Limits, class: Option<&str>) -> Result<()> {
     let records = owners(m).map_err(|_| Refusal::CleanupUnconfirmed)?;
-    let unfamiliar_managed_capacity = match class {
+    let image = match class {
         Some(class) if !limits.classes.iter().any(|policy| policy.class_id == class) =>
-            unfamiliar_managed_capacity(m, limits.native_image_hard, class)?,
+            image_capacity(m, limits.native_image_hard, class)?,
         _ => None,
     };
-    check_selected(&records, limits, class, unfamiliar_managed_capacity)?;
+    check_selected(&records, limits, class, image)?;
     Ok(())
 }
 
-/// An unfamiliar class with an exact, currently published managed revision may
-/// use the native image's structural slot count. This is only an admission
-/// ceiling; the shared global reservation and measured workload policy remain
-/// separate. A stale or ambiguous publication never receives this capacity.
+/// A class with an exact, currently published managed revision may use the
+/// native image's structural slot count. This is only an admission ceiling;
+/// the shared global reservation and host admission remain separate. Which
+/// profile owns the revision is publication authority, not capacity. A stale
+/// or ambiguous publication never receives this capacity.
 /// Caller holds registry.lock, the same guard used by admission and publication.
-fn unfamiliar_managed_capacity(m: &Manager, native_image_hard: usize, class: &str) -> Result<Option<usize>> {
-    unfamiliar_managed_capacity_with(m, native_image_hard, class, true)
+fn image_capacity(m: &Manager, native_image_hard: usize, class: &str) -> Result<Option<usize>> {
+    image_capacity_with(m, native_image_hard, class, true)
 }
-fn unfamiliar_managed_capacity_with(m: &Manager, native_image_hard: usize, class: &str,
+fn image_capacity_with(m: &Manager, native_image_hard: usize, class: &str,
     execution: bool) -> Result<Option<usize>> {
     require(valid_hex(class, 32) && class == class.to_uppercase(), "capacity_class_identity")?;
     let registry = m.registry()?;
@@ -782,11 +803,11 @@ fn unfamiliar_managed_capacity_with(m: &Manager, native_image_hard: usize, class
         && revision.registration.key() == class
         && revision.registration.metadata.class_id == class
         && entry.registration == revision.registration, "capacity_publication_identity")?;
-    if !crate::preparation::owns_profile(m, &revision.profile)? { return Ok(None); }
     require(!m.publication_pending(class)?
         && crate::publication::physical(&m.link(class))? == Some(revision.target.clone()),
         "capacity_publication_changed")?;
-    m.verify_completed_publication(&revision, reference)?;
+    // An adopted legacy revision has no publication transaction to complete.
+    if !revision.adopted_legacy { m.verify_completed_publication(&revision, reference)?; }
     Ok(Some(native_image_hard))
 }
 
@@ -1473,7 +1494,7 @@ mod tests {
         fs::write(path, b"changed selected native bytes").unwrap();
         let status = status(&f.m, policy.clone(), 0, false).unwrap();
         assert_eq!(status.dsp, 0);
-        assert!(status.engineering_classes.iter().any(|row| row.class_id == *class));
+        assert!(status.class_ceilings.iter().any(|row| row.class_id == *class));
         assert!(f.m.load_revision_record(class, &reference).is_ok());
         assert_eq!(reserve(&f.m, &policy, Some(class), false).err().unwrap().to_string(),
             "artifact missing or changed");
@@ -1493,13 +1514,13 @@ mod tests {
         policy.classes[1].dsp = 4;
         assert!(!policy.classes.iter().any(|row| row.class_id == *class));
         let observed = status(&f.m, policy.clone(), 0, false).unwrap();
-        assert_eq!(observed.engineering_classes.iter().find(|row| row.class_id == *class).unwrap().dsp, 4);
+        assert_eq!(observed.class_ceilings.iter().find(|row| row.class_id == *class).unwrap().dsp, 4);
         for _ in 0..4 {
             let guard = reserve(&f.m, &policy, Some(class), false).unwrap();
             lease(&f, class, Kind::Dsp);
             drop(guard);
         }
-        assert_eq!(reason(reserve(&f.m, &policy, Some(class), false)), Refusal::ClassCapacity.code());
+        assert_eq!(reason(reserve(&f.m, &policy, Some(class), false)), Refusal::NativeImageCapacity.code());
         // Valid leases cannot grant admission for a substituted publication.
         let selected = f.m.load_revision(class, &revision).unwrap();
         fs::remove_file(f.m.link(class)).unwrap();
@@ -1508,7 +1529,7 @@ mod tests {
         assert_eq!(observed.dsp, 4);
         assert_eq!(observed.owners, owners(&f.m).unwrap());
         assert_eq!(observed.available_dsp, 2);
-        assert!(!observed.engineering_classes.iter().any(|row| row.class_id == *class));
+        assert!(!observed.class_ceilings.iter().any(|row| row.class_id == *class));
         assert!(reserve(&f.m, &policy, Some(class), false).is_err());
     }
 
@@ -1553,7 +1574,7 @@ mod tests {
         assert_eq!(observed.available_dsp, 3);
         assert!(!observed.cleanup_unconfirmed);
         assert!(!observed.maintenance_admissible);
-        assert!(!observed.engineering_classes.iter().any(|row| row.class_id == *class));
+        assert!(!observed.class_ceilings.iter().any(|row| row.class_id == *class));
         assert_eq!(reason(reserve(&f.m, &policy, Some(class), false)), "capacity_publication_changed");
         drop(reserve(&f.m, &policy, Some(&policy.classes[1].class_id), false).unwrap());
         assert_eq!(owners(&f.m).unwrap(), live_owners);
@@ -1607,7 +1628,7 @@ mod tests {
         assert_eq!(
             check_selected(&active, &policy, Some(&unfamiliar), Some(policy.native_image_hard))
                 .unwrap_err().downcast_ref::<Refusal>(),
-            Some(&Refusal::ClassCapacity)
+            Some(&Refusal::NativeImageCapacity)
         );
 
         // A separate mixed-class run demonstrates that independent class
@@ -1655,5 +1676,175 @@ mod tests {
                 Refusal::MaintenanceActive.code()
             );
         }
+    }
+
+    /// A durable owner bound to `environment`, as admission and maintenance retain it.
+    fn lease_in(f: &Fixture, class: &str, kind: Kind, environment: &Environment) -> PathBuf {
+        let sid = random_id().unwrap();
+        let report = f.m.root.join("runtime/results").join(format!(
+            "{}-{sid}.json", if kind == Kind::Keeper { "environment" } else { "windows" }));
+        private_dir(report.parent().unwrap()).unwrap();
+        let lease = f.m.root.join("runtime/leases").join(format!("{sid}.json"));
+        let owner = environment.root.join("compatdata/pfx/drive_c/bridge/sessions")
+            .join(&sid).join("owner.json");
+        private_dir(owner.parent().unwrap()).unwrap();
+        atomic_json(&owner, &serde_json::json!({"session":sid,"report":report,"lease":lease,
+            "keeper":kind==Kind::Keeper,"inspect":matches!(kind, Kind::Keeper|Kind::Inspection),
+            "vendor_access":kind==Kind::VendorAccess,
+            "registration":{"environment":environment,"metadata":{"class_id":class}}})).unwrap();
+        f.m.retain_lease_owner(&owner).unwrap();
+        private_dir(lease.parent().unwrap()).unwrap();
+        atomic_json(&lease, &report).unwrap();
+        lease
+    }
+    /// One exactly published plug-in class in the fixture setup, and a second setup.
+    fn production_fixture() -> (Fixture, String, Environment) {
+        let (f, candidate) = crate::preparation::tests::fixture();
+        crate::preparation::record_candidate(&f.m, &candidate).unwrap();
+        crate::preparation::enable(&f.m, &candidate, false).unwrap();
+        let other = other_environment(&f);
+        (f, candidate.selection.class.id.clone(), other)
+    }
+    /// The production admission path: reserve, then publish the lease under the reservation.
+    fn admit(f: &Fixture, class: &str) -> Result<PathBuf> {
+        let _reservation = reserve_environment(&f.m, &service_limits(), class, &f.r.environment,
+            || Ok(false))?;
+        Ok(lease_in(f, class, Kind::Dsp, &f.r.environment))
+    }
+    fn available(f: &Fixture) -> usize {
+        status(&f.m, service_limits(), 0, false).unwrap().available_dsp
+    }
+    #[test]
+    fn production_policy_is_explicit_finite_and_inspectable() {
+        let production = service_limits();
+        production.verify().unwrap();
+        assert_eq!((production.global_dsp, production.service_workers, production.maintenance,
+            production.native_image_hard), (8, 16, 1, 4));
+        assert!(production.classes.is_empty());
+        assert!(production.service_workers > production.global_dsp + production.maintenance);
+        // The historical qualification policy is unchanged and still valid.
+        let historical = fixture_limits();
+        historical.verify().unwrap();
+        assert_eq!((historical.global_dsp, historical.classes.len()), (6, 2));
+        let f = Fixture::new();
+        let observed = status(&f.m, production.clone(), 0, false).unwrap();
+        assert_eq!(observed.limits, production);
+        assert!(observed.envelope.is_none());
+        assert!(serde_json::to_value(&observed).unwrap().get("envelope").is_none());
+        assert!(status(&f.m, historical, 0, false).unwrap().envelope.is_some());
+    }
+    #[test]
+    fn production_policy_admits_a_seventh_and_eighth_and_names_the_global_limit() {
+        let (f, class, other) = production_fixture();
+        // Six instances of three other classes across two setups; no image is full.
+        for id in ["03", "04", "05"] {
+            lease_in(&f, &id.repeat(16), Kind::Dsp, &f.r.environment);
+            lease_in(&f, &id.repeat(16), Kind::Dsp, &other);
+        }
+        assert_eq!(available(&f), 2);
+        let seventh = admit(&f, &class).unwrap();
+        let eighth = admit(&f, &class).unwrap();
+        assert_ne!(seventh, eighth);
+        let before = owners(&f.m).unwrap();
+        assert_eq!(before.len(), 8);
+        assert_eq!(available(&f), 0);
+        assert_eq!(admit(&f, &class).unwrap_err().to_string(), Refusal::GlobalCapacity.code());
+        assert_eq!(owners(&f.m).unwrap(), before, "a refusal leaves no partial owner");
+    }
+    #[test]
+    fn production_policy_names_a_full_native_image() {
+        let (f, class, other) = production_fixture();
+        lease_in(&f, &"03".repeat(16), Kind::Dsp, &other);
+        for _ in 0..NATIVE_IMAGE_SLOTS {
+            admit(&f, &class).unwrap();
+        }
+        assert_eq!(admit(&f, &class).unwrap_err().to_string(), Refusal::NativeImageCapacity.code());
+        let observed = status(&f.m, service_limits(), 0, false).unwrap();
+        assert_eq!((observed.dsp, observed.per_class[&class], observed.available_dsp), (5, 4, 0));
+    }
+    #[test]
+    fn production_concurrent_admission_cannot_over_admit() {
+        let (f, class, other) = production_fixture();
+        for id in ["03", "04", "05"] {
+            lease_in(&f, &id.repeat(16), Kind::Dsp, &other);
+        }
+        let barrier = std::sync::Barrier::new(12);
+        let (f, class, barrier) = (&f, &class, &barrier);
+        let accepted = std::thread::scope(|scope| {
+            let jobs: Vec<_> = (0..12).map(move |_| scope.spawn(move || {
+                barrier.wait();
+                // The production API refuses contention; test clients retry
+                // Busy with a finite bound, outside any DAW.
+                for _ in 0..1000 {
+                    match admit(f, class) {
+                        Ok(_) => return true,
+                        Err(e) if e.to_string() == Refusal::ServiceBusy.code() => std::thread::yield_now(),
+                        Err(e) => {
+                            assert!(e.to_string() == Refusal::NativeImageCapacity.code()
+                                || e.to_string() == Refusal::GlobalCapacity.code(), "{e}");
+                            return false;
+                        }
+                    }
+                }
+                false
+            })).collect();
+            jobs.into_iter().map(|job| job.join().unwrap()).filter(|accepted| *accepted).count()
+        });
+        assert!(accepted <= NATIVE_IMAGE_SLOTS);
+        // All contenders have joined; every remaining unit is still available.
+        for _ in accepted..NATIVE_IMAGE_SLOTS {
+            admit(f, class).unwrap();
+        }
+        assert_eq!(admit(f, class).unwrap_err().to_string(), Refusal::NativeImageCapacity.code());
+        let records = owners(&f.m).unwrap();
+        assert_eq!(records.iter().filter(|o| o.class_id == *class).count(), NATIVE_IMAGE_SLOTS);
+        assert_eq!(records.len(), 3 + NATIVE_IMAGE_SLOTS);
+    }
+    #[test]
+    fn production_failed_startup_and_release_return_capacity() {
+        let (f, class, other) = production_fixture();
+        for id in ["03", "04"] {
+            for _ in 0..3 {
+                lease_in(&f, &id.repeat(16), Kind::Dsp, &other);
+            }
+        }
+        let seventh = admit(&f, &class).unwrap();
+        // A startup that fails before publishing its lease returns its unit.
+        drop(reserve_environment(&f.m, &service_limits(), &class, &f.r.environment,
+            || Ok(false)).unwrap());
+        assert_eq!(owners(&f.m).unwrap().len(), 7);
+        let eighth = admit(&f, &class).unwrap();
+        assert_eq!(admit(&f, &class).unwrap_err().to_string(), Refusal::GlobalCapacity.code());
+        // Removing an instance releases exactly one unit, and reloading it is admitted.
+        fs::remove_file(&eighth).unwrap();
+        assert_eq!(available(&f), 1);
+        let reloaded = admit(&f, &class).unwrap();
+        assert_ne!(reloaded, eighth);
+        assert!(seventh.exists());
+        assert_eq!(admit(&f, &class).unwrap_err().to_string(), Refusal::GlobalCapacity.code());
+    }
+    #[test]
+    fn availability_follows_setup_scoped_maintenance_like_admission() {
+        let (f, class, other) = production_fixture();
+        let admissible = |f: &Fixture| reserve_environment(&f.m, &service_limits(), &class,
+            &f.r.environment, || Ok(false)).map(drop);
+        assert_eq!(available(&f), NATIVE_IMAGE_SLOTS);
+        // Maintenance in another setup leaves this setup's plug-in admissible.
+        let unrelated = lease_in(&f, &"03".repeat(16), Kind::VendorAccess, &other);
+        let observed = status(&f.m, service_limits(), 0, false).unwrap();
+        assert_eq!((observed.maintenance, observed.available_dsp), (1, NATIVE_IMAGE_SLOTS));
+        assert!(!observed.maintenance_admissible);
+        admissible(&f).unwrap();
+        fs::remove_file(&unrelated).unwrap();
+        // Maintenance in the plug-in's own setup excludes it in both views.
+        let own = lease_in(&f, &class, Kind::Inspection, &f.r.environment);
+        assert_eq!(available(&f), 0);
+        assert_eq!(admissible(&f).unwrap_err().to_string(), Refusal::MaintenanceActive.code());
+        fs::remove_file(&own).unwrap();
+        assert_eq!(available(&f), NATIVE_IMAGE_SLOTS);
+        // Maintenance whose setup cannot be resolved excludes every setup.
+        lease(&f, &class, Kind::Inspection);
+        assert_eq!(available(&f), 0);
+        assert_eq!(admissible(&f).unwrap_err().to_string(), Refusal::MaintenanceActive.code());
     }
 }
