@@ -1,6 +1,6 @@
 //! Fixed manager entry point; explicit program choices use structured requests.
 use crate::model::{Activity, CurrentOverview, CurrentProductDetail, InstallerImportResult, InteractiveOverview, Pulse, Receipt, Request, Snapshot};
-use crate::presentation::ProductKey;
+use crate::screen_model::ProductKey;
 use std::{
     io::{Read, Write},
     process::{Command, Stdio},

@@ -17,9 +17,14 @@ mod model;
 mod operator;
 #[path = "../src/presentation.rs"]
 mod presentation;
+#[path = "../src/screen_model/mod.rs"]
+#[allow(dead_code)]
+mod screen_model;
 #[path = "../src/updates.rs"]
 #[allow(dead_code)]
 mod updates;
+#[path = "../src/widgets.rs"]
+mod widgets;
 
 use eframe::egui;
 

@@ -1,0 +1,811 @@
+//! The Plug-ins screens: the searchable list, one plug-in's detail, and the
+//! read-only list shown while a plug-in's controls load. No discovery,
+//! publication or launch authority: every control is a manager offer.
+use super::offers::{self, Importance, Offer, OfferRow};
+use super::product::{self, daw_guidance, installation_progress, last_load_text, product_activity,
+    product_daw, product_issue, recovery_pending, vendor_install_consequence};
+use super::settings::{self, settings_actions};
+use super::{Detail, Disclosure, Fact, ProductKey, Status, StatusClass, Text};
+use crate::model::{Action, AvailableAction, CompatibilityPhase, EnvironmentInstaller, Product, Snapshot};
+
+pub const HEADING: &str = "Plug-ins";
+pub const SHOW_ALL: &str = "Show all plug-ins";
+pub const SEARCH_HINT: &str = "Search name, vendor, type or version";
+pub const CLEAR_FILTERS: &str = "Clear filters";
+pub const CLEAR_SEARCH: &str = "Clear search";
+pub const MANAGE: &str = "Manage plug-in";
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RoleFilter {
+    #[default]
+    All,
+    Instruments,
+    Effects,
+}
+
+impl RoleFilter {
+    pub const CHOICES: [Self; 3] = [Self::All, Self::Instruments, Self::Effects];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::All => "All types",
+            Self::Instruments => "Instruments",
+            Self::Effects => "Effects",
+        }
+    }
+
+    fn matches(self, product: &Product) -> bool {
+        match self {
+            Self::All => true,
+            Self::Instruments => product.role == "instrument",
+            Self::Effects => product.role == "effect",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum StatusFilter {
+    #[default]
+    All,
+    Available,
+    NotYetAvailable,
+    NeedsAttention,
+}
+
+impl StatusFilter {
+    pub const CHOICES: [Self; 4] = [Self::All, Self::Available, Self::NotYetAvailable, Self::NeedsAttention];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::All => "All statuses",
+            Self::Available => "Available in DAW",
+            Self::NotYetAvailable => "Not available yet",
+            Self::NeedsAttention => "Needs attention",
+        }
+    }
+
+    fn matches(self, status: Status) -> bool {
+        match self {
+            Self::All => true,
+            Self::Available => status.class == StatusClass::Ready,
+            Self::NotYetAvailable => status.class == StatusClass::NeedsYou,
+            Self::NeedsAttention => status.class.needs_attention(),
+        }
+    }
+}
+
+/// The musician's current search, filters and selection on the Plug-ins page.
+#[derive(Clone, Copy, Debug)]
+pub struct Query<'a> {
+    pub search: &'a str,
+    pub role: RoleFilter,
+    pub status: StatusFilter,
+    /// Exact plug-ins opened from elsewhere; search and filters do not apply.
+    pub focus: Option<&'a [ProductKey]>,
+}
+
+impl Query<'_> {
+    /// Exactly one plug-in is open.
+    pub fn single(&self) -> bool {
+        self.focus.is_some_and(|keys| keys.len() == 1)
+    }
+
+    pub fn filtered(&self) -> bool {
+        !self.search.is_empty() || self.role != RoleFilter::All || self.status != StatusFilter::All
+    }
+}
+
+/// Plug-ins the query selects. Opened plug-ins keep the manager's order;
+/// otherwise every search term must match and results group by vendor.
+pub fn matching<'a>(snapshot: &'a Snapshot, query: &Query) -> Vec<&'a Product> {
+    if let Some(keys) = query.focus {
+        return snapshot.products.iter()
+            .filter(|product| keys.contains(&ProductKey::from(*product)))
+            .collect();
+    }
+    let search = query.search.to_lowercase();
+    let mut products: Vec<_> = snapshot.products.iter()
+        .filter(|p| {
+            let haystack = format!("{} {} {} {}", p.name, product::vendor(p), product::role(p), p.version)
+                .to_lowercase();
+            search.split_whitespace().all(|term| haystack.contains(term))
+                && query.role.matches(p)
+                && query.status.matches(product::status(p))
+        })
+        .collect();
+    products.sort_by_cached_key(|p| (
+        product::vendor(p).to_lowercase(),
+        p.name.to_lowercase(),
+        p.version.clone(),
+        p.environment.clone(),
+        p.class_id.clone(),
+        p.module_sha256.clone(),
+    ));
+    products
+}
+
+/// What the screen knows besides the manager's records.
+#[derive(Clone, Copy, Debug)]
+pub struct Context<'a> {
+    /// The shared-resource refusal from current service status, if any.
+    pub busy: Option<&'a str>,
+    /// A request or the manager's readback is in flight.
+    pub pending: bool,
+    /// Hold every disclosure open (previews and tests).
+    pub expanded: bool,
+}
+
+/// The full Plug-ins list, or one opened plug-in's detail.
+#[derive(Clone, Debug)]
+pub struct PluginList {
+    /// Count and rescan hint, when listing rather than showing one plug-in.
+    pub summary: Vec<String>,
+    pub empty: Option<(&'static str, &'static str)>,
+    pub groups: Vec<VendorGroup>,
+}
+
+#[derive(Clone, Debug)]
+pub struct VendorGroup {
+    pub heading: Option<String>,
+    pub cards: Vec<PluginCard>,
+}
+
+impl PluginList {
+    /// `single` is whether one plug-in was open when the page was laid out.
+    pub fn build(snapshot: &Snapshot, query: &Query, single: bool, context: Context) -> Self {
+        let products = matching(snapshot, query);
+        let summary = if single { vec![] } else { vec![
+            format!("{} of {} plug-ins · grouped by vendor", products.len(), snapshot.products.len()),
+            "Available plug-ins appear as native VST3s. Rescan VST3 plug-ins in your DAW if one is missing.".into(),
+        ] };
+        let empty = products.is_empty().then_some(if snapshot.products.is_empty() {
+            ("No plug-ins discovered yet",
+                "Go to Setup to open a vendor application or add a Windows installer, then rescan installed products.")
+        } else {
+            ("No matching plug-ins", "Try another search or clear the filters.")
+        });
+        let mut groups: Vec<VendorGroup> = Vec::new();
+        let mut previous_vendor = String::new();
+        for product in products {
+            let card = PluginCard::build(snapshot, product, context);
+            let group = product::vendor(product).to_lowercase();
+            match groups.last_mut() {
+                Some(last) if single || group == previous_vendor => last.cards.push(card),
+                _ => {
+                    groups.push(VendorGroup {
+                        heading: (!single).then(|| product::vendor(product).to_owned()),
+                        cards: vec![card],
+                    });
+                    previous_vendor = group;
+                }
+            }
+        }
+        Self { summary, empty, groups }
+    }
+}
+
+/// One plug-in with its status, guidance and every offered control.
+#[derive(Clone, Debug)]
+pub struct PluginCard {
+    pub key: ProductKey,
+    /// Position in the manager's product list, for records drawn by the caller.
+    pub record: usize,
+    pub name: String,
+    pub status: Status,
+    pub facts: Vec<Fact>,
+    /// Posture, session problems and retained explanations, in reading order.
+    pub notes: Vec<Text>,
+    /// The one everyday next step, when there is one.
+    pub lead: Option<LeadOffer>,
+    pub offers: OfferRow,
+    pub uninstallers: Vec<Uninstall>,
+    pub settings: Option<Disclosure>,
+    pub help: Option<Disclosure>,
+    pub availability: Option<Disclosure>,
+    pub other_setups: Option<Disclosure>,
+    pub previous_setups: Option<Disclosure>,
+    pub shared_setup: Option<SharedSetup>,
+    /// Technical details; the caller adds the retained technical records.
+    pub technical: Disclosure,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LeadOffer {
+    /// Said before the offer, such as which plug-ins become unavailable.
+    pub preface: Option<String>,
+    pub offer: Offer,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Uninstall {
+    pub row: OfferRow,
+    pub explanation: String,
+}
+
+/// The plug-in's shared setup controls. Not yet a screen model of its own:
+/// the Setup page's controls draw this record until that screen moves here.
+#[derive(Clone, Debug)]
+pub struct SharedSetup {
+    pub title: &'static str,
+    pub start_open: bool,
+    pub record: EnvironmentInstaller,
+}
+
+impl PluginCard {
+    pub fn build(snapshot: &Snapshot, p: &Product, context: Context) -> Self {
+        let Context { busy, pending, expanded } = context;
+        let status = product::status(p);
+        let related = related_actions(p, snapshot);
+        let progress = installation_progress(snapshot, p);
+        let primary = p.compatibility.as_ref().and_then(|workflow| workflow.primary.clone())
+            .or_else(|| p.compatibility.is_none().then(||
+                emphasized_action(p, &related, busy)).flatten())
+            .map(|mut offer| {
+                if recovery_pending(p) && matches!(offer.action, Action::CompatibilityFinishResult { .. }) {
+                    offer.label = "Finish plug-in recovery".into();
+                }
+                offer
+            });
+        let optional_result = primary.as_ref().filter(|offer| optional_test_result(p, &offer.action));
+        let optional_preparation = primary.as_ref().filter(|offer|
+            (status.class == StatusClass::Ready || progress.is_some()) && other_setup_option(&offer.action));
+        let everyday_primary = primary.clone().filter(|_| optional_result.is_none()
+            && optional_preparation.is_none());
+        let management = ordinary_actions(p, &related, primary.as_ref());
+
+        let mut notes = Vec::new();
+        if recovery_pending(p) {
+            if let Some(workflow) = &p.compatibility {
+                notes.push(Text::caution(&workflow.summary));
+            }
+        } else if status.class == StatusClass::Ready {
+            notes.push(Text::body(daw_guidance(product_daw(snapshot, p))));
+            if let Some(workflow) = p.compatibility.as_ref().filter(|workflow|
+                workflow.phase == CompatibilityPhase::NeedsWork) {
+                notes.push(Text::caution(&workflow.summary));
+            }
+        } else if matches!(p.disposition.as_str(), "removed_from_daw" | "uninstalled") {
+            if let Some(reason) = p.availability.as_ref().and_then(|a| a.reason.as_ref()) {
+                notes.push(Text::body(reason));
+            }
+        } else if let Some(workflow) = p.compatibility.as_ref().filter(|_| progress.is_none()) {
+            notes.push(Text::body(if workflow.phase == CompatibilityPhase::ReadyForTest {
+                "The native bridge is prepared. Make it available below, then choose it in your DAW."
+            } else { workflow.summary.as_str() }));
+        }
+        let instances = product_activity(snapshot, p);
+        let class_level = if instances.shared_class { "Class-level " } else { "" };
+        for failure in &instances.failed_live {
+            notes.push(Text::caution(format!("{class_level}live session: {failure}")));
+        }
+        if let Some(failure) = instances.recent_failure {
+            notes.push(Text::caution(format!("{class_level}most recent session: {failure}")));
+            notes.push(Text::detail(if instances.recent_cleanup_unconfirmed {
+                "Cleanup remains unconfirmed."
+            } else {
+                "Cleanup and transport retirement confirmed."
+            }));
+        }
+        if let Some(reason) = product_issue(p)
+            .filter(|_| progress.is_none() && status.class.needs_attention()) {
+            notes.push(Text::caution(reason));
+        }
+        if let Some(refused) = last_load_text(p) {
+            notes.push(Text::caution(refused));
+        }
+
+        let lead = everyday_primary.as_ref().map(|action| LeadOffer {
+            preface: vendor_install_consequence(snapshot, &action.action),
+            offer: offers::offer(action, Importance::Primary, busy, pending),
+        });
+        let offered = management.iter().chain(p.compatibility.iter()
+            .flat_map(|workflow| workflow.alternatives.iter())).chain(optional_preparation);
+        let (previous, current): (Vec<_>, Vec<_>) = offered.cloned()
+            .partition(|offer| matches!(offer.action,
+                Action::OrdinaryRollback { .. } | Action::OrdinaryRestoreRecommended { .. }));
+        let (availability, current): (Vec<_>, Vec<_>) = current.into_iter()
+            .partition(|offer| matches!(offer.action, Action::ExperimentalDisable { .. } | Action::CandidateWithdraw { .. }));
+        let (options, current): (Vec<_>, Vec<_>) = current.into_iter()
+            .filter(|offer| !everyday_primary.as_ref().is_some_and(|shown| shown.action == offer.action))
+            .partition(|offer| other_setup_option(&offer.action));
+        let mut everyday = offers::row(&current, Importance::Secondary, busy, pending);
+        everyday.preface = current.iter().find_map(|offer|
+            vendor_install_consequence(snapshot, &offer.action));
+
+        // Uninstall through the plug-in's own setup.
+        let uninstallers = snapshot.uninstallers.iter().filter(|u| u.environment == p.environment
+            && u.affected_classes.iter().any(|class| class.eq_ignore_ascii_case(&p.class_id)))
+            .map(|uninstaller| Uninstall {
+                row: offers::row(std::slice::from_ref(&uninstaller.action), Importance::Secondary, busy, pending),
+                explanation: if uninstaller.coverage == "installed_with_this" {
+                    format!("Takes it out of your DAW, then runs {}'s own uninstaller.", uninstaller.name)
+                } else {
+                    format!("Takes every plug-in of this setup out of your DAW, then runs {}'s own uninstaller.", uninstaller.name)
+                },
+            }).collect();
+
+        let editor_checks: Vec<_> = settings_actions(p).into_iter()
+            .filter(|offer| matches!(offer.action, Action::CandidateGraphicsAssess { .. })).collect();
+        let help = (p.compatibility.is_some() || !editor_checks.is_empty()).then(|| {
+            let mut content = Vec::new();
+            if let Some(offer) = optional_result {
+                content.push(Detail::Offers(offers::row(std::slice::from_ref(offer), Importance::Quiet, busy, pending)));
+            }
+            if !editor_checks.is_empty() {
+                content.push(Detail::Offers(offers::row(&editor_checks, Importance::Quiet, busy, pending)));
+            }
+            if let Some(workflow) = &p.compatibility {
+                content.push(Text::body(if workflow.phase == CompatibilityPhase::AvailableForTest {
+                    "Available in your DAW using this setup. You can record a result after trying it."
+                } else { workflow.summary.as_str() }).into());
+                content.extend(observed(&workflow.established));
+                if !workflow.remaining.is_empty() {
+                    content.push(Text::detail(format!("Not yet checked: {}", workflow.remaining.iter()
+                        .map(|area| product::check_area_label(area)).collect::<Vec<_>>().join(", "))).into());
+                }
+            }
+            content.push(Text::detail("Recorded checks describe only what was observed with that setup. They do not replace your vendor's authorization or your DAW's project save and reopen.").into());
+            let configuration = &p.details["configuration"];
+            let recorded = if configuration.is_null() { &p.details["graphics"] } else { configuration };
+            let mut editor = settings::assessment("Configuration assessment", &recorded["assessment"]);
+            editor.push(Text::detail("This supervised editor check does not establish uninterrupted audio, saved-project recall or a known fix.").into());
+            content.push(Detail::Disclosure(Disclosure::new("Editor check details", editor).forced_open(expanded)));
+            Disclosure::new("Help and testing", content).forced_open(expanded)
+        });
+        let availability = (!availability.is_empty()).then(|| Disclosure::new("DAW availability",
+            vec![Detail::Offers(offers::row(&availability, Importance::Quiet, busy, pending))]).forced_open(expanded));
+        let other_setups = (!options.is_empty()).then(|| {
+            let mut content = vec![Text::body("Prepare an alternative or select a retained setup. Preparing one keeps your current DAW selection.").into()];
+            content.extend(options.iter().map(|offer| Detail::Choice(Box::new(offers::setup_choice(p, offer, busy, pending)))));
+            Disclosure { id_salt: Some("other-setup-options"), ..Disclosure::new(
+                format!("Other setup options ({})", options.len()), content).forced_open(expanded) }
+        });
+        let previous_setups = (!previous.is_empty()).then(|| Disclosure {
+            id_salt: Some("previous-setups"),
+            ..Disclosure::new(format!("Previous setups ({})", previous.len()), previous.iter()
+                .map(|offer| Detail::Choice(Box::new(offers::setup_choice(p, offer, busy, pending)))).collect())
+                .forced_open(expanded)
+        });
+        let shared_setup = snapshot.environment_installers.iter()
+            .find(|target| target.environment == p.environment)
+            .map(|target| SharedSetup {
+                title: "Manage shared setup",
+                start_open: target.actions.iter().any(|offer|
+                    matches!(offer.action, Action::EnvironmentInstallerStop { .. })),
+                record: target.clone(),
+            });
+
+        let expert: Vec<_> = p.actions.iter().chain(related.iter())
+            .filter(|action| {
+                !matches!(action.action, Action::BufferingSet { .. } | Action::DeliverySet { .. }
+                    | Action::CandidateGraphicsAssess { .. }
+                    | Action::CandidateGraphicsPrepare { .. }
+                    | Action::CandidateSettingsPrepare { .. })
+                    && !management.iter().any(|shown| shown.action == action.action)
+                    && !guided_action_shown(p, primary.as_ref(), &action.action)
+            })
+            .cloned()
+            .collect();
+        let mut technical = vec![Text::detail(instances.detail_label()).into()];
+        if !expert.is_empty() {
+            technical.push(Detail::Offers(offers::row(&expert, Importance::Quiet, busy, pending)));
+        }
+        if let Some(workflow) = &p.compatibility {
+            technical.push(Text::body(&workflow.summary).into());
+            technical.extend(observed(&workflow.established));
+        }
+
+        Self {
+            key: ProductKey::from(p),
+            record: snapshot.products.iter().position(|candidate| std::ptr::eq(candidate, p))
+                .unwrap_or_default(),
+            name: p.name.clone(),
+            status: progress.map(|words| Status { words, class: StatusClass::Working }).unwrap_or(status),
+            facts: vec![
+                Fact { label: "Type", value: Some(product::role(p).into()), missing: "Type unavailable" },
+                Fact { label: "Version", value: (!p.version.trim().is_empty()).then(|| p.version.clone()),
+                    missing: "Version unavailable" },
+            ],
+            notes,
+            lead,
+            offers: everyday,
+            uninstallers,
+            settings: settings::section(p, busy, pending, expanded),
+            help,
+            availability,
+            other_setups,
+            previous_setups,
+            shared_setup,
+            technical: Disclosure::new(if p.compatibility.is_some() {
+                "Technical details and expert actions"
+            } else { "Technical details and advanced actions" }, technical).forced_open(expanded),
+        }
+    }
+}
+
+fn observed(established: &[String]) -> impl Iterator<Item = Detail> + '_ {
+    established.iter().map(|area| Text::detail(format!("Observed: {area}")).into())
+}
+
+/// The read-only list shown while a plug-in's current controls load. It
+/// carries no action authority; it only opens an exact plug-in.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LoadingList {
+    /// Shown above the list when plug-ins were opened from elsewhere.
+    pub focus_title: Option<&'static str>,
+    pub notice: Text,
+    /// Offered when loading the controls failed.
+    pub retry: Option<&'static str>,
+    pub count: String,
+    pub empty: Option<&'static str>,
+    pub rows: Vec<LoadingRow>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LoadingRow {
+    pub key: ProductKey,
+    pub name: String,
+    pub facts: Vec<Fact>,
+    /// Current availability; withheld when status could not be loaded.
+    pub status: Option<&'static str>,
+    pub notes: Vec<Text>,
+    /// Opens this exact plug-in, when several are listed.
+    pub manage: Option<&'static str>,
+}
+
+impl LoadingList {
+    pub fn build(snapshot: &Snapshot, query: &Query, fresh: bool, details_attempted: bool) -> Self {
+        let single = query.single();
+        let (notice, retry) = if !fresh {
+            (Text::caution("Current plug-in status could not be loaded. Refresh on Home before continuing."), None)
+        } else if details_attempted {
+            (Text::caution("Plug-in controls could not be loaded. The last plug-in summary is shown below."),
+                Some("Load plug-in controls again"))
+        } else {
+            (Text::body(if single {
+                "Loading this plug-in's setup and settings…"
+            } else {
+                "Open a plug-in to manage its setup, updates and settings."
+            }), None)
+        };
+        let products = matching(snapshot, query);
+        let empty = products.is_empty().then_some(if query.focus.is_some() {
+            "The selected plug-in is missing from the current list. Refresh before continuing."
+        } else if snapshot.products.is_empty() {
+            "No plug-ins discovered yet. Open Setup to add and scan an installer."
+        } else {
+            "No matching plug-ins. Clear the search to see all current products."
+        });
+        Self {
+            focus_title: query.focus.map(|_| if single {
+                "Showing the selected plug-in"
+            } else {
+                "Showing the selected plug-ins"
+            }),
+            notice,
+            retry,
+            count: format!("{} of {} current plug-ins", products.len(), snapshot.products.len()),
+            empty,
+            rows: products.into_iter().map(|product| {
+                let mut notes = Vec::new();
+                if let Some(refused) = last_load_text(product) {
+                    notes.push(Text::caution(refused));
+                }
+                notes.push(match product::problem_text(&product.details["problem"]) {
+                    Some(problem) => Text::caution(problem),
+                    None => Text::detail("Setup actions and settings appear after the current controls load."),
+                });
+                LoadingRow {
+                    key: ProductKey::from(product),
+                    name: product.name.clone(),
+                    facts: vec![
+                        Fact { label: "Vendor", value: (!product.vendor.trim().is_empty())
+                            .then(|| product::vendor(product).into()), missing: "Unknown vendor" },
+                        Fact { label: "Type", value: Some(product::role(product).into()), missing: "Type unavailable" },
+                        Fact { label: "Version", value: (!product.version.is_empty()).then(|| product.version.clone()),
+                            missing: "Version unavailable" },
+                    ],
+                    status: fresh.then(|| installation_progress(snapshot, product)
+                        .unwrap_or_else(|| product::status(product).words)),
+                    notes,
+                    // A Setup discovery may focus several exact classes. Each
+                    // row must still let the user select one current detail.
+                    manage: (!single).then_some(MANAGE),
+                }
+            }).collect(),
+        }
+    }
+}
+
+fn optional_test_result(product: &Product, action: &Action) -> bool {
+    matches!(action, Action::CompatibilityResult { .. })
+        || (matches!(action, Action::CompatibilityFinishResult { .. }) && !recovery_pending(product))
+}
+
+fn other_setup_option(action: &Action) -> bool {
+    matches!(action,Action::CompatibilityCheck { .. } | Action::CompatibilityPublishTest { .. }
+        |Action::PluginInspect { .. } |Action::PluginReinspect { .. } |Action::PluginPrepare { .. }
+        |Action::ExperimentalReplace { .. } |Action::ExperimentalEnable { .. }
+        |Action::CandidateSettingsPrepare { .. } |Action::CandidateGraphicsPrepare { .. })
+}
+
+/// Show only manager-offered actions. Visibility supplies no new authority;
+/// disabled reasons, freshness and exact request validation still apply.
+fn ordinary_actions(product:&Product, related:&[AvailableAction],
+    primary:Option<&AvailableAction>) -> Vec<AvailableAction> {
+    let installed_publication=product.active_revision.is_some()
+        || matches!(product.disposition.as_str(),"ready"|"experimental"|"another_configuration");
+    let mut actions=Vec::new();
+    for offer in product.actions.iter().chain(related) {
+        let show=match offer.action {
+            Action::PluginReinspect{..}|Action::PluginPrepare{..} => installed_publication,
+            Action::ExperimentalReplace{..}|Action::OrdinaryRollback{..}
+                |Action::PluginRemoveFromDaw{..}|Action::PluginAddBackToDaw{..}
+                |Action::OrdinaryRestoreRecommended{..}|Action::ExperimentalDisable{..}
+                |Action::CandidateWithdraw{..}|Action::QuarantinedModuleRetry{..}
+                |Action::PluginFinishSetup{..}|Action::PluginSetupFocus{..}|Action::PluginSetupStop{..}
+                |Action::EnvironmentRescan{..}|Action::VendorApplicationFocus{..}
+                |Action::VendorSoftwareInstall{..}|Action::VendorApplicationOpen{..}|Action::RendererOpen{..}
+                |Action::RendererFocus{..} => true,
+            _ => false,
+        };
+        if show && !guided_action_shown(product, primary, &offer.action)
+            && !actions.iter().any(|shown:&AvailableAction|shown.action==offer.action) {
+            actions.push(offer.clone());
+        }
+    }
+    actions
+}
+
+fn guided_action_shown(product: &Product, primary: Option<&AvailableAction>, action: &Action) -> bool {
+    primary.into_iter().chain(product.compatibility.iter()
+        .flat_map(|workflow| workflow.alternatives.iter())).any(|shown| {
+        shown.action == *action || matches!((action, &shown.action),
+            (Action::ExperimentalReplace {candidate, expected_current},
+                Action::CompatibilityPublishTest {candidate: shown_candidate,
+                    expected_current: Some(shown_current)})
+            if candidate == shown_candidate && expected_current == shown_current)
+    })
+}
+
+fn routine_rank(action: &Action) -> Option<u8> {
+    match action {
+        Action::PluginFinishSetup {..}|Action::PluginSetupFocus {..} => Some(0),
+        Action::QuarantinedModuleRetry { .. } | Action::PluginAddBackToDaw { .. } => Some(1),
+        Action::PluginReinspect { .. } => Some(1),
+        Action::PluginInspect { .. } => Some(2),
+        Action::PluginPrepare { .. } => Some(3),
+        Action::ExperimentalEnable { .. } => Some(4),
+        Action::OrdinaryRestoreRecommended { .. } => Some(5),
+        Action::EnvironmentRescan { .. } => Some(6),
+        Action::VendorApplicationFocus { .. } | Action::RendererFocus { .. } => Some(7),
+        Action::VendorSoftwareInstall { .. } | Action::VendorApplicationOpen { .. } | Action::RendererOpen { .. } => Some(8),
+        _ => None,
+    }
+}
+
+/// The one enabled routine offer to lead with, when the manager has no
+/// guided next step for this plug-in.
+fn emphasized_action(
+    product: &Product,
+    related: &[AvailableAction],
+    busy: Option<&str>,
+) -> Option<AvailableAction> {
+    let published = matches!(product.disposition.as_str(), "ready" | "experimental");
+    product
+        .actions
+        .iter()
+        .chain(related)
+        .filter(|offer| {
+            // Duplicate of the manager's shared-resource rule; see `offers::refusal`.
+            offer.disabled_reason.is_none() && !(busy.is_some() && offer.action.requires_global_inactive())
+        })
+        .filter_map(|offer| {
+            routine_rank(&offer.action).map(|rank| {
+                // A published plug-in does not lead with housekeeping when its
+                // manager-offered vendor application is available.
+                let rank = if published {
+                    match offer.action {
+                        Action::VendorApplicationFocus { .. } | Action::RendererFocus { .. } => 5,
+                        Action::VendorSoftwareInstall { .. } | Action::VendorApplicationOpen { .. } | Action::RendererOpen { .. } => 6,
+                        Action::EnvironmentRescan { .. } => 8,
+                        _ => rank,
+                    }
+                } else {
+                    rank
+                };
+                (rank, offer)
+            })
+        })
+        .min_by_key(|(rank, _)| *rank)
+        .map(|(_, offer)| offer.clone())
+}
+
+/// Offers from this plug-in's own setup: its vendor application and rescan.
+fn related_actions(product: &Product, snapshot: &Snapshot) -> Vec<AvailableAction> {
+    if product.environment.is_empty() {
+        return vec![];
+    }
+    let mut actions = vec![];
+    // Association is supplied by the manager's exact environment identity, never vendor/name heuristics.
+    for app in &snapshot.vendor_applications {
+        if app.details["environment"].as_str() != Some(product.environment.as_str()) {
+            continue;
+        }
+        actions.extend(app.actions.iter().filter(|offer| offer.disabled_reason.is_none() && matches!(offer.action,
+            Action::VendorSoftwareInstall { .. } | Action::VendorApplicationOpen { .. } | Action::VendorApplicationFocus { .. }
+                | Action::RendererOpen { .. } | Action::RendererFocus { .. }))
+            .map(|offer| {
+                let mut named = offer.clone();
+                if !app.name.trim().is_empty() && !matches!(offer.action, Action::VendorSoftwareInstall {..}) {
+                    named.label = format!("{} {}", if matches!(offer.action,
+                        Action::VendorApplicationOpen { .. } | Action::RendererOpen { .. }) {
+                        "Open" } else { "Show" }, app.name);
+                }
+                named
+            }));
+    }
+    for environment in &snapshot.environments {
+        if environment.id == product.environment {
+            actions.extend(
+                environment
+                    .actions
+                    .iter()
+                    .filter(|a| {
+                        matches!(&a.action,
+                Action::EnvironmentRescan { environment } if environment == &product.environment)
+                    })
+                    .cloned(),
+            );
+        }
+    }
+    actions
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::{CompatibilityWorkflow, NativeAvailability};
+
+    fn snapshot() -> Snapshot {
+        serde_json::from_str(include_str!("../../examples/library-preview.json")).unwrap()
+    }
+
+    fn query(search: &str) -> Query<'_> {
+        Query { search, role: RoleFilter::All, status: StatusFilter::All, focus: None }
+    }
+
+    #[test]
+    fn search_combines_terms_and_filters_without_losing_unknown_states() {
+        let mut snapshot = snapshot();
+        snapshot.products[0].disposition = "future_state".into();
+        snapshot.products[0].availability=None;
+        assert_eq!(matching(&snapshot, &query("")).len(), 3);
+        assert_eq!(matching(&snapshot, &query(""))[0].vendor, "Arturia");
+        let mut search = query("  INSTRUMENT   8.13 native ");
+        assert_eq!(matching(&snapshot, &search)[0].name, "Kontakt 8");
+        search.status = StatusFilter::NeedsAttention;
+        assert_eq!(matching(&snapshot, &search).len(), 1);
+        search.role = RoleFilter::Effects;
+        assert!(matching(&snapshot, &search).is_empty());
+    }
+
+    #[test]
+    fn opened_plug_ins_ignore_search_and_keep_the_manager_order() {
+        let snapshot = snapshot();
+        let keys = [ProductKey::from(&snapshot.products[2]), ProductKey::from(&snapshot.products[0])];
+        let mut opened = query("nothing matches this");
+        opened.focus = Some(&keys);
+        let names: Vec<_> = matching(&snapshot, &opened).iter().map(|p| p.name.clone()).collect();
+        assert_eq!(names, [snapshot.products[0].name.clone(), snapshot.products[2].name.clone()]);
+        assert!(!opened.single());
+    }
+
+    #[test]
+    fn related_actions_hide_disabled_app_rows_and_preserve_owning_card_refusals() {
+        let mut s = snapshot();
+        assert_eq!(related_actions(&s.products[0], &s).len(), 2);
+        s.vendor_applications[1].actions[0].disabled_reason =
+            Some("Owned session is running".into());
+        let owning_card = serde_json::to_value(&s.vendor_applications[1]).unwrap();
+        let actions = related_actions(&s.products[0], &s);
+        assert_eq!(actions.len(), 1); // The exact setup's rescan stays visible.
+        assert!(matches!(actions[0].action, Action::EnvironmentRescan {..}));
+        // Its own setup still explains the app's status and offers recovery;
+        // only a duplicate disabled Open row on another card disappears.
+        assert_eq!(serde_json::to_value(&s.vendor_applications[1]).unwrap(), owning_card);
+        assert_eq!(s.vendor_applications[1].actions[0].disabled_reason.as_deref(),
+            Some("Owned session is running"));
+        s.products[0].environment = "different-installation-same-vendor".into();
+        assert!(related_actions(&s.products[0], &s).is_empty());
+        s.vendor_applications[1].details = serde_json::json!({});
+        s.products[0].environment = "fixture-ni".into();
+        assert_eq!(related_actions(&s.products[0], &s).len(), 1); // only the exact rescan
+    }
+
+    #[test]
+    fn one_enabled_routine_action_is_emphasized_without_changing_offers() {
+        let mut s = snapshot();
+        let related = related_actions(&s.products[2], &s);
+        let product = &mut s.products[2];
+        let retry = AvailableAction {
+            label: "Retry exact scan".into(),
+            action: Action::PluginReinspect {
+                selection: "exact".into(),
+                audio_layout: None,
+            },
+            disabled_reason: Some("Current manager work blocks this scan".into()),
+        };
+        product.actions.push(retry.clone());
+        assert!(emphasized_action(product, &related, Some("Busy")).is_none());
+        assert_eq!(product.actions.len(), 1);
+        assert_eq!(product.actions[0].action, retry.action);
+        product.actions[0].disabled_reason = None;
+        let selected = emphasized_action(product, &related, None).unwrap();
+        assert_eq!(selected.action, retry.action);
+        assert_eq!(product.actions.len(), 1);
+        assert_eq!(selected.disabled_reason, None);
+    }
+
+    #[test]
+    fn published_product_prefers_offered_vendor_application_over_rescan() {
+        let s = snapshot();
+        let product = &s.products[1];
+        assert_eq!(product.disposition, "ready");
+        let related = related_actions(product, &s);
+        let chosen = emphasized_action(product, &related, None).unwrap();
+        assert!(matches!(
+            chosen.action,
+            Action::VendorApplicationOpen { .. } | Action::VendorApplicationFocus { .. }
+        ));
+        assert!(related
+            .iter()
+            .any(|offer| matches!(offer.action, Action::EnvironmentRescan { .. })));
+    }
+
+    #[test]
+    fn recovery_finish_leads_under_its_own_name_and_keeps_its_refusal() {
+        let mut s = snapshot();
+        s.products.truncate(1);
+        s.products[0].compatibility = Some(CompatibilityWorkflow {
+            phase: CompatibilityPhase::AwaitingRetirement,
+            summary: "Problem recorded. Close the DAW, then finish this result.".into(),
+            established: vec![], remaining: vec![], current_inspection: None, current_candidate: None,
+            primary: Some(AvailableAction { label: "Finish recording test result".into(),
+                action: Action::CompatibilityFinishResult { operation: "dd".repeat(16) },
+                disabled_reason: Some("Cleanup unconfirmed".into()) }),
+            alternatives: vec![],
+        });
+        let card = PluginCard::build(&s, &s.products[0],
+            Context { busy: Some("Cleanup unconfirmed"), pending: false, expanded: false });
+        let lead = card.lead.expect("recovery leads");
+        assert_eq!(lead.offer.label, "Finish plug-in recovery");
+        assert_eq!(lead.offer.availability, offers::Availability::Refused("Cleanup unconfirmed".into()));
+        assert_eq!(lead.offer.intent, Action::CompatibilityFinishResult { operation: "dd".repeat(16) });
+        assert_eq!(card.notes[0], Text::caution("Problem recorded. Close the DAW, then finish this result."));
+        assert!(!card.notes.iter().any(|note| note.words == daw_guidance(None)));
+    }
+
+    #[test]
+    fn removed_plug_in_reads_as_removed_and_leads_with_add_back() {
+        let mut s = snapshot();
+        s.products.truncate(1);
+        s.environments.clear();
+        s.vendor_applications.clear();
+        let removed = "Removed from your DAW. Projects that use it open with it missing until you add it back.";
+        let class = s.products[0].class_id.clone();
+        let product = &mut s.products[0];
+        product.compatibility = None;
+        product.disposition = "removed_from_daw".into();
+        product.availability = Some(NativeAvailability { available: false, reason: Some(removed.into()) });
+        product.actions = vec![AvailableAction { label: "Add back to my DAW".into(),
+            action: Action::PluginAddBackToDaw { class_id: class,
+                expected_removed: crate::model::PublicationIdentity { id: "ac".repeat(16), sha256: "bd".repeat(32) } },
+            disabled_reason: None }];
+        let card = PluginCard::build(&s, &s.products[0], Context { busy: None, pending: false, expanded: false });
+        assert_eq!(card.status, Status { words: "Removed from your DAW", class: StatusClass::NeedsYou });
+        assert_eq!(card.notes, [Text::body(removed)]);
+        assert_eq!(card.lead.unwrap().offer.label, "Add back to my DAW");
+        assert!(card.offers.offers.is_empty());
+    }
+}

@@ -9,6 +9,12 @@ mod model;
 #[path = "../src/presentation.rs"]
 #[allow(dead_code)]
 mod presentation;
+#[path = "../src/screen_model/mod.rs"]
+#[allow(dead_code)]
+mod screen_model;
+#[path = "../src/widgets.rs"]
+#[allow(dead_code)]
+mod widgets;
 use eframe::egui;
 
 struct Preview {

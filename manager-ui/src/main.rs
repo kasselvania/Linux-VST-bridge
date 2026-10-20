@@ -7,7 +7,9 @@ mod library;
 mod model;
 mod operator;
 mod presentation;
+mod screen_model;
 mod updates;
+mod widgets;
 struct DesktopFixture {
     count: u32,
     text: String,
