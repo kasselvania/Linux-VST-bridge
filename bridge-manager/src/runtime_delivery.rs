@@ -487,6 +487,10 @@ pub fn verify_tree(runner: &Runner) -> Result<()> {
     verify_tree_mode(runner,readback_digests_active())
 }
 fn verify_tree_mode(runner: &Runner, readback: bool) -> Result<()> {
+    verify_tree_with_digest(runner, readback, digest_identity)
+}
+fn verify_tree_with_digest(runner: &Runner, readback: bool,
+    mut read_digest: impl FnMut(&Path) -> Result<(String, DigestFileIdentity)>) -> Result<()> {
     let Some(manifest) = runner.files.iter().find(|a|
         a.path.file_name().is_some_and(|name| name == TREE)) else { return Ok(()); };
     require(file(&manifest.path)?.metadata()?.len() <= 16 * 1024 * 1024,
@@ -520,12 +524,15 @@ fn verify_tree_mode(runner: &Runner, readback: bool) -> Result<()> {
         } else {
             require(meta.is_file() && meta.len() == row.size && meta.mode() & 0o777 == row.mode,
                 "managed_runtime_file_changed")?;
-            let identity = DigestFileIdentity::from(&meta);
+            let mut identity = DigestFileIdentity::from(&meta);
             if !readback || cached.as_ref().and_then(|c|c.files.get(&row.path))!=Some(&identity) {
-                require(row.sha256.as_deref() == Some(digest(&path)?.as_str()),
+                let (sha256, observed) = read_digest(&path)?;
+                require(row.sha256.as_deref() == Some(sha256.as_str()),
                     "managed_runtime_file_changed")?;
-                require(DigestFileIdentity::from(&fs::symlink_metadata(&path)?)==identity,
+                require(identity.matches_except_ctime(observed)
+                    && DigestFileIdentity::from(&fs::symlink_metadata(&path)?)==observed,
                     "managed_runtime_file_changed_during_verification")?;
+                identity = observed;
             }
             verified.files.insert(row.path,identity);
         }
@@ -1446,6 +1453,74 @@ mod tests {
         fs::write(&linked,b"modified").unwrap();
         assert!(with_readback_digests(||verify_tree(&runner)).unwrap_err().to_string().contains("file_changed"));
         assert!(verify_tree(&runner).unwrap_err().to_string().contains("file_changed"));
+    }
+    #[test]
+    fn runtime_tree_records_the_reread_identity_and_refuses_a_later_change() {
+        let tmp = Scratch::new();
+        let stage = tmp.0.join("stage");
+        fs::DirBuilder::new().mode(0o700).create(&stage).unwrap();
+        let relative = PathBuf::from(format!("{PLATFORM_FILES}/lib/reference"));
+        let entry = format!("{SLR}/_v2-entry-point");
+        let (archive, mut spec) = tmp.archive(&[(&entry, b"runner"),
+            (relative.to_str().unwrap(), b"library")]);
+        spec.root = SLR.into();
+        let mut rows = unpack(&archive, &spec, &stage).unwrap();
+        for (path, directory) in tree_inventory(&stage).unwrap() {
+            if directory { rows.push(TreeEntry {path, sha256:None, target:None,
+                size:0, mode:0o700, directory:true}); }
+        }
+        let manifest = stage.join(TREE);
+        atomic_json(&manifest, &rows).unwrap();
+        let proton = stage.join(entry);
+        let runner = Runner {id:ID.into(), version:"test".into(), proton:proton.clone(),
+            entry_point:proton.clone(), policy:None,
+            files:vec![Artifact {sha256:digest(&proton).unwrap(), path:proton},
+                Artifact {sha256:digest(&manifest).unwrap(), path:manifest.clone()}]};
+        let payload = stage.join(&relative);
+        let link_cycle = || {
+            let alias = tmp.0.join("runtime-copy-link");
+            fs::hard_link(&payload, &alias).unwrap();
+            fs::remove_file(alias).unwrap();
+        };
+        for cached in [false, true] {
+            for later_change in [false, true] {
+                with_launch_verification(|| {
+                    // Exercise the complete Runner path, including pinned
+                    // artifacts, before racing this manifested payload.
+                    if cached { runner.verify().unwrap(); }
+                    let original = DigestFileIdentity::from(&fs::symlink_metadata(&payload).unwrap());
+                    let previous = cached_tree(&runner.files[1]);
+                    let mut opened = Vec::new();
+                    let result = verify_tree_with_digest(&runner, false, |path| {
+                        let observed = digest_observed(path, |step| {
+                            if path == payload {
+                                if let DigestReadStep::Opened(attempt) = step {
+                                    opened.push(attempt);
+                                    if attempt == 0 { link_cycle(); }
+                                }
+                            }
+                            Ok(())
+                        })?;
+                        if path == payload && later_change { link_cycle(); }
+                        Ok(observed)
+                    });
+                    assert_eq!(opened, vec![0, 1]);
+                    if later_change {
+                        assert_eq!(result.unwrap_err().to_string(),
+                            "managed_runtime_file_changed_during_verification");
+                        assert!(cached_tree(&runner.files[1]) == previous,
+                            "a refused census must not publish new identities");
+                    } else {
+                        result.unwrap();
+                        let current = DigestFileIdentity::from(&fs::symlink_metadata(&payload).unwrap());
+                        assert_ne!(original, current);
+                        assert!(original.matches_except_ctime(current));
+                        assert_eq!(cached_tree(&runner.files[1]).unwrap().files[&relative], current);
+                        runner.verify().unwrap();
+                    }
+                });
+            }
+        }
     }
     #[test]
     fn archive_paths_and_links_cannot_escape() {
