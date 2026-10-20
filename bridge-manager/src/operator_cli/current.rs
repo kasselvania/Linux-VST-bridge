@@ -397,9 +397,10 @@ fn require_live_vendor_report(operation: &vendor_application::Operation) -> Resu
     require(result.schema == 3
         && result.operation_id.as_deref() == Some(operation.operation_id.as_str())
         && matches!(result.state,OperationState::Running | OperationState::Unknown)
-        && !result.cleanup_confirmed && result.launcher_exit.is_none()
+        && !result.cleanup_confirmed
         && (result.owned_live.is_some_and(|count|count > 0)
-            || (result.state == OperationState::Unknown && result.owned_live.is_none())),
+            || (result.state == OperationState::Unknown && result.owned_live.is_none()
+                && result.launcher_exit.is_none())),
         "operator_vendor_state_changed_refresh")
 }
 fn live_vendor_progress(m: &Manager) -> Result<Option<vendor_application::Operation>> {
@@ -1037,9 +1038,11 @@ pub(super) mod tests {
         let installer=onboarding::unit(record.installation_operation.as_deref().unwrap()).unwrap();
         readiness::with_unit_state_fixture(&[installer],"inactive",||
             readiness::with_unit_state_fixture(&[vendor_cli::unit(&selector).unwrap()],"active",|| {
-                for (state,count,label) in [("unknown",None,"starting"),("running",Some(3),"running")] {
+                for (state,count,exit,label) in [("unknown",None,None,"starting"),
+                    ("running",Some(3),None,"running"),("unknown",Some(3),Some(0),"running"),
+                    ("unknown",Some(3),Some(42),"running")] {
                     atomic_json(&report,&json!({"schema":3,"operation_id":operation,"state":state,
-                        "launcher_exit":null,"owned_live":count,"cleanup_confirmed":false,
+                        "launcher_exit":exit,"owned_live":count,"cleanup_confirmed":false,
                         "discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
                     let current=current_overview(&f.m).unwrap();
                     let row=current.current.vendor_applications.iter().find(|row|row.id==selector).unwrap();
@@ -1056,11 +1059,16 @@ pub(super) mod tests {
                 let original:Value=read_json(&report).unwrap();
                 for (field,value) in [("operation_id",json!(random_id().unwrap())),("schema",json!(4)),
                     ("owned_live",json!(0)),("state",json!("completed")),
-                    ("cleanup_confirmed",json!(true)),("launcher_exit",json!(0)),("unexpected",json!(true))] {
+                    ("cleanup_confirmed",json!(true)),("unexpected",json!(true))] {
                     let mut changed=original.clone();changed[field]=value;
                     atomic_json(&report,&changed).unwrap();
                     assert!(current_overview(&f.m).is_err(),"accepted {field}");
                 }
+                let mut contradictory=original;
+                contradictory["owned_live"]=Value::Null;
+                contradictory["launcher_exit"]=0.into();
+                atomic_json(&report,&contradictory).unwrap();
+                assert!(current_overview(&f.m).is_err(),"an exited launcher with no observed cohort is not starting");
             }));
     }
     #[test]
