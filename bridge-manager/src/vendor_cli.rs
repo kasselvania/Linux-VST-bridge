@@ -681,6 +681,52 @@ fn recover_stopped(m:&Manager,selector:&str,operation:&str,registry:Lock,
     println!("{}",serde_json::to_string(&result(m,selector,operation)?)?);
     Ok(())
 }
+fn cancel_with(m:&Manager,selector:&str,operation:Option<&str>,timeout:Duration,
+    mut unit_live:impl FnMut()->Result<bool>,request_stop:impl FnOnce()->Result<()>)->Result<()> {
+    require(timeout <= Duration::from_secs(90),"vendor_application_stop_wait_bound")?;
+    let directory=directory(m,selector)?;
+    let registry=m.lock("registry.lock")?;
+    let job_path=directory.join("operation.json");
+    let pinned=operator_cli::control_artifact(job_path.clone())?;
+    let job:vendor_application::Operation=read_json(&job_path)?;
+    let current=||->Result<OperationResult> {
+        require(operator_cli::control_artifact(job_path.clone())? == pinned,
+            "vendor_application_operation_changed")?;
+        let result=result(m,selector,&job.operation_id)?;
+        if let Some(id)=operation {
+            require(job.operation_id==id && result.operation_id.as_deref()==Some(id),
+                "vendor_application_operation_changed")?;
+        }
+        Ok(result)
+    };
+    // The live supervisor owns writer.lock until it exits. Registry authority
+    // pins the immutable submission while only the nonblocking stop is queued.
+    // Reject a changed job/result before any external unit action.
+    current()?;
+    let running=unit_live()?;
+    current()?;
+    if !running {
+        return recover_stopped(m,selector,&job.operation_id,registry,reconcile);
+    }
+    request_stop()?;
+    drop(registry);
+    let deadline=Instant::now()+timeout;
+    let writer=directory.join("writer.lock");
+    let writer=writer.strip_prefix(&m.root)?.to_str().ok_or("vendor_writer_gate")?;
+    loop {
+        current()?;
+        if !unit_live()? {
+            if let linux_vst_bridge::operator_lock::LockAttempt::Acquired(_writer)=m.try_lock(writer)? {
+                let result=current()?;
+                require(result.retired(),"vendor_application_cleanup_unconfirmed")?;
+                println!("{}",serde_json::to_string(&result)?);
+                return Ok(());
+            }
+        }
+        require(Instant::now()<deadline,"vendor_application_cleanup_unconfirmed")?;
+        std::thread::sleep(Duration::from_millis(50).min(deadline.saturating_duration_since(Instant::now())));
+    }
+}
 fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result<()> {
     if let Some(id) = operation {
         require(valid_hex(id, 32), "vendor_application_operation_identity")?;
@@ -768,45 +814,8 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
             );
             Ok(())
         }
-        "cancel" => {
-            let writer=m.lock(directory.join("writer.lock").strip_prefix(&m.root)?.to_str().ok_or("vendor_writer_gate")?)?;
-            let job:vendor_application::Operation=read_json(&directory.join("operation.json"))?;
-            let prior=result(m,&args[1],&job.operation_id)?;
-            // The writer pins this submission. Reject a changed job or result
-            // before a service observation can mask the identity failure.
-            if let Some(id) = operation {
-                require(
-                    job.operation_id == id && prior.operation_id.as_deref() == Some(id),
-                    "vendor_application_operation_changed",
-                )?;
-            }
-            let running=live(&args[1])?;
-            let registry=m.lock("registry.lock")?;
-            if !running {
-                drop(writer);
-                return recover_stopped(m,&args[1],&job.operation_id,registry,reconcile);
-            }
-            drop(registry);
-            let result = Command::new("systemctl")
-                .args([
-                    "--user",
-                    "stop", &unit])
-                .status()?;
-            require(
-                result.success(),
-                "vendor_application_cancellation_unconfirmed",
-            )?;
-            let result: OperationResult = read_json(&directory.join("operation-result.json"))?;
-            require(result.retired(), "vendor_application_cleanup_unconfirmed")?;
-            if let Some(id) = operation {
-                require(
-                    result.operation_id.as_deref() == Some(id),
-                    "vendor_application_operation_changed",
-                )?;
-            }
-            println!("{}", serde_json::to_string(&result)?);
-            Ok(())
-        }
+        "cancel" => cancel_with(m,&args[1],operation,Duration::from_secs(90),
+            ||live(&args[1]),||readiness::request_user_unit_stop(&unit)),
         "launch"
         | "diagnose-agent"
         | "diagnose-runinprefix"
@@ -1366,6 +1375,119 @@ print(json.dumps(session.vendor_recover_census(json.loads(sys.argv[2]),proc=path
         assert!(result(&f.m,&selector,&random_id().unwrap()).is_err());
         after.revision+=1;atomic_json(&after.root.join("environment.json"),&after).unwrap();
         assert!(result(&f.m,&selector,&operation).is_err(),"Unowned revision cannot be adopted");
+    }
+    #[test]
+    fn stop_reaches_the_live_supervisor_while_it_holds_its_writer() {
+        use std::cell::{Cell,RefCell};
+        let (f,selector,operation,_)=selected();
+        let directory=directory(&f.m,&selector).unwrap();
+        let report=directory.join("operation-result.json");
+        atomic_json(&report,&json!({"schema":3,"operation_id":operation,"state":"unknown",
+            "launcher_exit":null,"owned_live":null,"cleanup_confirmed":false,
+            "discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
+        let gate=directory.join("writer.lock");
+        let writer=RefCell::new(Some(f.m.lock(gate.strip_prefix(&f.m.root).unwrap().to_str().unwrap()).unwrap()));
+        let live=Cell::new(true);
+        cancel_with(&f.m,&selector,Some(&operation),Duration::from_millis(100),||Ok(live.get()),|| {
+            // Only the external stop is simulated; the exact job/result,
+            // registry and supervisor's lifetime writer are real.
+            assert!(writer.borrow().is_some());
+            atomic_json(&report,&json!({"schema":3,"operation_id":operation,"state":"cancelled",
+                "launcher_exit":0,"owned_live":0,"cleanup_confirmed":true,
+                "discarded_diagnostic_bytes":0,"account_posture":"unknown"}))?;
+            live.set(false);drop(writer.borrow_mut().take());Ok(())
+        }).unwrap();
+        assert!(result(&f.m,&selector,&operation).unwrap().retired());
+    }
+    #[test]
+    fn stop_releases_registry_through_the_supervisors_retirement_wait() {
+        use std::cell::{Cell,RefCell};
+        let (f,job)=assisted();let operation=&job.operation_id;
+        let selector=job.application.selector().unwrap();
+        let directory=directory(&f.m,&selector).unwrap();
+        let mut other=job.application.environment.clone();other.id=random_id().unwrap();
+        other.root=f.m.root.join("environments").join(&other.id);
+        let lease=selection::tests::dsp_lease(&f,Some(&other));
+        let running=json!({"schema":3,"operation_id":operation,"state":"running",
+            "launcher_exit":null,"owned_live":2,"cleanup_confirmed":false,
+            "discarded_diagnostic_bytes":0,"account_posture":"unknown"});
+        atomic_json(&job.report,&running).unwrap();
+        let gate=directory.join("writer.lock");
+        let writer=RefCell::new(Some(f.m.lock(gate.strip_prefix(&f.m.root).unwrap().to_str().unwrap()).unwrap()));
+        let submitted=Cell::new(false);let polls=Cell::new(0);
+        cancel_with(&f.m,&selector,Some(operation),Duration::from_secs(2),|| {
+            if !submitted.get() {return Ok(true);}
+            polls.set(polls.get()+1);
+            // A separate status/admission user acquires the real registry
+            // while this exact supervisor still owns its lifetime writer.
+            std::thread::scope(|scope|scope.spawn(|| {
+                let _registry=f.m.lock("registry.lock").expect("Stop must release registry before waiting");
+                assert!(lease.exists());
+            }).join().unwrap());
+            if polls.get()==1 {return Ok(true);}
+            let mut retired=running.clone();retired["state"]="cancelled".into();
+            retired["owned_live"]=0.into();retired["cleanup_confirmed"]=true.into();
+            retired["dependency"]=json!({"process_cleanup_confirmed":true,
+                "dependency_cleanup_disposition":"graceful_service_retirement",
+                "post_cleanup":{"cgroup_empty":true,"exact_daemon_generation_absent":true,
+                    "listener_mask":0,"candidate_count":0,"candidate_observation_unavailable":0,
+                    "application_image_unchanged":true,"daemon_image_unchanged":true}});
+            atomic_json(&job.report,&retired)?;drop(writer.borrow_mut().take());Ok(false)
+        },|| {
+            assert!(matches!(f.m.try_lock("registry.lock")?,linux_vst_bridge::operator_lock::LockAttempt::Busy));
+            submitted.set(true);Ok(())
+        }).unwrap();
+        assert!(polls.get()>=2 && lease.exists());
+        assert!(result(&f.m,&selector,operation).unwrap().retired());
+    }
+    #[test]
+    fn stop_keeps_exact_target_and_cleanup_failures_uncertain() {
+        use std::cell::Cell;
+        for case in ["changed_job","changed_result","unit_unavailable","enqueue_failed",
+            "changed_after_enqueue","cleanup_timeout","missing_dependency_cleanup"] {
+            let (f,job)=assisted();let selector=job.application.selector().unwrap();
+            let directory=directory(&f.m,&selector).unwrap();
+            let running=json!({"schema":3,"operation_id":job.operation_id,"state":"unknown",
+                "launcher_exit":null,"owned_live":null,"cleanup_confirmed":false,
+                "discarded_diagnostic_bytes":0,"account_posture":"unknown"});
+            atomic_json(&job.report,&running).unwrap();
+            if case=="changed_job" {
+                let mut changed=job.clone();changed.operation_id=random_id().unwrap();
+                atomic_json(&directory.join("operation.json"),&changed).unwrap();
+            }
+            if case=="changed_result" {
+                let mut changed=running.clone();changed["operation_id"]=random_id().unwrap().into();
+                atomic_json(&job.report,&changed).unwrap();
+            }
+            let submitted=Cell::new(false);
+            let error=cancel_with(&f.m,&selector,Some(&job.operation_id),Duration::from_millis(20),|| {
+                if case=="unit_unavailable" {return Err("unit_unavailable".into());}
+                if submitted.get() {
+                    drop(f.m.lock("registry.lock").expect("retirement never holds registry"));
+                }
+                Ok(!(submitted.get() && case=="missing_dependency_cleanup"))
+            },|| {
+                submitted.set(true);
+                if case=="enqueue_failed" {return Err("enqueue_failed".into());}
+                if case=="changed_after_enqueue" {
+                    let mut changed=job.clone();changed.operation_id=random_id().unwrap();
+                    atomic_json(&directory.join("operation.json"),&changed)?;
+                }
+                if case=="missing_dependency_cleanup" {
+                    let mut changed=running.clone();changed["state"]="cancelled".into();
+                    changed["owned_live"]=0.into();changed["cleanup_confirmed"]=true.into();
+                    atomic_json(&job.report,&changed)?;
+                }
+                Ok(())
+            }).unwrap_err().to_string();
+            assert_eq!(submitted.get(),!matches!(case,"changed_job"|"changed_result"|"unit_unavailable"),"{case}: {error}");
+            assert!(!result(&f.m,&selector,&job.operation_id).is_ok_and(|r|r.retired()),"{case}");
+            assert_eq!(error,match case {
+                "unit_unavailable"=>"unit_unavailable","enqueue_failed"=>"enqueue_failed",
+                "cleanup_timeout"|"missing_dependency_cleanup"=>"vendor_application_cleanup_unconfirmed",
+                _=>"vendor_application_operation_changed",
+            },"{case}");
+        }
     }
     #[test]
     fn missing_dispatch_result_remains_readable_and_requires_exact_empty_writer_recovery() {

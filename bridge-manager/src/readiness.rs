@@ -189,15 +189,24 @@ pub(super) fn with_unit_state_fixture<T>(units: &[String], state: &str, run: imp
     run()
 }
 pub(super) fn bounded_user_unit_state(unit: &str) -> Result<String> {
-    require(unit.len() <= 128 && unit.starts_with("linux-vst-bridge-")
-        && unit.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.')),
-        "readiness_unit_identity")?;
+    validate_user_unit(unit)?;
     #[cfg(test)]
     if let Some(state)=UNIT_STATE_FIXTURE.lock().unwrap().get(unit).cloned() {
         return admit_unit_state(Probe::Observed(state));
     }
     admit_unit_state(bounded_command("systemctl", &["--user", "show", unit,
         "-p", "ActiveState", "--value"]))
+}
+fn validate_user_unit(unit: &str) -> Result<()> {
+    require(unit.len() <= 128 && unit.starts_with("linux-vst-bridge-")
+        && unit.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.')),
+        "readiness_unit_identity")
+}
+/// Submit only; the action owner waits for exact cleanup outside registry.lock.
+pub(super) fn request_user_unit_stop(unit: &str) -> Result<()> {
+    validate_user_unit(unit)?;
+    require(matches!(bounded_command("systemctl", &["--user", "--no-block", "stop", unit]),
+        Probe::Observed(_)), "vendor_application_cancellation_unconfirmed")
 }
 fn admit_unit_state(probe: Probe<String>) -> Result<String> {
     match probe {
