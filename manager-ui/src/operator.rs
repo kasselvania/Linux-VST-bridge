@@ -1006,12 +1006,11 @@ impl Operator {
             && assessment.system == overview.current.system).then_some(assessment)
     }
     fn overview_query(&self) -> Query {
-        // Only a requested check, first readback, or an owned user workflow
-        // collects platform facts. Time expiry and passive change signals
-        // renew the current record projection without capability helpers.
+        // Platform facts belong to a requested check, first readback or
+        // completed workflow. Live handoffs only renew exact control records.
         if self.explicit_refresh_queued || self.overview.is_none()
             || self.pending_import_route.is_some()
-            || self.feedback.as_ref().is_some_and(|feedback| feedback.release_after_snapshot) {
+            || self.feedback.as_ref().is_some_and(|feedback| feedback.release_after_snapshot && feedback.terminal) {
             Query::Overview
         } else { Query::CurrentOverview }
     }
@@ -1070,6 +1069,13 @@ impl Operator {
     fn current_health_system(&self) -> Option<&System> {
         if !self.overview_fresh && !self.overview_renewing { return None; }
         self.retained_health_system()
+    }
+    fn health_refreshing(&self) -> bool {
+        // Presentation only: changed authority still removes every action.
+        !self.frontend_superseded && (self.overview_renewing
+            || (self.overview.is_some() && !self.overview_fresh && self.readback_failures == 0
+                && (self.refresh_after || (self.pending && matches!(self.origin,
+                    Some(RequestOrigin::SilentPostMutationRefresh | RequestOrigin::ExplicitRefresh))))))
     }
     /// Whether a DAW is using bridged plug-ins, and when that was read; None
     /// while unobserved.
@@ -1850,7 +1856,7 @@ impl Operator {
         });
     }
     fn fast_home(ui: &mut egui::Ui, overview: &CurrentOverview,
-        assessment: Option<&ReadinessAssessment>, fresh: bool,
+        assessment: Option<&ReadinessAssessment>, fresh: bool, refreshing: bool,
         pending: bool, controls: (&mut Page, &mut crate::library::Library, &mut RouteFocus,
             &mut bool, &mut Option<Action>)) {
         let (page, library, focus, refresh, chosen) = controls;
@@ -1860,8 +1866,12 @@ impl Operator {
                 .min_size(egui::vec2(150.0, 44.0))).clicked() { *page = Page::Setup; }
         });
         if !fresh {
-            ui.colored_label(warning_color(ui),
-                "Current status is unavailable. These are the last listed plug-ins; setup actions wait for current readback.");
+            if refreshing {
+                ui.label("Refreshing the listed plug-ins; setup actions wait for current readback.");
+            } else {
+                ui.colored_label(warning_color(ui),
+                    "Current status is unavailable. These are the last listed plug-ins; setup actions wait for current readback.");
+            }
         }
         let unfinished = overview.current.installer_setups.iter().filter(|setup|
             setup.journey.as_ref().map(|journey| journey.phase != InstallationPhase::Available)
@@ -2321,6 +2331,7 @@ impl Operator {
     }
     fn health_bar(ui: &mut egui::Ui, system: Option<&System>, owned_pause: bool,
         renewing: bool) {
+        let unobserved_refresh = renewing && system.is_none();
         egui::Frame::group(ui.style()).fill(ui.visuals().faint_bg_color)
             .inner_margin(10.0).show(ui, |ui| {
             ui.set_min_width((ui.available_width() - 1.0).max(0.0));
@@ -2331,10 +2342,11 @@ impl Operator {
                 let paused = owned_pause && system.is_none_or(|system|
                     system.pending_transactions == 0 && system.stale_transports == 0
                         && (!system.capacity_available() || !system.cleanup_unconfirmed));
-                let title = if paused {"Bridge temporarily paused for installation"} else {
+                let title = if paused {"Bridge temporarily paused for installation"}
+                    else if unobserved_refresh {"Refreshing current status"} else {
                     system.map(presentation::health).unwrap_or(presentation::Health::Unavailable).title()
                 };
-                let warning = !paused && system.is_none_or(|system|matches!(presentation::health(system),
+                let warning = !paused && !unobserved_refresh && system.is_none_or(|system|matches!(presentation::health(system),
                     presentation::Health::Unavailable | presentation::Health::NeedsAttention));
                 let text = egui::RichText::new(title).size(16.0).strong();
                 ui.label(if warning {text.color(warning_color(ui))} else {text});
@@ -2342,7 +2354,8 @@ impl Operator {
                     .min_size(egui::vec2(155.0, 32.0))).clicked() {expanded = !expanded;}
             });
             // Keep this row present so renewal cannot move navigation or an open chooser.
-            ui.small(if renewing { "Last observed status · refreshing…" }
+            ui.small(if unobserved_refresh { "Waiting for current status." }
+                else if renewing { "Last observed status · refreshing…" }
                 else { "Service status updates automatically." });
             ui.data_mut(|data|data.insert_temp(details_id,expanded));
             if expanded {
@@ -2930,7 +2943,7 @@ impl eframe::App for Operator {
             }
             if self.preview { ui.small("LOCAL DESIGN PREVIEW · sample records · actions do not execute"); }
             Self::health_bar(ui, self.current_health_system(), self.current_owned_pause(),
-                self.overview_renewing);
+                self.health_refreshing());
             if let Some(line) = self.updates.headline().filter(|_| self.page != Page::Setup) {
                 ui.horizontal_wrapped(|ui| {
                     ui.strong(line);
@@ -2953,7 +2966,8 @@ impl eframe::App for Operator {
                             Page::Home => {
                                 Self::fast_home(ui, overview, self.readiness.as_ref()
                                     .filter(|_| readiness_visible).map(|(assessment, _, _)| assessment), actions_current,
-                                    controls_pending, (&mut self.page, &mut self.library, &mut self.focus, &mut refresh, &mut chosen));
+                                    self.health_refreshing(), controls_pending,
+                                    (&mut self.page, &mut self.library, &mut self.focus, &mut refresh, &mut chosen));
                                 return;
                             }
                             Page::Setup => {
@@ -3923,7 +3937,7 @@ mod tests {
                 let mut output = ctx.run_ui(egui::RawInput {events,screen_rect:Some(
                     egui::Rect::from_min_size(egui::Pos2::ZERO,egui::vec2(width,1000.0))),
                     ..Default::default()},|ui| {
-                    Operator::fast_home(ui,&overview,None,true,pending,
+                    Operator::fast_home(ui,&overview,None,true,false,pending,
                         (&mut Page::Home,&mut crate::library::Library::default(),
                             &mut RouteFocus::default(),&mut false,&mut chosen));
                 });
@@ -4065,7 +4079,7 @@ mod tests {
                     egui::vec2(960.0, 720.0))), ..Default::default()
             }, |ui| {
                 if page == Page::Home {
-                    Operator::fast_home(ui, &overview, None, true, false,
+                    Operator::fast_home(ui, &overview, None, true, false, false,
                         (&mut current_page, &mut crate::library::Library::default(),
                             &mut RouteFocus::default(), &mut false, &mut chosen));
                 } else {
@@ -4113,7 +4127,7 @@ mod tests {
                 egui::Pos2::ZERO,egui::vec2(960.0,900.0))),..Default::default()}, |ui| {
                 Operator::health_bar(ui,Some(&overview.current.system),
                     presentation::owned_service_pause(overview.current.operation.as_ref()), false);
-                Operator::fast_home(ui,&overview,None,true,false,
+                Operator::fast_home(ui,&overview,None,true,false,false,
                     (&mut Page::Home,&mut crate::library::Library::default(),
                         &mut RouteFocus::default(),&mut false,&mut chosen));
             });
@@ -4157,7 +4171,7 @@ mod tests {
             let ctx = result_form_context();let mut chosen = None;
             let mut output = ctx.run_ui(egui::RawInput {screen_rect:Some(egui::Rect::from_min_size(
                 egui::Pos2::ZERO,egui::vec2(960.0,720.0))),..Default::default()}, |ui| {
-                Operator::fast_home(ui,current,None,true,false,(&mut Page::Home,
+                Operator::fast_home(ui,current,None,true,false,false,(&mut Page::Home,
                     &mut crate::library::Library::default(),&mut RouteFocus::default(),&mut false,&mut chosen));
             });
             let mut labels = vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
@@ -4211,7 +4225,7 @@ mod tests {
             let ctx = result_form_context();let mut chosen = None;
             let mut output = ctx.run_ui(egui::RawInput {screen_rect:Some(egui::Rect::from_min_size(
                 egui::Pos2::ZERO,egui::vec2(960.0,1000.0))),..Default::default()}, |ui| {
-                if home {Operator::fast_home(ui,&overview,None,true,true,
+                if home {Operator::fast_home(ui,&overview,None,true,false,true,
                     (&mut Page::Home,&mut crate::library::Library::default(),&mut RouteFocus::default(),&mut false,&mut chosen));}
                 else {crate::library::Library::default().show(ui,&overview.current,true,&mut chosen,|_,_|{});}
             });
@@ -4530,7 +4544,7 @@ mod tests {
                 egui::Event::PointerButton {pos:point,button:egui::PointerButton::Primary,
                     pressed:frame==3,modifiers:egui::Modifiers::NONE}]} else {vec![]};
             let mut output=ctx.run_ui(egui::RawInput {events,..Default::default()},|ui|
-                Operator::fast_home(ui,&overview,None,true,false,
+                Operator::fast_home(ui,&overview,None,true,false,false,
                     (&mut page,&mut library,&mut RouteFocus::default(),&mut false,&mut None)));
             if frame==2 {
                 let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
@@ -5309,7 +5323,7 @@ mod tests {
                     screen_rect:Some(egui::Rect::from_min_size(egui::Pos2::ZERO,egui::vec2(width,1200.0))),
                     ..Default::default()}, |ui| {
                     Operator::health_bar(ui,state.current_health_system(),state.current_owned_pause(),state.overview_renewing);
-                    Operator::fast_home(ui,state.overview.as_ref().unwrap(),None,current,pending,
+                    Operator::fast_home(ui,state.overview.as_ref().unwrap(),None,current,state.health_refreshing(),pending,
                         (&mut state.page,&mut state.library,&mut state.focus,&mut false,&mut chosen));
                 });
                 let mut labels = vec![];
@@ -5487,6 +5501,140 @@ mod tests {
         state.feedback = None;
         state.pending_import_route = Some(("exact-installer".into(), true, "Installer".into()));
         assert!(matches!(state.overview_query(), Query::Overview));
+    }
+    #[test]
+    fn live_handoff_renews_exact_window_controls_without_platform_probes() {
+        for stop in [false, true] {
+            let mut state = state_fixture();
+            let mut overview = overview_fixture();
+            let environment = overview.current.products[0].environment.clone();
+            overview.current.products.clear();
+            overview.current.installer_setups.clear();
+            let application = "ab".repeat(32);
+            let operation = "cd".repeat(16);
+            let start = Action::VendorSoftwareInstall { application: application.clone(), daw: DawChoice::Reaper };
+            overview.current.vendor_applications = vec![VendorApplication {
+                id: application.clone(), name: "Managed application".into(), version: "1".into(),
+                state: "closed".into(), details: serde_json::json!({"environment":environment}),
+                actions: vec![AvailableAction { label: "Open application".into(), action: start.clone(), disabled_reason: None }],
+            }];
+            state.handle_reply(Reply::Overview(Box::new(overview.clone())));
+            let context = result_form_context();
+            let render = |state: &mut Operator, home: bool, events, chosen: &mut Option<Action>| {
+                let mut output = context.run_ui(egui::RawInput { events,
+                    screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(960.0, 1200.0))),
+                    ..Default::default() }, |ui| {
+                    Operator::health_bar(ui, state.current_health_system(), state.current_owned_pause(), state.health_refreshing());
+                    if home {
+                        Operator::fast_home(ui, state.overview.as_ref().unwrap(), None,
+                            state.current_action_snapshot().is_some(), state.health_refreshing(), state.controls_pending(),
+                            (&mut state.page, &mut state.library, &mut state.focus, &mut false, chosen));
+                    } else {
+                        Operator::fast_setup(ui, state.overview.as_ref().unwrap(), state.current_action_snapshot().is_some(),
+                            state.controls_pending(), (&mut false, chosen, &mut false, &mut state.page,
+                                &mut state.library, &mut state.focus, &mut state.software_install_daw));
+                    }
+                });
+                let mut labels = vec![];
+                for shape in &output.shapes { text_centers(&shape.shape, &mut labels); }
+                output.textures_delta.clear();
+                labels
+            };
+            assert!(state.capture_chosen_action(start.clone()));
+            assert_eq!(state.next_action().unwrap().action, start);
+            state.origin = Some(RequestOrigin::UserAction);
+            state.handle_reply(Reply::Receipt(Receipt { schema: crate::model::OPERATOR_SCHEMA,
+                accepted: true, operation: Some(operation.clone()), refusal: None }));
+            let mut pulse = pulse_fixture(true);
+            pulse.operation = Some(serde_json::json!({"operation":operation,"state":"vendor_running"}));
+            state.origin = Some(RequestOrigin::BackgroundActivity);
+            state.handle_reply(Reply::Pulse(pulse.clone()));
+            assert!(state.feedback.as_ref().unwrap().release_after_snapshot);
+            assert!(!state.feedback.as_ref().unwrap().terminal && state.controls_pending());
+            assert!(state.current_action_snapshot().is_none());
+            assert!(!state.capture_chosen_action(Action::VendorApplicationFocus { application: application.clone() }));
+            let mut pending_choice = None;
+            for home in [true, false] {
+                let labels = render(&mut state, home, vec![], &mut pending_choice);
+                assert!(labels.iter().any(|(label, _)| label == "Refreshing current status"));
+                assert!(!labels.iter().any(|(label, _)| label.contains("status is unavailable")
+                    || label == "Bridge service status unavailable"));
+            }
+            let (query, origin) = state.next_read(Instant::now() + Duration::from_secs(6)).unwrap();
+            assert!(matches!(query, Query::CurrentOverview), "a live control handoff needs exact records, not platform probes");
+            state.pending = true;
+            state.origin = Some(origin);
+            for home in [true, false] {
+                let labels = render(&mut state, home, vec![], &mut pending_choice);
+                assert!(labels.iter().any(|(label, _)| label == "Refreshing current status"));
+                assert!(!labels.iter().any(|(label, _)| label.contains("status is unavailable")
+                    || label == "Bridge service status unavailable"));
+            }
+            assert!(state.current_action_snapshot().is_none() && pending_choice.is_none());
+            assert!(!state.capture_chosen_action(Action::VendorApplicationStop { application: application.clone() }));
+
+            let focus = Action::VendorApplicationFocus { application: application.clone() };
+            let stop_action = Action::VendorApplicationStop { application };
+            let mut current: CurrentOverview = overview.into();
+            current.current.state_token = "renewed-exact-control-token".into();
+            current.current.operation = pulse.operation;
+            current.current.vendor_applications[0].state = "starting".into();
+            current.current.vendor_applications[0].actions = vec![
+                AvailableAction { label: "Show application window".into(), action: focus.clone(), disabled_reason: None },
+                AvailableAction { label: "Stop application session".into(), action: stop_action.clone(), disabled_reason: None },
+            ];
+            state.origin = Some(origin);
+            state.handle_reply(Reply::CurrentOverview(Box::new(current)));
+            assert!(!state.controls_pending());
+            let mut chosen = None;
+            let labels = render(&mut state, false, vec![], &mut chosen);
+            assert!(!labels.iter().any(|(label, _)| label == "Bridge service status unavailable"));
+            for label in ["Show application window", "Stop application session"] {
+                assert!(labels.iter().any(|(text, _)| text == label));
+            }
+            let label = if stop { "Stop application session" } else { "Show application window" };
+            let point = labels.iter().find(|(text, _)| text == label).unwrap().1;
+            for pressed in [true, false] {
+                render(&mut state, false, vec![egui::Event::PointerMoved(point), egui::Event::PointerButton {
+                    pos: point, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::NONE,
+                }], &mut chosen);
+            }
+            let expected = if stop { stop_action } else { focus };
+            assert_eq!(chosen.as_ref(), Some(&expected));
+            assert!(state.capture_chosen_action(chosen.unwrap()));
+            let request = state.next_action().unwrap();
+            assert_eq!(request.action, expected);
+            assert_eq!(request.state_token, "renewed-exact-control-token");
+        }
+    }
+    #[test]
+    fn read_errors_and_supersession_never_present_as_normal_renewal() {
+        for superseded in [false, true] {
+            let mut state = state_fixture();
+            state.handle_reply(Reply::Overview(Box::new(overview_fixture())));
+            let mut pulse = pulse_fixture(false);
+            pulse.current_generation = "changed-generation".into();
+            state.handle_reply(Reply::Pulse(pulse));
+            assert!(state.health_refreshing() && state.current_action_snapshot().is_none());
+            state.origin = Some(RequestOrigin::SilentPostMutationRefresh);
+            state.handle_reply(if superseded { Reply::FrontendSuperseded }
+                else { Reply::Error("Readback failed".into()) });
+            assert!(!state.health_refreshing() && state.current_action_snapshot().is_none());
+            let context = result_form_context();
+            let mut chosen = None;
+            let mut output = context.run_ui(egui::RawInput::default(), |ui| {
+                Operator::health_bar(ui, state.current_health_system(), state.current_owned_pause(), state.health_refreshing());
+                Operator::fast_home(ui, state.overview.as_ref().unwrap(), None,
+                    state.current_action_snapshot().is_some(), state.health_refreshing(), state.controls_pending(),
+                    (&mut state.page, &mut state.library, &mut state.focus, &mut false, &mut chosen));
+            });
+            let mut labels = vec![];
+            for shape in &output.shapes { text_centers(&shape.shape, &mut labels); }
+            assert!(labels.iter().any(|(label, _)| label == "Bridge service status unavailable"));
+            assert!(!labels.iter().any(|(label, _)| label == "Refreshing current status"));
+            assert!(chosen.is_none());
+            output.textures_delta.clear();
+        }
     }
     #[test]
     fn changed_performance_generation_cannot_reuse_readiness_with_the_same_token_and_system() {
@@ -5706,7 +5854,7 @@ mod tests {
             }];
             let ctx = egui::Context::default();
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-                Operator::fast_home(ui,&overview.clone().into(),Some(&overview.readiness),true,false,
+                Operator::fast_home(ui,&overview.clone().into(),Some(&overview.readiness),true,false,false,
                     (&mut Page::Home,&mut crate::library::Library::default(),&mut RouteFocus::default(),&mut false,&mut None));
             });
             let mut labels = vec![];
@@ -5760,7 +5908,7 @@ mod tests {
                 let mut output=ctx.run_ui(egui::RawInput {events,screen_rect:Some(
                     egui::Rect::from_min_size(egui::Pos2::ZERO,egui::vec2(560.0,1000.0))),
                     ..Default::default()},|ui| {
-                    Operator::fast_home(ui,&overview,None,true,false,
+                    Operator::fast_home(ui,&overview,None,true,false,false,
                         (&mut Page::Home,&mut crate::library::Library::default(),
                             &mut RouteFocus::default(),&mut false,&mut chosen));
                 });
@@ -5804,7 +5952,7 @@ mod tests {
                         pressed:frame==3,modifiers:egui::Modifiers::NONE}]} else {vec![]};
                 let mut output=ctx.run_ui(egui::RawInput {events,screen_rect:Some(egui::Rect::from_min_size(
                     egui::Pos2::ZERO,egui::vec2(width,1000.0))),..Default::default()},|ui| {
-                    Operator::fast_home(ui,&overview,None,fresh,false,
+                    Operator::fast_home(ui,&overview,None,fresh,false,false,
                         (&mut page,&mut library,&mut focus,&mut false,&mut chosen));
                 });
                 if frame==2 {
@@ -5828,7 +5976,7 @@ mod tests {
                 status:outcome,explanation:"This native engine requires x86-64 Linux.".into()}];
             let ctx=result_form_context();
             let mut output=ctx.run_ui(egui::RawInput::default(),|ui| {
-                Operator::fast_home(ui,&overview.clone().into(),Some(&overview.readiness),true,false,
+                Operator::fast_home(ui,&overview.clone().into(),Some(&overview.readiness),true,false,false,
                     (&mut Page::Home,&mut crate::library::Library::default(),&mut RouteFocus::default(),&mut false,&mut None));
             });
             let mut text=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut text);}
@@ -5871,7 +6019,7 @@ mod tests {
                     pos:point,button:egui::PointerButton::Primary,pressed:frame==3,modifiers:egui::Modifiers::NONE}]} else {vec![]};
                 let mut output=ctx.run_ui(egui::RawInput {events,screen_rect:Some(egui::Rect::from_min_size(
                     egui::Pos2::ZERO,egui::vec2(560.0,1000.0))),..Default::default()},|ui| {
-                    Operator::fast_home(ui,&overview,None,true,false,
+                    Operator::fast_home(ui,&overview,None,true,false,false,
                         (&mut page,&mut library,&mut focus,&mut false,&mut None));
                 });
                 if frame==2 {
@@ -5921,7 +6069,7 @@ mod tests {
                 readback.current.products[0].availability.as_mut().unwrap().available=available;
                 let ctx = result_form_context();
                 let mut output = ctx.run_ui(egui::RawInput::default(),|ui| {
-                    Operator::fast_home(ui,&readback,None,true,false,(&mut Page::Home,
+                    Operator::fast_home(ui,&readback,None,true,false,false,(&mut Page::Home,
                         &mut crate::library::Library::default(),&mut RouteFocus::default(),&mut false,&mut None));
                 });
                 let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
@@ -6187,7 +6335,7 @@ mod tests {
                 pos:point,button:egui::PointerButton::Primary,pressed:frame==3,modifiers:egui::Modifiers::NONE}]} else {vec![]};
             let mut output=ctx.run_ui(egui::RawInput {events,screen_rect:Some(egui::Rect::from_min_size(
                 egui::Pos2::ZERO,egui::vec2(560.0,1200.0))),..Default::default()},|ui| {
-                Operator::fast_home(ui,&overview,None,true,false,
+                Operator::fast_home(ui,&overview,None,true,false,false,
                     (&mut page,&mut library,&mut focus,&mut false,&mut None));
             });
             if frame==2 {
@@ -6227,7 +6375,7 @@ mod tests {
                     egui::Pos2::ZERO,egui::vec2(560.0,1000.0))),..Default::default()},|ui| {
                     ui.add_space(285.0);
                     if page == Page::Home {
-                        Operator::fast_home(ui,&overview,None,true,pending,
+                        Operator::fast_home(ui,&overview,None,true,false,pending,
                             (&mut Page::Home,&mut crate::library::Library::default(),&mut RouteFocus::default(),&mut false,&mut chosen));
                     } else {
                         Operator::fast_setup(ui,&overview,true,pending,
