@@ -702,13 +702,10 @@ pub(crate) mod tests {
             .unwrap()
             .iter()
             .all(|x| x.revision == 10 && x.class.class_id != p.class.class_id));
-        let base = capacity::fixture_limits();
-        let extended = capacity::service_limits().unwrap();
-        assert_eq!(&extended.classes[..2], base.classes);
-        assert_eq!(extended.classes[2].class_id, p.class.class_id);
-        assert_eq!(extended.classes[2].dsp, 1);
-        assert_eq!(extended.global_dsp, 6);
-        assert_eq!(extended.native_image_hard, 4);
-        assert_eq!(extended.service_workers, 16);
+        // Neither the historical table nor production policy names this class.
+        let historical = capacity::fixture_limits();
+        assert!(historical.classes.iter().all(|c| c.class_id != p.class.class_id));
+        assert_eq!(historical.global_dsp, 6);
+        assert!(capacity::service_limits().classes.is_empty());
     }
 }

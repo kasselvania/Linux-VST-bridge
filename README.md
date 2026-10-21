@@ -41,7 +41,7 @@ The bridge has established:
 - immutable profiles, revisioned publication, rollback, environment custody, and manager readback;
 - Steam Deck product operation and Ubuntu portability/cold-boot operation for exact reviewed fixtures.
 
-The accepted Steam Deck capacity envelope remains six simultaneous bridged DSP instances globally for the exact AP17 fixture, with lower product/class limits where recorded. Seven remains unqualified and eight was excluded for the tested workload. See [AP17 closure](docs/AP17_CLOSURE.md).
+The manager admits up to 8 live bridged instances across all of a user's DAWs and setups, and up to 4 of one plug-in. These are admission limits, not a performance claim. The historical AP17 qualification measured a narrower envelope for one Arturia workload; see [AP17 closure](docs/AP17_CLOSURE.md).
 
 The supported native-bridge performance posture remains **512 added frames per proxy**. The opt-in 256 setting remains available but unqualified. Residual startup, queue/reply, editor/removal, and shutdown-window misses remain tracked as [FC-AUDIO-001](docs/FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses).
 

@@ -2748,6 +2748,10 @@ mod tests {
         let error=stage_keeper_with_history(&f.m,&sw,&binding,&keepers,None,
             |_,_|panic!("Held setup must refuse before reuse"),|_,_|panic!("Held setup must not launch")).err().unwrap();
         assert_eq!(error.to_string(),"setup_maintenance_active");
+        // A native load in the held setup is refused as maintenance.
+        let refusal=native_admission_blocked(&f.m,&AdmissionCleanup::default(),&binding.environment)
+            .unwrap_err();
+        assert_eq!(refusal.downcast_ref::<capacity::Refusal>(),Some(&capacity::Refusal::MaintenanceActive));
         drop(registry);
         let vendor=intent.vendor.as_ref().unwrap();
         let directory=vendor_cli::directory(&f.m,&vendor.application).unwrap();
