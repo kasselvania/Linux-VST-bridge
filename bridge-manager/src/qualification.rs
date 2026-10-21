@@ -186,13 +186,6 @@ fn uir1_ordinary_parent(m: &Manager) -> Result<()> {
     let prior = m.load_revision(&p.class.class_id, reference)?;
     require(prior.profile == p && prior.qualification.is_none(), "qualification_verified_parent_mismatch")
 }
-pub fn stage_for(m: &Manager, package: &Path, purpose: Qualification) -> Result<()> {
-    if matches!(purpose, Qualification::Uir1Input | Qualification::If1Failure) { uir1_ordinary_parent(m)?; }
-    if purpose == Qualification::Ap18Pigments { return crate::pigments::stage(m, package); }
-    if purpose == Qualification::Sv1Instrument { return crate::managed_candidate::stage(m, package); }
-    if purpose == Qualification::Frg1Ubuntu { return crate::frg1::stage(m, package); }
-    stage_selected_for(m, package, &candidates_for(purpose)?, purpose)
-}
 pub(crate) fn stage_selected_for(
     m: &Manager,
     package: &Path,

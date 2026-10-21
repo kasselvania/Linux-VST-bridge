@@ -43,7 +43,8 @@ and the patched source, copies its immutable runner to a new private tree, and
 replaces only `version` and x86-64 Unix `winex11.so`. `seal` runs the mapping
 test and an unlicensed Windows command in an isolated prefix, verifies exact
 cleanup and unchanged tree bytes, and writes a private manifest for the
-existing `experimental-runner` owner. It does not advance the environment.
+manager's `experimental-runner` transition, which has since been removed under
+#489. It does not advance the environment.
 
 Candidate D, if materialized, remains an engineering `review_candidate` with
 candidate C as exact predecessor. A built runner, fixture result or published

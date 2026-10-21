@@ -775,45 +775,6 @@ fn validate_predecessor_status(m: &Manager, manifest: &PackageManifest,
     }
     Ok(())
 }
-/// Source-owned PB0-R3 audit entry point. The input is only an exact bounded
-/// package manifest, never a path or command. It cannot stage or select it.
-#[cfg(feature = "pb0-r3-audit")]
-pub(super) fn audit_predecessor_from_bytes(m: &Manager, home: &Path,
-    bytes: &[u8]) -> Result<serde_json::Value> {
-    require(bytes.len() <= 64 * 1024, "package_manifest_extent")?;
-    let manifest: PackageManifest = serde_json::from_slice(bytes)?;
-    let sha = hex(&sha2::Sha256::digest(bytes));
-    let (record, routes) = predecessor_plan(m, home, manifest, sha)?;
-    let old = old_software(m)?.ok_or("package_predecessor_absent")?;
-    let selected_generation = old.manager.path.parent()
-        .and_then(|p| p.file_name()).and_then(|p| p.to_str())
-        .ok_or("package_predecessor_identity")?;
-    let planned_generation = id(&record)?;
-    let rollback_predecessor = record.predecessor.as_ref().and_then(|s|
-        s.manager.path.parent()?.file_name()?.to_str());
-    Ok(serde_json::json!({
-        "schema": 1,
-        "candidate_source_head": record.manifest.source_head,
-        "candidate_source_tree": record.manifest.source_tree,
-        "candidate_version": record.manifest.version,
-        "candidate_manifest_sha256": record.manifest_sha256,
-        "planned_generation": planned_generation,
-        "selected_generation": selected_generation,
-        "reuses_selected_generation": planned_generation == selected_generation,
-        "predecessor_generation": rollback_predecessor,
-        "predecessor_manager_sha256": old.manager.sha256,
-        "predecessor_frontend_sha256": old.operator_frontend.as_ref().map(|a| &a.sha256),
-        "retained_catalogue_sha256": record.catalogue_sha256,
-        "retained_host_sha256": old.host.sha256,
-        "retained_source_sha256": old.source_manifest.sha256,
-        "candidate_preparation_kit_sha256": record.packaged_preparation_kit_sha256,
-        "predecessor_preparation_kit_sha256": old.preparation_kit.as_ref().map(|a| &a.sha256),
-        "external_runtime_id": record.manifest.external_runtime.id,
-        "external_runtime_manifest_sha256": record.manifest.external_runtime.manifest_sha256,
-        "routes": routes,
-        "writes": false,
-    }))
-}
 fn generation_identity(m: &Manager, dir: &Path) -> Result<Generation> {
     require(dir.parent() == Some(m.root.join("software").as_path()),
         "package_generation_path")?;

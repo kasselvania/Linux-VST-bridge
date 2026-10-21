@@ -160,9 +160,7 @@ pub struct ManagedStatus {
     pub products: Vec<ProductStatus>,
 }
 impl Manager {
-    pub fn managed_status(&self, installed_host: &Artifact, source: &str) -> Result<ManagedStatus> {
-        self.managed_status_for_policy(installed_host, source, &installed_profiles()?)
-    }
+    #[cfg(test)]
     pub(crate) fn managed_status_for_policy(
         &self,
         installed_host: &Artifact,
