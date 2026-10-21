@@ -17,6 +17,22 @@ pub(crate) struct Fixture {
 }
 impl Fixture {
     pub(crate) fn new() -> Self {
+        Self::with_layout("lvb-manager", |outer| Manager {
+            root: outer.join("managed"),
+            publications: outer.join("vst3"),
+        })
+    }
+    /// The same fixture at the layout `Manager::installed()` resolves when
+    /// HOME is `outer`, so a real manager process started with that HOME owns
+    /// it. Used by the real-service tests under `tests/`.
+    #[allow(dead_code)] // This shared fixture is also compiled by library-only tests.
+    pub(crate) fn installed() -> Self {
+        Self::with_layout("lvb-home", |home| Manager {
+            root: home.join(".local/share/linux-vst-bridge/managed"),
+            publications: home.join(".vst3"),
+        })
+    }
+    fn with_layout(prefix: &str, layout: impl FnOnce(&Path) -> Manager) -> Self {
         unsafe {
             libc::umask(0o077);
         }
@@ -25,12 +41,9 @@ impl Fixture {
         let outer = PathBuf::from("/tmp")
             .canonicalize()
             .unwrap()
-            .join(format!("lvb-manager-{}", random_id().unwrap()));
+            .join(format!("{prefix}-{}", random_id().unwrap()));
         private_dir(&outer).unwrap();
-        let m = Manager {
-            root: outer.join("managed"),
-            publications: outer.join("vst3"),
-        };
+        let m = layout(&outer);
         private_dir(&m.root).unwrap();
         let env = m
             .root
@@ -100,7 +113,9 @@ pub(crate) fn prepared() -> (Fixture, Profile, Census, NativeArtifact) {
     prepared_accessibility(true)
 }
 pub(crate) fn prepared_accessibility(disabled: bool) -> (Fixture, Profile, Census, NativeArtifact) {
-    let mut f = Fixture::new();
+    prepared_in(Fixture::new(), disabled)
+}
+pub(crate) fn prepared_in(mut f: Fixture, disabled: bool) -> (Fixture, Profile, Census, NativeArtifact) {
     f.r.compatibility.disable_windows_accessibility = disabled;
     f.r.metadata.metadata_tier = "factory_3_unicode".into();
     let source = f.r.host.path.with_file_name("host-source-manifest.json");
@@ -360,4 +375,165 @@ pub(crate) fn prepared_candidate(id: &str) -> (Fixture, preparation::Candidate) 
     };
     let c = preparation::prepared(s, i, native, f.r.host.clone(), manifest, "aa".repeat(32)).unwrap();
     (f, c)
+}
+
+/// A managed-installer candidate built through the current reusable preparation
+/// kit, so its native image carries the loaded-engine descriptor contract.
+/// Records `software.json` with the scanner host and that kit.
+#[allow(dead_code)] // This shared fixture is also compiled by library-only tests.
+pub(crate) fn projection_candidate_in(f: Fixture, effect: bool) -> (Fixture, preparation::Candidate) {
+    let (f, mut candidates) = projection_candidates_in(f, effect, 1);
+    (f, candidates.pop().unwrap())
+}
+/// As `projection_candidate_in`, with `count` classes in one setup, each in
+/// its own module: class `01…` in the fixture module, then `03…`, `05…`.
+#[allow(dead_code)] // This shared fixture is also compiled by library-only tests.
+pub(crate) fn projection_candidates_in(f: Fixture, effect: bool, count: usize)
+    -> (Fixture, Vec<preparation::Candidate>) {
+    use preparation::{inspect_record_with, selections, Origin};
+    use serde_json::json;
+    let (mut f, _, mut census, _) = prepared_in(f, false);
+    f.m.unpublish(&f.r.key()).unwrap();
+    atomic_json(&f.m.root.join("registry.json"), &Registry::default()).unwrap();
+    let old = f.r.environment.root.clone();
+    let id = "13".repeat(16);
+    let envroot = f.m.root.join("environments").join(&id);
+    fs::rename(&old, &envroot).unwrap();
+    f.r.module.path = envroot.join(f.r.module.path.strip_prefix(&old).unwrap());
+    f.r.environment.id = id;
+    f.r.environment.root = envroot;
+    atomic_json(
+        &f.r.environment.root.join("environment.json"),
+        &f.r.environment,
+    )
+    .unwrap();
+    census.environment.environment = f.r.environment.clone();
+    census.environment.family = Family::ManagedInstallerV1;
+    census.module = f.r.module.clone();
+    census.module_stamp = Some(ModuleStamp::read(&census.module.path).unwrap());
+    if effect {
+        census.selected.subcategories = "Fx".into();
+    }
+    let mut modules = Vec::new();
+    let mut classes = Vec::new();
+    for index in 0..count {
+        let mut census = census.clone();
+        let controller = format!("{:02}", 2 * index + 2).repeat(16);
+        if index > 0 {
+            let module = f.r.module.path.with_file_name(format!("module-{index}.vst3"));
+            fs::write(&module, format!("vendor module {index}")).unwrap();
+            census.module = Artifact { sha256: digest(&module).unwrap(), path: module };
+            census.module_stamp = Some(ModuleStamp::read(&census.module.path).unwrap());
+            census.selected.class_id = format!("{:02}", 2 * index + 1).repeat(16);
+            census.selected.name = format!("Actual class {}", index + 1);
+            census.report.path = census.report.path.with_file_name(format!("inspection-{index}.json"));
+        }
+        let mut raw = inspection_report(&census);
+        // Complete non-audio factory class; the production inventory validates all rows.
+        let class = raw["records"][1]["classes"][0].clone();
+        let mut associated = class;
+        associated["raw_tuid_hex"] = json!(controller);
+        associated["category_hex"] = json!(hex(b"Component Controller Class"));
+        raw["records"][1]["classes"][1] = associated;
+        raw["records"].as_array_mut().unwrap().push(
+            json!({"state":"ap8_controller_association","combined":false,"class_id":controller}),
+        );
+        if effect {
+            raw["records"].as_array_mut().unwrap().push(json!({"state":"ap8_bus",
+                "media":0,"direction":0,"index":0,"channels":2,"type":0,"flags":1,
+                "arrangement":3,"name":"Input"}));
+        }
+        raw["records"].as_array_mut().unwrap().push(json!({"state":"ap8_bus",
+            "media":0,"direction":1,"index":0,"channels":2,"type":0,"flags":1,
+            "arrangement":3,"name":"Output"}));
+        atomic_json(&census.report.path, &raw).unwrap();
+        census.report.sha256 = digest(&census.report.path).unwrap();
+        modules.push(crate::inventory::Module {
+            artifact: census.module.clone(),
+            classes: crate::inventory::classes(&raw).unwrap(),
+            report: census.report.clone(),
+            inspection_error: None,
+            quarantine_reason: None,
+        });
+        classes.push((census.selected.class_id.clone(), census.report));
+    }
+    let scan = crate::inventory::Scan {
+        schema: 1,
+        id: random_id().unwrap(),
+        environment: f.r.environment.clone(),
+        host: f.r.host.clone(),
+        host_source_sha256: f.r.host_source_sha256.clone(),
+        completed_at: observation::now().unwrap(),
+        modules,
+        changes: Default::default(),
+    };
+    private_dir(&f.m.root.join("inventory")).unwrap();
+    atomic_json(
+        &f.m.root
+            .join("inventory")
+            .join(format!("{}.json", f.r.environment.id)),
+        &scan,
+    )
+    .unwrap();
+    let mut offered = selections(&f.m, &f.r.host, &f.r.host_source_sha256).unwrap();
+    assert_eq!(offered.len(), count);
+    let manifest = Artifact {
+        path: f.r.host.path.with_file_name("host-source-manifest.json"),
+        sha256: f.r.host_source_sha256.clone(),
+    };
+    let sw = projection_kit_software(&f, &manifest);
+    let runtime = preparation::build::stage_runtime_for_software(&f.m, &sw).unwrap();
+    let candidates = classes.into_iter().map(|(class, report)| {
+        let index = offered.iter().position(|s| s.class.id == class).unwrap();
+        let s = offered.remove(index);
+        let i = inspect_record_with(s.clone(), report, Origin::ManagedPreparation,
+            runtime.host.clone(), runtime.source_manifest.clone()).unwrap();
+        preparation::build::construct_with_runtime(&f.m, s, i, runtime.clone(),
+            &random_id().unwrap(), None).unwrap()
+    }).collect();
+    atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+    (f, candidates)
+}
+/// The scanner host with a reusable preparation kit declaring the current
+/// loaded-engine admission and audio completion contracts.
+fn projection_kit_software(f: &Fixture, manifest: &Artifact) -> Software {
+    let path = f.m.root.join("software/ui2-projection-kit.zip");
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent().unwrap().to_path_buf();
+    let script = r#"import json,zipfile,hashlib,sys,pathlib
+path,root,host,manifest=sys.argv[1:];root=pathlib.Path(root)
+sha=lambda b:hashlib.sha256(b).hexdigest()
+files={'prebuilt/engine.so':b'\x7fELFprojection-reusable-engine',
+ 'runtime/host.exe':pathlib.Path(host).read_bytes(),
+ 'runtime/host-source-manifest.json':pathlib.Path(manifest).read_bytes()}
+for name in ('tools/mf3/native_builder.py','tools/ap8_descriptor.py'):
+ files[name]=(root/name).read_bytes()
+files['prebuilt/index.json']=json.dumps(dict(schema=3,engine='prebuilt/engine.so',
+ engine_sha256=sha(files['prebuilt/engine.so']),descriptor_schema=1,maximum_bridge_frames=1024,
+ audio_completion_contract=1,loaded_engine_admission_contract=1,native_sources={})).encode()
+recipe=dict(schema=4,source_commit='ab'*20,sdk='3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96',
+ sdk_runtime='b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8',
+ files={k:sha(v) for k,v in files.items()})
+with zipfile.ZipFile(path,'w') as z:
+ z.writestr('recipe.json',json.dumps(recipe))
+ for name,data in files.items():z.writestr(name,data)
+"#;
+    assert!(std::process::Command::new("python3")
+        .args(["-I", "-c", script]).arg(&path).arg(root)
+        .arg(&f.r.host.path).arg(&manifest.path)
+        .status().unwrap().success());
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+    let host = f.r.host.clone();
+    Software {
+        installer_launch: None,
+        preparation_kit: Some(Artifact { sha256: digest(&path).unwrap(), path }),
+        manager: host.clone(),
+        operator_frontend: None,
+        supervisor: host.clone(),
+        ownership: host.clone(),
+        host,
+        source_manifest: manifest.clone(),
+        source_sha256: manifest.sha256.clone(),
+        native_catalogue: None,
+    }
 }

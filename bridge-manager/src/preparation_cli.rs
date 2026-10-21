@@ -2062,93 +2062,7 @@ pub(crate) mod tests {
         projection_fixture_with_role(false)
     }
     fn projection_fixture_with_role(effect: bool) -> (test_fixture::Fixture, prep::Candidate) {
-        use observation::ModuleStamp;
-        use prep::*;
-        use profiles::Family;
-        use test_fixture::{inspection_report, prepared_accessibility};
-        let (mut f, _, mut census, _) = prepared_accessibility(false);
-        f.m.unpublish(&f.r.key()).unwrap();
-        atomic_json(&f.m.root.join("registry.json"), &Registry::default()).unwrap();
-        let old = f.r.environment.root.clone();
-        let id = "13".repeat(16);
-        let envroot = f.m.root.join("environments").join(&id);
-        fs::rename(&old, &envroot).unwrap();
-        f.r.module.path = envroot.join(f.r.module.path.strip_prefix(&old).unwrap());
-        f.r.environment.id = id;
-        f.r.environment.root = envroot;
-        atomic_json(
-            &f.r.environment.root.join("environment.json"),
-            &f.r.environment,
-        )
-        .unwrap();
-        census.environment.environment = f.r.environment.clone();
-        census.environment.family = Family::ManagedInstallerV1;
-        census.module = f.r.module.clone();
-        census.module_stamp = Some(ModuleStamp::read(&census.module.path).unwrap());
-        if effect {
-            census.selected.subcategories = "Fx".into();
-        }
-        let mut raw = inspection_report(&census);
-        // Complete non-audio factory class; the production inventory validates all rows.
-        let class = raw["records"][1]["classes"][0].clone();
-        let mut controller = class;
-        controller["raw_tuid_hex"] = json!("02".repeat(16));
-        controller["category_hex"] = json!(hex(b"Component Controller Class"));
-        raw["records"][1]["classes"][1] = controller;
-        raw["records"].as_array_mut().unwrap().push(
-        json!({"state":"ap8_controller_association","combined":false,"class_id":"02".repeat(16)}),
-    );
-        if effect {
-            raw["records"].as_array_mut().unwrap().push(json!({"state":"ap8_bus",
-                "media":0,"direction":0,"index":0,"channels":2,"type":0,"flags":1,
-                "arrangement":3,"name":"Input"}));
-        }
-        raw["records"].as_array_mut().unwrap().push(json!({"state":"ap8_bus",
-            "media":0,"direction":1,"index":0,"channels":2,"type":0,"flags":1,
-            "arrangement":3,"name":"Output"}));
-        atomic_json(&census.report.path, &raw).unwrap();
-        census.report.sha256 = digest(&census.report.path).unwrap();
-        let classes = linux_vst_bridge::inventory::classes(&raw).unwrap();
-        let scan = linux_vst_bridge::inventory::Scan {
-            schema: 1,
-            id: random_id().unwrap(),
-            environment: f.r.environment.clone(),
-            host: f.r.host.clone(),
-            host_source_sha256: f.r.host_source_sha256.clone(),
-            completed_at: observation::now().unwrap(),
-            modules: vec![linux_vst_bridge::inventory::Module {
-                artifact: f.r.module.clone(),
-                classes,
-                report: census.report.clone(),
-                inspection_error: None,
-                quarantine_reason: None,
-            }],
-            changes: Default::default(),
-        };
-        private_dir(&f.m.root.join("inventory")).unwrap();
-        atomic_json(
-            &f.m.root
-                .join("inventory")
-                .join(format!("{}.json", f.r.environment.id)),
-            &scan,
-        )
-        .unwrap();
-        let s = selections(&f.m, &f.r.host, &f.r.host_source_sha256)
-            .unwrap()
-            .pop()
-            .unwrap();
-        let manifest = Artifact {
-            path: f.r.host.path.with_file_name("host-source-manifest.json"),
-            sha256: f.r.host_source_sha256.clone(),
-        };
-        let sw = reusable_projection_software(&f, &manifest);
-        let runtime = prep::build::stage_runtime_for_software(&f.m, &sw).unwrap();
-        let i = inspect_record_with(s.clone(), census.report, Origin::ManagedPreparation,
-            runtime.host.clone(), runtime.source_manifest.clone()).unwrap();
-        let c = prep::build::construct_with_runtime(&f.m, s, i, runtime,
-            &random_id().unwrap(), None).unwrap();
-        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
-        (f, c)
+        test_fixture::projection_candidate_in(test_fixture::Fixture::new(), effect)
     }
     #[test]
     fn projection_fixture_uses_the_current_loaded_engine_contract() {
@@ -3064,48 +2978,6 @@ pub(crate) mod tests {
         assert!(spec(&f.m, newer.clone(), true, false, true).is_err());
         assert!(spec(&f.m, newer.clone(), true, true, false).is_ok());
         assert!(spec(&f.m, newer, false, false, false).is_err());
-    }
-    fn reusable_projection_software(f: &test_fixture::Fixture,
-        manifest: &Artifact) -> Software {
-        let path = f.m.root.join("software/ui2-projection-kit.zip");
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent().unwrap().to_path_buf();
-        let script = r#"import json,zipfile,hashlib,sys,pathlib
-path,root,host,manifest=sys.argv[1:];root=pathlib.Path(root)
-sha=lambda b:hashlib.sha256(b).hexdigest()
-files={'prebuilt/engine.so':b'\x7fELFprojection-reusable-engine',
- 'runtime/host.exe':pathlib.Path(host).read_bytes(),
- 'runtime/host-source-manifest.json':pathlib.Path(manifest).read_bytes()}
-for name in ('tools/mf3/native_builder.py','tools/ap8_descriptor.py'):
- files[name]=(root/name).read_bytes()
-files['prebuilt/index.json']=json.dumps(dict(schema=3,engine='prebuilt/engine.so',
- engine_sha256=sha(files['prebuilt/engine.so']),descriptor_schema=1,maximum_bridge_frames=1024,
- audio_completion_contract=1,loaded_engine_admission_contract=1,native_sources={})).encode()
-recipe=dict(schema=4,source_commit='ab'*20,sdk='3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96',
- sdk_runtime='b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8',
- files={k:sha(v) for k,v in files.items()})
-with zipfile.ZipFile(path,'w') as z:
- z.writestr('recipe.json',json.dumps(recipe))
- for name,data in files.items():z.writestr(name,data)
-"#;
-        assert!(std::process::Command::new("python3")
-            .args(["-I", "-c", script]).arg(&path).arg(root)
-            .arg(&f.r.host.path).arg(&manifest.path)
-            .status().unwrap().success());
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
-        let host = f.r.host.clone();
-        Software {
-            installer_launch: None,
-            preparation_kit: Some(Artifact { sha256: digest(&path).unwrap(), path }),
-            manager: host.clone(),
-            operator_frontend: None,
-            supervisor: host.clone(),
-            ownership: host.clone(),
-            host,
-            source_manifest: manifest.clone(),
-            source_sha256: manifest.sha256.clone(),
-            native_catalogue: None,
-        }
     }
     pub(crate) fn projection_software(c: &prep::Candidate) -> Software {
         let runtime: prep::build::Runtime = read_json(&c.host.path.parent().unwrap()

@@ -38,6 +38,45 @@ on:
       - 'manager-ui/**'
       - 'tools/mf1/**'
       - 'tools/pkg0/**'
+  # Merges to main run the same checks, so main is verified after it moves.
+  push:
+    branches: [main]
+    paths:
+      - 'tools/is3/**'
+      - 'tools/is4/**'
+      - 'tools/naui1/**'
+      - 'tools/naui2/**'
+      - 'tools/nad1/**'
+      - 'evidence/nad1/**'
+      - 'evidence/naui1/**'
+      - 'tools/mf2/**'
+      - 'tools/mf3/**'
+      - 'tools/beta/**'
+      - 'tools/lc2/**'
+      - 'evidence/lc2/generated.json'
+      - 'bridge-manager/**'
+      # Read by problem.rs's explanation-completeness test.
+      - 'windows-factory-probe/source/inspect_module.cpp'
+      - 'windows-factory-probe/source/ap8_state.h'
+      - 'windows-factory-probe/source/stereo_negotiation.h'
+      - 'native-audio-client/**'
+      - 'plugin-descriptor/**'
+      - 'compatibility/**'
+      - '.github/workflows/ap12-manager.yml'
+      - 'tools/ap8_descriptor.py'
+      - 'tools/test_ap10_descriptor.py'
+      - 'tools/frg1/**'
+      - 'evidence/frg1/**'
+      - 'tools/uio1/**'
+      - 'tools/uir1/**'
+      - 'tools/uio2/**'
+      - 'tools/uio3/**'
+      - 'tools/uir2/**'
+      - 'tools/if2/**'
+      - 'tools/ca1/**'
+      - 'manager-ui/**'
+      - 'tools/mf1/**'
+      - 'tools/pkg0/**'
 permissions:
   contents: read
 jobs:
@@ -105,6 +144,16 @@ jobs:
         run: |
           sudo ln -sfn "$(command -v python3)" /usr/bin/python3
           /usr/bin/python3 -I -B -c 'import sys; print(sys.version); print(sys.executable)'
+      - name: Provide the per-user runtime directory for the service's memory transport
+        run: |
+          runtime="/run/user/$(id -u)"
+          test -d "$runtime" || sudo install -d -m 0700 -o "$(id -u)" -g "$(id -g)" "$runtime"
+          stat -f -c %T "$runtime"
+      # The real `serve` on a fixture state, driven through the operator CLI
+      # and the service socket (bridge-manager/tests/real_service). The full
+      # suite below runs it again with everything else.
+      - name: Real-service behaviour oracle
+        run: cargo test --manifest-path bridge-manager/Cargo.toml --locked --test real_service
       - run: cargo test --manifest-path bridge-manager/Cargo.toml --locked
       - name: Bounded configuration timing observation
         run: cargo test --manifest-path bridge-manager/Cargo.toml --locked --features pb0-c0-audit audit_
