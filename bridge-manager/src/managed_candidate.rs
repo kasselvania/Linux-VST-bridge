@@ -356,16 +356,18 @@ pub fn restore(m: &Manager) -> Result<()> {
 thread_local! { static TEST_CONTRACT: std::cell::RefCell<Option<(Profile,Binding)>> = const { std::cell::RefCell::new(None) }; }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::test_fixture::{inspection_report, prepared, Fixture};
-    struct Contract;
+    pub(crate) struct Contract;
     impl Drop for Contract {
         fn drop(&mut self) {
             TEST_CONTRACT.with(|c| *c.borrow_mut() = None);
         }
     }
-    fn fixture() -> (Fixture, PathBuf, Contract) {
+    /// A review-candidate package and binding whose profile preparation does
+    /// not own. Holding the contract keeps `candidate()` bound to this fixture.
+    pub(crate) fn fixture() -> (Fixture, PathBuf, Contract) {
         let (f, mut p, mut census, _) = prepared();
         f.m.unpublish(&p.class.class_id).unwrap();
         atomic_json(&f.m.root.join("registry.json"), &Registry::default()).unwrap();

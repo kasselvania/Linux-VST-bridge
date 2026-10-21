@@ -1824,6 +1824,35 @@ mod tests {
         assert_eq!(admit(&f, &class).unwrap_err().to_string(), Refusal::GlobalCapacity.code());
     }
     #[test]
+    fn production_policy_slots_do_not_depend_on_preparation_owning_the_profile() {
+        // The Serum review candidate is published by its own qualification
+        // path; preparation does not own its profile.
+        let (f, package, _contract) = crate::managed_candidate::tests::fixture();
+        crate::managed_candidate::stage(&f.m, &package).unwrap();
+        crate::managed_candidate::publish(&f.m).unwrap();
+        let class = crate::managed_candidate::candidate().unwrap().class.class_id;
+        assert!(!crate::preparation::owns_profile(&f.m, &crate::managed_candidate::candidate().unwrap()).unwrap());
+        for _ in 0..NATIVE_IMAGE_SLOTS {
+            admit(&f, &class).unwrap();
+        }
+        assert_eq!(admit(&f, &class).unwrap_err().to_string(), Refusal::NativeImageCapacity.code());
+    }
+    #[test]
+    fn production_policy_slots_include_an_adopted_legacy_revision() {
+        let (f, p, census, native) = crate::test_fixture::prepared();
+        let class = f.r.key();
+        let current = f.m.managed_publish(&p, &census, crate::observation::derive(&p, &census, &native).unwrap(),
+            &census.host, &census.host_source_sha256, None).unwrap();
+        let legacy = f.m.load_revision(&class, &current).unwrap().parent.unwrap();
+        f.m.rollback(&class, &legacy.id, None).unwrap();
+        assert!(f.m.load_revision(&class, &legacy).unwrap().adopted_legacy);
+        let observed = status(&f.m, service_limits(), 0, false).unwrap();
+        assert_eq!(observed.class_ceilings.iter().find(|c| c.class_id == class).map(|c| c.dsp),
+            Some(NATIVE_IMAGE_SLOTS));
+        admit(&f, &class).unwrap();
+        assert_eq!(status(&f.m, service_limits(), 0, false).unwrap().per_class[&class], 1);
+    }
+    #[test]
     fn availability_follows_setup_scoped_maintenance_like_admission() {
         let (f, class, other) = production_fixture();
         let admissible = |f: &Fixture| reserve_environment(&f.m, &service_limits(), &class,
