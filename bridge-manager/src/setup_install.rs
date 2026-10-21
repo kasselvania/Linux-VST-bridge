@@ -722,6 +722,24 @@ mod tests {
         assert_eq!(original["schema"],2);
     }
     #[test]
+    fn selected_window_binary_is_linked_and_a_changed_one_is_refused() {
+        let f = test_fixture::Fixture::new();
+        let home = f.outer.join("home");
+        let selected = software_fixture(&f, "selected");
+        commit(&f.m, &home, &selected, None, None).unwrap();
+        let frontend = selected.operator_frontend.clone().unwrap();
+        assert_eq!(software(&f.m).unwrap().operator_frontend.as_ref(), Some(&frontend));
+        assert_eq!(
+            fs::read_link(home.join(".local/bin/linux-audio-compatibility-manager")).unwrap(),
+            frontend.path
+        );
+        let bytes = fs::read(&frontend.path).unwrap();
+        fs::write(&frontend.path, "changed frontend").unwrap();
+        assert!(software(&f.m).is_err());
+        fs::write(&frontend.path, bytes).unwrap();
+        assert_eq!(software(&f.m).unwrap().operator_frontend, Some(frontend));
+    }
+    #[test]
     fn foreign_preflight_and_each_commit_failure_leave_all_stable_surfaces_unchanged() {
         for foreign in ["frontend", "desktop", "callback", "association", "unit"] {
             let f = test_fixture::Fixture::new();

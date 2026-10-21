@@ -137,8 +137,8 @@ installation and one audio/editor/retirement smoke are retained under
 ## Private per-instance incident capture (CA1)
 
 The window's capture actions arm the next exact ordinary admitted instance and
-disarm capture without restarting devices; problem reports include only
-sanitized incident fields. See [CA1](../docs/CA1.md) for finite retention,
+disarm capture without restarting devices; incident export and problem reports
+include only sanitized incident fields. See [CA1](../docs/CA1.md) for finite retention,
 exit classification, and the distinction between reporting readiness and a proven
 crash cause.
 
