@@ -131,13 +131,6 @@ pub(super) fn project(m: &Manager, product: &mut ui::Product,
     Ok(())
 }
 
-pub(super) fn run(m: &Manager, request_path: &Path) -> Result<()> {
-    let binding = inspection_binding_for(m, read_json(request_path)?, false)?;
-    let result = assess(m, binding, || m.lock("registry.lock"))?;
-    println!("{}", serde_json::to_string(&result)?);
-    Ok(())
-}
-
 pub(super) fn assess(m: &Manager, binding: HostBinding,
     registry_admission: impl FnOnce() -> Result<Lock>) -> Result<assessment::Assessment> {
     with_launch_verification(|| {

@@ -45,9 +45,10 @@ coverage. The [lineage check](../evidence/serum-x11-touch-routing/cross-plugin-l
 found Blackhole's DComp Wine already on the per-window route. Kontakt's NI
 Wine retains root-raw touch; both source patches applied to its exact private
 Wine checkout and an isolated driver compiled under the pinned offline SDK.
-That driver is not a sealed NI runner or a Kontakt touch claim. The current
-experimental-runner and candidate carry-forward owners are intentionally
-Serum-specific, so no NI environment or publication was changed.
+That driver is not a sealed NI runner or a Kontakt touch claim. The
+experimental-runner transition (since removed under #489) and the candidate
+carry-forward owner were intentionally Serum-specific, so no NI environment or
+publication was changed.
 
 ## Serum waveform touch release, bounded candidate C (2026-09-23)
 

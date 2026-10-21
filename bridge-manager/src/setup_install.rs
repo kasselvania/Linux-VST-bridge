@@ -3,38 +3,6 @@ use super::*;
 use std::os::unix::fs::MetadataExt;
 const DESKTOP_OWNER: &str = "[Desktop Entry]\nX-LinuxVSTBridge-Owner=MF1\n";
 const SERVICE_OWNER: &str = "[Unit]\nDescription=Linux VST Bridge registered host\n";
-
-/// Explicit packages select their own schema/capabilities. Only an in-generation
-/// acceptance transition may retain the prior adapter: a legacy manager rejects
-/// the newer Software field even when it names an otherwise valid artifact.
-pub(super) fn installer_launch_inputs(
-    package: Option<&Path>,
-    prior: Option<&Software>,
-) -> Result<(Option<PathBuf>, Option<Artifact>)> {
-    if let Some(package) = package {
-        let input = package.join("installer-launch.exe");
-        return Ok((input.try_exists()?.then_some(input), None));
-    }
-    let retained = prior.and_then(|s| s.installer_launch.clone());
-    if let Some(a) = &retained {
-        a.verify()?;
-    }
-    Ok((None, retained))
-}
-
-pub(super) fn retained_frontend(
-    input: Option<&Path>,
-    prior: Option<&Software>,
-) -> Result<Option<Artifact>> {
-    if input.is_some() {
-        return Ok(None);
-    }
-    let artifact = prior.and_then(|s| s.operator_frontend.clone());
-    if let Some(a) = &artifact {
-        a.verify()?;
-    }
-    Ok(artifact)
-}
 fn owned_file(path: &Path, prefix: Option<&str>) -> Result<Option<Vec<u8>>> {
     match fs::symlink_metadata(path) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
@@ -172,7 +140,8 @@ fn command(path: PathBuf, after: &Path, prior: Option<&Path>) -> Result<LinkChan
         after: after.into(),
     })
 }
-/// Failure injection is internal test instrumentation, never a CLI option.
+/// Test instrumentation: plan and apply in one step, with optional failure injection.
+#[cfg(test)]
 pub(super) fn commit(
     m: &Manager,
     home: &Path,
@@ -703,38 +672,6 @@ mod tests {
             .collect()
     }
     #[test]
-    fn explicit_legacy_package_omits_adapter_and_remains_legacy_readable() {
-        let f = test_fixture::Fixture::new();
-        let home = f.outer.join("home");
-        let old = with_adapter(software_fixture(&f, "is2"));
-        let old_dir = old.manager.path.parent().unwrap();
-        for path in generation_bytes(old_dir).keys() {
-            fs::set_permissions(path, fs::Permissions::from_mode(0o444)).unwrap();
-        }
-        let before = generation_bytes(old_dir);
-        commit(&f.m, &home, &old, None, None).unwrap();
-        assert!(serde_json::from_slice::<LegacySoftware>(
-            &fs::read(f.m.root.join("software.json")).unwrap()
-        )
-        .is_err());
-
-        let mut legacy = software_fixture(&f, "legacy");
-        let package = legacy.manager.path.parent().unwrap();
-        let (input, retained) = installer_launch_inputs(Some(package), Some(&old)).unwrap();
-        assert!(input.is_none());
-        assert!(retained.is_none());
-        legacy.installer_launch = retained;
-        commit(&f.m, &home, &legacy, Some(&old), None).unwrap();
-        let bytes = fs::read(f.m.root.join("software.json")).unwrap();
-        let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-        assert!(value.get("installer_launch").is_none());
-        let parsed: LegacySoftware = serde_json::from_slice(&bytes).unwrap();
-        assert_eq!(serde_json::to_value(parsed).unwrap(), value);
-        assert_eq!(software(&f.m).unwrap().manager, legacy.manager);
-        assert_eq!(generation_bytes(old_dir), before);
-        old.installer_launch.as_ref().unwrap().verify().unwrap();
-    }
-    #[test]
     fn is4_operation_policy_never_leaks_into_legacy_software_or_environment() {
         use linux_vst_bridge::installer_policy::{bind, Powershell};
         let f=test_fixture::Fixture::new();let home=f.outer.join("home");
@@ -785,50 +722,22 @@ mod tests {
         assert_eq!(original["schema"],2);
     }
     #[test]
-    fn explicit_current_package_selects_its_exact_adapter_not_the_prior_one() {
+    fn selected_window_binary_is_linked_and_a_changed_one_is_refused() {
         let f = test_fixture::Fixture::new();
         let home = f.outer.join("home");
-        let old = with_adapter(software_fixture(&f, "old"));
-        let mut new = with_adapter(software_fixture(&f, "current"));
-        let expected = new.installer_launch.clone().unwrap();
-        fs::write(&expected.path, b"distinct current adapter").unwrap();
-        let expected = Artifact {
-            sha256: digest(&expected.path).unwrap(),
-            path: expected.path,
-        };
-        let (input, retained) =
-            installer_launch_inputs(new.manager.path.parent(), Some(&old)).unwrap();
-        assert!(retained.is_none());
-        let input = input.unwrap();
-        // Production setup copies this input into the new immutable generation
-        // and constructs its Artifact from those staged bytes.
-        new.installer_launch = Some(Artifact {
-            sha256: digest(&input).unwrap(),
-            path: input,
-        });
-        assert_eq!(new.installer_launch.as_ref(), Some(&expected));
-        assert_ne!(new.installer_launch, old.installer_launch);
-        commit(&f.m, &home, &old, None, None).unwrap();
-        commit(&f.m, &home, &new, Some(&old), None).unwrap();
-        assert_eq!(software(&f.m).unwrap().installer_launch, Some(expected));
-    }
-    #[test]
-    fn acceptance_without_package_preserves_verified_adapter_exactly() {
-        let f = test_fixture::Fixture::new();
-        let home = f.outer.join("home");
-        let old = with_adapter(software_fixture(&f, "old"));
-        let mut accepted = software_fixture(&f, "accepted");
-        let before = generation_bytes(old.manager.path.parent().unwrap());
-        let (input, retained) = installer_launch_inputs(None, Some(&old)).unwrap();
-        assert!(input.is_none());
-        assert_eq!(retained, old.installer_launch);
-        accepted.installer_launch = retained;
-        commit(&f.m, &home, &old, None, None).unwrap();
-        commit(&f.m, &home, &accepted, Some(&old), None).unwrap();
-        assert_eq!(software(&f.m).unwrap().installer_launch, old.installer_launch);
-        assert_eq!(generation_bytes(old.manager.path.parent().unwrap()), before);
-        fs::write(&old.installer_launch.as_ref().unwrap().path, b"changed").unwrap();
-        assert!(installer_launch_inputs(None, Some(&old)).is_err());
+        let selected = software_fixture(&f, "selected");
+        commit(&f.m, &home, &selected, None, None).unwrap();
+        let frontend = selected.operator_frontend.clone().unwrap();
+        assert_eq!(software(&f.m).unwrap().operator_frontend.as_ref(), Some(&frontend));
+        assert_eq!(
+            fs::read_link(home.join(".local/bin/linux-audio-compatibility-manager")).unwrap(),
+            frontend.path
+        );
+        let bytes = fs::read(&frontend.path).unwrap();
+        fs::write(&frontend.path, "changed frontend").unwrap();
+        assert!(software(&f.m).is_err());
+        fs::write(&frontend.path, bytes).unwrap();
+        assert_eq!(software(&f.m).unwrap().operator_frontend, Some(frontend));
     }
     #[test]
     fn foreign_preflight_and_each_commit_failure_leave_all_stable_surfaces_unchanged() {
@@ -873,28 +782,6 @@ mod tests {
             assert!(commit(&f.m, &home, &new, Some(&old), Some(boundary)).is_err());
             assert_eq!(state(&f.m, &home), before);
         }
-    }
-    #[test]
-    fn omitted_frontend_retains_exact_artifact_and_normal_software_checks_it() {
-        let f = test_fixture::Fixture::new();
-        let home = f.outer.join("home");
-        let old = software_fixture(&f, "old");
-        let mut new = software_fixture(&f, "new");
-        commit(&f.m, &home, &old, None, None).unwrap();
-        new.operator_frontend = retained_frontend(None, Some(&old)).unwrap();
-        assert_eq!(new.operator_frontend, old.operator_frontend);
-        commit(&f.m, &home, &new, Some(&old), None).unwrap();
-        assert_eq!(
-            software(&f.m).unwrap().operator_frontend,
-            old.operator_frontend
-        );
-        let a = old.operator_frontend.unwrap();
-        assert_eq!(
-            fs::read_link(home.join(".local/bin/linux-audio-compatibility-manager")).unwrap(),
-            a.path
-        );
-        fs::write(&a.path, "changed frontend").unwrap();
-        assert!(software(&f.m).is_err());
     }
 }
 

@@ -4,7 +4,6 @@ mod managed_cli;
 mod test_fixture;
 mod vendor_cli;
 mod renderer_cli;
-mod native_access_runner;
 mod experimental_runner;
 mod plugin_services;
 mod vendor_product_cli;
@@ -19,8 +18,6 @@ mod preparation_cli;
 mod setup_install;
 mod package_authority;
 mod audio_scheduling;
-#[cfg(feature = "pb0-r3-audit")]
-mod pb0_r3_audit;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::{
@@ -534,35 +531,6 @@ struct InspectionRequest {
     class_id: String,
     compatibility: Compatibility,
 }
-// One decoder owns both admission and dispatch; a new exact route cannot be
-// dispatched in a match arm that an earlier greeting filter never admits.
-fn inspection_purpose(greeting: &[u8]) -> Option<Option<publication::Qualification>> {
-    use publication::Qualification::*;
-    Some(match greeting {
-        b"LVI1\n" => None,
-        b"LVQ1\n" => Some(Ap15Editor),
-        b"LVQ2\n" => Some(Ap17Capacity),
-        b"LVQ3\n" => Some(Ap18Pigments),
-        b"LVQ4\n" => Some(Uir1Input),
-        b"LVQ5\n" => Some(If1Failure),
-        b"LVQ6\n" => Some(Frg1Ubuntu),
-        _ => return None,
-    })
-}
-#[test]
-fn exact_inspection_greetings_share_admission_and_dispatch() {
-    use publication::Qualification::*;
-    assert_eq!(inspection_purpose(b"LVI1\n"), Some(None));
-    for (bytes, purpose) in [(b"LVQ1\n", Ap15Editor), (b"LVQ2\n", Ap17Capacity),
-        (b"LVQ3\n", Ap18Pigments), (b"LVQ4\n", Uir1Input), (b"LVQ5\n", If1Failure),
-        (b"LVQ6\n", Frg1Ubuntu)] {
-        assert_eq!(inspection_purpose(bytes), Some(Some(purpose)));
-    }
-    for invalid in [b"LVQ7\n".as_slice(), b"LVQ6", b"lvq6\n", b"LVQ6\nextra"] {
-        assert_eq!(inspection_purpose(invalid), None);
-    }
-}
-
 #[test]
 fn cold_keeper_wait_releases_reservation_and_rechecks_each_attempt() {
     use std::cell::Cell;
@@ -644,282 +612,6 @@ fn systemd(s: &str) -> String {
             .replace('"', "\\\"")
             .replace('%', "%%")
     )
-}
-fn setup(m: &Manager, package: Option<&Path>) -> Result<()> {
-    setup_selected(m, package, Acceptance::Editor)
-}
-#[derive(Clone, Copy)]
-enum Acceptance { Editor, Capacity, Pigments, Uir1, Uio2 }
-fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -> Result<()> {
-    let review = match acceptance {
-        Acceptance::Editor => acceptance::REVIEW,
-        Acceptance::Capacity => acceptance::CAPACITY_REVIEW,
-        Acceptance::Pigments => acceptance::pigments::REVIEW,
-        Acceptance::Uir1 => acceptance::uir1::REVIEW,
-        Acceptance::Uio2 => acceptance::uio2::REVIEW,
-    };
-    let _lock = m.lock("setup.lock")?;
-    let _registry = m.lock("registry.lock")?;
-    // A stopped prior service may leave a positively retired keeper lease.
-    // Use the existing ownership receipt rule before the inactivity check;
-    // never erase an unresolved lease merely to make setup succeed.
-    if package.is_some() {
-        let _unresolved = reconcile_leases(m)?;
-    }
-    m.require_inactive(None)?;
-    let previous = if m.root.join("software.json").try_exists()? {
-        Some(read_json::<Software>(&m.root.join("software.json"))?)
-    } else {
-        None
-    };
-    let me = std::env::current_exe()?;
-    let (catalogue, files, source) = if let Some(package) = package {
-        let profiles = profiles::installed_profiles()?;
-        let source: String = read_json(&package.join("host-source.json"))?;
-        let catalogue = catalogue::setup_adoption_for_host(m, &profiles, &digest(&package.join("host.exe"))?, &source)?;
-        (
-            catalogue,
-            [
-                ("linux-vst-bridge", me),
-                ("session.py", package.join("session.py")),
-                ("ownership.py", package.join("ownership.py")),
-                ("host.exe", package.join("host.exe")),
-                (
-                    "host-source-manifest.json",
-                    package.join("host-source-manifest.json"),
-                ),
-            ],
-            source,
-        )
-    } else {
-        let accepted = match acceptance {
-            Acceptance::Editor => acceptance::prepare(m)?,
-            Acceptance::Capacity => acceptance::prepare_capacity(m)?,
-            Acceptance::Pigments => acceptance::pigments::prepare(m)?,
-            Acceptance::Uir1 => acceptance::uir1::prepare(m)?,
-            Acceptance::Uio2 => acceptance::uio2::prepare(m)?,
-        };
-        let old = software(m)?;
-        for artifact in [&old.supervisor, &old.ownership] {
-            require(
-                artifact.path.parent() == old.manager.path.parent()
-                    && artifact.path.starts_with(m.root.join("software"))
-                    && artifact.path.canonicalize()? == artifact.path
-                    && file(&artifact.path)?.metadata()?.permissions().mode() & 0o222 == 0,
-                "acceptance_runtime_identity",
-            )?;
-        }
-        // This transition reuses retained immutable runtime helpers only when
-        // they exactly equal this manager's compiled source. No runtime input.
-        require(
-            old.supervisor.sha256
-                == hex(&sha2::Sha256::digest(include_bytes!(
-                    "../runtime/session.py"
-                )))
-                && old.ownership.sha256
-                    == hex(&sha2::Sha256::digest(include_bytes!(
-                        "../runtime/ownership.py"
-                    ))),
-            "acceptance_runtime_identity",
-        )?;
-        (
-            Some(accepted.catalogue),
-            [
-                ("linux-vst-bridge", me),
-                ("session.py", old.supervisor.path),
-                ("ownership.py", old.ownership.path),
-                ("host.exe", accepted.host.path),
-                ("host-source-manifest.json", accepted.source_manifest.path),
-            ],
-            accepted.source_manifest.sha256,
-        )
-    };
-    let mut files=files.to_vec();
-    let frontend = package
-        .map(|p| p.join("linux-audio-compatibility-manager"))
-        .filter(|p| p.exists());
-    let retained_frontend =
-        setup_install::retained_frontend(frontend.as_deref(), previous.as_ref())?;
-    if let Some(path)=frontend {files.push(("linux-audio-compatibility-manager",path));}
-    require(
-        valid_hex(&source, 64) && digest(&files[4].1)? == source,
-        "host source manifest hash differs",
-    )?;
-    let kit=package.map(|p|p.join("preparation-kit.zip")).filter(|p|p.exists());
-    let retained_kit=previous.as_ref().and_then(|s|s.preparation_kit.clone()).filter(|_|kit.is_none());
-    if let Some(a)=&retained_kit {a.verify()?;}
-    if let Some(path)=kit {files.push(("preparation-kit.zip",path));}
-    let (adapter, retained_adapter) =
-        setup_install::installer_launch_inputs(package, previous.as_ref())?;
-    if let Some(path)=adapter {files.push(("installer-launch.exe",path));}
-    let mut identity = String::new();
-    if let Some(a)=&retained_adapter {identity.push_str(&serde_json::to_string(a)?);}
-    if let Some(a)=&retained_kit {identity.push_str(&serde_json::to_string(a)?);}
-
-    for (_, p) in &files {
-        identity.push_str(&digest(p)?);
-    }
-    if let Some(c) = &catalogue {
-        identity.push_str(&hex(&sha2::Sha256::digest(serde_json::to_vec(c)?)));
-    }
-    if package.is_none() {
-        identity.push_str(&hex(&sha2::Sha256::digest(review)));
-    }
-    if let Some(a) = &retained_frontend {
-        identity.push_str(&serde_json::to_string(a)?);
-    }
-    let id = hex(&sha2::Sha256::digest(identity.as_bytes()));
-    let dest = m.root.join("software").join(&id);
-    catalogue::verify_host_path(&dest.join("host.exe"))?;
-    if let Some(c) = &catalogue {
-        for h in &c.hosts {
-            catalogue::verify_host_path(&dest.join("hosts").join(h.directory_name()).join("host.exe"))?;
-        }
-    }
-    if let Ok(old) = read_json::<Software>(&m.root.join("software.json")) {
-        if old.manager.path != dest.join("linux-vst-bridge") {
-            let running = Command::new("systemctl")
-                .args(["--user", "is-active", "--quiet", "linux-vst-bridge.service"])
-                .status()?;
-            require(
-                !running.success(),
-                "close devices and stop the bridge service before replacing installed software",
-            )?;
-        }
-    }
-    if !dest.try_exists()? {
-        private_dir(dest.parent().unwrap())?;
-        let stage = dest.with_file_name(format!("stage-{}", random_id()?));
-        private_dir(&stage)?;
-        for (name, p) in &files {
-            let to = stage.join(name);
-            fs::copy(p, &to)?;
-            require(digest(&to)? == digest(p)?, "software copy differs")?;
-            fs::set_permissions(
-                &to,
-                fs::Permissions::from_mode(if matches!(*name, "linux-vst-bridge" | "linux-audio-compatibility-manager") {
-                    0o500
-                } else {
-                    0o400
-                }),
-            )?;
-            fs::File::open(to)?.sync_all()?;
-        }
-        if let Some(mut c) = catalogue.clone() {
-            for h in &mut c.hosts {
-                let relative = PathBuf::from("hosts").join(h.directory_name());
-                private_dir(&stage.join(&relative))?;
-                for (name, a) in [("host.exe", &mut h.host), ("host-source-manifest.json", &mut h.source_manifest)] {
-                    a.verify()?;
-                    let to = stage.join(&relative).join(name);
-                    fs::copy(&a.path, &to)?;
-                    require(digest(&to)? == a.sha256, "acceptance_artifact_identity")?;
-                    fs::set_permissions(&to, fs::Permissions::from_mode(0o400))?;
-                    fs::File::open(&to)?.sync_all()?;
-                    a.path = dest.join(&relative).join(name);
-                }
-                fs::File::open(stage.join(&relative))?.sync_all()?;
-            }
-            if !c.hosts.is_empty() { fs::File::open(stage.join("hosts"))?.sync_all()?; }
-            private_dir(&stage.join("proxies"))?;
-            for n in &mut c.natives {
-                let name = format!("{}.so", n.artifact.sha256);
-                let copy = stage.join("proxies").join(&name);
-                fs::copy(&n.artifact.path, &copy)?;
-                require(
-                    digest(&copy)? == n.artifact.sha256,
-                    "native_package_copy_changed",
-                )?;
-                fs::set_permissions(&copy, fs::Permissions::from_mode(0o500))?;
-                fs::File::open(&copy)?.sync_all()?;
-                n.artifact.path = dest.join("proxies").join(name);
-            }
-            atomic_json(&stage.join("native-catalogue.json"), &c)?;
-            fs::set_permissions(
-                stage.join("native-catalogue.json"),
-                fs::Permissions::from_mode(0o400),
-            )?;
-            fs::File::open(stage.join("proxies"))?.sync_all()?;
-        }
-        if package.is_none() {
-            let path = stage.join("acceptance-review.json");
-            fs::write(&path, review)?;
-            fs::set_permissions(&path, fs::Permissions::from_mode(0o400))?;
-            fs::File::open(path)?.sync_all()?;
-        }
-        fs::File::open(&stage)?.sync_all()?;
-        fs::rename(&stage, &dest)?;
-        fs::File::open(dest.parent().unwrap())?.sync_all()?;
-    }
-    let a = |n: &str| -> Result<Artifact> {
-        let path = dest.join(n);
-        Ok(Artifact {
-            sha256: digest(&path)?,
-            path,
-        })
-    };
-    for (name, input) in &files {
-        require(
-            digest(&dest.join(name))? == digest(input)?,
-            "software copy differs",
-        )?;
-    }
-    if package.is_none() {
-        require(
-            fs::read(dest.join("acceptance-review.json"))? == review,
-            "acceptance_review_identity",
-        )?;
-    }
-    if let Some(mut expected) = catalogue.clone() {
-        for h in &mut expected.hosts {
-            let dir = dest.join("hosts").join(h.directory_name());
-            h.host.path = dir.join("host.exe");
-            h.source_manifest.path = dir.join("host-source-manifest.json");
-        }
-        for n in &mut expected.natives {
-            n.artifact.path = dest
-                .join("proxies")
-                .join(format!("{}.so", n.artifact.sha256));
-        }
-        let actual: catalogue::Catalogue = read_json(&dest.join("native-catalogue.json"))?;
-        require(actual == expected, "native_artifact_mismatch")?;
-        actual.validate(&m.root)?;
-    }
-    let installed = Software {
-        installer_launch: if files.iter().any(|(n,_)|*n=="installer-launch.exe"){Some(a("installer-launch.exe")?)}else{retained_adapter},
-        preparation_kit: if files.iter().any(|(n,_)|*n=="preparation-kit.zip"){Some(a("preparation-kit.zip")?)}else{retained_kit},
-        operator_frontend: if files.iter().any(|(n,_)|*n=="linux-audio-compatibility-manager") {Some(a("linux-audio-compatibility-manager")?)}else{retained_frontend},
-        manager: a("linux-vst-bridge")?,
-        supervisor: a("session.py")?,
-        ownership: a("ownership.py")?,
-        host: a("host.exe")?,
-        source_manifest: a("host-source-manifest.json")?,
-        source_sha256: source,
-        native_catalogue: if catalogue.is_some() {
-            Some(a("native-catalogue.json")?)
-        } else {
-            None
-        },
-    };
-    require(
-        installed.source_manifest.sha256 == installed.source_sha256,
-        "host source manifest hash differs",
-    )?;
-    let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
-    setup_install::commit(m, &home, &installed, previous.as_ref(), None)?;
-    // Publication/setup records are complete. Let the service's startup
-    // reconcile acquire the same nonblocking admission lock immediately.
-    drop(_registry);
-    for args in [
-        &["--user", "daemon-reload"][..],
-        &["--user", "enable", "--now", "linux-vst-bridge.service"][..],
-    ] {
-        require(
-            Command::new("systemctl").args(args).status()?.success(),
-            "automatic service setup failed",
-        )?;
-    }
-    Ok(())
 }
 fn spec(
     m: &Manager,
@@ -1852,15 +1544,12 @@ fn serve(m: Manager) -> Result<()> {
                     peer.write_all(&[u8::from(blocked.blocked())])?;
                     return Ok(());
                 }
-                if let Some(purpose) = inspection_purpose(&greeting[..5]) {
+                if &greeting[..5]==b"LVI1\n" {
                     let mut size=[0;4];peer.read_exact(&mut size)?;
                     let size=u32::from_le_bytes(size) as usize;require(size<=65536,"inspection_request_bound")?;
                     let mut bytes=vec![0;size];peer.read_exact(&mut bytes)?;
                     let request:InspectionRequest=serde_json::from_slice(&bytes)?;
-                    let select=|| match purpose {
-                        Some(purpose) => qualification_binding(&m, request.clone(), purpose),
-                        None => inspection_binding(&m, request.clone()),
-                    };
+                    let select=|| inspection_binding(&m, request.clone());
                     let (r,execution)={
                         let _admission=capacity::reserve_maintenance(&m,&limits,
                             || blocked.blocked())?;
@@ -1898,47 +1587,6 @@ fn serve(m: Manager) -> Result<()> {
                     require(reply.len()<=4096,"inspection_reply_bound")?;
                     peer.write_all(&(reply.len() as u32).to_le_bytes())?;peer.write_all(&reply)?;
                     return Ok(());
-                }
-                if &greeting[..5]==b"LVA1\n" {
-                    let mut size=[0;4];peer.read_exact(&mut size)?;
-                    let size=u32::from_le_bytes(size) as usize;require(size<=65536,"vendor access request bound")?;
-                    let mut bytes=vec![0;size];peer.read_exact(&mut bytes)?;
-                    let request:InspectionRequest=serde_json::from_slice(&bytes)?;
-                    let (r,execution)={
-                        let _admission=capacity::reserve_maintenance(&m,&limits,
-                            || blocked.blocked())?;
-                        m.require_inactive(None)?;
-                        let r=inspection_binding(&m,request.clone())?;
-                        let execution=package_authority::paired_host_components(&m,&s,&r.host,&r.host_source_sha256)?;
-                        (r,execution)
-                    };
-                    let _admission=wait_for_keeper(
-                        Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS),
-                        || capacity::reserve_maintenance(&m,&limits,
-                            || blocked.blocked()),
-                        || {
-                            m.require_inactive(None)?;
-                            require(inspection_binding(&m,request.clone())?==r,"vendor_access_binding_changed")?;
-                            stage_keeper(&m,&execution,&r,&keepers,None)
-                        },std::thread::sleep)?;
-                    let (mut job,path)=spec(&m,r,false,false,false)?;
-                    job.vendor_access=true;atomic_json(&path,&job)?;
-                    let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
-                    let mut child=spawn(&m,&execution,&path,None)?;
-                    if let Err(readiness)=supervisor_ready(&mut child,&job,
-                        Duration::from_secs(4)) {
-                        retire_unready_supervisor(&mut child,&path)?;
-                        return Err(readiness);
-                    }
-                    pending.expose();
-                    drop(_admission);
-                    let _=peer.write_all(format!("Vendor access {}: editor only; no DAW audio or project recall. Close its window to finish.\n",job.session).as_bytes());
-                    let status=child.wait()?;
-                    let mut disposition=String::new();if let Some(stdout)=child.stdout.take(){stdout.take(128).read_to_string(&mut disposition)?;}
-                    let (_registry, _) = m.lock_bounded(operator_model::OperatorLock::Registry,
-                        operator_model::LockPurpose::ServiceRecovery, None, Duration::from_secs(2))?;
-                    pending.complete(&job.session,status.success(),&disposition,None)?;
-                    peer.write_all(b"Vendor access retired.\n")?;return Ok(());
                 }
                 let version5 = &greeting[..5] == ap1_native_client::admission::GREETING_V5;
                 let extent = if version5 { 117 } else { 53 };
@@ -2217,63 +1865,7 @@ fn environment_record(m: &Manager, id: &str) -> Result<Environment> {
     e.runner.verify()?;
     Ok(e)
 }
-fn environment_create(m: &Manager, runner: &Path) -> Result<()> {
-    let runner: Runner = read_json(runner)?;
-    runner.verify()?;
-    let id = random_id()?;
-    let root = m.root.join("environments").join(&id);
-    private_dir(&root)?;
-    for d in [
-        "compatdata",
-        "runtime-var",
-        "host-cache",
-        "host-config",
-        "host-data",
-        "host-tmp",
-        "client",
-    ] {
-        private_dir(&root.join(d))?;
-    }
-    let e = Environment {
-        id,
-        root: root.clone(),
-        runner,
-        revision: 1,
-    };
-    atomic_json(&root.join("environment.json"), &e)?;
-    println!("{}", e.id);
-    Ok(())
-}
-fn environment_import(m: &Manager, path: &Path) -> Result<()> {
-    let e: Environment = read_json(path)?;
-    require(
-        !e.id.is_empty() && e.id.bytes().all(|c| c.is_ascii_hexdigit() || c == b'-'),
-        "environment ID syntax",
-    )?;
-    require(
-        e.root == m.root.join("environments").join(&e.id) && e.revision > 0,
-        "environment binding differs",
-    )?;
-    private_dir(&e.root)?;
-    e.runner.verify()?;
-    let marker = e.root.join("environment.json");
-    if let Ok(old) = read_json::<Environment>(&marker) {
-        require(old == e, "existing environment revision differs")?;
-    } else if marker.try_exists()? {
-        // Explicit import preserves earlier setup notes; vendor state is untouched.
-        let backup = e
-            .root
-            .join(format!("environment-before-import-{}.json", random_id()?));
-        fs::copy(&marker, &backup)?;
-        fs::File::open(backup)?.sync_all()?;
-    }
-    atomic_json(&marker, &e)?;
-    Ok(())
-}
 fn inspection_binding(m: &Manager, request: InspectionRequest) -> Result<HostBinding> {
-    inspection_binding_for(m, request, true)
-}
-fn inspection_binding_for(m: &Manager, request: InspectionRequest, ordinary: bool) -> Result<HostBinding> {
     require(
         valid_hex(&request.class_id, 32),
         "inspection class ID syntax",
@@ -2291,15 +1883,13 @@ fn inspection_binding_for(m: &Manager, request: InspectionRequest, ordinary: boo
     let sw = software(m)?;
     let mut host = sw.host.clone();
     let mut source = sw.source_sha256.clone();
-    if ordinary {
-        if let Some(p) = profiles::installed_profiles()?.iter().find(|p| p.class.class_id == request.class_id) {
-            require(p.module_sha256 == request.module.sha256 && p.capabilities.compatibility() == request.compatibility,
-                "installed_host_mismatch")?;
-            p.verify_environment(&environment, &p.requirements.environment_family)?;
-            let selected = catalogue::current_host(m, &sw.host, &sw.source_sha256, p)?;
-            host = selected.host;
-            source = selected.source_manifest.sha256;
-        }
+    if let Some(p) = profiles::installed_profiles()?.iter().find(|p| p.class.class_id == request.class_id) {
+        require(p.module_sha256 == request.module.sha256 && p.capabilities.compatibility() == request.compatibility,
+            "installed_host_mismatch")?;
+        p.verify_environment(&environment, &p.requirements.environment_family)?;
+        let selected = catalogue::current_host(m, &sw.host, &sw.source_sha256, p)?;
+        host = selected.host;
+        source = selected.source_manifest.sha256;
     }
     let r = HostBinding {
         metadata: ClassSelection {
@@ -2312,67 +1902,6 @@ fn inspection_binding_for(m: &Manager, request: InspectionRequest, ordinary: boo
         compatibility: request.compatibility,
     };
     Ok(r)
-}
-// Engineering inspection has a distinct admission selector. Its host can only
-// come from the sealed installed candidate roster, never from request data.
-fn qualification_binding(
-    m: &Manager,
-    request: InspectionRequest,
-    purpose: publication::Qualification,
-) -> Result<HostBinding> {
-    if purpose == publication::Qualification::Frg1Ubuntu {
-        let requested = inspection_binding_for(m, request, false)?;
-        let exact = frg1::binding(m)?;
-        require(requested.metadata.class_id == exact.metadata.class_id
-            && requested.environment == exact.environment && requested.module == exact.module
-            && requested.compatibility == exact.compatibility,
-            "qualification_exact_candidate_required")?;
-        return Ok(exact.into());
-    }
-    if purpose == publication::Qualification::Ap18Pigments {
-        let requested = inspection_binding_for(m, request, false)?;
-        let r = pigments::binding(m)?;
-        require(requested.metadata.class_id == r.metadata.class_id
-            && requested.environment == r.environment && requested.module == r.module
-            && requested.compatibility == r.compatibility, "qualification_exact_candidate_required")?;
-        return Ok(r.into());
-    }
-    let candidates = qualification::installed_for(m, purpose)?;
-    let r = inspection_binding_for(m, request, false)?;
-    let matching: Vec<_> = candidates
-        .iter()
-        .filter(|c| c.profile.class.class_id == r.metadata.class_id)
-        .collect();
-    require(
-        matching.len() == 1,
-        "qualification_exact_candidate_required",
-    )?;
-    let c = matching[0];
-    let db = m.registry()?;
-    let prior = db
-        .classes
-        .get(&r.metadata.class_id)
-        .ok_or("qualification_verified_parent_required")?;
-    let mut registration = prior.registration.clone();
-    registration.module = r.module;
-    registration.environment = r.environment;
-    registration.compatibility = r.compatibility;
-    registration.host = c.host.clone();
-    registration.native = c.native.artifact.clone();
-    registration.host_source_sha256 = c.source_manifest.sha256.clone();
-    m.check_qualification_parent_for(&c.profile, &registration, purpose)?;
-    Ok(registration.into())
-}
-fn inspect(m: &Manager, path: &Path) -> Result<()> {
-    let r = inspection_binding(m, read_json(path)?)?;
-    let sw = software(m)?;
-    let (job, path) = spec(m, r, true, false, false)?;
-    let status = spawn(m,&sw, &path, None)?.wait()?;
-    println!("{}", job.report.display());
-    finish_inspection(m, &job, status)
-}
-fn finish_inspection(m: &Manager, job: &SessionSpec, status: ExitStatus) -> Result<()> {
-    finish_inspection_with_registry(m, job, status, || m.lock("registry.lock"))
 }
 fn finish_inspection_with_registry(m: &Manager, job: &SessionSpec, status: ExitStatus,
     acquire_registry: impl FnOnce() -> Result<Lock>) -> Result<()> {
@@ -2409,39 +1938,6 @@ fn inspection_failure_context(m:&Manager,job:&SessionSpec,result:&serde_json::Va
     };
     Ok(format!("inspection failed for {name} during {phase}. Retry this operation; the failed check is retained."))
 }
-fn install(m: &Manager, id: &str, path: &Path, sha: &str) -> Result<()> {
-    let e = environment_record(m, id)?;
-    let artifact = Artifact {
-        path: path.canonicalize()?,
-        sha256: sha.into(),
-    };
-    artifact.verify()?;
-    let sw = software(m)?;
-    let jobs = e.root.join("installations");
-    private_dir(&jobs)?;
-    let token = random_id()?;
-    let job = jobs.join(format!("{token}.json"));
-    let report = jobs.join(format!("{token}-result.json"));
-    atomic_json(
-        &job,
-        &serde_json::json!({"environment":e,"installer":artifact,"report":report}),
-    )?;
-    let status = Command::new("systemd-run")
-        .args([
-            "--user",
-            "--wait",
-            "--pipe",
-            "--property=KillMode=control-group",
-        ])
-        .arg(format!("--unit=linux-vst-bridge-setup-{token}"))
-        .arg("/usr/bin/python3")
-        .args(linux_vst_bridge::supervisor::arguments(&sw.supervisor, &sw.ownership)?)
-        .arg("--install")
-        .arg(&job)
-        .status()?;
-    println!("{}", report.display());
-    require(status.success(), "installer did not complete successfully")
-}
 fn main() -> Result<()> {
     unsafe {
         libc::umask(0o077);
@@ -2461,7 +1957,6 @@ fn main() -> Result<()> {
         package_authority::require_current_frontend_caller(&m)?;
     }
     match args.first().map(String::as_str){
-  Some("setup") if args.len()==2=>setup(&m,Some(Path::new(&args[1]))),
   Some("package-adopt") if args.len()==1=>package_authority::adopt(&m),
   Some("package-update") if args.len()==1=>package_authority::update(&m),
   Some("package-restore") if args.len()==1=>package_authority::restore(&m),
@@ -2478,79 +1973,15 @@ fn main() -> Result<()> {
       "key_class":bundle.key_class(),"release":bundle.release(),"staged":false,"selected":false}))?);
     Ok(())
   },
-  #[cfg(feature = "pb0-r3-audit")]
-  Some("pb0-r3-audit") if args.len()==1=>pb0_r3_audit::run(&m),
-  Some("accept-editor") if args.len()==1=>managed_cli::run_acceptance(&m),
-  Some("accept-capacity") if args.len()==1=>managed_cli::run_capacity_acceptance(&m),
-  Some("accept-pigments") if args.len()==1=>managed_cli::run_pigments_acceptance(&m),
-  Some("accept-pigments-ui") if args.len()==1=>managed_cli::run_uio2_acceptance(&m),
-  Some("accept-ui") if args.len()==1=>managed_cli::run_ui_acceptance(&m),
-  Some("managed")=>managed_cli::run(&m,&args[1..]),
-  Some("capture")=>crash_capture::run(&m,&args[1..]),
   Some("operator")=>operator_cli::run(&m,&args[1..]),
   Some("native-access-callback") if args.len()==2=>native_access_callback::deliver(&m,&args[1]).map_err(|_|"Native Access login return could not be delivered. Open Native Access through the manager and start a fresh sign-in.".into()),
   Some("import-installer") if args.len()==1=>{let source=fs::File::from(std::io::stdin().as_fd().try_clone_to_owned()?);println!("{}",serde_json::to_string(&installer_import::import(&m,source)?)?);Ok(())},
   Some("import-installer") if args.len()==2=>{let source=fs::File::from(std::io::stdin().as_fd().try_clone_to_owned()?);println!("{}",serde_json::to_string(&installer_import::import_named(&m,source,&args[1])?)?);Ok(())},
   Some("workspace")=>daw_workspace::run(&m,&args[1..]),
-  Some("vendor-app")=>vendor_cli::run(&m,&args[1..]),
-  Some("vendor-product")=>vendor_product_cli::run(&m,&args[1..]),
-  Some("qualify-instrument")=>managed_cli::run_installer_qualification(&m,&args[1..]),
-  Some("qualify-editor")=>managed_cli::run_qualification(&m,&args[1..]),
-  Some("qualify-ui")=>managed_cli::run_ui_qualification(&m,&args[1..]),
-  Some("qualify-failure")=>managed_cli::run_failure_qualification(&m,&args[1..]),
-  Some("qualify-pigments")=>managed_cli::run_pigments_qualification(&m,&args[1..]),
-  Some("qualify-capacity")=>managed_cli::run_capacity_qualification(&m,&args[1..]),
-  Some("qualify-frg1")=>managed_cli::run_frg1_qualification(&m,&args[1..]),
-  Some("environment-create") if args.len()==2=>environment_create(&m,Path::new(&args[1])),
-  Some("environment-import") if args.len()==2=>environment_import(&m,Path::new(&args[1])),
-  Some("native-access-runner") if args.len()==2=>native_access_runner::update(&m,Path::new(&args[1])),
-  Some("experimental-runner") if args.len()==2=>experimental_runner::update(&m,Path::new(&args[1])),
-  Some("install") if args.len()==4=>install(&m,&args[1],Path::new(&args[2]),&args[3]),
-  Some("register") if args.len()==2=>m.register(read_json(Path::new(&args[1]))?),
-  Some("unpublish") if args.len()==2=>m.unpublish(&args[1]),
-  Some("set-delay") if args.len()==3=>m.select_delay(&args[1],args[2].parse()?),
   Some("serve") if args.len()==1=>serve(m),
-  Some("status") if args.len()==1=>status(&m),
   Some("capacity") if args.len()==1=>capacity_read(&m),
-  Some("reconcile") if args.len()==1=>m.reconcile(),
-  Some("inspect") if args.len()==2=>inspect(&m,Path::new(&args[1])),
-  Some("graphics-assess") if args.len()==2=>graphics_cli::run(&m,Path::new(&args[1])),
-  Some("vendor-editor") if args.len()==2=>vendor_editor(&m,Path::new(&args[1])),
-  _=>Err("Usage: linux-vst-bridge setup PACKAGE | environment-create RUNNER.json | environment-import ENVIRONMENT.json | install ENV_ID INSTALLER SHA256 | inspect INSPECTION.json | graphics-assess INSPECTION.json | vendor-editor INSPECTION.json | register REGISTRATION.json | status | set-delay CLASS_ID FRAMES | reconcile | unpublish CLASS_ID | serve".into())
+  _=>Err("Usage: linux-vst-bridge serve | capacity | operator ... | import-installer [NAME] | workspace ... | native-access-callback URI | package-...".into())
  }
-}
-fn vendor_editor(m: &Manager, path: &Path) -> Result<()> {
-    let request: InspectionRequest = read_json(path)?;
-    let bytes = serde_json::to_vec(&request)?;
-    require(bytes.len() <= 65536, "vendor access request bound")?;
-    let mut peer = UnixStream::connect(m.root.join("runtime/owner.sock"))?;
-    peer.set_write_timeout(Some(Duration::from_secs(5)))?;
-    peer.set_read_timeout(Some(Duration::from_secs(1900)))?;
-    peer.write_all(b"LVA1\n")?;
-    peer.write_all(&(bytes.len() as u32).to_le_bytes())?;
-    peer.write_all(&bytes)?;
-    let mut reply = peer.take(1024);
-    std::io::copy(&mut reply, &mut std::io::stdout())?;
-    Ok(())
-}
-fn status(m: &Manager) -> Result<()> {
-    let db = m.registry()?;
-    let rows: Vec<_> = db.classes.values().map(|e| {
-        let refusal = e.registration.verify(&m.root).err().map(|e| e.to_string());
-        let performance = m.performance(&e.registration.key());
-        let performance_refusal = performance.as_ref().err().map(|e| e.to_string());
-        let performance = performance.ok();
-        serde_json::json!({"class":e.registration.metadata,"publication":e.publication,
-            "environment":e.registration.environment.id,"revision":e.registration.environment.revision,
-            "compatibility":e.registration.compatibility,"artifacts_valid":refusal.is_none(),
-            "refusal":refusal,"performance":performance,
-            "performance_refusal":performance_refusal,
-            "added_frames":performance.as_ref().map(|p|p.effective_frames()),
-            "buffered_frames":performance.as_ref().map(|p|p.added_frames),
-            "delivery_mode":performance.as_ref().map(|p|p.delivery_mode)})
-    }).collect();
-    println!("{}", serde_json::to_string_pretty(&rows)?);
-    Ok(())
 }
 
 #[cfg(test)]
@@ -3707,7 +3138,7 @@ mod tests {
             .env("PATH", format!("{}:{}", bin.display(), std::env::var("PATH").unwrap()))
             .stdout(Stdio::null()).stderr(Stdio::null()).status().unwrap();
         assert!(status.success()); // Exact retirement does not make inspection successful.
-        assert!(finish_inspection(&f.m, &job, status).unwrap_err().to_string()
+        assert!(finish_inspection_with_registry(&f.m, &job, status, || f.m.lock("registry.lock")).unwrap_err().to_string()
             .contains("inspection failed"));
         let result: serde_json::Value = read_json(&job.report).unwrap();
         assert!(result["error"].as_str().unwrap().contains("BlockingIOError"));
@@ -3742,7 +3173,7 @@ mod tests {
             "session":"wrong","cleanup_confirmed":true,"transport_retired":true
         })).unwrap();
         let status = Command::new("/bin/sh").args(["-c", "exit 0"]).status().unwrap();
-        assert!(finish_inspection(&f.m, &job, status).unwrap_err().to_string()
+        assert!(finish_inspection_with_registry(&f.m, &job, status, || f.m.lock("registry.lock")).unwrap_err().to_string()
             .contains("inspection cleanup unconfirmed"));
         assert!(job.directory.exists() && job.lease.exists());
     }

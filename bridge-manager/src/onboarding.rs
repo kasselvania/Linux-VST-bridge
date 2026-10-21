@@ -91,7 +91,7 @@ pub fn load(m: &Manager, id: &str) -> Result<Record> {
 }
 /// Optional retained installation support for a managed-environment rescan.
 /// Registry and catalogue authority are checked by the final scan owner.
-#[cfg(any(test, feature = "pb0-r3-audit"))]
+#[cfg(test)]
 pub fn retained_environment(m: &Manager, id: &str) -> Result<Option<Record>> {
     let record = retained_environment_record(m, id)?;
     if let Some(record) = &record {

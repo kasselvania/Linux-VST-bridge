@@ -4,6 +4,11 @@ Compatibility profiles are portable, closed-schema policy. They bind exact obser
 
 Profiles must not contain arbitrary commands, scripts, hooks, executable expressions, credentials, proprietary binaries or state, DRM workarounds, unreviewed downloads, destructive repair actions, or an untyped capability escape hatch. Schema versions, identities, hashes, strings, collections and nesting are bounded. Unknown fields, unsupported capabilities, malformed identities, duplicate profile revisions and zero/ambiguous exact matches fail closed.
 
+The campaign commands named in the revision history below (`managed`,
+`accept-*` and `qualify-*`) were removed from the manager under #489. The profile
+revisions and publication records they produced remain readable; new selection
+goes through the manager window.
+
 ## Claim lifecycle
 
 ```text

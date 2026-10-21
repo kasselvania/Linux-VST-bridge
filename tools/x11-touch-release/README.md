@@ -29,20 +29,21 @@ point with an isolated, unlicensed `cmd.exe` prefix; it verifies scoped
 shutdown and unchanged tree bytes, then records the private build receipt and
 manifest. Both phases refuse reuse of an existing output.
 
-The manager accepts only manifest kind
+The manager's `experimental-runner` transition, removed under #489 after the
+touch correction shipped in the managed runtime, accepted only manifest kind
 `x11_touch_release_reference_runner` with the exact patch, source, SDK,
-base-runner, tree and changed-artifact identities. `experimental-runner`
-requires a stopped bridge, no active owner, the exact removed Serum revision,
-the exact candidate-B predecessor, and a single compare-and-swap environment
-advance. It creates candidate C with a provenance-recorded carry-forward of
+base-runner, tree and changed-artifact identities. It required a stopped
+bridge, no active owner, the exact removed Serum revision, the exact
+candidate-B predecessor, and a single compare-and-swap environment advance. It
+created candidate C with a provenance-recorded carry-forward of
 B's existing factory and selected-class result. The old inventory remains
 stale; no fresh scan is claimed. The read-only
 `x11_touch_candidate_preview` example can calculate the prospective C
 identity after sealing, before any physical transition. With an optional
 original manifest path, it can do this from private copies on another host;
 that mode computes identity only and explicitly reports that runner files
-were not reverified in the preview. The physical transition still performs
-the complete manifest, tree and artifact verification.
+were not reverified in the preview. The physical transition performed the
+complete manifest, tree and artifact verification.
 
 Physical Serum use and candidate-C publication are a separate post-review
 step. Candidate B and the installed runner remain the rollback authority.

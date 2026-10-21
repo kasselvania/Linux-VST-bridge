@@ -19,9 +19,10 @@ CPU affinity or runtime replacement is selected by this review.
 ## Shared assessment implementation
 
 The subsequent operator request is to reuse compatibility assessment across
-plug-ins and distributions. The new explicit `graphics-assess INSPECTION.json`
-manager command accepts the existing exact environment/module/class inspection
-request. It uses the installed inspection host, the environment's selected
+plug-ins and distributions. The shared assessment runs from the manager
+window's compatibility workflow on the existing exact environment/module/class
+inspection binding; the standalone `graphics-assess INSPECTION.json` command that
+first exposed it was removed under #489. It uses the installed inspection host, the environment's selected
 runner and graphics policy, the existing inactive admission and supervised
 process lifetime. It does not republish or replace a retained audio host.
 

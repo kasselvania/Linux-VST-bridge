@@ -8,6 +8,10 @@ rollback; LoFi and FRAGMENTS 10 remain independent.
 
 ## Operator route
 
+The `capture` command listed below was removed from the manager under #489. The
+manager window's capture actions (arm, disarm and incident export) are the route
+now.
+
 Use the installed manager's ordinary product selection, then:
 
 ```text

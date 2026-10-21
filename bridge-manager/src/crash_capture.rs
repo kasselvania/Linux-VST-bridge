@@ -185,31 +185,6 @@ pub fn disarm(m: &Manager) -> Result<()> {
     println!("Capture disarmed. Active retention cancels at the next owner turn; logging pipes continue draining until normal session exit.");
     Ok(())
 }
-pub fn run(m: &Manager, args: &[String]) -> Result<()> {
-    match args {
-        [action,selection] if action=="arm"=>{
-            let db=m.registry()?;let i=selection.parse::<usize>()?.checked_sub(1).ok_or("product selection")?;
-            let key=db.classes.keys().nth(i).ok_or("product selection")?;arm(m,Some(key))
-        }
-        [action] if action=="arm-failure"=>arm(m,None),
-        [action] if action=="disarm"=>disarm(m),
-        [action] if action=="status"=>{
-            let mut values=Vec::new();for path in incidents(m)? {
-                let id=path.file_name().and_then(|s|s.to_str()).ok_or("capture identity")?;
-                let state=if path.join("status.json").exists(){read_json::<serde_json::Value>(&path.join("status.json"))?}else{serde_json::json!({"state":"armed"})};
-                values.push(serde_json::json!({"incident":id,"status":state}));
-            }
-            println!("{}",serde_json::json!({"schema":1,"armed":root(m).join("next.json").exists(),"incidents":values}));Ok(())
-        }
-        [action,id] if matches!(action.as_str(),"report"|"summary"|"export")=>{
-            let path=folder(m,id)?.join(match action.as_str(){"report"=>"incident.json","summary"=>"summary.txt",_=>"share.json"});
-            let mut f=file(&path)?;require(f.metadata()?.len()<=8*1024*1024,"capture report capacity")?;
-            let mut s=String::new();f.read_to_string(&mut s)?;println!("{s}");Ok(())
-        }
-        _=>Err("usage: capture arm SELECTION | arm-failure | status | report ID | summary ID | export ID | disarm".into())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -316,6 +291,5 @@ mod tests {
         for id in ["../software", "", "gggggggggggggggggggggggggggggggg"] {
             assert!(folder(&f.m, id).is_err());
         }
-        assert!(run(&f.m, &["launch".into(), "/bin/sh".into()]).is_err());
     }
 }

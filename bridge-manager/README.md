@@ -2,19 +2,35 @@
 
 The Rust manager owns exact environments, runners, installer/application records, registration, publication, capacity, rollback, and canonical readback. The installed Python supervisor owns each launched Windows process tree. Neither runs in an audio callback.
 
-## Installed setup
+## Installed software and entry points
 
-`setup PACKAGE` installs an immutable private software revision containing the manager, `session.py`, `ownership.py`, the exact Windows host, its source manifest, and the native catalogue. It updates the stable command link and enables `linux-vst-bridge.service`. Updating software requires closed devices and a stopped service.
+Signed packages are staged, selected, updated and rolled back through the
+`package-*` commands that the manager window's first-run and update screens run.
+Each selected generation is an immutable private software revision containing the
+manager, `session.py`, `ownership.py`, the exact Windows host, its source manifest
+and the native catalogue. Selection updates the stable command links and enables
+`linux-vst-bridge.service`.
 
-The typed CLI currently includes:
+The manager binary answers only the entry points something in the product calls:
 
-- `environment-create RUNNER.json` — create a private persistent environment;
-- `environment-import ENVIRONMENT.json` — adopt an existing exact bridge-owned environment without changing vendor/account state;
-- `install ENV_ID INSTALLER_PATH SHA256` — verify and run one normal foreground vendor installer in a bounded user unit;
-- `inspect INSPECTION.json` — inspect one exact module/class in an inactive environment;
-- `vendor-editor INSPECTION.json` — open one exact unpublished vendor editor without DAW audio;
-- managed preview, publication, status, rollback, reconciliation, and unpublish operations;
-- sealed engineering qualification and accepted-transition routes.
+- `serve` — the long-running user service started by `linux-vst-bridge.service`;
+- `operator overview | current-overview | product | snapshot | activity | pulse | request`
+  — the window's reads and actions; `operator worker ID` and `operator finish ID`
+  run each operation and its unit cleanup;
+- `import-installer [NAME]` — the window's installer import, reading the chosen file on stdin;
+- `capacity` — capacity readback;
+- `native-access-callback URI` — the Native Access sign-in return, registered as the URL handler;
+- `workspace ...` — the retained FL Studio workspace, called by its desktop launcher and import helper;
+- `owned-audio-scheduling` — the supervisor's audio-thread scheduling helper;
+- `package-adopt | update | restore | rollback | recover | activate | activation-status |
+  bootstrap-status | stop-for-repair | user-inspect` — package selection and recovery.
+
+Campaign and engineering commands that nothing in the product called (`setup`,
+`managed`, `accept-*`, `qualify-*`, `environment-create`, `environment-import`,
+`install`, `inspect`, `vendor-editor`, `vendor-app`, `vendor-product`,
+`graphics-assess`, `capture`, `register`, `unpublish`, `set-delay`, `status`,
+`reconcile`, `native-access-runner`, `experimental-runner`, `pb0-r3-audit`) were
+removed under #489. Records they wrote stay readable.
 
 Unknown fields, changed artifacts, ambiguous class roles, foreign links, active mutation conflicts, and unresolved ownership are refused.
 
@@ -63,7 +79,7 @@ The manager verifies tmpfs type, ownership, permissions, marker, device/inode, a
 
 ## AP18 installer and vendor-application path
 
-The existing `install` route is a one-shot installer supervisor. It verifies exact bytes, obtains exclusive environment access, launches the installer through the pinned runner, tracks descendants, bounds diagnostics and time, contains owned processes, and records launcher exit plus cleanup.
+The managed installer route is a one-shot installer supervisor. It verifies exact bytes, obtains exclusive environment access, launches the installer through the pinned runner, tracks descendants, bounds diagnostics and time, contains owned processes, and records launcher exit plus cleanup.
 
 AP18 extends this only as required by the real Arturia Software Center workflow. ASC is a persistent companion application rather than a one-shot installer. The manager needs a reusable exact application identity, launch/focus/status ownership, continuing helper/download/install classification, bounded before/after manifests, and post-install product discovery.
 
@@ -97,22 +113,11 @@ python3 -m unittest discover -s bridge-manager/runtime -v
 
 Run native and Windows lanes only when their owners or shared contracts change. Synthetic tests do not substitute for real ASC, Pigments, and normally launched Bitwig evidence.
 
-AP18 adds `vendor-product scan pigments` for nonpublishing discovery from the
-installed ASC environment. The engineering-only `qualify-pigments stage
-EXACT_PRODUCT_PACKAGE`, `qualify-pigments publish`, and `qualify-pigments restore`
-use a compiled exact candidate; they accept no caller-authored registration or
-profile. The sealed package path supplies bytes for verification, never policy.
-The candidate remains unverified and cannot use ordinary managed activation.
-
 ## Accepted Pigments software
 
-`linux-vst-bridge accept-pigments` is the argument-free, exact-review AP18
-software transition. Close devices and stop the service first. It requires the
-retained accepted revision-10 candidate inactive, exact prior software and
-completed evidence, and unchanged LoFi/FRAGMENTS baseline. It installs immutable
-software using the existing command-pointer law; `managed preview` and
-`managed publish` then select ordinary Pigments revision 11. The candidate
-remains historical provenance, never ordinary Activation authority.
+The argument-free AP18 software transition that produced ordinary Pigments
+revision 11 has been removed; its candidate remains historical provenance, never
+ordinary Activation authority.
 
 Catalogue schema 2 adds exact supplemental host/manifest artifacts. Each profile
 selects its exact host, so Pigments does not replace the Windows host used by
@@ -131,22 +136,16 @@ installation and one audio/editor/retirement smoke are retained under
 
 ## Private per-instance incident capture (CA1)
 
-`capture arm SELECTION` arms the next exact ordinary admitted instance; `capture
-status`, `capture summary ID`, `capture report ID`, `capture export ID`, and
-`capture disarm` manage it without restarting devices. Raw reports are private;
-only `export` selects sanitized fields. The sealed engineering candidate uses
-`capture arm-failure`. See [CA1](../docs/CA1.md) for finite retention, exit
-classification, and the distinction between reporting readiness and a proven
+The window's capture actions arm the next exact ordinary admitted instance and
+disarm capture without restarting devices; incident export and problem reports
+include only sanitized incident fields. See [CA1](../docs/CA1.md) for finite retention,
+exit classification, and the distinction between reporting readiness and a proven
 crash cause.
 
 ## Accepted UIO2 Pigments ordinary transition
 
-`linux-vst-bridge accept-pigments-ui` installs the reviewed candidate-17 artifact
-set as ordinary revision-18 software authority. It accepts no profile, review ID,
-or artifact arguments. Close devices and stop the service before this immutable
-software transition; use `managed preview` and `managed publish` afterward.
-The compiled seal requires the exact inactive candidate publication, the current
-software generation, ordinary11 parent, and unchanged LoFi/FRAGMENTS10 siblings.
+The reviewed candidate-17 artifact set became ordinary revision-18 software
+authority through an argument-free transition that has since been removed.
 
 Revision18 preserves candidate17's exact module, native proxy, Windows host,
 descriptor, runner, environment, capabilities and limitations. Only revision,
@@ -175,9 +174,8 @@ CA1's sanitized projection. Closing the frontend leaves product/session ownershi
 with the manager. Disabled controls explain active-instance or unresolved-state
 refusals; the operation worker revalidates before mutation.
 
-Development build: `sh tools/mf1/build-linux.sh` from the repository root. Add
-`linux-audio-compatibility-manager` beside the existing package files for `setup`.
-Setup retains prior ordinary rollback images in catalogue schema3 and creates the
-native application-menu entry. Operator readback is `operator snapshot` or
+Development build: `sh tools/mf1/build-linux.sh` from the repository root.
+Package selection retains prior ordinary rollback images in catalogue schema3 and
+creates the native application-menu entry. Operator readback is `operator snapshot` or
 `operator activity`; closed requests use schema1 JSON on `operator request` stdin.
 No arbitrary command, executable, PID or path operation is exposed.

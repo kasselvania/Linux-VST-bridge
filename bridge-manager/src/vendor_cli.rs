@@ -5,9 +5,6 @@ use linux_vst_bridge::vendor_application::{
     self, Application, ApplicationId, LaunchMode, OperationResult,
 };
 
-pub fn run(m: &Manager, args: &[String]) -> Result<()> {
-    run_selected(m, args, None)
-}
 pub(super) fn launch_owned(m: &Manager, application: &str, operation: &str) -> Result<()> {
     run_selected(m, &["launch".into(), application.into()], Some(operation))
 }
@@ -560,56 +557,6 @@ pub(super) mod interruption_tests {
         assert_eq!(check()["result"],"retired");
     }
 }
-fn register(m: &Manager, args: &[String]) -> Result<()> {
-    require(
-        (3..=19).contains(&args.len()),
-        "vendor-app register ENVIRONMENT EXECUTABLE [HELPERS]",
-    )?;
-    let _guard = m.lock("registry.lock")?;
-    m.require_inactive(None)?;
-    require(
-        operator_cli::vendor_retired(m)? && onboarding::all_retired(m)?,
-        "vendor_application_operation_requires_retirement",
-    )?;
-    let record = onboarding::retained_environment_record(m, &args[1])?
-        .ok_or("vendor_application_owned_installation_required")?;
-    let env = operator_cli::environment_install::target(m, &record.id)?;
-    let operation = record
-        .installation_operation
-        .as_ref()
-        .ok_or("vendor_application_installation_missing")?;
-    let witness = onboarding::directory(m, &record.id)?.join(format!("{operation}-result.json"));
-    let mut artifacts = vec![];
-    for selected in &args[2..] {
-        let relative = Path::new(selected);
-        require(
-            !relative.is_absolute()
-                && relative
-                    .components()
-                    .all(|c| matches!(c, std::path::Component::Normal(_))),
-            "vendor_application_selection_path",
-        )?;
-        let path = env.root.join("compatdata/pfx/drive_c").join(relative);
-        artifacts.push(Artifact {
-            sha256: digest(&path)?,
-            path,
-        });
-    }
-    let app = Application {
-        schema: 2,
-        id: ApplicationId::Selected,
-        environment: env,
-        executable: artifacts.remove(0),
-        helpers: artifacts,
-        installer_sha256:Some(record.installer),
-        installer_result: Some(Artifact {
-            sha256: digest(&witness)?,
-            path: witness,
-        }),
-        observed_installer_version: String::new(),user_selection:None,
-    };
-    register_application(m, &app, &_guard)
-}
 fn register_application(m: &Manager, app: &Application, guard: &Lock) -> Result<()> {
     guard.require_registry(m)?;
     app.verify(&m.root)?;
@@ -733,89 +680,13 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
     if let Some(id) = operation {
         require(valid_hex(id, 32), "vendor_application_operation_identity")?;
     }
-    if args.first().is_some_and(|s| s == "register") {
-        return register(m, args);
-    }
-    require(args.len() == 2, "vendor-app ACTION APPLICATION")?;
+    require(args.len() == 2, "vendor_application_action_arguments")?;
     ApplicationId::parse(&args[1])?;
     let directory = directory(m, &args[1])?;
     let unit = unit(&args[1])?;
     private_dir(&directory)?;
     let record = directory.join("application.json");
     match args[0].as_str() {
-        "rescan" => {
-            require(
-                args[1] == "arturia-software-center",
-                "vendor_application_discovery_adapter_absent",
-            )?;
-            let _guard = m.lock("registry.lock")?;
-            m.require_inactive(None)?;
-            let environments: std::collections::BTreeMap<_, _> = m
-                .registry()?
-                .classes
-                .values()
-                .map(|e| {
-                    (
-                        e.registration.environment.id.clone(),
-                        e.registration.environment.clone(),
-                    )
-                })
-                .collect();
-            require(
-                environments.len() == 1,
-                "vendor_application_environment_ambiguous",
-            )?;
-            let env = environments
-                .into_values()
-                .next()
-                .ok_or("vendor_application_environment_absent")?;
-            let env=operator_cli::environment_install::current_environment(m,&env)?;
-            let operation = fs::OpenOptions::new()
-                .read(true)
-                .write(true)
-                .open(env.root.join("operation.lock"))?;
-            use std::os::fd::AsRawFd;
-            require(
-                unsafe { libc::flock(operation.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0,
-                "vendor_application_environment_busy",
-            )?;
-            let app = vendor_application::discover(&m.root, env)?;
-            if record.exists() {
-                require(
-                    current_application(m,&record)? == app,
-                    "vendor_application_update_requires_transition",
-                )?;
-            } else {
-                atomic_json(&record, &app)?;
-            }
-            println!("{}", serde_json::to_string(&app)?);
-            Ok(())
-        }
-        "status" => {
-            let app=current_application(m,&record)?;
-            app.verify(&m.root)?;
-            let report = directory.join("operation-result.json");
-            let mut operation = if report.exists() {
-                serde_json::to_value(read_json::<OperationResult>(&report)?)?
-            } else {
-                serde_json::json!({"state":"absent"})
-            };
-            let live = Command::new("systemctl")
-                .args([
-                    "--user",
-                    "is-active", &unit])
-                .output()?
-                .status
-                .success();
-            if !live && matches!(operation["state"].as_str(), Some("running" | "unknown")) {
-                operation["state"] = "cleanup_unconfirmed".into();
-            }
-            println!(
-                "{}",
-                serde_json::json!({"schema":1,"application":app,"operation":operation,"owner_active":live})
-            );
-            Ok(())
-        }
         "cancel" => cancel_with(m,&args[1],operation,Duration::from_secs(90),
             ||live(&args[1]),||readiness::request_user_unit_stop(&unit)),
         "launch"
