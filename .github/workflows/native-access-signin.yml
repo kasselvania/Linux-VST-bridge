@@ -14,7 +14,7 @@ on:
       - 'plugin-descriptor/**'
       - '.github/workflows/native-access-signin.yml'
   push:
-    branches: [main]
+    branches: [main, test/489-na-signin-e2e]
     paths:
       - 'bridge-manager/**'
       - 'tools/is2/**'
@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runtime: ${{ fromJSON(github.ref == 'refs/heads/main' && '["r4","r5","r7"]' || '["r7"]') }}
+        runtime: ${{ fromJSON((github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test/489-na-signin-e2e') && '["r4","r5","r7"]' || '["r7"]') }}
     env:
       ARCHIVES: /var/tmp/lvb-runtime-archives
       FIXTURE: ${{ github.workspace }}/../browser-return
