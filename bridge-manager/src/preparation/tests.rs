@@ -500,7 +500,7 @@ fn record_readback_watches_only_used_product_records_not_unrelated_history_paylo
     let directory = object(&f.m, "candidates", &id).unwrap();
     private_dir(&directory).unwrap();
     atomic_json(&directory.join("candidate.json"), &unrelated).unwrap();
-    let records = RecordReadback::capture(&f.m).unwrap();
+    let records = RecordReadback::capture_watched(&f.m).unwrap();
     assert_eq!(records.candidates.len(), 2);
     assert_eq!(records.watched_paths().unwrap(), vec![root(&f.m).join("candidates")]);
     assert!(records.catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
@@ -509,6 +509,42 @@ fn record_readback_watches_only_used_product_records_not_unrelated_history_paylo
     assert!(!watches.contains(&unrelated.native.artifact.path));
     assert!(!watches.contains(&directory.join("candidate.json")));
     assert!(!watches.contains(&object(&f.m, "lineage", &id).unwrap().join("record.json")));
+}
+#[test]
+fn record_readback_bounds_each_product_history_apart() {
+    // One product prepared four times beside another prepared once (#503).
+    let (f, current) = fixture();
+    crate::test_fixture::preparation_history(&f, std::slice::from_ref(&current), 3);
+    let mut other = current.clone();
+    other.selection.class.id = "ef".repeat(16);
+    other.inspection.selection = other.selection.clone();
+    other.profile.class.class_id = other.selection.class.id.clone();
+    other.native.class.class_id = other.selection.class.id.clone();
+    other.native.artifact.path = f.outer.join("other-native");
+    record_candidate(&f.m, &other).unwrap();
+    let history = |records: &RecordReadback| records.candidates.iter()
+        .filter(|c| same_product(&c.selection, &current.selection)).cloned().collect::<Vec<_>>();
+    // A projection that is not rechecked against file stamps (the snapshot)
+    // watches nothing, so no history is too long for it.
+    let unwatched = RecordReadback::capture(&f.m).unwrap();
+    assert!(unwatched.history_watched(&f.m, &current.selection).unwrap());
+    assert!(unwatched.watched_paths().unwrap().is_empty());
+    // Past its bound, only that product's history is unavailable.
+    let records = RecordReadback::capture_watched_within(&f.m, 16).unwrap();
+    assert_eq!(history(&records).len(), 4);
+    assert!(!records.history_watched(&f.m, &current.selection).unwrap());
+    assert!(records.history_watched(&f.m, &other.selection).unwrap());
+    assert_eq!(records.watch_candidate(&f.m, &history(&records)[0]).unwrap_err().to_string(),
+        "preparation_record_watch_bound");
+    let watches = records.watched_paths().unwrap();
+    assert!(watches.contains(&other.native.artifact.path));
+    assert!(history(&records).iter().all(|c| !watches.contains(&c.native.artifact.path)));
+    // Within it, every file of every preparation is watched.
+    let records = RecordReadback::capture_watched(&f.m).unwrap();
+    assert!(records.history_watched(&f.m, &current.selection).unwrap());
+    let watches = records.watched_paths().unwrap();
+    assert!(history(&records).iter().all(|c| watches.contains(&c.native.artifact.path)
+        && watches.contains(&object(&f.m, "lineage", &c.id().unwrap()).unwrap().join("record.json"))));
 }
 #[test]
 fn retained_uuid_environment_can_prepare_from_current_exact_inventory() {

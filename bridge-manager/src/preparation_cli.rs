@@ -99,6 +99,15 @@ fn project_records(m: &Manager, sw: &Software, products: &mut [ui::Product], bus
             continue;
         };
         let class_busy = match scope { Some(scope) => scope(&s.class.id), None => busy };
+        if !records.history_watched(m, &s)? {
+            p.details["preparation"] = json!({"selection":s.id()?,
+                "verification_scope":"control_records",
+                "execution_verification":"deferred_to_worker_or_launch",
+                "preparation":"history_unavailable",
+                "history_unavailable":{"code":"preparation_record_watch_bound",
+                    "reason":"This plug-in's preparation history is too long to show here. Diagnostics shows all of it."}});
+            continue;
+        }
         let incomplete = records.incomplete_history(m, &s)?;
         let missing_lineage = records.missing_lineage(m, &s)?;
         if !incomplete.is_empty() || !missing_lineage.is_empty() {
@@ -2078,6 +2087,34 @@ pub(crate) mod tests {
         assert!(c.native.descriptor.is_some());
         assert!(prep::build::runtime_declares_loaded_engine(&runtime).unwrap());
         assert!(prep::build::supports_loaded_engine_admission(&f.m, &c).unwrap());
+    }
+    #[test]
+    fn a_history_too_long_to_watch_leaves_out_only_its_own_product() {
+        // Two plug-ins in one setup; the first was prepared four times (#503).
+        let (f, candidates) = test_fixture::projection_candidates_in(test_fixture::Fixture::new(), false, 2);
+        test_fixture::preparation_history(&f, &candidates[..1], 3);
+        prep::record_candidate(&f.m, &candidates[1]).unwrap();
+        let sw = projection_software(&candidates[0]);
+        let project = |records: &prep::RecordReadback| {
+            let mut products: Vec<_> = candidates.iter().map(projection_product).collect();
+            project_scoped_records(&f.m, &sw, &mut products, None, None, &|_| None, records).unwrap();
+            products
+        };
+        let watched = project(&prep::RecordReadback::capture_watched_within(&f.m, 16).unwrap());
+        let unavailable = &watched[0].details["preparation"];
+        assert_eq!(unavailable["preparation"], "history_unavailable", "{unavailable:#}");
+        assert_eq!(unavailable["history_unavailable"]["code"], "preparation_record_watch_bound");
+        assert!(unavailable["history_unavailable"]["reason"].is_string());
+        assert!(unavailable["candidates"].is_null());
+        assert!(watched[0].actions.is_empty() && watched[0].compatibility.is_none());
+        assert_eq!(watched[1].details["preparation"]["candidates"].as_array().unwrap().len(), 1);
+        // A projection that is not rechecked against file stamps (the
+        // Diagnostics snapshot) watches nothing and shows all of it.
+        let unwatched = project(&prep::RecordReadback::capture(&f.m).unwrap());
+        assert_eq!(unwatched[0].details["preparation"]["candidates"].as_array().unwrap().len(), 4);
+        assert_eq!(unwatched[1].details["preparation"], watched[1].details["preparation"]);
+        assert_eq!(serde_json::to_value(&unwatched[1].actions).unwrap(),
+            serde_json::to_value(&watched[1].actions).unwrap());
     }
     #[test]
     fn configuration_offers_distinguish_selected_class_from_shared_maintenance() {

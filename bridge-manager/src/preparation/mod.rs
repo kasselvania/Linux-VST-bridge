@@ -813,7 +813,7 @@ pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
     c.source_manifest.verify()?;
     c.host.verify()?;
     c.native.artifact.verify()?;
-    configuration::registration(c)?.verify(&m.root)
+    configuration::registration(c)?.verify_with_runner(&m.root, |runner| m.verify_runner(runner))
 }
 /// Candidate consistency and retained control evidence only. A readable
 /// candidate never replaces verify_candidate/verify_retained_candidate.
@@ -1277,7 +1277,13 @@ pub fn publication_state(m: &Manager, c: &Candidate) -> Result<String> {
     publication_state_with(m, c, Manager::load_revision)
 }
 pub fn publication_state_record(m: &Manager, c: &Candidate) -> Result<String> {
-    publication_state_with(m, c, Manager::load_revision_record)
+    publication_state_with(m, c, |m, class, reference| m.derive_once(
+        &format!("revision_record:{class}:{}:{}", reference.id, reference.sha256),
+        || m.load_revision_record(class, reference)))
+}
+/// The registry, read once for each composition.
+fn registry_record(m: &Manager) -> Result<std::sync::Arc<Registry>> {
+    m.derive_once("registry", || m.registry().map(std::sync::Arc::new))
 }
 /// Bounded control-record proof for a selected candidate whose discovery row
 /// is historical.  This does not grant preparation or execution authority; it
@@ -1311,7 +1317,7 @@ fn publication_state_with(m: &Manager, c: &Candidate,
     if m.publication_pending(&c.selection.class.id)? {
         return Ok("needs_attention".into());
     }
-    let db = m.registry()?;
+    let db = registry_record(m)?;
     let Some(e) = db.classes.get(&c.selection.class.id) else {
         return Ok(if physical(&m.link(&c.selection.class.id))?.is_some() {
             "needs_attention"
@@ -1390,6 +1396,10 @@ fn runner_match(r: &Runner) -> Result<RunnerMatch> {
     })
 }
 
+/// Every retained candidate, read once for each composition.
+fn census(m: &Manager) -> Result<std::sync::Arc<Vec<Candidate>>> {
+    m.derive_once("retained_candidates", || retained_candidates(m).map(std::sync::Arc::new))
+}
 fn for_profile(m: &Manager, p: &Profile) -> Result<Option<Candidate>> {
     let records = RecordReadback::capture(m)?;
     Ok(records.for_profile(m, p)?.cloned())
@@ -1397,19 +1407,40 @@ fn for_profile(m: &Manager, p: &Profile) -> Result<Option<Candidate>> {
 /// One census of bounded immutable metadata for a control projection.
 /// It has no execution-verification result and never survives that projection.
 pub struct RecordReadback {
-    pub candidates: Vec<Candidate>,
-    watched: std::sync::Mutex<std::collections::BTreeSet<PathBuf>>,
+    pub candidates: std::sync::Arc<Vec<Candidate>>,
+    watched: Option<std::sync::Mutex<RecordWatch>>,
 }
+/// The files a rechecked view composed from retained preparations, by
+/// product. Each product's history is watched apart: one too long to watch is
+/// that product's history left out, never the view refused.
+struct RecordWatch {
+    candidates: PathBuf,
+    bound: usize,
+    products: std::collections::BTreeMap<(String, String, String),
+        Option<std::collections::BTreeSet<PathBuf>>>,
+}
+/// At most this many files watched for one product's history: twelve or
+/// fewer per preparation, so over 340 preparations of one plug-in.
+const PRODUCT_WATCH_BOUND: usize = 4096;
 impl RecordReadback {
+    /// The census for a projection that is not rechecked against the stamps
+    /// of the files it read (the Diagnostics snapshot rechecks its state token).
     pub fn capture(m: &Manager) -> Result<Self> {
-        let candidates = retained_candidates(m)?;
-        let mut watched = std::collections::BTreeSet::new();
-        watched.insert(root(m).join("candidates"));
-        Ok(Self { candidates, watched:std::sync::Mutex::new(watched) })
+        Ok(Self { candidates: census(m)?, watched: None })
+    }
+    /// The census for a view that stamps every file it composes from and
+    /// rechecks them ([`watched_paths`](Self::watched_paths)).
+    pub fn capture_watched(m: &Manager) -> Result<Self> {
+        Self::capture_watched_within(m, PRODUCT_WATCH_BOUND)
+    }
+    #[doc(hidden)]
+    pub fn capture_watched_within(m: &Manager, bound: usize) -> Result<Self> {
+        Ok(Self { candidates: census(m)?, watched: Some(std::sync::Mutex::new(RecordWatch {
+            candidates: root(m).join("candidates"), bound, products: Default::default() })) })
     }
     fn for_profile<'a>(&'a self, m: &Manager, p: &Profile) -> Result<Option<&'a Candidate>> {
         let mut found = None;
-        for c in &self.candidates {
+        for c in self.candidates.iter() {
             if c.selection.class.id != p.class.class_id || c.selection.module.sha256 != p.module_sha256 {
                 continue;
             }
@@ -1447,10 +1478,32 @@ impl RecordReadback {
         Ok(Some(c))
     }
     pub fn watched_paths(&self) -> Result<Vec<PathBuf>> {
-        Ok(self.watched.lock().map_err(|_| "preparation_record_watch_poisoned")?.iter().cloned().collect())
+        let Some(watched) = &self.watched else { return Ok(vec![]) };
+        let watched = watched.lock().map_err(|_| "preparation_record_watch_poisoned")?;
+        let mut paths = std::collections::BTreeSet::from([watched.candidates.clone()]);
+        paths.extend(watched.products.values().flatten().flatten().cloned());
+        Ok(paths.into_iter().collect())
+    }
+    /// Whether every retained preparation of `s`'s product is watched, so a
+    /// view can be composed from them. False when there are too many to
+    /// watch: that product's history is then unavailable to this view.
+    pub fn history_watched(&self, m: &Manager, s: &Selection) -> Result<bool> {
+        for c in self.candidates.iter().filter(|c| same_product(&c.selection, s)) {
+            if !self.watch(m, c)? { return Ok(false); }
+        }
+        Ok(true)
     }
     pub(super) fn watch_candidate(&self, m: &Manager, c: &Candidate) -> Result<()> {
-        let mut paths = self.watched.lock().map_err(|_| "preparation_record_watch_poisoned")?;
+        require(self.watch(m, c)?, "preparation_record_watch_bound")
+    }
+    fn watch(&self, m: &Manager, c: &Candidate) -> Result<bool> {
+        let Some(watched) = &self.watched else { return Ok(true) };
+        let mut watched = watched.lock().map_err(|_| "preparation_record_watch_poisoned")?;
+        let bound = watched.bound;
+        let s = &c.selection;
+        let product = (s.environment.id.clone(), s.module.sha256.clone(), s.class.id.clone());
+        let Some(paths) = watched.products.entry(product.clone()).or_insert_with(|| Some(Default::default()))
+            else { return Ok(false) };
         let id = c.id()?;
         paths.insert(object(m, "candidates", &id)?.join("candidate.json"));
         paths.insert(object(m, "lineage", &id)?.join("record.json"));
@@ -1469,7 +1522,12 @@ impl RecordReadback {
             paths.insert(m.root.join("onboarding").join(&c.selection.environment.id).join("record.json"));
             paths.insert(m.root.join("inventory").join(format!("{}.json", c.selection.environment.id)));
         }
-        require(paths.len() <= 4096, "preparation_record_watch_bound")
+        if paths.len() > bound {
+            // Its files are no longer stamped, so nothing may be shown from them.
+            watched.products.insert(product, None);
+            return Ok(false);
+        }
+        Ok(true)
     }
     pub fn incomplete_history(&self, m: &Manager, s: &Selection) -> Result<Vec<RetainedHistoryRecovery>> {
         let mut incomplete = Vec::new();

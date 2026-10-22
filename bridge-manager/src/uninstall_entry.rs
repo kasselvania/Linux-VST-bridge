@@ -124,6 +124,7 @@ pub fn read(environment: &Environment) -> Result<Vec<Entry>> {
         if !path.try_exists()? { continue; }
         let mut bytes = vec![];
         file(&path)?.take(HIVE_BOUND + 1).read_to_end(&mut bytes)?;
+        crate::record_opened(&path, 0, bytes.len() as u64);
         require(bytes.len() as u64 <= HIVE_BOUND, "uninstall_registry_bound")?;
         out.extend(parse(hive, &bytes));
     }

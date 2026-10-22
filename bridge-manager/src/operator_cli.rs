@@ -91,6 +91,27 @@ fn operation_request(m: &Manager, operation: &Path) -> Result<Value> {
     let path = operation.join("request.json");
     m.derive_once(&format!("operation_request:{}", path.display()), || optional(&path))
 }
+/// Each retained operation's directory and request, or why it could not be read.
+type OperationRequests = Vec<(PathBuf, std::result::Result<Value, String>)>;
+/// Every retained operation's request, as a product's receipts are found
+/// among them: in directory order, from at most 1,025 entries. Listed once
+/// per composition.
+fn operation_requests(m: &Manager) -> Result<std::sync::Arc<OperationRequests>> {
+    m.derive_once("operation_requests", || {
+        let dir = m.root.join("operator");
+        let mut requests = vec![];
+        if dir.exists() {
+            for entry in fs::read_dir(dir)?.take(1025) {
+                let p = entry?.path();
+                let Some(id) = p.file_name().and_then(|v| v.to_str()) else { continue };
+                if !valid_hex(id, 32) || !p.is_dir() { continue; }
+                let request = operation_request(m, &p).map_err(|error| error.to_string());
+                requests.push((p, request));
+            }
+        }
+        Ok(std::sync::Arc::new(requests))
+    })
+}
 fn token(m: &Manager) -> Result<String> {
     token_with_registry(m, &m.registry()?)
 }
@@ -1408,6 +1429,7 @@ fn snapshot_for_operation_depth(
     capacity_read: &dyn Fn() -> Option<CapacityReadback>,
     deep: bool,
 ) -> Result<ui::Snapshot> {
+    let m = &m.composing();
     linux_vst_bridge::runtime_delivery::prepare_readback(m)?;
     linux_vst_bridge::with_readback_digests(||
         snapshot_readonly_depth(m,id,timeout,waits,capacity_read,deep))
@@ -4545,20 +4567,12 @@ pub(super) fn product_receipt(
     candidate: Option<&str>,
     exclude_operation: Option<&str>,
 ) -> Result<Option<Value>> {
-    let dir = m.root.join("operator");
-    if !dir.exists() {
-        return Ok(None);
-    }
     let mut found = vec![];
-    for entry in fs::read_dir(dir)?.take(1025) {
-        let p = entry?.path();
-        let Some(id) = p.file_name().and_then(|v| v.to_str()) else {
-            continue;
-        };
-        if !valid_hex(id, 32) || exclude_operation == Some(id) || !p.is_dir() {
+    for (p, request) in operation_requests(m)?.iter() {
+        if exclude_operation.is_some() && p.file_name().and_then(|v| v.to_str()) == exclude_operation {
             continue;
         }
-        let r = operation_request(m, &p)?;
+        let r = request.as_ref().map_err(|error| error.as_str())?;
         let matched = r["action"]["selection"] == selection
             || candidate.is_some_and(|c| r["action"]["candidate"] == c);
         if matched {
@@ -6981,6 +6995,111 @@ pub(crate) mod tests {
         warm.sort_unstable();
         eprintln!("snapshot_readback_us cold={cold} p50={} p95={} max={}",
             warm[12], warm[23], warm[24]);
+    }
+    /// A Deck-shaped installation (#503): 27 published plug-ins on one
+    /// runtime of 20,000 files, each prepared `earlier` times before its
+    /// current candidate, beside fifteen setups reached through eight
+    /// installer runs each and 380 other finished operations. Returns the
+    /// current candidates and the installer units, all closed.
+    fn deck_shaped(earlier: usize)
+        -> (test_fixture::Fixture, Vec<linux_vst_bridge::preparation::Candidate>, Vec<String>) {
+        let mut f = test_fixture::Fixture::new();
+        test_fixture::runtime_tree(&mut f, 20_000);
+        let (f, candidates) = test_fixture::projection_candidates_in(f, false, 27);
+        test_fixture::preparation_history(&f, &candidates, earlier);
+        for candidate in &candidates {
+            linux_vst_bridge::preparation::enable(&f.m, candidate, false).unwrap();
+        }
+        let units: Vec<String> = test_fixture::retained_history(&f, test_fixture::Changes::Installers, 15, 8, 380)
+            .iter().map(|operation| onboarding::unit(operation).unwrap()).collect();
+        // Sized stand-ins for what a real setup holds: its Windows registry
+        // hives, and what the supervisor observed of each installer run.
+        for record in onboarding::history_records(&f.m).unwrap() {
+            let prefix = record.environment.root.join("compatdata/pfx");
+            fs::write(prefix.join("system.reg"), "[Software\\Vendor] 1\n".repeat(50_000)).unwrap();
+            fs::write(prefix.join("user.reg"), "[Software\\Vendor] 1\n".repeat(12_500)).unwrap();
+            let runs = linux_vst_bridge::environment_revision::installer_records(&f.m).unwrap().into_iter()
+                .filter(|run| run.environment.id == record.id).map(|run| (job_dir(&f.m, &run.operation).unwrap(), run.operation))
+                .chain(record.installation_operation.iter().map(|operation|
+                    (f.m.root.join("onboarding").join(&record.id), operation.clone())));
+            for (directory, operation) in runs.collect::<Vec<_>>() {
+                atomic_json(&directory.join(format!("{operation}-transaction-private.json")), &json!({"schema":1,
+                    "operation":operation,"ledger":{"processes":[]},"windows_trace":{"observed":"x".repeat(500_000)}})).unwrap();
+            }
+        }
+        (f, candidates, units)
+    }
+    /// Not a check: what the window's reads cost on a Deck-shaped
+    /// installation with 1,188 retained candidates (#503, #504): files
+    /// opened, bytes read from them, this process's read calls and bytes,
+    /// CPU and wall time, and the records read most, by kind.
+    #[test]
+    #[ignore = "measurement; run with --ignored --nocapture --test-threads=1"]
+    fn reads_on_a_deck_shaped_installation() {
+        fn io() -> (u64, u64) {
+            let text = fs::read_to_string("/proc/self/io").unwrap_or_default();
+            let field = |name: &str| text.lines().find_map(|line| line.strip_prefix(name))
+                .and_then(|value| value.trim().parse().ok()).unwrap_or(0);
+            (field("syscr:"), field("rchar:"))
+        }
+        fn cpu() -> f64 {
+            let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
+            unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut usage) };
+            let ms = |t: libc::timeval| t.tv_sec as f64 * 1000.0 + t.tv_usec as f64 / 1000.0;
+            ms(usage.ru_utime) + ms(usage.ru_stime)
+        }
+        let (f, candidates, units) = deck_shaped(43);
+        let s = &candidates[0].selection;
+        let kind = |path: &Path| path.strip_prefix(&f.m.root).unwrap_or(path).iter().map(|part| {
+            let part = part.to_string_lossy();
+            let identity = part.chars().take_while(|c| c.is_ascii_hexdigit() || *c == '-').count();
+            if identity >= 32 { format!("*{}", &part[identity..]) } else { part.into_owned() }
+        }).collect::<Vec<_>>().join("/");
+        let read = |name: &str| -> Result<Vec<u8>> {
+            let served = (name != "snapshot").then(|| overview_service_reply(&f.m, capacity_json(false, 0, 0)));
+            let reply = match name {
+                "current overview" => serde_json::to_vec(&current_overview(&f.m)?)?,
+                "plug-in page" => serde_json::to_vec(&product_detail(&f.m, &s.environment.id,
+                    &s.module.sha256, &s.class.id)?)?,
+                _ => serde_json::to_vec(&snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![],
+                    &|| capacity_fixture(&f.m))?)?,
+            };
+            if let Some(server) = served { server.join().unwrap(); }
+            Ok(reply)
+        };
+        readiness::with_unit_state_fixture(&units, "inactive", || {
+            for name in ["current overview", "plug-in page", "snapshot"] {
+                let ((calls, bytes), cpu_before, started) = (io(), cpu(), Instant::now());
+                let (composed, opened) = linux_vst_bridge::with_opened_reads(|| read(name));
+                let (wall, cpu_ms, (calls_after, bytes_after)) = (started.elapsed(), cpu() - cpu_before, io());
+                let opened = opened.unwrap();
+                let outcome = match &composed {
+                    Ok(reply) => format!("{} bytes", reply.len()),
+                    Err(error) => format!("refused: {error}"),
+                };
+                eprintln!("READS {name}: {outcome}; {} files opened {} times, {:.1} MB read from them; \
+                    {} read calls, {:.1} MB; CPU {cpu_ms:.0} ms, wall {} ms", opened.len(),
+                    opened.values().map(|(opens, _)| opens).sum::<u32>(),
+                    opened.values().map(|(_, read)| read).sum::<u64>() as f64 / 1e6,
+                    calls_after - calls, (bytes_after - bytes) as f64 / 1e6, wall.as_millis());
+                let mut kinds: std::collections::BTreeMap<String, (u32, u32, u64)> = Default::default();
+                for (path, (opens, read)) in &opened {
+                    let entry = kinds.entry(kind(path)).or_default();
+                    entry.0 += 1;
+                    entry.1 += opens;
+                    entry.2 += read;
+                }
+                let mut rows: Vec<_> = kinds.into_iter().collect();
+                rows.sort_by_key(|(_, (_, opens, _))| std::cmp::Reverse(*opens));
+                for (kind, (files, opens, read)) in rows.iter().take(8) {
+                    eprintln!("  {opens:>7} opens of {files:>4} files, {:>6.1} MB: {kind}", *read as f64 / 1e6);
+                }
+                rows.sort_by_key(|(_, (_, _, read))| std::cmp::Reverse(*read));
+                for (kind, (files, opens, read)) in rows.iter().take(8) {
+                    eprintln!("  {:>6.1} MB read in {opens:>7} opens of {files:>4} files: {kind}", *read as f64 / 1e6);
+                }
+            }
+        });
     }
     #[test]
     fn new_setup_uses_exact_managed_recommendation_without_catalogue_default_authority() {

@@ -230,11 +230,13 @@ pub(super) struct CurrentOverviewContext {
     captured_at: Instant,
 }
 impl CurrentOverviewContext {
+    /// Stamp the preparation records a projection read. The view's own files
+    /// are bounded at capture, and each product's history by the readback.
     pub(super) fn capture_preparation_watches(&mut self) -> Result<()> {
         for path in self.preparation.watched_paths()? {
             if !self.watched.contains_key(&path) { self.watched.insert(path.clone(), stamp(&path)?); }
         }
-        require(self.watched.len() <= 4096, "operator_current_watch_bound")
+        Ok(())
     }
     pub(super) fn class_busy(&self, class: &str) -> Option<&'static str> {
         class_inactive_reason(&self.snapshot.system, &self.owners, self.all_vendor_retired, class)
@@ -755,7 +757,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     let token_at = Instant::now(); phases.push(("token_before",token_at.duration_since(started).as_millis()));
     let authority_observed = timing::span(Stage::CaptureSoftwareCatalogue);
     let sw = software_record(m)?;
-    let preparation = preparation::RecordReadback::capture(m)?;
+    let preparation = preparation::RecordReadback::capture_watched(m)?;
     let mut watched = watch_paths(m, &sw, &db)?;
     let catalogue = operator_catalogue_records(m, &sw, &db, &preparation)?;
     for path in preparation.watched_paths()? { watched.insert(path.clone(), stamp(&path)?); }
