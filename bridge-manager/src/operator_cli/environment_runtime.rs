@@ -21,8 +21,13 @@ pub(super) fn load(m: &Manager, operation: &str) -> Result<Binding> {
 pub(super) fn records(m: &Manager) -> Result<Vec<Binding>> {
     linux_vst_bridge::environment_revision::runtime_records(m)
 }
+/// What a runtime change affects, read afresh: a change compares it with
+/// what it recorded, so it never comes from a composition's memo.
 fn owners(m: &Manager, environment: &str) -> Result<Vec<Owner>> {
-    let mut owners:Vec<_> = m.composed_registry()?.classes.values()
+    owners_in(m, environment, &m.registry()?)
+}
+fn owners_in(m: &Manager, environment: &str, registry: &Registry) -> Result<Vec<Owner>> {
+    let mut owners:Vec<_> = registry.classes.values()
         .filter(|entry|entry.registration.environment.id == environment)
         .map(|entry|Owner::Class {registration:Box::new(entry.registration.clone())}).collect();
     if valid_hex(environment,32) {
@@ -54,12 +59,8 @@ fn owners(m: &Manager, environment: &str) -> Result<Vec<Owner>> {
     }
     Ok(owners)
 }
-/// Every runtime a setup can change to: the same for each setup, so derived
-/// once for each composition.
+/// Every runtime a setup can change to, read afresh for a change.
 pub(super) fn installed(m: &Manager) -> Result<Vec<(String,Runner)>> {
-    m.derive_once("installed_runtimes", || installed_now(m))
-}
-fn installed_now(m: &Manager) -> Result<Vec<(String,Runner)>> {
     let sw=software_record(m)?;
     let mut runners=if sw.native_catalogue.is_some() {
         onboarding::runners_from_catalogue_with(Some(&sw.catalogue_record(m)?),false)?
@@ -230,7 +231,9 @@ fn reconcile_admitted(m:&Manager,mut worker_live:impl FnMut(&str)->Result<bool>,
 }
 pub(super) fn projection(m: &Manager, environment: &Environment, busy: Option<&str>)
     -> Result<ui::EnvironmentRuntime> {
-    let affected = owners(m,&environment.id)?.into_iter().map(|owner|match owner {
+    // A card shows what a change would affect; the same for every setup's
+    // card, so read once for each composition.
+    let affected = owners_in(m,&environment.id,&*m.composed_registry()?)?.into_iter().map(|owner|match owner {
         Owner::Class {registration} => registration.metadata.name,
         Owner::Setup {..} => "Original installed setup".into(),
         Owner::VendorApplication {name,..} => format!("Vendor application: {name}"),
@@ -238,7 +241,8 @@ pub(super) fn projection(m: &Manager, environment: &Environment, busy: Option<&s
     let expected_environment=identity(environment)?;
     let pending=pending(m,&environment.id)?;
     let reason=if pending {Some("Finish the interrupted runtime change with Reconcile interrupted transaction before changing this setup again.")} else {busy};
-    let choices=installed(m)?.into_iter().filter(|(_,runner)|runner!=&environment.runner)
+    let choices=m.derive_once("installed_runtimes", || installed(m))?.into_iter()
+        .filter(|(_,runner)|runner!=&environment.runner)
         .map(|(key,runner)|action(&format!("Use {} · {}",runner.id,runner.version),
             ui::Action::EnvironmentRuntimeSelect {environment:environment.id.clone(),runner:key,
                 expected_environment:expected_environment.clone()},reason)).collect();

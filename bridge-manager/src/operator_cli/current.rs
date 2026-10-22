@@ -745,7 +745,9 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     let _registry_guard = timing::measure(Stage::CaptureRegistry, ||
         acquire_readback(m, ui::OperatorLock::Registry, None, OPERATOR_WAIT, &mut vec![]))?;
     let owners = capacity::owners(m)?;
-    let db = m.registry()?;
+    // The composition's registry read: the page and its token both come
+    // from it, and every later composed read is this one.
+    let db = (*m.composed_registry()?).clone();
     drop(_registry_guard);
     let current_generation = pulse_generation(m)?;
     std::thread::scope(|scope| {
@@ -2077,10 +2079,12 @@ pub(super) mod tests {
                 let (path, most) = records.iter().max_by_key(|(_, opens)| **opens).unwrap();
                 assert!((**most as usize) < SETUPS, "{name} opened {path:?} {most} times");
                 // The snapshot read the registry once for every retained
-                // preparation it showed (#503). Each setup's card still reads
-                // it twice; nothing else reads it once per record.
+                // preparation it showed (#503), and each setup's card read it
+                // twice: 36 times per current overview, 42 per plug-in page.
+                // A page now reads it a few times, however many setups.
                 let registry = opened.get(&f.m.root.join("registry.json")).copied().unwrap_or(0);
-                assert!((registry as usize) < 5 * (SETUPS + 1), "{name} opened the registry {registry} times");
+                let most = match name { "current overview" => 6, "plug-in page" => 11, _ => 5 * (SETUPS + 1) };
+                assert!((registry as usize) <= most, "{name} opened the registry {registry} times");
             }
         });
     }
