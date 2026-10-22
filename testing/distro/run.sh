@@ -41,8 +41,10 @@ install_distribution_packages() {
         ;;
     fedora)
         # systemd and curl are on every Fedora desktop and in the product's
-        # declared dependencies on the other distributions.
-        dnf -y --setopt=install_weak_deps=False install gcc make \
+        # declared dependencies on the other distributions. A mirror slower
+        # than 256 KiB/s for 20 s is dropped for the next one.
+        dnf -y --setopt=install_weak_deps=False --setopt=minrate=262144 \
+            --setopt=timeout=20 install gcc make \
             pkgconf-pkg-config git-core python3 gnupg2 bsdtar file binutils \
             zstd openssl sudo curl iproute procps-ng which util-linux \
             shadow-utils findutils tar xz diffutils systemd
