@@ -1144,24 +1144,37 @@ fn overview(m: &Manager) -> Result<ui::InteractiveOverview> {
     })
 }
 fn current_overview(m: &Manager) -> Result<ui::CurrentOverview> {
+    current_overview_with_reuse(m).map(|(overview, _)| overview)
+}
+fn current_overview_with_reuse(m: &Manager) -> Result<(ui::CurrentOverview, current::Reuse)> {
     linux_vst_bridge::with_readback_digests(|| {
         let captured = current::capture(m)?;
         captured.recheck(m)?;
-        Ok(ui::CurrentOverview {schema:1,operator_schema:ui::OPERATOR_SCHEMA,
+        let reuse = captured.reuse();
+        Ok((ui::CurrentOverview {schema:1,operator_schema:ui::OPERATOR_SCHEMA,
             scope:"current_only".into(),current_generation:captured.current_generation,
-            current:captured.snapshot})
+            current:captured.snapshot}, reuse))
     })
 }
 fn product_detail(m: &Manager, environment: &str, module: &str,
     class: &str) -> Result<ui::CurrentProductDetail> {
+    product_detail_with_reuse(m, environment, module, class).map(|(detail, _)| detail)
+}
+fn product_detail_with_reuse(m: &Manager, environment: &str, module: &str,
+    class: &str) -> Result<(ui::CurrentProductDetail, current::Reuse)> {
     // The entire product projection is readback, including scoped environment
     // and preparation context after capture. Launch/worker verification remains
     // outside this scope and hashes every runtime byte.
     linux_vst_bridge::with_readback_digests(||
-        product_detail_readonly(m, environment, module, class))
+        product_detail_projected(m, environment, module, class))
 }
+#[cfg(test)]
 fn product_detail_readonly(m: &Manager, environment: &str, module: &str,
     class: &str) -> Result<ui::CurrentProductDetail> {
+    product_detail_projected(m, environment, module, class).map(|(detail, _)| detail)
+}
+fn product_detail_projected(m: &Manager, environment: &str, module: &str,
+    class: &str) -> Result<(ui::CurrentProductDetail, current::Reuse)> {
     require(valid_product_environment(environment) && valid_hex(module, 64)
         && (class.is_empty() || valid_hex(class, 32)), "operator_product_identity")?;
     let mut captured = current::capture(m)?;
@@ -1172,11 +1185,12 @@ fn product_detail_readonly(m: &Manager, environment: &str, module: &str,
         &captured.bindings, environment, captured.busy)?;
     captured.capture_preparation_watches()?;
     captured.recheck(m)?;
-    Ok(ui::CurrentProductDetail {schema:1,operator_schema:ui::OPERATOR_SCHEMA,
+    let reuse = captured.reuse();
+    Ok((ui::CurrentProductDetail {schema:1,operator_schema:ui::OPERATOR_SCHEMA,
         state_token:captured.snapshot.state_token,
         current_generation:captured.current_generation,system:captured.snapshot.system,
         product,environments,
-        vendor_applications})
+        vendor_applications}, reuse))
 }
 fn valid_product_environment(id: &str) -> bool {
     environment_revision::valid_environment_id(id)
@@ -4477,6 +4491,27 @@ pub(super) fn answer(m: &Manager, request: contract::Request) -> Result<contract
         Read::Activity => Reply::Activity(activity(m)?),
         Read::Pulse => Reply::Pulse(pulse(m)?),
     })
+}
+
+/// A status read as the service answers it (`service::view`). The current
+/// overview and product pages say whether anything live could change them
+/// without a record write; a snapshot cannot tell. Activity and pulse are
+/// the window's live signals and are composed for every read.
+pub(super) fn view(m: &Manager, read: &contract::Read) -> Result<linux_vst_bridge::service::view::Composed> {
+    use contract::{Read, Reply};
+    let (reply, quiescent, directories) = match read {
+        Read::CurrentOverview => {
+            let (overview, reuse) = current_overview_with_reuse(m)?;
+            (Reply::CurrentOverview(Box::new(overview)), Some(reuse.quiescent), reuse.directories)
+        }
+        Read::Product(key) => {
+            let (detail, reuse) = product_detail_with_reuse(m, &key.environment, &key.module_sha256, &key.class_id)?;
+            (Reply::Product(Box::new(detail)), Some(reuse.quiescent), reuse.directories)
+        }
+        Read::Snapshot => (answer(m, contract::Request::Read(Read::Snapshot))?, None, vec![]),
+        read => (answer(m, contract::Request::Read(read.clone()))?, Some(false), vec![]),
+    };
+    Ok(linux_vst_bridge::service::view::Composed { reply: reply.written()?, quiescent, directories })
 }
 
 /// Retained per-product feedback is selected by exact request identity, never by

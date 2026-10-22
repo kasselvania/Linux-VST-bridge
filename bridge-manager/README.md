@@ -14,7 +14,12 @@ and the native catalogue. Selection updates the stable command links and enables
 The manager binary answers only the entry points something in the product calls.
 The window's reads, actions and installer import and the Native Access browser
 return are one typed client exchange, defined with its bounds and refusals in
-`src/service/contract.rs`:
+`src/service/contract.rs`. The window's status reads go to the running `serve`
+on its socket (greeting `LVV1`), which answers from the views it holds while
+nothing they were read from has changed (`src/service/view.rs`); its change
+watch (`src/service/changes.rs`) sees every write to those records, whichever
+process makes it. While an operation has paused the service, the window reads
+through the `operator` command instead:
 
 - `serve` — the long-running user service started by `linux-vst-bridge.service`;
 - `operator overview | current-overview | product | snapshot | activity | pulse | request`

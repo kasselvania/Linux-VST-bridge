@@ -1,5 +1,6 @@
 //! Fixed manager entry point; explicit program choices use structured requests.
-//! Every exchange goes through the manager's client contract.
+//! Every exchange goes through the manager's client contract: status reads to
+//! the running service, actions and imports through the manager command.
 use crate::model::{Activity, CurrentOverview, CurrentProductDetail, InstallerImportResult, InteractiveOverview, Pulse, Receipt, Request, Snapshot};
 use crate::screen_model::ProductKey;
 use linux_vst_bridge::service::contract;
@@ -114,6 +115,7 @@ fn exchange(transport: impl contract::Transport, request: &contract::Request,
         Ok(reply) => Ok(reply.into()),
         Err(contract::Failure::FrontendSuperseded) => Ok(Reply::FrontendSuperseded),
         Err(contract::Failure::Error(error)) => Err(error),
+        Err(contract::Failure::Unavailable) => Err("Bridge service is unavailable".into()),
     }
 }
 fn call(mut query: Query) -> Result<Reply, String> {
@@ -173,7 +175,7 @@ fn call(mut query: Query) -> Result<Reply, String> {
         None
     };
     let request = request(query, selected.as_ref().map(|(_, name)| name.as_str()));
-    exchange(contract::Subprocess::installed(&home), &request, selected.map(|(file, _)| file))
+    exchange(contract::Installed::home(&home), &request, selected.map(|(file, _)| file))
 }
 // Read only the manager-created, bounded export named by the exact completion.
 // A stale/replaced report, symlink or caller-selected source is never shared.

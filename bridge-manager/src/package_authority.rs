@@ -965,6 +965,22 @@ pub(super) fn require_current_frontend_caller(_m: &Manager) -> Result<()> {
     Ok(())
 }
 
+/// The service socket's counterpart: there the window is the connecting
+/// process itself. Its identity is read while that same process generation
+/// holds the connection, so a reused pid lends no other program's identity.
+pub(super) fn require_current_frontend_peer(_m: &Manager, _peer: &std::os::unix::net::UnixStream) -> Result<()> {
+    #[cfg(target_os = "linux")]
+    {
+        let caller = transport_storage::peer_process(_peer)?;
+        let process = PathBuf::from(format!("/proc/{}", caller.pid));
+        let Ok(executable) = fs::read_link(process.join("exe")) else { return Ok(()); };
+        let running = fs::metadata(process.join("exe"))?;
+        require(transport_storage::peer_process(_peer)? == caller, "peer_process_generation_changed")?;
+        require_selected_frontend(_m, &executable, &running)?;
+    }
+    Ok(())
+}
+
 pub(super) fn selected_package_version(m: &Manager, current: &Software) -> Result<Option<String>> {
     Ok(selected_generation(m, current)?.map(|record| record.manifest.version))
 }

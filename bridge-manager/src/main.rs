@@ -1336,6 +1336,50 @@ fn capacity_read(m: &Manager) -> Result<()> {
     println!("{}", serde_json::to_string_pretty(&value)?);
     require(value["ok"] == true, "capacity_readback_unavailable")
 }
+/// The trees every record of the window's view is read from
+/// (`service::changes`): the bridge's own state and staged packages, the
+/// runtime records but not the runtime trees, the published plug-in links,
+/// the memory transport's sessions and the system package's manifest. Files
+/// a view reads elsewhere, inside setups and runtimes, are added by the view.
+fn view_changes(m: &Manager) -> Option<service::changes::Changes> {
+    use service::changes::Tree;
+    let bridge = m.root.parent()?.to_owned();
+    let trees = vec![Tree { root: bridge, depth: None },
+        Tree { root: m.root.join("runners"), depth: Some(1) },
+        Tree { root: m.publications.clone(), depth: Some(0) },
+        Tree { root: transport_storage::root(), depth: Some(0) },
+        Tree { root: PathBuf::from("/usr/share/linux-vst-bridge"), depth: Some(0) }];
+    match service::changes::Changes::new(trees) {
+        Ok(changes) => Some(changes),
+        Err(error) => {
+            eprintln!("status change watch unavailable; every status read is composed: {error}");
+            None
+        }
+    }
+}
+/// One status read on the service socket (`service::contract`): from a held
+/// view while it is current, otherwise composed as the command line does.
+/// The reading process is the same user's (the socket's private directory
+/// and SO_PEERCRED) and its frontend must still be the selected one.
+fn answer_view(m: &Manager, peer: &mut UnixStream, views: &service::view::Views,
+    blocked: &AdmissionCleanup) -> Result<()> {
+    let answered = (|| {
+        let read = service::contract::read_view_request(peer)?;
+        package_authority::require_current_frontend_peer(m, peer)?;
+        views.answer(&read, u64::from(blocked.blocked()), || operator_cli::view(m, &read))
+    })();
+    let refusal;
+    let reply = match &answered {
+        Ok(reply) => Ok(reply.as_slice()),
+        Err(error) => {
+            refusal = service::contract::refusal_text(error);
+            Err(refusal.as_str())
+        }
+    };
+    peer.set_write_timeout(Some(Duration::from_secs(5)))?;
+    service::contract::write_view_reply(peer, reply)?;
+    Ok(())
+}
 fn serve(m: Manager) -> Result<()> {
     let _lock = m.lock("service.lock")?;
     let s = software(&m)?;
@@ -1409,6 +1453,8 @@ fn serve(m: Manager) -> Result<()> {
     let keepers = Arc::new(Mutex::new(Vec::new()));
     let limits = capacity::service_limits();
     let workers = Arc::new(AtomicUsize::new(0));
+    // Watch before the first status read is composed.
+    let views = Arc::new(service::view::Views::new(view_changes(&manager)));
     let idle_manager = manager.clone();
     let idle_keepers = keepers.clone();
     let idle_retirement = std::thread::Builder::new().spawn(move || {
@@ -1452,6 +1498,7 @@ fn serve(m: Manager) -> Result<()> {
         let launch_verification = launch_verification.clone();
         let limits = limits.clone();
         let workers = workers.clone();
+        let views = views.clone();
         workers.fetch_add(1, Ordering::AcqRel);
         let worker_count = WorkerCount(workers.clone());
         let launched = std::thread::Builder::new().spawn(move || {
@@ -1460,6 +1507,9 @@ fn serve(m: Manager) -> Result<()> {
                 peer.set_read_timeout(Some(Duration::from_secs(5)))?;
                 let mut greeting = [0; 117];
                 peer.read_exact(&mut greeting[..5])?;
+                if &greeting[..5] == service::contract::VIEW_GREETING {
+                    return answer_view(&m, &mut peer, &views, &blocked);
+                }
                 if &greeting[..5] != b"LVP1\n" { blocked.refresh(&m)?; }
                 if &greeting[..5]==b"LVM1\n" {
                     peer.read_exact(&mut greeting[5..37])?;

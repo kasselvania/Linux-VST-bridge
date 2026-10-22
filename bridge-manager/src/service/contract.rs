@@ -5,13 +5,16 @@
 //! [`Failure`]. Everything both ends must agree on lives here: a request's
 //! command form, the reply envelopes and schema checks, the size and time
 //! bounds, and how a refusal reaches the window. A [`Transport`] only carries
-//! the bytes; today that is the installed manager run once per request
-//! ([`Subprocess`]). The operator wire model (`operator_model`) is unchanged.
+//! the bytes: the running service over its socket ([`Service`]), or the
+//! installed manager command run once per request ([`Subprocess`]);
+//! [`Installed`] chooses between them as the window does. The operator wire
+//! model (`operator_model`) is unchanged.
 use crate::operator_model as ui;
 use std::{
     ffi::OsString,
     fs::File,
     io::{self, Read as _, Write as _},
+    os::unix::net::UnixStream,
     path::{Path, PathBuf},
     process::{Command, Stdio},
     time::{Duration, Instant},
@@ -38,7 +41,7 @@ const SUPERSEDED_CODE: &str = "operator_frontend_superseded: ";
 pub const BROWSER_RETURN_UNDELIVERED: &str = "Native Access login return could not be delivered. Open Native Access through the manager and start a fresh sign-in.";
 
 /// Exact identity of one installed plug-in build in one setup.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ProductKey {
     pub environment: String,
     pub module_sha256: String,
@@ -52,7 +55,7 @@ impl From<&ui::Product> for ProductKey {
 }
 
 /// A status read. Reads change nothing.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Read {
     /// Current records and offers with a fresh platform assessment.
     Overview,
@@ -108,6 +111,8 @@ pub enum Failure {
     FrontendSuperseded,
     /// The request was not answered. The text, for the musician, says why.
     Error(String),
+    /// No service is listening: it is stopped, paused by an operation or restarting.
+    Unavailable,
 }
 
 impl Request {
@@ -180,6 +185,10 @@ impl Reply {
             Self::Imported(value) => serde_json::to_string(value),
             Self::Delivered => return Ok(None),
         }.map(Some)
+    }
+    /// The bytes the command line prints for this reply.
+    pub fn written(&self) -> serde_json::Result<Vec<u8>> {
+        Ok(self.encode()?.map(|document| document + "\n").unwrap_or_default().into_bytes())
     }
 }
 
@@ -270,6 +279,11 @@ fn decode_import(data: &[u8]) -> Result<Reply, String> {
     Ok(Reply::Imported(value))
 }
 
+/// A refusal as the answering side writes it; the command line's own error
+/// output has this form, so every transport carries the same text.
+pub fn refusal_text(error: &dyn std::fmt::Debug) -> String {
+    format!("Error: {error:?}\n")
+}
 /// How the answering side's refusal, as it wrote it, reaches the client: a
 /// paused previous frontend is told so; anything else is shown, bounded.
 pub fn refusal(written: &[u8]) -> Failure {
@@ -299,6 +313,141 @@ impl<T: Transport> Client<T> {
     pub fn call(&self, request: &Request, input: Option<File>) -> Result<Reply, Failure> {
         let data = self.transport.exchange(request, input)?;
         decode(request, &data).map_err(Failure::Error)
+    }
+}
+
+/// The greeting of a status read on the service socket.
+pub const VIEW_GREETING: &[u8; 5] = b"LVV1\n";
+/// A status read as it crosses the socket: the reading client's operator
+/// model and the read's command form.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ViewRequest {
+    operator_schema: u32,
+    command: Vec<String>,
+}
+impl Read {
+    /// Whether the service answers this read. The overview's platform
+    /// assessment probes the desktop session, which is the window's.
+    pub fn served(&self) -> bool {
+        !matches!(self, Self::Overview)
+    }
+}
+/// The service side of a status read: the read that follows the greeting.
+/// A client of another operator model is refused with the message it shows.
+pub fn read_view_request(peer: &mut impl io::Read) -> crate::Result<Read> {
+    let mut length = [0; 4];
+    peer.read_exact(&mut length)?;
+    let length = u32::from_le_bytes(length) as usize;
+    crate::require(length <= REQUEST_LIMIT, "operator_request_bound")?;
+    let mut bytes = vec![0; length];
+    peer.read_exact(&mut bytes)?;
+    let request: ViewRequest = serde_json::from_slice(&bytes)?;
+    crate::require(request.operator_schema == ui::OPERATOR_SCHEMA, &paired_model_required())?;
+    match Request::from_command(&request.command, io::empty()) {
+        Some(Ok(Request::Read(read))) if read.served() => Ok(read),
+        _ => Err("operator_view_request".into()),
+    }
+}
+/// The service side of a status read's answer: its reply, or its refusal as
+/// [`refusal_text`] wrote it. Each is bounded as the command's output is.
+pub fn write_view_reply(peer: &mut impl io::Write, reply: Result<&[u8], &str>) -> io::Result<()> {
+    let (status, bytes) = match reply {
+        Ok(bytes) if bytes.len() as u64 <= REPLY_LIMIT => (0, bytes),
+        Ok(_) => (1, "Manager response exceeded its bound".as_bytes()),
+        Err(refusal) => (1, &refusal.as_bytes()[..refusal.len().min(REFUSAL_LIMIT as usize)]),
+    };
+    let mut frame = Vec::with_capacity(5 + bytes.len());
+    frame.push(status);
+    frame.extend((bytes.len() as u32).to_le_bytes());
+    frame.extend(bytes);
+    peer.write_all(&frame)
+}
+
+/// The running service, over its socket. It answers the status reads it
+/// [serves](Read::served) and nothing else.
+pub struct Service {
+    socket: PathBuf,
+}
+impl Service {
+    /// The service socket in `home`.
+    pub fn installed(home: &Path) -> Self {
+        Self::new(home.join(".local/share/linux-vst-bridge/managed/runtime/owner.sock"))
+    }
+    pub fn new(socket: impl Into<PathBuf>) -> Self {
+        Self { socket: socket.into() }
+    }
+}
+impl Transport for Service {
+    fn exchange(&self, request: &Request, _: Option<File>) -> Result<Vec<u8>, Failure> {
+        let error = |text: &str| Failure::Error(text.into());
+        if !matches!(request, Request::Read(read) if read.served()) {
+            return Err(error("The bridge service does not answer this request"));
+        }
+        let mut peer = UnixStream::connect(&self.socket).map_err(|e| match e.kind() {
+            io::ErrorKind::NotFound | io::ErrorKind::ConnectionRefused => Failure::Unavailable,
+            _ => error("Bridge service is unavailable"),
+        })?;
+        let deadline = Instant::now() + DEADLINE;
+        // A service from another release closes the connection on an unknown
+        // greeting. It is reported at once, never waited out.
+        let read = |peer: &mut UnixStream, buffer: &mut [u8]| {
+            peer.set_read_timeout(Some(deadline.saturating_duration_since(Instant::now())
+                .max(Duration::from_millis(1))))?;
+            peer.read_exact(buffer)
+        };
+        let failed = |e: io::Error| match e.kind() {
+            io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut =>
+                error("Manager readback timed out. Refresh to inspect any accepted operation."),
+            _ => error("Update the frontend and manager together: the running bridge service did not answer this read"),
+        };
+        let body = serde_json::to_vec(&ViewRequest { operator_schema: ui::OPERATOR_SCHEMA,
+            command: request.command() }).map_err(|_| error("Request encoding failed"))?;
+        let mut frame = VIEW_GREETING.to_vec();
+        frame.extend((body.len() as u32).to_le_bytes());
+        frame.extend(body);
+        peer.set_write_timeout(Some(Duration::from_secs(1))).map_err(failed)?;
+        peer.write_all(&frame).map_err(failed)?;
+        let mut header = [0; 5];
+        read(&mut peer, &mut header).map_err(failed)?;
+        let length = u32::from_le_bytes(header[1..].try_into().expect("four length bytes")) as u64;
+        match header[0] {
+            0 if length <= REPLY_LIMIT => {}
+            1 if length <= REFUSAL_LIMIT => {}
+            0 | 1 => return Err(error("Manager response exceeded its bound")),
+            _ => return Err(failed(io::ErrorKind::InvalidData.into())),
+        }
+        let mut bytes = vec![0; length as usize];
+        read(&mut peer, &mut bytes).map_err(failed)?;
+        if header[0] == 0 { Ok(bytes) } else { Err(refusal(&bytes)) }
+    }
+}
+
+/// The installed manager as the window reaches it. Status reads go to the
+/// running service, and run the manager command only while no service
+/// listens: an operation paused it for exclusive maintenance, or it is
+/// restarting. Actions, imports and the overview always run the command.
+pub struct Installed {
+    service: Service,
+    command: Subprocess,
+}
+impl Installed {
+    pub fn new(service: Service, command: Subprocess) -> Self {
+        Self { service, command }
+    }
+    pub fn home(home: &Path) -> Self {
+        Self::new(Service::installed(home), Subprocess::installed(home))
+    }
+}
+impl Transport for Installed {
+    fn exchange(&self, request: &Request, input: Option<File>) -> Result<Vec<u8>, Failure> {
+        if matches!(request, Request::Read(read) if read.served()) {
+            match self.service.exchange(request, None) {
+                Err(Failure::Unavailable) => {}
+                answered => return answered,
+            }
+        }
+        self.command.exchange(request, input)
     }
 }
 
@@ -552,6 +701,70 @@ mod tests {
         assert!(shown.starts_with("Error: \"xxx"));
         assert_eq!(refusal(b"Error: \"operator_state_changed_refresh\"\n"),
             Failure::Error("Error: \"operator_state_changed_refresh\"\n".into()));
+    }
+    #[test]
+    fn service_reads_fail_clearly_across_releases_and_use_the_command_only_without_a_service() {
+        use std::os::unix::{fs::PermissionsExt, net::UnixListener};
+        let root = std::env::temp_dir().join(format!("lvb-service-{}", crate::random_id().unwrap()));
+        std::fs::create_dir_all(&root).unwrap();
+        let socket = root.join("owner.sock");
+        let program = root.join("manager");
+        std::fs::write(&program, "#!/bin/sh\necho \"$2 from the command\"\n").unwrap();
+        std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let installed = || Installed::new(Service::new(&socket), Subprocess::new(&program)
+            .with_environment([("PATH", "/usr/bin:/bin")]));
+        let pulse = Request::Read(Read::Pulse);
+        // No service listens: an operation paused it, or it is restarting.
+        assert_eq!(Service::new(&socket).exchange(&pulse, None).unwrap_err(), Failure::Unavailable);
+        assert_eq!(installed().exchange(&pulse, None).unwrap(), b"pulse from the command\n");
+        assert_eq!(installed().exchange(&Request::Read(Read::Overview), None).unwrap(),
+            b"overview from the command\n", "the overview is the window's own assessment");
+        let listener = UnixListener::bind(&socket).unwrap();
+        let serve = |answer: fn(&mut UnixStream)| {
+            let listener = listener.try_clone().unwrap();
+            std::thread::spawn(move || answer(&mut listener.accept().unwrap().0))
+        };
+        // This release's service: one read, one reply, as the command writes it.
+        let current = serve(|peer| {
+            let mut greeting = [0; 5];
+            peer.read_exact(&mut greeting).unwrap();
+            assert_eq!(&greeting, VIEW_GREETING);
+            assert_eq!(read_view_request(peer).unwrap(), Read::Pulse);
+            write_view_reply(peer, Ok(&b"held pulse\n"[..])).unwrap();
+        });
+        assert_eq!(installed().exchange(&pulse, None).unwrap(), b"held pulse\n");
+        current.join().unwrap();
+        // An earlier service reads the greeting as a registration and closes.
+        let earlier = serve(|peer| {
+            let mut registration = [0; 53];
+            peer.read_exact(&mut registration).unwrap();
+        });
+        let started = Instant::now();
+        let Failure::Error(shown) = installed().exchange(&pulse, None).unwrap_err() else { panic!("expected a failure") };
+        assert!(shown.starts_with("Update the frontend and manager together"), "{shown}");
+        assert!(started.elapsed() < Duration::from_secs(5), "reported at once, never waited out");
+        earlier.join().unwrap();
+        // A service of another operator model refuses with what the window shows.
+        let other = serve(|peer| {
+            let mut greeting = [0; 5];
+            peer.read_exact(&mut greeting).unwrap();
+            let refused = read_view_request(peer).unwrap_err();
+            write_view_reply(peer, Err(&refusal_text(&refused))).unwrap();
+        });
+        let body = serde_json::to_vec(&ViewRequest { operator_schema: ui::OPERATOR_SCHEMA - 1,
+            command: pulse.command() }).unwrap();
+        let mut peer = UnixStream::connect(&socket).unwrap();
+        peer.write_all(VIEW_GREETING).unwrap();
+        peer.write_all(&(body.len() as u32).to_le_bytes()).unwrap();
+        peer.write_all(&body).unwrap();
+        let mut reply = Vec::new();
+        peer.read_to_end(&mut reply).unwrap();
+        assert_eq!(reply[0], 1);
+        assert_eq!(refusal(&reply[5..]), Failure::Error(format!("Error: \"{}\"\n", paired_model_required())));
+        other.join().unwrap();
+        // The service answers status reads only.
+        assert!(Service::new(&socket).exchange(&action(), None).is_err());
+        std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn subprocess_carries_exit_status_bounds_and_input() {

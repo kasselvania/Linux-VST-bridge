@@ -389,6 +389,32 @@ impl CurrentOverviewContext {
     pub(super) fn recheck(&self, m: &Manager) -> Result<()> {
         self.recheck_with(m, || self.recheck_external(m))
     }
+    /// What the service needs to answer this view again (`service::view`).
+    pub(super) fn reuse(&self) -> Reuse {
+        let operation_live = self.snapshot.operation.as_ref().and_then(|operation| operation["state"].as_str())
+            .is_some_and(|state| WORKER_OWNED_STATES.contains(&state));
+        let quiescent = self.all_vendor_retired && self.vendor_progress.is_none()
+            && !self.installer_live.values().any(|live| *live) && !operation_live
+            && !self.snapshot.workspaces.iter().any(|workspace| workspace.state == "running")
+            && self.snapshot.system.capacity_available() && !self.snapshot.system.cleanup_unconfirmed;
+        let mut directories = BTreeSet::new();
+        for (path, stamp) in &self.watched {
+            if let Some(parent) = path.parent() { directories.insert(parent.to_owned()); }
+            if stamp.is_some_and(|stamp| stamp.mode & libc::S_IFMT == libc::S_IFDIR) {
+                directories.insert(path.clone());
+            }
+        }
+        Reuse { quiescent, directories: directories.into_iter().collect() }
+    }
+}
+/// Whether nothing a view shows can change without a record write, and the
+/// directories of the files it stamped. A live operation, installer,
+/// application or workspace session changes what the view shows without
+/// writing a record (its unit can end), and so can a service census that was
+/// unreadable or awaits cleanup.
+pub(super) struct Reuse {
+    pub quiescent: bool,
+    pub directories: Vec<PathBuf>,
 }
 
 fn require_live_vendor_report(operation: &vendor_application::Operation) -> Result<()> {
@@ -1305,6 +1331,43 @@ pub(super) mod tests {
         assert_eq!(products.len(),1);
         assert_eq!(products[0].actions[0].disabled_reason.as_deref(),
             Some("No completed setup is recorded for this plug-in. Choose its installer in Setup."));
+    }
+    #[test]
+    fn a_view_is_reused_only_while_nothing_live_can_change_it_unwritten() {
+        let fixture = test_fixture::Fixture::new();
+        let module = fixture.r.module.path.clone();
+        let quiet = || {
+            let mut context = context_for_watched(&fixture.m,
+                BTreeMap::from([(module.clone(), stamp(&module).unwrap())]));
+            context.snapshot.system.service = "active".into();
+            context.snapshot.system.cleanup_unconfirmed = false;
+            context
+        };
+        let reuse = quiet().reuse();
+        assert!(reuse.quiescent);
+        assert_eq!(reuse.directories, [module.parent().unwrap().to_owned()], "a stamped file's directory");
+        let live: [fn(&mut CurrentOverviewContext); 7] = [
+            |c| c.snapshot.operation = Some(json!({"state":"running"})),
+            |c| c.snapshot.operation = Some(json!({"state":"submission_uncertain"})),
+            |c| { c.installer_live.insert("ab".repeat(16), true); },
+            |c| c.all_vendor_retired = false,
+            |c| c.snapshot.workspaces.push(serde_json::from_value(json!({"id":"fl-studio","name":"FL Studio",
+                "state":"running","selected_installer":"","selected_release":"","installed_advertised_release":null,
+                "observed_file_version":null,"installed_image_sha256":null,"active_installation_operation":null,
+                "cleanup":"running","first_useful_failure":null,"actions":[],"installer_choices":[],"details":{}}))
+                .unwrap()),
+            |c| c.snapshot.system.service = "capacity unavailable".into(),
+            |c| c.snapshot.system.cleanup_unconfirmed = true,
+        ];
+        for (index, make_live) in live.iter().enumerate() {
+            let mut context = quiet();
+            make_live(&mut context);
+            assert!(!context.reuse().quiescent, "live condition {index}");
+        }
+        let mut finished = quiet();
+        finished.snapshot.operation = Some(json!({"state":"completed"}));
+        finished.installer_live.insert("cd".repeat(16), false);
+        assert!(finished.reuse().quiescent, "finished work changes only by writing");
     }
     fn context_for_watched(m:&Manager, watched:BTreeMap<PathBuf,Option<FileStamp>>)
         -> CurrentOverviewContext {

@@ -180,7 +180,11 @@ impl RealService {
             std::thread::sleep(Duration::from_millis(50));
         }
     }
-    fn socket(&self) -> PathBuf {
+    /// The `serve` process.
+    pub fn pid(&self) -> u32 {
+        self.child.as_ref().expect("a running service").id()
+    }
+    pub fn socket(&self) -> PathBuf {
         self.published.fixture.m.root.join("runtime/owner.sock")
     }
     /// LVP1: one byte, whether unconfirmed cleanup blocks new admissions.
@@ -225,19 +229,30 @@ impl RealService {
         contract::Subprocess::new(program.unwrap_or(&self.published.manager))
             .with_environment(environment(&self.published))
     }
+    /// The running service's socket, as the window reaches it.
+    pub fn service(&self) -> contract::Service {
+        contract::Service::new(self.socket())
+    }
     /// One window exchange through the client contract. Its reply passed the
     /// contract's checks; it is returned as the document the window decoded.
-    pub fn call(&self, request: &contract::Request) -> Value {
-        let reply = contract::Client::new(self.manager_command(None)).call(request, None)
+    pub fn call(&self, transport: impl contract::Transport, request: &contract::Request) -> Value {
+        let reply = contract::Client::new(transport).call(request, None)
             .unwrap_or_else(|failure| panic!("{request:?}: {failure:?}"));
         serde_json::from_str(&reply.encode().unwrap().expect("a reply document")).unwrap()
     }
+    /// A status read as the window makes it: from the running service, or
+    /// for the overview, through the manager command.
     pub fn read(&self, read: contract::Read) -> Value {
-        self.call(&contract::Request::Read(read))
+        if read.served() {
+            self.call(self.service(), &contract::Request::Read(read))
+        } else {
+            self.call(self.manager_command(None), &contract::Request::Read(read))
+        }
     }
     /// An action request; `request` is the window's request document.
     pub fn request(&self, request: &Value) -> Value {
-        self.call(&contract::Request::Action(serde_json::from_value(request.clone()).unwrap()))
+        self.call(self.manager_command(None),
+            &contract::Request::Action(serde_json::from_value(request.clone()).unwrap()))
     }
     /// The first published plug-in.
     pub fn plugin(&self) -> &Plugin {
