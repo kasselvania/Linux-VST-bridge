@@ -76,7 +76,8 @@ pub fn private_dir(p: &Path) -> Result<()> {
 }
 /// More files than this, and a composition's opened files are not named.
 const OPENED_LIMIT: usize = 65536;
-type OpenedSet = std::sync::Arc<std::sync::Mutex<std::collections::BTreeSet<PathBuf>>>;
+/// Each file opened, and how many times.
+type OpenedSet = std::sync::Arc<std::sync::Mutex<BTreeMap<PathBuf, u32>>>;
 thread_local! {
     static OPENED: RefCell<Option<OpenedSet>> = const { RefCell::new(None) };
 }
@@ -110,6 +111,11 @@ pub fn spawn_recorded<'scope, T: Send + 'scope>(scope: &'scope std::thread::Scop
 /// helper threads it starts with [`spawn_recorded`]: every record read and
 /// every artifact checked. `None` past a bound, when they are too many to name.
 pub fn with_opened_files<T>(read: impl FnOnce() -> T) -> (T, Option<std::collections::BTreeSet<PathBuf>>) {
+    let (value, opened) = with_opened_counts(read);
+    (value, opened.map(|opened| opened.into_keys().collect()))
+}
+/// As [`with_opened_files`], with how many times each file was opened.
+pub fn with_opened_counts<T>(read: impl FnOnce() -> T) -> (T, Option<BTreeMap<PathBuf, u32>>) {
     let set = OpenedSet::default();
     let value = OpenedFiles(Some(set.clone())).record(read);
     let opened = std::mem::take(&mut *set.lock().unwrap_or_else(|poisoned| poisoned.into_inner()));
@@ -118,7 +124,11 @@ pub fn with_opened_files<T>(read: impl FnOnce() -> T) -> (T, Option<std::collect
 pub fn file(p: &Path) -> Result<File> {
     OPENED.with(|opened| if let Some(set) = opened.borrow().as_ref() {
         let mut set = set.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        if set.len() <= OPENED_LIMIT { set.insert(p.to_path_buf()); }
+        if let Some(count) = set.get_mut(p) {
+            *count = count.saturating_add(1);
+        } else if set.len() <= OPENED_LIMIT {
+            set.insert(p.to_path_buf(), 1);
+        }
     });
     let f = OpenOptions::new()
         .read(true)
