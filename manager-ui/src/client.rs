@@ -1,5 +1,6 @@
 //! Fixed manager entry point; explicit program choices use structured requests.
-//! Every exchange goes through the manager's client contract.
+//! Every exchange goes through the manager's client contract: status reads to
+//! the running service, actions and imports through the manager command.
 use crate::model::{Activity, CurrentOverview, CurrentProductDetail, InstallerImportResult, InteractiveOverview, Pulse, Receipt, Request, Snapshot};
 use crate::screen_model::ProductKey;
 use linux_vst_bridge::service::contract;
@@ -91,8 +92,8 @@ impl From<contract::Reply> for Reply {
         }
     }
 }
-/// The manager's request for a query that leaves this window.
-fn request(query: Query, installer: Option<&str>) -> contract::Request {
+/// The manager's request for a status read or action leaving this window.
+fn request(query: Query) -> contract::Request {
     use contract::Read;
     match query {
         Query::Overview => contract::Request::Read(Read::Overview),
@@ -103,8 +104,8 @@ fn request(query: Query, installer: Option<&str>) -> contract::Request {
         Query::Activity => contract::Request::Read(Read::Activity),
         Query::Pulse => contract::Request::Read(Read::Pulse),
         Query::Action(request) => contract::Request::Action(request),
-        Query::PickInstaller => contract::Request::ImportInstaller { name: installer.unwrap_or_default().into() },
-        Query::SaveSupportReport(_) => unreachable!("problem reports are saved locally"),
+        Query::PickInstaller | Query::SaveSupportReport(_) =>
+            unreachable!("imports and problem reports are prepared by the window"),
     }
 }
 /// One exchange with the manager through `transport`, as this window shows it.
@@ -114,6 +115,7 @@ fn exchange(transport: impl contract::Transport, request: &contract::Request,
         Ok(reply) => Ok(reply.into()),
         Err(contract::Failure::FrontendSuperseded) => Ok(Reply::FrontendSuperseded),
         Err(contract::Failure::Error(error)) => Err(error),
+        Err(contract::Failure::Unavailable) => Err("Bridge service is unavailable".into()),
     }
 }
 fn call(mut query: Query) -> Result<Reply, String> {
@@ -152,7 +154,7 @@ fn call(mut query: Query) -> Result<Reply, String> {
             }
         }
     }
-    let selected = if matches!(query, Query::PickInstaller) {
+    let (request, input) = if matches!(query, Query::PickInstaller) {
         let selected = rfd::FileDialog::new()
             .set_title("Choose Windows installer")
             .add_filter("Windows installers", &["exe", "msi"])
@@ -168,12 +170,13 @@ fn call(mut query: Query) -> Result<Reply, String> {
         if let Some(frontend) = identity {
             if !frontend_selected(&home, frontend)? { return Ok(Reply::FrontendSuperseded); }
         }
-        Some((source, basename))
+        (contract::Request::ImportInstaller { name: basename }, Some(source))
     } else {
-        None
+        (request(query), None)
     };
-    let request = request(query, selected.as_ref().map(|(_, name)| name.as_str()));
-    exchange(contract::Subprocess::installed(&home), &request, selected.map(|(file, _)| file))
+    // Status reads use the command only while no service listens; that goes
+    // away in #489 step 5 with the whole-service stop (`contract::Installed`).
+    exchange(contract::Installed::home(&home), &request, input)
 }
 // Read only the manager-created, bounded export named by the exact completion.
 // A stale/replaced report, symlink or caller-selected source is never shared.
@@ -370,10 +373,9 @@ mod tests {
         let snapshot: Snapshot = serde_json::from_str(
             include_str!("../examples/library-preview.json")).unwrap();
         let key = ProductKey::from(&snapshot.products[0]);
-        assert_eq!(request(Query::Product(key.clone()), None).command(),
+        assert_eq!(request(Query::Product(key.clone())).command(),
             ["operator", "product", &key.environment, &key.module_sha256, &key.class_id]);
-        assert_eq!(request(Query::PickInstaller, Some("Setup.exe")).command(), ["import-installer", "Setup.exe"]);
-        let pulse = request(Query::Pulse, None);
+        let pulse = request(Query::Pulse);
         let reply = serde_json::to_vec(&serde_json::json!({"schema":crate::model::OPERATOR_SCHEMA,
             "service_state":"active","dsp":0,"keepers":2,"maintenance":0,
             "pending_transactions":0,"cleanup_unconfirmed":false,"current_generation":"exact-generation",

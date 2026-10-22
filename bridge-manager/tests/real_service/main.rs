@@ -3,8 +3,9 @@
 //! Each test builds a fixture state root from the shared manager fixtures,
 //! starts the real `linux-vst-bridge serve` binary on it as a child process,
 //! and observes it only through the entry points a real client uses: the
-//! window's exchanges through the client contract (`service::contract`), and
-//! the service socket the native proxy and status readers use. These behaviours must stay identical
+//! window's exchanges through the client contract (`service::contract`) —
+//! status reads from the service socket, actions through the `operator`
+//! command — and the socket the native proxy and status readers use. These behaviours must stay identical
 //! while the manager is restructured around one long-running service (#489).
 //!
 //! How the service runs without systemd is documented in `service.rs`.
@@ -116,7 +117,9 @@ fn offered_buffering_change_round_trips_through_request_worker_and_result() {
     };
     assert_eq!(*added_frames, 256);
     // While it plays, the page reads the service's census and withholds
-    // configuration changes for that plug-in.
+    // configuration changes for that plug-in. The admission's own records
+    // settle first: the page is read once the census shows the instance.
+    service.capacity_when(|capacity| capacity["dsp"] == 1);
     let playing = service.product_detail();
     assert_eq!(playing["system"]["dsp"], 1, "{:#}", playing["system"]);
     let offered = service::offers(&playing["product"]);
@@ -203,6 +206,140 @@ fn native_admission_counts_releases_and_refuses_at_the_limit() {
     assert_eq!((restarted["dsp"].as_u64(), restarted["keepers"].as_u64()), (Some(0), Some(0)), "{restarted:#}");
     assert_eq!(restarted["cleanup_unconfirmed"], false);
     assert_eq!(service.pulse(), 0, "nothing blocks new admissions");
+    service.stop();
+}
+
+/// Oracle 4. The running service answers the window's status reads from
+/// views it holds, and what it answers is exactly what the command line
+/// composes afresh, after each kind of writer: an independent process
+/// changing a record directly, a runtime file changing outside every watched
+/// tree, an operation's worker, and the service's own admission and
+/// retirement of an instance.
+#[test]
+fn service_reads_follow_every_writer() {
+    use contract::{Read, Request, Transport};
+    let published = service::published();
+    let retained_proton = service::retained_runtime(&published.fixture.m);
+    let service = RealService::start(published);
+    let p = service.plugin();
+    let class = p.class_id.clone();
+    let both = |read: Read| -> Value {
+        let request = Request::Read(read);
+        let held = service.service().exchange(&request, None).unwrap();
+        let composed = service.manager_command(None).exchange(&request, None).unwrap();
+        assert_eq!(String::from_utf8_lossy(&held), String::from_utf8_lossy(&composed), "{request:?}");
+        serde_json::from_slice(&held).unwrap()
+    };
+    let current_frames = || {
+        let detail = both(Read::Product(p.key()));
+        let offered = service::offers(&detail["product"]);
+        [256, 512, 1024].into_iter().filter(|frames| service::offer_state(&offered, "buffering_set", &class,
+            &json!({"added_frames":frames})).is_none()).collect::<Vec<_>>()
+    };
+    for read in [Read::CurrentOverview, Read::Product(p.key()), Read::Snapshot, Read::Activity, Read::Pulse] {
+        both(read.clone());
+        both(read);
+    }
+    assert_eq!(current_frames(), [512], "the installed default");
+    // The held pages were answered again, not composed again.
+    let views = service.views();
+    assert_eq!(views["covering"], true, "{views:#}");
+    assert!(views["watched_directories"].as_u64().unwrap() > 0, "{views:#}");
+    let again = || service.views()["answered_again"].as_u64().unwrap();
+    let before = again();
+    both(Read::CurrentOverview);
+    both(Read::Product(p.key()));
+    assert_eq!(again(), before + 2, "both pages came from the views the service holds");
+
+    // A retained runtime's pinned file goes away. No tree and no stamp covers
+    // its directory, only the files the held page opened while it was
+    // composed; the next read must be composed again and say so.
+    let runtime_failure = || both(Read::CurrentOverview)["current"]["managed_runtime_records"][0]["failure"].clone();
+    assert_eq!(runtime_failure(), Value::Null);
+    let pinned = fs::read(&retained_proton).unwrap();
+    fs::remove_file(&retained_proton).unwrap();
+    assert!(runtime_failure().is_string(), "the held overview is not answered after its file went away");
+    fs::write(&retained_proton, &pinned).unwrap();
+    fs::set_permissions(&retained_proton, fs::Permissions::from_mode(0o500)).unwrap();
+    assert_eq!(runtime_failure(), Value::Null);
+
+    // A runtime file the snapshot verifies by its bytes changes. Runtime
+    // trees are not watched; the snapshot is composed for every read.
+    let proton = service.published.fixture.r.environment.runner.proton.clone();
+    let original = fs::read(&proton).unwrap();
+    let runner_valid = || service.product(&both(Read::Snapshot))["details"]["runner_valid"].clone();
+    assert_eq!(runner_valid(), true);
+    fs::write(&proton, b"changed runtime bytes").unwrap();
+    assert_eq!(runner_valid(), false);
+    both(Read::CurrentOverview);
+    fs::write(&proton, &original).unwrap();
+    assert_eq!(runner_valid(), true);
+
+    // An independent writer, as the removed set-delay command was.
+    service.published.fixture.m.select_delay(&class, 256).unwrap();
+    assert_eq!(current_frames(), [256]);
+    both(Read::CurrentOverview);
+
+    // An operation's worker, a separate process started for the request. The
+    // page's state token is current, so the request is accepted.
+    let detail = both(Read::Product(p.key()));
+    let request = json!({"schema":29,"state_token":detail["state_token"],
+        "action":{"kind":"buffering_set","class_id":class,"added_frames":512}});
+    let receipt = service.request(&request);
+    assert_eq!(receipt["accepted"], true, "{receipt:#}");
+    let result = service.finished_operation(receipt["operation"].as_str().unwrap());
+    assert_eq!(result["state"], "completed", "{result:#}");
+    assert_eq!(current_frames(), [512]);
+    both(Read::CurrentOverview);
+    both(Read::Activity);
+
+    // The service's own admission and retirement.
+    let instance = service.admit(p);
+    service.capacity_when(|capacity| capacity["dsp"] == 1);
+    assert_eq!(both(Read::Product(p.key()))["system"]["dsp"], 1);
+    both(Read::CurrentOverview);
+    instance.release();
+    service.capacity_when(|capacity| capacity["dsp"] == 0);
+    assert_eq!(both(Read::Product(p.key()))["system"]["dsp"], 0);
+    service.stop();
+}
+
+/// Not an oracle: the latency of each window status read on this fixture,
+/// through the manager command (one process per read, as the window read
+/// before #489 step 3) and from the running service.
+#[test]
+#[ignore = "measurement; run with --ignored --nocapture"]
+fn read_latency() {
+    use contract::{Read, Request, Transport};
+    let service = RealService::start(service::published());
+    let p = service.plugin();
+    let ticks = unsafe { libc::sysconf(libc::_SC_CLK_TCK) } as f64;
+    let service_cpu = || {
+        let stat = fs::read_to_string(format!("/proc/{}/stat", service.pid())).unwrap();
+        let fields: Vec<&str> = stat.rsplit_once(") ").unwrap().1.split_whitespace().collect();
+        (fields[11].parse::<f64>().unwrap() + fields[12].parse::<f64>().unwrap()) * 1000.0 / ticks
+    };
+    let children_cpu = || {
+        let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
+        unsafe { libc::getrusage(libc::RUSAGE_CHILDREN, &mut usage) };
+        let ms = |t: libc::timeval| t.tv_sec as f64 * 1000.0 + t.tv_usec as f64 / 1000.0;
+        ms(usage.ru_utime) + ms(usage.ru_stime)
+    };
+    for read in [Read::CurrentOverview, Read::Product(p.key()), Read::Snapshot, Read::Activity, Read::Pulse] {
+        let request = Request::Read(read.clone());
+        let measure = |transport: &dyn Transport, rounds: u32| {
+            transport.exchange(&request, None).unwrap();
+            let (children, held, started) = (children_cpu(), service_cpu(), std::time::Instant::now());
+            for _ in 0..rounds { transport.exchange(&request, None).unwrap(); }
+            let per = |total: f64| total / f64::from(rounds);
+            (per(started.elapsed().as_secs_f64() * 1000.0), per(children_cpu() - children), per(service_cpu() - held))
+        };
+        let slow = matches!(read, Read::Snapshot);
+        let (wall, process, during) = measure(&service.manager_command(None), if slow { 3 } else { 20 });
+        let (held_wall, _, held_cpu) = measure(&service.service(), if slow { 3 } else { 200 });
+        eprintln!("LATENCY {read:?}: command {wall:.1} ms, CPU {process:.1} ms + service {during:.1} ms; \
+            service {held_wall:.2} ms, CPU {held_cpu:.2} ms");
+    }
     service.stop();
 }
 

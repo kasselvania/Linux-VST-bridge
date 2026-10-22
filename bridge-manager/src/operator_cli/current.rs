@@ -276,19 +276,19 @@ impl CurrentOverviewContext {
         // so a larger retained setup history does not create one thread per
         // attempt. None of these probes holds registry.lock.
         std::thread::scope(|scope| -> Result<()> {
-            let vendor = scope.spawn(|| {
+            let vendor = linux_vst_bridge::spawn_recorded(scope, || {
                 let at = Instant::now();
                 ((vendor_retired(m), live_vendor_progress(m)), at.elapsed().as_millis())
             });
-            let workspace = scope.spawn(|| {
+            let workspace = linux_vst_bridge::spawn_recorded(scope, || {
                 let at = Instant::now();
                 (daw_workspace::current_projection(m), at.elapsed().as_millis())
             });
-            let cleanup = self.cleanup_seen.map(|_| scope.spawn(|| {
+            let cleanup = self.cleanup_seen.map(|_| linux_vst_bridge::spawn_recorded(scope, || {
                 let at = Instant::now();
                 (pulse_cleanup(m), at.elapsed().as_millis())
             }));
-            let installer = scope.spawn(|| {
+            let installer = linux_vst_bridge::spawn_recorded(scope, || {
                 let at = Instant::now();
                 let operations = self.installer_live.keys().cloned().collect::<Vec<_>>();
                 (installer_liveness(&operations), at.elapsed().as_millis())
@@ -389,6 +389,32 @@ impl CurrentOverviewContext {
     pub(super) fn recheck(&self, m: &Manager) -> Result<()> {
         self.recheck_with(m, || self.recheck_external(m))
     }
+    /// What the service needs to answer this view again (`service::view`).
+    pub(super) fn reuse(&self) -> Reuse {
+        let operation_live = self.snapshot.operation.as_ref().and_then(|operation| operation["state"].as_str())
+            .is_some_and(|state| WORKER_OWNED_STATES.contains(&state));
+        let quiescent = self.all_vendor_retired && self.vendor_progress.is_none()
+            && !self.installer_live.values().any(|live| *live) && !operation_live
+            && !self.snapshot.workspaces.iter().any(|workspace| workspace.state == "running")
+            && self.snapshot.system.capacity_available() && !self.snapshot.system.cleanup_unconfirmed;
+        let mut directories = BTreeSet::new();
+        for (path, stamp) in &self.watched {
+            if let Some(parent) = path.parent() { directories.insert(parent.to_owned()); }
+            if stamp.is_some_and(|stamp| stamp.mode & libc::S_IFMT == libc::S_IFDIR) {
+                directories.insert(path.clone());
+            }
+        }
+        Reuse { quiescent, directories: directories.into_iter().collect() }
+    }
+}
+/// Whether nothing a view shows can change without a record write, and the
+/// directories of the files it stamped. A live operation, installer,
+/// application or workspace session changes what the view shows without
+/// writing a record (its unit can end), and so can a service census that was
+/// unreadable or awaits cleanup.
+pub(super) struct Reuse {
+    pub quiescent: bool,
+    pub directories: Vec<PathBuf>,
 }
 
 fn require_live_vendor_report(operation: &vendor_application::Operation) -> Result<()> {
@@ -447,7 +473,7 @@ fn installer_liveness(operations: &[String]) -> Result<BTreeMap<String, bool>> {
     // helpers bounded while preserving exact per-operation identity.
     let chunk_size = operations.len().div_ceil(4).max(1);
     std::thread::scope(|scope| -> Result<BTreeMap<String, bool>> {
-        let checks: Vec<_> = operations.chunks(chunk_size).map(|chunk| scope.spawn(move || {
+        let checks: Vec<_> = operations.chunks(chunk_size).map(|chunk| linux_vst_bridge::spawn_recorded(scope, move || {
             chunk.iter().map(|operation| Ok((operation.clone(), onboarding::live(operation)?)))
                 .collect::<Result<Vec<_>>>()
         })).collect();
@@ -717,12 +743,12 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     drop(_registry_guard);
     let current_generation = pulse_generation(m)?;
     std::thread::scope(|scope| {
-    let capacity_task = scope.spawn(|| {
+    let capacity_task = linux_vst_bridge::spawn_recorded(scope, || {
         let started = Instant::now();
         (live_capacity(m).ok(), started.elapsed().as_millis())
     });
-    let cleanup_task = scope.spawn(|| pulse_cleanup(m));
-    let workspace_task = scope.spawn(|| daw_workspace::current_projection(m));
+    let cleanup_task = linux_vst_bridge::spawn_recorded(scope, || pulse_cleanup(m));
+    let workspace_task = linux_vst_bridge::spawn_recorded(scope, || daw_workspace::current_projection(m));
     let before = token_with_registry(m, &db)?;
     let token_at = Instant::now(); phases.push(("token_before",token_at.duration_since(started).as_millis()));
     let authority_observed = timing::span(Stage::CaptureSoftwareCatalogue);
@@ -1305,6 +1331,52 @@ pub(super) mod tests {
         assert_eq!(products.len(),1);
         assert_eq!(products[0].actions[0].disabled_reason.as_deref(),
             Some("No completed setup is recorded for this plug-in. Choose its installer in Setup."));
+    }
+    #[test]
+    fn every_helper_thread_of_the_current_view_records_what_it_opens() {
+        // The service names the directories of every file a held page opens.
+        // A helper thread started without the composition's recorder would
+        // open files no watch covers.
+        let source = include_str!("current.rs");
+        let production = &source[..source.find("#[cfg(test)]\npub(super) mod tests").unwrap()];
+        assert!(!production.contains("scope.spawn("), "start helper threads with linux_vst_bridge::spawn_recorded");
+    }
+    #[test]
+    fn a_view_is_reused_only_while_nothing_live_can_change_it_unwritten() {
+        let fixture = test_fixture::Fixture::new();
+        let module = fixture.r.module.path.clone();
+        let quiet = || {
+            let mut context = context_for_watched(&fixture.m,
+                BTreeMap::from([(module.clone(), stamp(&module).unwrap())]));
+            context.snapshot.system.service = "active".into();
+            context.snapshot.system.cleanup_unconfirmed = false;
+            context
+        };
+        let reuse = quiet().reuse();
+        assert!(reuse.quiescent);
+        assert_eq!(reuse.directories, [module.parent().unwrap().to_owned()], "a stamped file's directory");
+        let live: [fn(&mut CurrentOverviewContext); 7] = [
+            |c| c.snapshot.operation = Some(json!({"state":"running"})),
+            |c| c.snapshot.operation = Some(json!({"state":"submission_uncertain"})),
+            |c| { c.installer_live.insert("ab".repeat(16), true); },
+            |c| c.all_vendor_retired = false,
+            |c| c.snapshot.workspaces.push(serde_json::from_value(json!({"id":"fl-studio","name":"FL Studio",
+                "state":"running","selected_installer":"","selected_release":"","installed_advertised_release":null,
+                "observed_file_version":null,"installed_image_sha256":null,"active_installation_operation":null,
+                "cleanup":"running","first_useful_failure":null,"actions":[],"installer_choices":[],"details":{}}))
+                .unwrap()),
+            |c| c.snapshot.system.service = "capacity unavailable".into(),
+            |c| c.snapshot.system.cleanup_unconfirmed = true,
+        ];
+        for (index, make_live) in live.iter().enumerate() {
+            let mut context = quiet();
+            make_live(&mut context);
+            assert!(!context.reuse().quiescent, "live condition {index}");
+        }
+        let mut finished = quiet();
+        finished.snapshot.operation = Some(json!({"state":"completed"}));
+        finished.installer_live.insert("cd".repeat(16), false);
+        assert!(finished.reuse().quiescent, "finished work changes only by writing");
     }
     fn context_for_watched(m:&Manager, watched:BTreeMap<PathBuf,Option<FileStamp>>)
         -> CurrentOverviewContext {

@@ -3,9 +3,7 @@
 #[path = "../src/library.rs"]
 #[allow(dead_code)]
 mod library;
-#[allow(dead_code)]
-#[path = "../../bridge-manager/src/operator_model.rs"]
-mod model;
+use linux_vst_bridge::operator_model as model;
 #[path = "../src/presentation.rs"]
 #[allow(dead_code)]
 mod presentation;

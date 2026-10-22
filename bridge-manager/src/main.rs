@@ -1318,7 +1318,23 @@ fn finish_supervised_delivery(context:SupervisorDelivery<'_>,delivery:Result<()>
     delivery?;
     retirement
 }
+/// Inside `serve`, its own census, as LVC1 and LVP1 give it, without a
+/// connection to itself. Status reads refresh cleanup before they take their
+/// key, so this census does not refresh it again.
+pub(crate) struct ServiceCensus {
+    capacity: Box<dyn Fn() -> serde_json::Value + Send + Sync>,
+    pub(crate) cleanup: Box<dyn Fn() -> bool + Send + Sync>,
+}
+pub(crate) static SERVICE_CENSUS: std::sync::OnceLock<ServiceCensus> = std::sync::OnceLock::new();
+/// The LVC1 answer: capacity, or why it is unavailable.
+fn capacity_value(m: &Manager, limits: &capacity::Limits, workers: usize, blocked: bool) -> serde_json::Value {
+    match capacity::status(m, limits.clone(), workers, blocked) {
+        Ok(status) => serde_json::json!({"ok":true,"capacity":status}),
+        Err(e) => serde_json::json!({"ok":false,"refusal":readback::refusal(e.as_ref())}),
+    }
+}
 fn capacity_reply(m: &Manager) -> Result<serde_json::Value> {
+    if let Some(census) = SERVICE_CENSUS.get() { return Ok((census.capacity)()); }
     let mut peer = UnixStream::connect(m.root.join("runtime/owner.sock"))?;
     peer.set_read_timeout(Some(Duration::from_secs(5)))?;
     peer.set_write_timeout(Some(Duration::from_secs(1)))?;
@@ -1335,6 +1351,45 @@ fn capacity_read(m: &Manager) -> Result<()> {
     let value = capacity_reply(m)?;
     println!("{}", serde_json::to_string_pretty(&value)?);
     require(value["ok"] == true, "capacity_readback_unavailable")
+}
+/// The trees every record of the window's view is read from
+/// (`service::changes`): the bridge's own state and staged packages, the
+/// runtime records but not the runtime trees, the published plug-in links,
+/// the memory transport's sessions and the system package's manifest. Files
+/// a view reads elsewhere, inside setups and runtimes, are added by the view.
+fn view_changes(m: &Manager) -> service::changes::Changes {
+    use service::changes::Tree;
+    let bridge = m.root.parent().unwrap_or(&m.root).to_owned();
+    service::changes::Changes::new(vec![Tree { root: bridge, depth: None },
+        Tree { root: m.root.join("runners"), depth: Some(1) },
+        Tree { root: m.publications.clone(), depth: Some(0) },
+        Tree { root: transport_storage::root(), depth: Some(0) },
+        Tree { root: PathBuf::from("/usr/share/linux-vst-bridge"), depth: Some(0) }])
+}
+/// One status read on the service socket (`service::contract`): from a held
+/// view while it is current, otherwise composed as the command line does.
+/// The reading process is this user's (checked for every connection) and its
+/// frontend must still be the selected one.
+fn answer_view(m: &Manager, peer: &mut UnixStream, views: &service::view::Views,
+    blocked: &AdmissionCleanup) -> Result<()> {
+    let answered = (|| {
+        let read = service::contract::read_view_request(peer)?;
+        package_authority::require_current_frontend_peer(m, peer)?;
+        // Settle the cleanup census before it becomes part of the key.
+        blocked.refresh(m)?;
+        views.answer(&read, u64::from(blocked.blocked()), || operator_cli::view(m, &read))
+    })();
+    let refusal;
+    let reply = match &answered {
+        Ok(reply) => Ok(reply.as_slice()),
+        Err(error) => {
+            refusal = service::contract::refusal_text(error);
+            Err(refusal.as_str())
+        }
+    };
+    peer.set_write_timeout(Some(Duration::from_secs(5)))?;
+    service::contract::write_view_reply(peer, reply)?;
+    Ok(())
 }
 fn serve(m: Manager) -> Result<()> {
     let _lock = m.lock("service.lock")?;
@@ -1409,6 +1464,21 @@ fn serve(m: Manager) -> Result<()> {
     let keepers = Arc::new(Mutex::new(Vec::new()));
     let limits = capacity::service_limits();
     let workers = Arc::new(AtomicUsize::new(0));
+    let census = (manager.clone(), limits.clone(), workers.clone(), blocked.clone(), blocked.clone());
+    let _ = SERVICE_CENSUS.set(ServiceCensus {
+        capacity: Box::new(move || capacity_value(&census.0, &census.1, census.2.load(Ordering::Acquire),
+            census.3.blocked())),
+        cleanup: Box::new(move || census.4.blocked()),
+    });
+    // Status reads are composed until the change watch covers them; its walk
+    // never delays admission, capacity or pulse.
+    let views = Arc::new(service::view::Views::new());
+    let watch_manager = manager.clone();
+    let watch_views = views.clone();
+    if let Err(error) = std::thread::Builder::new().spawn(move ||
+        watch_views.cover(view_changes(&watch_manager))) {
+        eprintln!("status change watch unavailable; every status read is composed: {error}");
+    }
     let idle_manager = manager.clone();
     let idle_keepers = keepers.clone();
     let idle_retirement = std::thread::Builder::new().spawn(move || {
@@ -1452,14 +1522,27 @@ fn serve(m: Manager) -> Result<()> {
         let launch_verification = launch_verification.clone();
         let limits = limits.clone();
         let workers = workers.clone();
+        let views = views.clone();
         workers.fetch_add(1, Ordering::AcqRel);
         let worker_count = WorkerCount(workers.clone());
         let launched = std::thread::Builder::new().spawn(move || {
             let _worker_count=worker_count;
+            // The socket's directory is private to this user; whatever reaches
+            // it anyway (another uid, such as root) is not served at all.
+            if let Err(error) = transport_storage::require_same_user(&peer) {
+                eprintln!("service connection refused: {error}");
+                return;
+            }
             let outcome = (|| -> Result<()> {
                 peer.set_read_timeout(Some(Duration::from_secs(5)))?;
                 let mut greeting = [0; 117];
                 peer.read_exact(&mut greeting[..5])?;
+                if &greeting[..5] == service::contract::VIEW_GREETING {
+                    if let Err(error) = answer_view(&m, &mut peer, &views, &blocked) {
+                        eprintln!("status read: {error}");
+                    }
+                    return Ok(());
+                }
                 if &greeting[..5] != b"LVP1\n" { blocked.refresh(&m)?; }
                 if &greeting[..5]==b"LVM1\n" {
                     peer.read_exact(&mut greeting[5..37])?;
@@ -1529,10 +1612,9 @@ fn serve(m: Manager) -> Result<()> {
                     });
                 }
                 if &greeting[..5]==b"LVC1\n" {
-                    let value=match capacity::status(&m,limits.clone(),workers.load(Ordering::Acquire),blocked.blocked()) {
-                        Ok(status)=>serde_json::json!({"ok":true,"capacity":status}),
-                        Err(e)=>serde_json::json!({"ok":false,"refusal":readback::refusal(e.as_ref())}),
-                    };
+                    let mut value=capacity_value(&m,&limits,workers.load(Ordering::Acquire),blocked.blocked());
+                    // How the status reads are answered, for `linux-vst-bridge capacity`.
+                    value["views"]=views.statistics();
                     let bytes=serde_json::to_vec(&value)?;
                     require(bytes.len()<=65536,"capacity_readback_extent")?;
                     peer.set_write_timeout(Some(Duration::from_secs(1)))?;
@@ -1952,7 +2034,8 @@ fn answer_client(m: &Manager, request: service::contract::Request) -> Result<()>
                 .map_err(|_| service::contract::BROWSER_RETURN_UNDELIVERED)?;
             Reply::Delivered
         }
-        request => operator_cli::answer(m, request)?,
+        Request::Read(read) => operator_cli::answer_read(m, &read)?,
+        Request::Action(request) => operator_cli::answer_action(m, request),
     };
     let serialization_at = Instant::now();
     let encoded = reply.encode()?;
@@ -2005,11 +2088,10 @@ fn main() -> Result<()> {
     Ok(())
   },
   Some("operator")=>operator_cli::run(&m,&args[1..]),
-  Some("import-installer") if args.len()==1=>{let source=fs::File::from(std::io::stdin().as_fd().try_clone_to_owned()?);println!("{}",serde_json::to_string(&installer_import::import(&m,source)?)?);Ok(())},
   Some("workspace")=>daw_workspace::run(&m,&args[1..]),
   Some("serve") if args.len()==1=>serve(m),
   Some("capacity") if args.len()==1=>capacity_read(&m),
-  _=>Err("Usage: linux-vst-bridge serve | capacity | operator ... | import-installer [NAME] | workspace ... | native-access-callback URI | package-...".into())
+  _=>Err("Usage: linux-vst-bridge serve | capacity | operator ... | import-installer NAME | workspace ... | native-access-callback URI | package-...".into())
  }
 }
 

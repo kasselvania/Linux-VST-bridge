@@ -132,6 +132,48 @@ pub fn published_classes(count: usize) -> Published {
     Published { fixture: f, plugins, manager: software.manager.path, stubs }
 }
 
+/// A retained managed runtime (the r3 generation) beside the published
+/// plug-ins, as an update leaves the previous one. The current overview
+/// lists it and checks its pinned files, which lie below the runtime records
+/// the change watch covers and are named by no stamp. Returns its `proton`.
+pub fn retained_runtime(m: &Manager) -> PathBuf {
+    use linux_vst_bridge::runtime_delivery;
+    use std::os::unix::fs::MetadataExt;
+    let base = m.root.join("runners").join(runtime_delivery::ID);
+    let mut artifacts = Vec::new();
+    for (relative, bytes) in [("GE-Proton11-7-x86_64/proton", b"fixture proton".as_slice()),
+        ("SteamLinuxRuntime_4/_v2-entry-point", b"fixture entry".as_slice())] {
+        let path = base.join(relative);
+        private_dir(path.parent().unwrap()).unwrap();
+        fs::write(&path, bytes).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o500)).unwrap();
+        artifacts.push(Artifact { sha256: digest(&path).unwrap(), path });
+    }
+    let mut rows = std::collections::BTreeMap::new();
+    for artifact in &artifacts {
+        let relative = artifact.path.strip_prefix(&base).unwrap();
+        let metadata = fs::metadata(&artifact.path).unwrap();
+        rows.insert(relative.to_owned(), json!({"path":relative,"sha256":artifact.sha256,
+            "target":null,"size":metadata.len(),"mode":metadata.mode() & 0o777,"directory":false}));
+        for parent in relative.ancestors().skip(1).filter(|parent| !parent.as_os_str().is_empty()) {
+            rows.insert(parent.to_owned(), json!({"path":parent,"sha256":null,"target":null,
+                "size":0,"mode":0o700,"directory":true}));
+        }
+    }
+    let tree = base.join("runtime-tree.json");
+    atomic_json(&tree, &rows.into_values().collect::<Vec<_>>()).unwrap();
+    fs::set_permissions(&tree, fs::Permissions::from_mode(0o400)).unwrap();
+    let files = vec![artifacts[0].clone(), artifacts[1].clone(), Artifact { sha256: digest(&tree).unwrap(), path: tree }];
+    let runner = Runner { id: runtime_delivery::ID.into(), version: "retained fixture".into(),
+        proton: artifacts[0].path.clone(), entry_point: artifacts[1].path.clone(), files, policy: None };
+    runner.verify().unwrap();
+    let record = base.join("runtime.json");
+    atomic_json(&record, &json!({"schema":1,"id":runtime_delivery::ID,
+        "downloads":runtime_delivery::downloads(),"runner":runner})).unwrap();
+    fs::set_permissions(&record, fs::Permissions::from_mode(0o400)).unwrap();
+    artifacts[0].path.clone()
+}
+
 fn require_transport_root() {
     let runtime = PathBuf::from(format!("/run/user/{}", unsafe { libc::getuid() }));
     assert!(runtime.is_dir(), "{} is required: the service's memory transport root lives there. \
@@ -180,7 +222,11 @@ impl RealService {
             std::thread::sleep(Duration::from_millis(50));
         }
     }
-    fn socket(&self) -> PathBuf {
+    /// The `serve` process.
+    pub fn pid(&self) -> u32 {
+        self.child.as_ref().expect("a running service").id()
+    }
+    pub fn socket(&self) -> PathBuf {
         self.published.fixture.m.root.join("runtime/owner.sock")
     }
     /// LVP1: one byte, whether unconfirmed cleanup blocks new admissions.
@@ -197,6 +243,13 @@ impl RealService {
     }
     /// LVC1: the service's own capacity census.
     pub fn capacity(&self) -> Value {
+        self.census()["capacity"].clone()
+    }
+    /// LVC1: how the service answers status reads.
+    pub fn views(&self) -> Value {
+        self.census()["views"].clone()
+    }
+    fn census(&self) -> Value {
         let mut peer = UnixStream::connect(self.socket()).unwrap();
         peer.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
         peer.write_all(b"LVC1\n").unwrap();
@@ -206,7 +259,7 @@ impl RealService {
         peer.read_exact(&mut bytes).unwrap();
         let reply: Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(reply["ok"], true, "{reply:#}");
-        reply["capacity"].clone()
+        reply
     }
     /// LVC1 until `settled` holds, within the service's retirement bound.
     pub fn capacity_when(&self, settled: impl Fn(&Value) -> bool) -> Value {
@@ -225,19 +278,32 @@ impl RealService {
         contract::Subprocess::new(program.unwrap_or(&self.published.manager))
             .with_environment(environment(&self.published))
     }
-    /// One window exchange through the client contract. Its reply passed the
-    /// contract's checks; it is returned as the document the window decoded.
-    pub fn call(&self, request: &contract::Request) -> Value {
-        let reply = contract::Client::new(self.manager_command(None)).call(request, None)
-            .unwrap_or_else(|failure| panic!("{request:?}: {failure:?}"));
-        serde_json::from_str(&reply.encode().unwrap().expect("a reply document")).unwrap()
+    /// The running service's socket, as the window reaches it.
+    pub fn service(&self) -> contract::Service {
+        contract::Service::new(self.socket())
     }
+    /// One window exchange through the client contract. The reply must pass
+    /// the contract's checks, and it is returned exactly as the service or
+    /// command wrote it, so nothing the typed model would drop goes unseen.
+    pub fn call(&self, transport: impl contract::Transport, request: &contract::Request) -> Value {
+        let written = contract::Transport::exchange(&transport, request, None)
+            .unwrap_or_else(|failure| panic!("{request:?}: {failure:?}"));
+        contract::decode(request, &written).unwrap_or_else(|refused| panic!("{request:?}: {refused}"));
+        serde_json::from_slice(&written).unwrap()
+    }
+    /// A status read as the window makes it: from the running service, or
+    /// for the overview, through the manager command.
     pub fn read(&self, read: contract::Read) -> Value {
-        self.call(&contract::Request::Read(read))
+        if read.served() {
+            self.call(self.service(), &contract::Request::Read(read))
+        } else {
+            self.call(self.manager_command(None), &contract::Request::Read(read))
+        }
     }
     /// An action request; `request` is the window's request document.
     pub fn request(&self, request: &Value) -> Value {
-        self.call(&contract::Request::Action(serde_json::from_value(request.clone()).unwrap()))
+        self.call(self.manager_command(None),
+            &contract::Request::Action(serde_json::from_value(request.clone()).unwrap()))
     }
     /// The first published plug-in.
     pub fn plugin(&self) -> &Plugin {

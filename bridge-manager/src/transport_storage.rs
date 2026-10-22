@@ -405,6 +405,17 @@ fn peer_credentials(peer: &std::os::unix::net::UnixStream) -> Result<libc::ucred
     )?;
     Ok(cred)
 }
+/// Refuse a connection from another user. The service socket's directory is
+/// private to this user already; `peer_credentials` compares the peer's uid
+/// with this process's.
+#[cfg(target_os = "linux")]
+pub fn require_same_user(peer: &std::os::unix::net::UnixStream) -> Result<()> {
+    peer_credentials(peer).map(|_| ())
+}
+#[cfg(not(target_os = "linux"))]
+pub fn require_same_user(_peer: &std::os::unix::net::UnixStream) -> Result<()> {
+    Err("peer_credentials_require_linux".into())
+}
 #[cfg(target_os = "linux")]
 fn process_start_ticks(pid: i32) -> Result<u64> {
     let stat = fs::read_to_string(format!("/proc/{pid}/stat"))?;
