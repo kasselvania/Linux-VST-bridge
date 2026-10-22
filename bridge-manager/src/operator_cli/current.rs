@@ -1660,6 +1660,10 @@ pub(super) mod tests {
     }
     #[test]
     fn current_watch_binds_setup_performance_workspace_and_pending_inputs() {
+        // Liveness reads reach this fixture's installer and selector units.
+        // Model them rather than depending on the test host's user manager.
+        let units=[onboarding::unit(&"12".repeat(16)).unwrap(),vendor_cli::unit(&"ab".repeat(32)).unwrap()];
+        readiness::with_unit_state_fixture(&units,"inactive",|| {
         let fixture=test_fixture::Fixture::new();
         let m=&fixture.m;
         let a=fixture.r.host.clone();
@@ -1831,6 +1835,7 @@ pub(super) mod tests {
             fs::rename(moved.join(&name),onboarding_dir.join(&name)).unwrap();
         }
         assert!(live.recheck_with(m,||Ok(())).is_err());
+        });
     }
     #[test]
     fn user_selected_running_program_has_current_show_and_close_controls() {
