@@ -5468,6 +5468,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
     }
     #[test]
     fn package_resume_target_failure_restores_paused_origin_and_raw_reservation() {
+        readiness::with_unit_state_fixture(&[vendor_cli::unit("arturia-software-center").unwrap()],"inactive",|| {
         for failure in ["start","clean"] {
             let f = Fixture::new();
             f.adopt().unwrap();
@@ -5484,9 +5485,11 @@ print('LVO0 '+j['session']+' ready',flush=True)
             assert_eq!(f.service.show().unwrap().active,"inactive");
             assert!(!f.base.m.root.join("package-transition.json").exists());
         }
+        });
     }
     #[test]
     fn package_resume_rejects_missing_or_replaced_owner_without_stopping_service() {
+        readiness::with_unit_state_fixture(&[vendor_cli::unit("arturia-software-center").unwrap()],"inactive",|| {
         for change in ["missing","replacement","result","vendor","worker"] {
             let f = Fixture::new();
             f.adopt().unwrap();
@@ -5524,6 +5527,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
             assert_eq!(fs::read(&reservation).ok(),retained);
             assert!(journal.exists());
         }
+        });
     }
     #[test]
     fn package_resume_clean_readback_rechecks_replacement_owner_before_consuming() {

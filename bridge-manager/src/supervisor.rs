@@ -3,7 +3,7 @@ use crate::{require, Artifact, Result};
 use std::{ffi::OsString, io::Read, process::{Command, Stdio}, time::{Duration, Instant}};
 
 pub const BOOTSTRAP: &str = include_str!("../runtime/bootstrap.py");
-pub const SOURCE_PYTHON_RANGE: &str = "CPython >=3.13,<3.15";
+pub const SOURCE_PYTHON_RANGE: &str = "CPython >=3.13,<3.16";
 
 /// These arguments follow the interpreter, including behind systemd-run.
 /// Retained bytecode keeps its historical direct-script invocation. Source
@@ -36,6 +36,6 @@ pub fn verify_host_python() -> Result<()> {
     };
     let mut output = String::new();
     child.stdout.take().ok_or("supervisor_python_probe")?.take(64).read_to_string(&mut output)?;
-    require(status.success() && output.trim() == "cpython-source-v1",
-        "This build requires host CPython >=3.13,<3.15. Your selected application was retained")
+    if status.success() && output.trim() == "cpython-source-v1" { return Ok(()); }
+    Err(format!("This build requires host {SOURCE_PYTHON_RANGE}. Your selected application was retained").into())
 }

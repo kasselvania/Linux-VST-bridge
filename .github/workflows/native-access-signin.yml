@@ -45,9 +45,25 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Windows cross compilers
+        timeout-minutes: 15
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq gcc-mingw-w64-x86-64 xvfb dbus-user-session >/dev/null
+          # Package downloads stalled this step for 30 minutes on West US
+          # runners (2026-10-22). Retry only the download, which is safe to
+          # cut off; then install once from the local cache, so dpkg is never
+          # killed part-way and retried. Output stays visible and nothing may
+          # prompt.
+          sudo rm -f /var/lib/man-db/auto-update
+          export DEBIAN_FRONTEND=noninteractive
+          apt=(apt-get -q -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o DPkg::Lock::Timeout=60)
+          pkgs=(gcc-mingw-w64-x86-64 xvfb dbus-user-session)
+          for attempt in 1 2 3; do
+            timeout 90 sudo -E "${apt[@]}" update &&
+              timeout 150 sudo -E "${apt[@]}" install -y --download-only "${pkgs[@]}" >/dev/null && break
+            test "$attempt" -lt 3 || exit 1
+            echo "Package download attempt $attempt failed or timed out; trying again."
+            sleep 10
+          done
+          sudo -E "${apt[@]}" install -y --no-download "${pkgs[@]}" >/dev/null
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
