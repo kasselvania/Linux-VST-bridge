@@ -30,10 +30,8 @@ fn main() -> Result<()> {
     require(!root.exists(), "fixture root already exists")?;
     private_dir(&root)?;
     let root = root.canonicalize()?;
-    let m = Manager {
-        publications: root.join("private-publications"),
-        root,
-    };
+    let publications = root.join("private-publications");
+    let m = Manager::new(root, publications);
     let mut sw: Software = read_json(Path::new(&args[4]))?;
     let runner: Runner = read_json(Path::new(&args[5]))?;
     runner.verify()?;

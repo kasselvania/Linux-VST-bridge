@@ -222,7 +222,12 @@ fn environment_location(m: &Manager, environment: &Environment) -> bool {
             == Some(environment.id.as_str())
 }
 /// Factory and environment identities, never a friendly-name dispatch table.
+/// Read once per composition for each scanner.
 pub fn selections(m: &Manager, host: &Artifact, source: &str) -> Result<Vec<Selection>> {
+    m.derive_once(&format!("preparation_selections:{}:{source}", host.sha256),
+        || read_selections(m, host, source))
+}
+fn read_selections(m: &Manager, host: &Artifact, source: &str) -> Result<Vec<Selection>> {
     let mut out = vec![];
     for path in list(&m.root.join("inventory"))? {
         if path.extension().is_none_or(|e| e != "json") {

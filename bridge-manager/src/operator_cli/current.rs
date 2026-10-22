@@ -386,8 +386,10 @@ impl CurrentOverviewContext {
         observed.end(true);
         Ok(())
     }
+    /// A second observation of what the capture read: every part of it
+    /// derives its facts afresh, never from what the capture derived.
     pub(super) fn recheck(&self, m: &Manager) -> Result<()> {
-        self.recheck_with(m, || self.recheck_external(m))
+        self.recheck_with(&m.composing(), || self.recheck_external(&m.composing()))
     }
     /// What the service needs to answer this view again (`service::view`).
     pub(super) fn reuse(&self) -> Reuse {
@@ -2043,6 +2045,51 @@ pub(super) mod tests {
         Ok(if name == PAGES[0] { serde_json::to_vec(&current_overview(m)?)? } else {
             serde_json::to_vec(&product_detail(m, &s.environment.id, &s.module.sha256, &s.class.id)?)?
         })
+    }
+    #[test]
+    fn a_composition_reads_each_retained_record_a_bounded_number_of_times() {
+        // Before #504 each setup's revision chain read every operation
+        // record again: on this history each was opened up to 210 times per
+        // page, and more with every setup.
+        let (f, candidates, units) = retained_history();
+        readiness::with_unit_state_fixture(&units, "inactive", || {
+            for name in PAGES {
+                let server = overview_service_reply(&f.m, capacity_json(false,0,0));
+                let (composed, opened) = linux_vst_bridge::with_opened_counts(|| page(&f.m, &candidates, name));
+                server.join().unwrap();
+                composed.unwrap();
+                let opened = opened.unwrap();
+                let records: Vec<_> = opened.iter().filter(|(path, _)|
+                    ["operator", "onboarding"].iter().any(|kind| path.starts_with(f.m.root.join(kind)))).collect();
+                assert!(records.len() > 500, "{name}: {} records", records.len());
+                // Capture and recheck each read a record a few times; reading
+                // it again per setup or per plug-in would multiply that.
+                let (path, most) = records.iter().max_by_key(|(_, opens)| **opens).unwrap();
+                assert!(**most <= 24, "{name} opened {path:?} {most} times");
+            }
+        });
+    }
+    #[test]
+    fn deriving_each_fact_once_changes_nothing_a_page_shows() {
+        let (f, candidates, units) = retained_history();
+        readiness::with_unit_state_fixture(&units, "inactive", || {
+            let server = overview_service_reply_with_counts(&f.m, capacity_json(false,0,0), (2,6));
+            let every_use = capture(&f.m).unwrap();
+            let once = capture(&f.m.composing()).unwrap();
+            every_use.recheck(&f.m).unwrap();
+            once.recheck(&f.m).unwrap();
+            server.join().unwrap();
+            assert_eq!(serde_json::to_string(&once.snapshot).unwrap(),
+                serde_json::to_string(&every_use.snapshot).unwrap());
+            assert_eq!(once.current_generation, every_use.current_generation);
+            let s = &candidates[0].selection;
+            let server = overview_service_reply_with_counts(&f.m, capacity_json(false,0,0), (2,6));
+            let every_use = product_detail_readonly(&f.m, &s.environment.id, &s.module.sha256, &s.class.id);
+            let once = product_detail(&f.m, &s.environment.id, &s.module.sha256, &s.class.id);
+            server.join().unwrap();
+            assert_eq!(serde_json::to_string(&once.unwrap()).unwrap(),
+                serde_json::to_string(&every_use.unwrap()).unwrap());
+        });
     }
     /// Not a check: what a page reads on a Deck-shaped history (#504), by
     /// kind of record: opens, this process's read calls and bytes, and CPU.

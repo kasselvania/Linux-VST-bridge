@@ -60,7 +60,11 @@ pub(super) fn owns(m:&Manager,owner:&str)->Result<bool> {
         _=>Err("automatic_connection_resume_owner".into()),
     }
 }
+/// Read once per composition.
 pub(super) fn records(m:&Manager)->Result<Vec<Continuation>> {
+    m.derive_once("renderer_continuation_records",||read_records(m))
+}
+fn read_records(m:&Manager)->Result<Vec<Continuation>> {
     let root=m.root.join("operator");if !root.exists(){return Ok(vec![]);}
     let mut out=vec![];
     for (count,entry) in fs::read_dir(root)?.enumerate() {
@@ -69,7 +73,7 @@ pub(super) fn records(m:&Manager)->Result<Vec<Continuation>> {
         if !valid_hex(&owner,32) {continue;}
         if path(m,&owner)?.exists(){out.push(load(m,&owner)?);}
         else {
-            let request=optional(&entry.path().join("request.json"))?;
+            let request=operation_request(m,&entry.path())?;
             if request["action"]["kind"]=="renderer_software_install" {
                 let result=optional(&entry.path().join("result.json"))?;
                 require(!result["journey"].is_object() && !result["result"]["journey"].is_object()
@@ -521,7 +525,7 @@ pub(super) fn finish(m:&Manager,operation:&str,action:&ui::Action)->Result<()> {
         use linux_vst_bridge::operator_lock::{with_operator_registry_wait,LockBusy};
         let (f,retained)=fixture();
         // An open manager window's status read holds registry.lock briefly.
-        let window=Manager {root:f.m.root.clone(),publications:f.m.publications.clone()};
+        let window=Manager::new(f.m.root.clone(), f.m.publications.clone());
         let held=window.lock("registry.lock").unwrap();
         // Before: the first step after the session refused at once ("operation already running").
         assert!(commit_with_retirement(&f.m,&retained,true).unwrap_err().is::<LockBusy>());

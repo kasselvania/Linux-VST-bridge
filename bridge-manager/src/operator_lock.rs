@@ -266,7 +266,7 @@ mod tests {
         // An open manager window: one status read after another, each taking
         // registry.lock again as soon as the previous one released it.
         let reader = {
-            let m = Manager {root: f.m.root.clone(), publications: f.m.publications.clone()};
+            let m = Manager::new(f.m.root.clone(), f.m.publications.clone());
             let (stop, rounds) = (stop.clone(), rounds.clone());
             std::thread::spawn(move || while !stop.load(Ordering::SeqCst) {
                 let (guard, _) = m.lock_bounded(OperatorLock::Registry,

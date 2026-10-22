@@ -33,10 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if args.len() < 4 {
             return Err("fixture lifecycle arguments".into());
         }
-        let m = Manager {
-            root: args[2].clone().into(),
-            publications: std::path::PathBuf::from(&args[2]).join("unused-publications"),
-        };
+        let m = Manager::new(args[2].clone().into(), std::path::PathBuf::from(&args[2]).join("unused-publications"));
         match args[1].as_str() {
             "submit" => {
                 if args.len() != 6 {

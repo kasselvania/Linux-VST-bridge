@@ -384,7 +384,7 @@ mod tests {
     fn stale_prestate_target_and_unowned_runner_changes_refuse() {
         let (f,_,_,runner)=fixture();let initial=f.r.environment.clone();
         let operation=job(&f.m,&initial,&runner);
-        let foreign=Manager {root:f.outer.join("foreign-manager"),publications:f.outer.join("foreign-publications")};
+        let foreign=Manager::new(f.outer.join("foreign-manager"), f.outer.join("foreign-publications"));
         for wrong_manager in [false,true] {
             let admission=||if wrong_manager {foreign.lock("registry.lock")} else {f.m.lock("other.lock")};
             let error=select_admitted(&f.m,&initial.id,&onboarding::runner_key(&runner).unwrap(),
@@ -581,7 +581,7 @@ mod tests {
         let offer=rows.iter().find(|row|row.environment==initial.id).unwrap().actions.iter()
             .find(|offer|matches!(offer.action,ui::Action::TransactionReconcile {})).unwrap();
         assert!(offer.disabled_reason.is_none());
-        let reader=Manager {root:f.m.root.clone(),publications:f.m.publications.clone()};
+        let reader=Manager::new(f.m.root.clone(), f.m.publications.clone());
         let (start,started)=std::sync::mpsc::channel();let (held,acquired)=std::sync::mpsc::channel();
         let thread=std::thread::spawn(move|| {
             started.recv_timeout(Duration::from_secs(3)).unwrap();

@@ -17,20 +17,20 @@ pub(crate) struct Fixture {
 }
 impl Fixture {
     pub(crate) fn new() -> Self {
-        Self::with_layout("lvb-manager", |outer| Manager {
-            root: outer.join("managed"),
-            publications: outer.join("vst3"),
-        })
+        Self::with_layout("lvb-manager", |outer| Manager::new(
+            outer.join("managed"),
+            outer.join("vst3"),
+        ))
     }
     /// The same fixture at the layout `Manager::installed()` resolves when
     /// HOME is `outer`, so a real manager process started with that HOME owns
     /// it. Used by the real-service tests under `tests/`.
     #[allow(dead_code)] // This shared fixture is also compiled by library-only tests.
     pub(crate) fn installed() -> Self {
-        Self::with_layout("lvb-home", |home| Manager {
-            root: home.join(".local/share/linux-vst-bridge/managed"),
-            publications: home.join(".vst3"),
-        })
+        Self::with_layout("lvb-home", |home| Manager::new(
+            home.join(".local/share/linux-vst-bridge/managed"),
+            home.join(".vst3"),
+        ))
     }
     fn with_layout(prefix: &str, layout: impl FnOnce(&Path) -> Manager) -> Self {
         unsafe {

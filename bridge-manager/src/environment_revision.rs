@@ -56,23 +56,12 @@ pub fn require_owned_revision(m: &Manager, bound: &Environment,
         && valid_environment_id(&bound.id), "installer_environment_identity")?;
     require(same_space(bound, target), "installer_environment_binding_changed")?;
     if target != bound {
-        // Every exact revision edge belongs to its retained typed operator job.
-        let history=installer_records(m)?;
-        let runtime=runtime_records(m)?;
-        let vendor=vendor_records(m)?;
-        let renderer=renderer_records(m)?;
-        let uninstall=uninstall_records(m)?;
-        let edges:Vec<_>=history.iter().map(|r|(&r.before,&r.environment))
-            .chain(runtime.iter().filter(|r|r.state != RuntimeState::Cancelled)
-                .map(|r|(&r.before,&r.environment)))
-            .chain(vendor.iter().map(|r|(&r.before,&r.environment)))
-            .chain(renderer.iter().map(|r|(&r.before,&r.environment)))
-            .chain(uninstall.iter().map(|r|(&r.before,&r.environment))).collect();
+        let edges=revision_edges(m)?;
         let mut step=bound.clone();
         for _ in 0..edges.len() {
             if step == *target {break;}
-            let mut successors=edges.iter().filter(|(before,_)|**before==step);
-            let next=successors.next().ok_or("installer_environment_revision_unowned")?.1;
+            let mut successors=edges.iter().filter(|(before,_)|*before==step);
+            let next=&successors.next().ok_or("installer_environment_revision_unowned")?.1;
             require(successors.next().is_none(),"environment_revision_ownership_conflict")?;
             step=next.clone();
         }
@@ -80,9 +69,27 @@ pub fn require_owned_revision(m: &Manager, bound: &Environment,
     }
     Ok(())
 }
+/// Every retained revision edge, `(before, after)`, once per composition.
+fn revision_edges(m: &Manager) -> Result<std::sync::Arc<Vec<(Environment, Environment)>>> {
+    m.derive_once("revision_edges", || {
+        // Every exact revision edge belongs to its retained typed operator job.
+        let history=installer_records(m)?;
+        let runtime=runtime_records(m)?;
+        let vendor=vendor_records(m)?;
+        let renderer=renderer_records(m)?;
+        let uninstall=uninstall_records(m)?;
+        Ok(std::sync::Arc::new(history.into_iter().map(|r|(r.before,r.environment))
+            .chain(runtime.into_iter().filter(|r|r.state != RuntimeState::Cancelled)
+                .map(|r|(r.before,r.environment)))
+            .chain(vendor.into_iter().map(|r|(r.before,r.environment)))
+            .chain(renderer.into_iter().map(|r|(r.before,r.environment)))
+            .chain(uninstall.into_iter().map(|r|(r.before,r.environment))).collect()))
+    })
+}
 
+/// Read once per composition.
 pub fn installer_record(m: &Manager, operation: &str) -> Result<InstallerBinding> {
-    Ok(installer_input(m, operation)?.0)
+    m.derive_once(&format!("installer_record:{operation}"), || Ok(installer_input(m, operation)?.0))
 }
 /// The accepted request owns the installer choice; a revision is not a second
 /// policy authority. Historical records retain their existing wire contract.
@@ -101,7 +108,11 @@ pub fn installer_input(m: &Manager, operation: &str) -> Result<(InstallerBinding
     Ok((r, request.action))
 }
 
+/// Every retained record of this kind, read once per composition.
 pub fn installer_records(m: &Manager) -> Result<Vec<InstallerBinding>> {
+    m.derive_once("installer_records", || read_installer_records(m))
+}
+fn read_installer_records(m: &Manager) -> Result<Vec<InstallerBinding>> {
     let root = m.root.join("operator");
     if !root.try_exists()? { return Ok(vec![]); }
     let mut out = vec![];
@@ -144,7 +155,11 @@ pub fn vendor_record(m:&Manager,operation:&str)->Result<VendorBinding> {
         && selected.environment.root==r.before.root,"vendor_environment_application_binding")?;
     Ok(r)
 }
+/// Every retained record of this kind, read once per composition.
 pub fn vendor_records(m:&Manager)->Result<Vec<VendorBinding>> {
+    m.derive_once("vendor_records",||read_vendor_records(m))
+}
+fn read_vendor_records(m:&Manager)->Result<Vec<VendorBinding>> {
     let root=m.root.join("operator");if !root.exists(){return Ok(vec![])}
     let mut records=vec![];
     for (n,entry) in fs::read_dir(root)?.enumerate() {
@@ -177,7 +192,11 @@ pub fn uninstall_record(m:&Manager,operation:&str)->Result<UninstallBinding> {
         && valid_environment_id(&r.environment.id),"uninstall_environment_transaction_binding")?;
     Ok(r)
 }
+/// Every retained record of this kind, read once per composition.
 pub fn uninstall_records(m:&Manager)->Result<Vec<UninstallBinding>> {
+    m.derive_once("uninstall_records",||read_uninstall_records(m))
+}
+fn read_uninstall_records(m:&Manager)->Result<Vec<UninstallBinding>> {
     let root=m.root.join("operator");if !root.try_exists()?{return Ok(vec![])}
     let mut records=vec![];
     for (n,entry) in fs::read_dir(root)?.enumerate() {
@@ -245,7 +264,11 @@ pub fn validate_renderer_binding(m:&Manager,operation:&str,r:&RendererBinding)->
     }
     Ok(())
 }
+/// Every retained record of this kind, read once per composition.
 pub fn renderer_records(m:&Manager)->Result<Vec<RendererBinding>> {
+    m.derive_once("renderer_records",||read_renderer_records(m))
+}
+fn read_renderer_records(m:&Manager)->Result<Vec<RendererBinding>> {
     let root=m.root.join("operator");if !root.exists(){return Ok(vec![])}
     let mut records=vec![];
     for (count,entry) in fs::read_dir(root)?.enumerate() {
@@ -326,7 +349,11 @@ pub fn runtime_record(m: &Manager, operation: &str) -> Result<RuntimeBinding> {
     }
     Ok(binding)
 }
+/// Every retained record of this kind, read once per composition.
 pub fn runtime_records(m: &Manager) -> Result<Vec<RuntimeBinding>> {
+    m.derive_once("runtime_records", || read_runtime_records(m))
+}
+fn read_runtime_records(m: &Manager) -> Result<Vec<RuntimeBinding>> {
     let directory = m.root.join("operator");
     if !directory.try_exists()? {return Ok(vec![]);}
     let mut records = vec![];

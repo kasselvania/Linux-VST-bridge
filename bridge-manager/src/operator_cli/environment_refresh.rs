@@ -161,7 +161,11 @@ fn retain(m:&Manager,environment:Environment,intent:Intent,
     atomic_json(&path(m,&retained.intent.owner)?,&retained)?;
     load(m,&retained.intent.owner)
 }
+/// Read once per composition.
 pub(super) fn records(m: &Manager) -> Result<Vec<Refresh>> {
+    m.derive_once("environment_refresh_records", || read_records(m))
+}
+fn read_records(m: &Manager) -> Result<Vec<Refresh>> {
     let root=m.root.join("operator");
     if !root.is_dir() {return Ok(vec![]);}
     let mut records=vec![];
@@ -173,7 +177,7 @@ pub(super) fn records(m: &Manager) -> Result<Vec<Refresh>> {
         let entry=entry?;
         let owner=entry.file_name().to_string_lossy().into_owned();
         if !valid_hex(&owner,32) {continue;}
-        let request=optional(&entry.path().join("request.json"))?;
+        let request=operation_request(m,&entry.path())?;
         if request["action"]["environment"].as_str().is_some_and(|id|deleted.contains(id)) {continue;}
         if path(m,&owner)?.exists() {
             if optional(&path(m,&owner)?)?["environment"]["id"].as_str().is_some_and(|id|deleted.contains(id)) {continue;}

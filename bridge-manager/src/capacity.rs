@@ -1263,7 +1263,7 @@ mod tests {
         fs::remove_dir_all(temporary.parent().unwrap()).unwrap();
         atomic_json(&report, &serde_json::json!({"session":sid,
             "cleanup_confirmed":true,"transport_retired":true})).unwrap();
-        let restarted = Manager { root:f.m.root.clone(), publications:f.m.publications.clone() };
+        let restarted = Manager::new(f.m.root.clone(), f.m.publications.clone());
         let _registry = restarted.lock("registry.lock").unwrap();
         let observed = owners(&restarted).unwrap();
         assert_eq!(observed.len(), 1);
@@ -1322,10 +1322,7 @@ mod tests {
             let _r = reserve(&f.m, &p, Some(a), false).unwrap();
             lease(&f, a, Kind::Dsp)
         };
-        let restarted = Manager {
-            root: f.m.root.clone(),
-            publications: f.m.publications.clone(),
-        };
+        let restarted = Manager::new(f.m.root.clone(), f.m.publications.clone());
         assert_eq!(
             reason(reserve(&restarted, &p, Some(a), false)),
             Refusal::ClassCapacity.code()
@@ -1374,7 +1371,7 @@ mod tests {
         let retained = lease(&f, a, Kind::Keeper);
         let report: PathBuf = read_json(&retained).unwrap();
         atomic_json(&report, &serde_json::json!({"ready":false,"cleanup_confirmed":false})).unwrap();
-        let restarted = Manager { root:f.m.root.clone(), publications:f.m.publications.clone() };
+        let restarted = Manager::new(f.m.root.clone(), f.m.publications.clone());
         let failure=status(&restarted,p.clone(),1,false).unwrap_err();
         assert_eq!(failure.downcast_ref::<Refusal>(),Some(&Refusal::CleanupUnconfirmed));
         assert_eq!(reason(reserve(&restarted,&p,Some(a),false)),Refusal::CleanupUnconfirmed.code());
