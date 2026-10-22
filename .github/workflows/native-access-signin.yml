@@ -47,22 +47,23 @@ jobs:
       - name: Windows cross compilers
         timeout-minutes: 15
         run: |
-          # A package step once held a main run for 30 minutes (2026-10-22).
-          # Skip the man-db trigger, bound each attempt and try again rather
-          # than lose the whole job to one slow mirror.
-          # Output stays visible so a stall shows where it waits; nothing may
+          # Package downloads stalled this step for 30 minutes on West US
+          # runners (2026-10-22). Retry only the download, which is safe to
+          # cut off; then install once from the local cache, so dpkg is never
+          # killed part-way and retried. Output stays visible and nothing may
           # prompt.
           sudo rm -f /var/lib/man-db/auto-update
-          apt="sudo DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Lock::Timeout=60"
+          export DEBIAN_FRONTEND=noninteractive
+          apt=(apt-get -q -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o DPkg::Lock::Timeout=60)
+          pkgs=(gcc-mingw-w64-x86-64 xvfb dbus-user-session)
           for attempt in 1 2 3; do
-            if timeout 240 $apt update &&
-               timeout 240 $apt install -y gcc-mingw-w64-x86-64 xvfb dbus-user-session; then
-              exit 0
-            fi
-            echo "Package install attempt $attempt did not finish; trying again."
+            timeout 90 sudo -E "${apt[@]}" update &&
+              timeout 150 sudo -E "${apt[@]}" install -y --download-only "${pkgs[@]}" >/dev/null && break
+            test "$attempt" -lt 3 || exit 1
+            echo "Package download attempt $attempt failed or timed out; trying again."
             sleep 10
           done
-          exit 1
+          sudo -E "${apt[@]}" install -y --no-download "${pkgs[@]}" >/dev/null
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
