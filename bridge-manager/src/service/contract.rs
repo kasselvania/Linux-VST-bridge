@@ -826,13 +826,17 @@ mod tests {
         assert!(started.elapsed() < Duration::from_secs(5), "reported at once, never waited out");
         earlier.join().unwrap();
         // A service that stops while answering: once nothing listens, the
-        // command answers.
+        // command answers. Its socket is removed, not only closed: a child
+        // another test thread forks meanwhile can hold the listener open
+        // until it runs its program.
         let stopping = root.join("stopping.sock");
         let stopping_listener = UnixListener::bind(&stopping).unwrap();
+        let stopped = stopping.clone();
         let stop = std::thread::spawn(move || {
             let (mut peer, _) = stopping_listener.accept().unwrap();
             let mut greeting = [0; 5];
             peer.read_exact(&mut greeting).unwrap();
+            std::fs::remove_file(&stopped).unwrap();
             drop(stopping_listener);
         });
         assert_eq!(installed(&stopping).exchange(&pulse, None).unwrap(), b"pulse from the command\n");
