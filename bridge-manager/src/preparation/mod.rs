@@ -1281,10 +1281,7 @@ pub fn publication_state_record(m: &Manager, c: &Candidate) -> Result<String> {
         &format!("revision_record:{class}:{}:{}", reference.id, reference.sha256),
         || m.load_revision_record(class, reference)))
 }
-/// The registry, read once for each composition.
-fn registry_record(m: &Manager) -> Result<std::sync::Arc<Registry>> {
-    m.derive_once("registry", || m.registry().map(std::sync::Arc::new))
-}
+
 /// Bounded control-record proof for a selected candidate whose discovery row
 /// is historical.  This does not grant preparation or execution authority; it
 /// only prevents the operator projection from hiding an exact publication
@@ -1317,7 +1314,7 @@ fn publication_state_with(m: &Manager, c: &Candidate,
     if m.publication_pending(&c.selection.class.id)? {
         return Ok("needs_attention".into());
     }
-    let db = registry_record(m)?;
+    let db = m.composed_registry()?;
     let Some(e) = db.classes.get(&c.selection.class.id) else {
         return Ok(if physical(&m.link(&c.selection.class.id))?.is_some() {
             "needs_attention"

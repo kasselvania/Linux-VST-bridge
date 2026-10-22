@@ -22,9 +22,9 @@ pub(super) fn records(m: &Manager) -> Result<Vec<Binding>> {
     linux_vst_bridge::environment_revision::runtime_records(m)
 }
 fn owners(m: &Manager, environment: &str) -> Result<Vec<Owner>> {
-    let mut owners:Vec<_> = m.registry()?.classes.into_values()
+    let mut owners:Vec<_> = m.composed_registry()?.classes.values()
         .filter(|entry|entry.registration.environment.id == environment)
-        .map(|entry|Owner::Class {registration:Box::new(entry.registration)}).collect();
+        .map(|entry|Owner::Class {registration:Box::new(entry.registration.clone())}).collect();
     if valid_hex(environment,32) {
         let record=onboarding::directory(m,environment)?.join("record.json");
         if record.try_exists()? {
@@ -54,7 +54,12 @@ fn owners(m: &Manager, environment: &str) -> Result<Vec<Owner>> {
     }
     Ok(owners)
 }
+/// Every runtime a setup can change to: the same for each setup, so derived
+/// once for each composition.
 pub(super) fn installed(m: &Manager) -> Result<Vec<(String,Runner)>> {
+    m.derive_once("installed_runtimes", || installed_now(m))
+}
+fn installed_now(m: &Manager) -> Result<Vec<(String,Runner)>> {
     let sw=software_record(m)?;
     let mut runners=if sw.native_catalogue.is_some() {
         onboarding::runners_from_catalogue_with(Some(&sw.catalogue_record(m)?),false)?

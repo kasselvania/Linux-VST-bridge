@@ -1091,6 +1091,11 @@ impl Manager {
             exclusive,
         }))
     }
+    /// The registry as this composition read it: once for each composition,
+    /// otherwise on every use ([`derive_once`](Self::derive_once)).
+    pub fn composed_registry(&self) -> Result<std::sync::Arc<Registry>> {
+        self.derive_once("registry", || self.registry().map(std::sync::Arc::new))
+    }
     pub fn registry(&self) -> Result<Registry> {
         let p = self.root.join("registry.json");
         if !p.try_exists()? {
