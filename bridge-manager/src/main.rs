@@ -1368,12 +1368,11 @@ fn view_changes(m: &Manager) -> service::changes::Changes {
 }
 /// One status read on the service socket (`service::contract`): from a held
 /// view while it is current, otherwise composed as the command line does.
-/// The reading process must be this user's (the socket's private directory,
-/// and SO_PEERCRED here) and its frontend must still be the selected one.
+/// The reading process is this user's (checked for every connection) and its
+/// frontend must still be the selected one.
 fn answer_view(m: &Manager, peer: &mut UnixStream, views: &service::view::Views,
     blocked: &AdmissionCleanup) -> Result<()> {
     let answered = (|| {
-        transport_storage::require_same_user(peer)?;
         let read = service::contract::read_view_request(peer)?;
         package_authority::require_current_frontend_peer(m, peer)?;
         // Settle the cleanup census before it becomes part of the key.
@@ -1528,6 +1527,12 @@ fn serve(m: Manager) -> Result<()> {
         let worker_count = WorkerCount(workers.clone());
         let launched = std::thread::Builder::new().spawn(move || {
             let _worker_count=worker_count;
+            // The socket's directory is private to this user; whatever reaches
+            // it anyway (another uid, such as root) is not served at all.
+            if let Err(error) = transport_storage::require_same_user(&peer) {
+                eprintln!("service connection refused: {error}");
+                return;
+            }
             let outcome = (|| -> Result<()> {
                 peer.set_read_timeout(Some(Duration::from_secs(5)))?;
                 let mut greeting = [0; 117];
