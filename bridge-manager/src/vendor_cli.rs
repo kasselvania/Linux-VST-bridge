@@ -774,22 +774,7 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
             if prior_job.is_some() {
                 let _=Command::new("systemctl").args(["--user","reset-failed",&unit]).status()?;
             }
-            let mut command=Command::new("systemd-run");
-            command.args([
-                    "--user",
-                    "--collect",
-                    "--slice=app.slice",
-                    "--property=UMask=0077",
-                    if supervised_service {"--property=KillMode=mixed"} else {"--property=KillMode=control-group"},
-                    if supervised_service {"--property=TimeoutStopSec=90"} else {"--property=TimeoutStopSec=30"},
-                    "--property=StandardOutput=null",
-                    "--property=StandardError=null",
-                ])
-                .arg(format!("--unit={unit}"))
-                .arg("/usr/bin/python3")
-                .args(linux_vst_bridge::supervisor::arguments(&sw.supervisor, &sw.ownership)?)
-                .arg("--vendor-application")
-                .arg(&job);
+            let mut command=vendor_application::session_command(&unit,supervised_service,&sw,&job)?;
             submit_with(&directory.join("operation-result.json"),&operation_id,supervised_service,||command.spawn())
         }
         _ => Err("vendor_application_action_unknown".into()),
