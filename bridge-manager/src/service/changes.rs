@@ -14,15 +14,15 @@
 //! them, except the prefix's top two levels (its registry hives), which are
 //! watched. Files a view reads elsewhere are covered one directory at a time
 //! ([`Changes::watch_directories`]); adding one is a change too, so a view read
-//! from a directory before it was watched is never answered again. If the watch
-//! cannot cover everything, such as at the user's inotify limit, it closes and
-//! frees every watch, every read is composed, and it tries again after a
-//! growing delay.
+//! from a directory before it was watched is never answered again, and one that
+//! disappears is forgotten until a view names it again. If the watch cannot
+//! cover everything, such as at the user's inotify limit, it closes and frees
+//! every watch, every read is composed, and it tries again a minute later.
 use std::{
     collections::{BTreeSet, HashMap, HashSet},
     ffi::OsString,
     path::{Path, PathBuf},
-    sync::Mutex,
+    sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Mutex},
     time::{Duration, Instant},
 };
 
@@ -44,12 +44,14 @@ const WORKSPACE_PRIVATE: [&str; 3] = ["projects", "exports", "preferences"];
 const WATCH_LIMIT: usize = 65536;
 /// Directories watched one by one, beyond which they are started afresh.
 const DIRECTORY_LIMIT: usize = 4096;
-/// The first and longest wait before an uncovered watch tries again.
+/// How long an uncovered watch waits before it tries again.
 const RETRY: Duration = Duration::from_secs(60);
-const RETRY_LIMIT: Duration = Duration::from_secs(30 * 60);
 
 pub struct Changes {
     state: Mutex<State>,
+    /// Kept for readers that must not take reports or rebuild (`capacity`).
+    covering: AtomicBool,
+    watched: AtomicUsize,
 }
 impl Changes {
     pub fn new(trees: Vec<Tree>) -> Self {
@@ -58,20 +60,27 @@ impl Changes {
     /// As `new`, covering at most `limit` directories.
     pub fn with_limit(trees: Vec<Tree>, limit: usize) -> Self {
         let mut state = State { inotify: None, generation: 0, trees, roots: vec![],
-            directories: BTreeSet::new(), in_trees: HashSet::new(), watches: HashMap::new(),
+            directories: BTreeSet::new(), tree_paths: HashSet::new(), watches: HashMap::new(),
             awaited: HashMap::new(), limit, uncovered: None, again: false, retry: None };
         state.build();
-        Self { state: Mutex::new(state) }
+        let changes = Self { covering: AtomicBool::new(false), watched: AtomicUsize::new(0),
+            state: Mutex::new(state) };
+        changes.publish(&changes.state());
+        changes
     }
     fn state(&self) -> std::sync::MutexGuard<'_, State> {
         self.state.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+    fn publish(&self, state: &State) {
+        self.covering.store(state.covering(), Ordering::Relaxed);
+        self.watched.store(state.watches.len(), Ordering::Relaxed);
     }
     /// The generation after every change reported so far, or `None` while
     /// the watch does not cover everything and no view may be answered again.
     pub fn generation(&self) -> Option<u64> {
         let mut state = self.state();
         match state.retry {
-            Some((at, _)) if Instant::now() >= at => state.build(),
+            Some(at) if Instant::now() >= at => state.build(),
             Some(_) => {}
             None => if let Err(error) = state.drain() {
                 // Reports may have been lost; only a new watch covers again.
@@ -79,6 +88,7 @@ impl Changes {
                 state.stop();
             }
         }
+        self.publish(&state);
         state.covering().then_some(state.generation)
     }
     /// Also watch each directory itself (not below it), or while it is
@@ -88,12 +98,7 @@ impl Changes {
         let mut state = self.state();
         let mut added = false;
         for directory in directories {
-            if state.directories.contains(&directory) || state.in_trees.contains(&directory) { continue; }
-            if state.watches.values().any(|watched| watched.path == directory
-                && matches!(watched.place, Place::Tree { .. })) {
-                state.in_trees.insert(directory);
-                continue;
-            }
+            if state.directories.contains(&directory) || state.tree_paths.contains(&directory) { continue; }
             if state.directories.len() >= DIRECTORY_LIMIT {
                 // Start afresh with the directories views name from now on.
                 state.directories.clear();
@@ -106,10 +111,15 @@ impl Changes {
         if added { state.generation += 1; }
         if state.again { state.build(); }
         if state.uncovered.is_some() && state.retry.is_none() { state.stop(); }
+        self.publish(&state);
     }
-    /// How many directories are watched now.
+    /// How many directories were watched at the last read.
     pub fn watched(&self) -> usize {
-        self.state().watches.len()
+        self.watched.load(Ordering::Relaxed)
+    }
+    /// Whether the watch covered everything at the last read.
+    pub fn covering(&self) -> bool {
+        self.covering.load(Ordering::Relaxed)
     }
 }
 
@@ -142,8 +152,8 @@ struct State {
     roots: Vec<PathBuf>,
     /// Directories views named outside the trees.
     directories: BTreeSet<PathBuf>,
-    /// Directories views named that a tree covers.
-    in_trees: HashSet<PathBuf>,
+    /// Directories watched as part of a tree.
+    tree_paths: HashSet<PathBuf>,
     watches: HashMap<i32, Watched>,
     /// Missing children each watch awaits; their creation means a rebuild.
     awaited: HashMap<i32, BTreeSet<OsString>>,
@@ -152,8 +162,8 @@ struct State {
     uncovered: Option<String>,
     /// A missing child appeared while its ancestor was being watched.
     again: bool,
-    /// When to try again after stopping, and the delay that led there.
-    retry: Option<(Instant, Duration)>,
+    /// When to try again after stopping.
+    retry: Option<Instant>,
 }
 impl State {
     fn covering(&self) -> bool {
@@ -167,7 +177,7 @@ impl State {
             self.inotify = None;
             self.watches.clear();
             self.awaited.clear();
-            self.in_trees.clear();
+            self.tree_paths.clear();
             self.uncovered = None;
             self.again = false;
             match inotify::Instance::new() {
@@ -205,11 +215,10 @@ impl State {
         self.inotify = None;
         self.watches.clear();
         self.awaited.clear();
-        self.in_trees.clear();
-        let delay = self.retry.map_or(RETRY, |(_, delay)| (delay * 2).min(RETRY_LIMIT));
-        self.retry = Some((Instant::now() + delay, delay));
+        self.tree_paths.clear();
+        self.retry = Some(Instant::now() + RETRY);
         eprintln!("status change watch stopped ({}); every status read is composed until it \
-            tries again in {} s", self.uncovered.as_deref().unwrap_or("unknown"), delay.as_secs());
+            tries again in {} s", self.uncovered.as_deref().unwrap_or("unknown"), RETRY.as_secs());
     }
     fn walk(&mut self, directory: &Path, place: Place) {
         let Place::Tree { tree, depth, levels } = place else { unreachable!("a tree walk") };
@@ -285,6 +294,7 @@ impl State {
                 let watched = self.watches.entry(descriptor)
                     .or_insert_with(|| Watched { path: directory.to_owned(), place });
                 if place.covers() > watched.place.covers() { watched.place = place; }
+                if matches!(watched.place, Place::Tree { .. }) { self.tree_paths.insert(watched.path.clone()); }
                 Some(descriptor)
             }
             // Removed or replaced meanwhile: wait for it to return.
@@ -304,8 +314,9 @@ impl State {
     /// Take every report so far.
     fn drain(&mut self) -> std::io::Result<()> {
         let Some(inotify) = self.inotify.as_ref() else { return Ok(()) };
-        let (mut changed, mut rebuild, mut created) = (false, false, Vec::new());
-        let (watches, awaited) = (&mut self.watches, &self.awaited);
+        let (mut changed, mut rebuild, mut created, mut forgotten) = (false, false, Vec::new(), Vec::new());
+        let (watches, awaited, tree_paths, roots) = (&mut self.watches, &mut self.awaited,
+            &mut self.tree_paths, &self.roots);
         inotify.drain(|event| {
             let entry_created = event.mask & (libc::IN_CREATE | libc::IN_MOVED_TO) != 0;
             let is_awaited = awaited.get(&event.descriptor).is_some_and(|names| names.contains(event.name));
@@ -313,13 +324,22 @@ impl State {
             // An ancestor stands in for a missing directory; the rest of it is not watched.
             changed |= place != Some(Place::Ancestor) || is_awaited;
             // Overflow lost reports, a moved directory changed every path below
-            // it, a missing child appeared, or a root or named directory went away.
-            let gone = event.mask & libc::IN_IGNORED != 0;
+            // it, a missing child appeared, or a root went away.
             rebuild |= event.mask & (libc::IN_Q_OVERFLOW | libc::IN_MOVE_SELF) != 0
-                || (is_awaited && entry_created)
-                || (gone && matches!(place, Some(Place::Directory | Place::Ancestor
-                    | Place::Tree { depth: 0, .. })));
-            if gone { watches.remove(&event.descriptor); }
+                || (is_awaited && entry_created);
+            if event.mask & libc::IN_IGNORED != 0 {
+                let Some(watched) = watches.remove(&event.descriptor) else { return };
+                awaited.remove(&event.descriptor);
+                tree_paths.remove(&watched.path);
+                // A root is awaited again at once; a directory a view named is
+                // forgotten, and the next view that needs it names it again.
+                if matches!(watched.place, Place::Tree { depth: 0, .. })
+                    || roots.iter().any(|root| root.starts_with(&watched.path)) {
+                    rebuild = true;
+                } else if matches!(watched.place, Place::Directory | Place::Ancestor) {
+                    forgotten.push(watched.path);
+                }
+            }
             if let Some(Place::Tree { tree, depth, levels }) = place {
                 if entry_created && event.mask & libc::IN_ISDIR != 0 && levels != Some(0) {
                     if let Some(watched) = watches.get(&event.descriptor) {
@@ -329,6 +349,9 @@ impl State {
             }
         })?;
         if changed { self.generation += 1; }
+        for gone in forgotten {
+            self.directories.retain(|directory| !directory.starts_with(&gone));
+        }
         for (tree, path, depth, levels) in created {
             if let Some(below) = self.below(tree, &path, levels) {
                 if path.is_dir() { self.walk(&path, Place::Tree { tree, depth, levels: below }); }
@@ -522,9 +545,13 @@ mod tests {
         steps.unchanged("naming a directory a tree covers", ||
             changes.watch_directories([root.join("managed/environments")]));
         steps.changed("a replaced module", || fs::write(plugins.join("Plugin.vst3"), b"module").unwrap());
-        // A named directory that goes away is watched again when it returns.
+        // A named directory that goes away is forgotten, without a rebuild,
+        // and watched again once a view names it again.
+        let watched = changes.watched();
         steps.changed("its removal", || fs::remove_dir_all(&plugins).unwrap());
-        steps.changed("its return", || fs::create_dir(&plugins).unwrap());
+        assert_eq!(changes.watched(), watched - 1, "forgotten, not rebuilt");
+        steps.unchanged("its return before a view names it", || fs::create_dir(&plugins).unwrap());
+        steps.changed("a view naming it again", || changes.watch_directories([plugins.clone()]));
         steps.changed("a write in it", || fs::write(plugins.join("Plugin.vst3"), b"again").unwrap());
         fs::remove_dir_all(root).unwrap();
     }
@@ -556,11 +583,18 @@ mod tests {
         fs::create_dir_all(&records).unwrap();
         let changes = Changes::new(vec![Tree { root: root.join("managed"), depth: None }]);
         let mut steps = Steps::new(&changes);
+        // Writes alternating between two files are never merged into one
+        // report, so the queue fills without one file per report.
         let queued: usize = fs::read_to_string("/proc/sys/fs/inotify/max_queued_events")
             .map_or(16384, |limit| limit.trim().parse().unwrap());
-        steps.changed("an overflowing queue", || for index in 0..=queued + 16 {
-            fs::write(records.join(index.to_string()), b"").unwrap();
-        });
+        if queued <= 1 << 18 {
+            let mut files = [fs::File::create(records.join("a")).unwrap(), fs::File::create(records.join("b")).unwrap()];
+            steps.changed("an overflowing queue", || for index in 0..=queued + 16 {
+                std::io::Write::write_all(&mut files[index % 2], b"x").unwrap();
+            });
+        } else {
+            eprintln!("max_queued_events is {queued}; overflow is not exercised");
+        }
         steps.changed("a write after the rebuild", || fs::write(records.join("after"), b"x").unwrap());
         // Past its limit (here 1 directory, as at the user's inotify limit) the
         // watch frees what it held and stays off until a later retry.

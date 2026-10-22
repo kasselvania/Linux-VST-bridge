@@ -73,28 +73,51 @@ pub fn private_dir(p: &Path) -> Result<()> {
     // Creation callers use umask 077; never chmod an existing public directory.
     require(m.mode() & 0o077 == 0, "directory must be private")
 }
+/// More files than this, and a composition's opened files are not named.
+const OPENED_LIMIT: usize = 65536;
+type OpenedSet = std::sync::Arc<std::sync::Mutex<std::collections::BTreeSet<PathBuf>>>;
 thread_local! {
-    static OPENED: RefCell<Option<std::collections::BTreeSet<PathBuf>>> = const { RefCell::new(None) };
+    static OPENED: RefCell<Option<OpenedSet>> = const { RefCell::new(None) };
 }
-/// Files this thread opens through [`file`] while `read` runs: every record
-/// read and every artifact checked. `None` past a bound, when they are too
-/// many to name.
-pub fn with_opened_files<T>(read: impl FnOnce() -> T) -> (T, Option<std::collections::BTreeSet<PathBuf>>) {
-    type Opened = Option<std::collections::BTreeSet<PathBuf>>;
-    struct Restore(Option<Opened>);
-    impl Drop for Restore {
-        fn drop(&mut self) {
-            if let Some(previous) = self.0.take() { OPENED.with(|opened| *opened.borrow_mut() = previous); }
-        }
+/// The recorder of the files a composition opens through [`file`]. Its
+/// helper threads carry it ([`spawn_recorded`]), so what they open is named too.
+#[derive(Clone, Default)]
+pub struct OpenedFiles(Option<OpenedSet>);
+impl OpenedFiles {
+    /// The recorder of the composition running on this thread, if any.
+    pub fn here() -> Self {
+        Self(OPENED.with(|opened| opened.borrow().clone()))
     }
-    let mut restore = Restore(Some(OPENED.with(|opened| opened.replace(Some(Default::default())))));
-    let value = read();
-    let opened = OPENED.with(|opened| opened.replace(restore.0.take().flatten()));
-    (value, opened.filter(|opened| opened.len() <= 65536))
+    /// Run `work` on this thread, recording into the same set.
+    pub fn record<T>(&self, work: impl FnOnce() -> T) -> T {
+        struct Restore(Option<OpenedSet>);
+        impl Drop for Restore {
+            fn drop(&mut self) { OPENED.with(|opened| *opened.borrow_mut() = self.0.take()); }
+        }
+        let _restore = Restore(OPENED.with(|opened| opened.replace(self.0.clone())));
+        work()
+    }
+}
+/// A composition helper thread that records what it opens with the
+/// composition that started it.
+pub fn spawn_recorded<'scope, T: Send + 'scope>(scope: &'scope std::thread::Scope<'scope, '_>,
+    work: impl FnOnce() -> T + Send + 'scope) -> std::thread::ScopedJoinHandle<'scope, T> {
+    let recorder = OpenedFiles::here();
+    scope.spawn(move || recorder.record(work))
+}
+/// Files opened through [`file`] while `read` runs, on this thread and the
+/// helper threads it starts with [`spawn_recorded`]: every record read and
+/// every artifact checked. `None` past a bound, when they are too many to name.
+pub fn with_opened_files<T>(read: impl FnOnce() -> T) -> (T, Option<std::collections::BTreeSet<PathBuf>>) {
+    let set = OpenedSet::default();
+    let value = OpenedFiles(Some(set.clone())).record(read);
+    let opened = std::mem::take(&mut *set.lock().unwrap_or_else(|poisoned| poisoned.into_inner()));
+    (value, (opened.len() <= OPENED_LIMIT).then_some(opened))
 }
 pub fn file(p: &Path) -> Result<File> {
-    OPENED.with(|opened| if let Some(opened) = opened.borrow_mut().as_mut() {
-        if opened.len() <= 65536 { opened.insert(p.to_path_buf()); }
+    OPENED.with(|opened| if let Some(set) = opened.borrow().as_ref() {
+        let mut set = set.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        if set.len() <= OPENED_LIMIT { set.insert(p.to_path_buf()); }
     });
     let f = OpenOptions::new()
         .read(true)
@@ -1221,6 +1244,22 @@ impl Manager {
 mod tests {
     use super::*;
     use crate::test_fixture::Fixture;
+    #[test]
+    fn a_composition_names_what_it_and_its_recorded_helpers_open() {
+        let f = Fixture::new();
+        let (record, helper, unrecorded) = (f.outer.join("record.json"), f.outer.join("helper.json"),
+            f.outer.join("unrecorded.json"));
+        for path in [&record, &helper, &unrecorded] { atomic_json(path, &serde_json::json!({})).unwrap(); }
+        let ((), opened) = with_opened_files(|| {
+            read_json::<serde_json::Value>(&record).unwrap();
+            std::thread::scope(|scope| {
+                spawn_recorded(scope, || read_json::<serde_json::Value>(&helper).unwrap()).join().unwrap();
+                scope.spawn(|| read_json::<serde_json::Value>(&unrecorded).unwrap()).join().unwrap();
+            });
+        });
+        assert_eq!(opened.unwrap(), [record, helper].into_iter().collect());
+        assert!(OpenedFiles::here().0.is_none(), "nothing records after the composition");
+    }
     #[test]
     fn shared_observation_guard_refuses_fifo_without_waiting_for_a_writer() {
         let f = Fixture::new();

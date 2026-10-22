@@ -276,19 +276,19 @@ impl CurrentOverviewContext {
         // so a larger retained setup history does not create one thread per
         // attempt. None of these probes holds registry.lock.
         std::thread::scope(|scope| -> Result<()> {
-            let vendor = scope.spawn(|| {
+            let vendor = linux_vst_bridge::spawn_recorded(scope, || {
                 let at = Instant::now();
                 ((vendor_retired(m), live_vendor_progress(m)), at.elapsed().as_millis())
             });
-            let workspace = scope.spawn(|| {
+            let workspace = linux_vst_bridge::spawn_recorded(scope, || {
                 let at = Instant::now();
                 (daw_workspace::current_projection(m), at.elapsed().as_millis())
             });
-            let cleanup = self.cleanup_seen.map(|_| scope.spawn(|| {
+            let cleanup = self.cleanup_seen.map(|_| linux_vst_bridge::spawn_recorded(scope, || {
                 let at = Instant::now();
                 (pulse_cleanup(m), at.elapsed().as_millis())
             }));
-            let installer = scope.spawn(|| {
+            let installer = linux_vst_bridge::spawn_recorded(scope, || {
                 let at = Instant::now();
                 let operations = self.installer_live.keys().cloned().collect::<Vec<_>>();
                 (installer_liveness(&operations), at.elapsed().as_millis())
@@ -473,7 +473,7 @@ fn installer_liveness(operations: &[String]) -> Result<BTreeMap<String, bool>> {
     // helpers bounded while preserving exact per-operation identity.
     let chunk_size = operations.len().div_ceil(4).max(1);
     std::thread::scope(|scope| -> Result<BTreeMap<String, bool>> {
-        let checks: Vec<_> = operations.chunks(chunk_size).map(|chunk| scope.spawn(move || {
+        let checks: Vec<_> = operations.chunks(chunk_size).map(|chunk| linux_vst_bridge::spawn_recorded(scope, move || {
             chunk.iter().map(|operation| Ok((operation.clone(), onboarding::live(operation)?)))
                 .collect::<Result<Vec<_>>>()
         })).collect();
@@ -743,12 +743,12 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     drop(_registry_guard);
     let current_generation = pulse_generation(m)?;
     std::thread::scope(|scope| {
-    let capacity_task = scope.spawn(|| {
+    let capacity_task = linux_vst_bridge::spawn_recorded(scope, || {
         let started = Instant::now();
         (live_capacity(m).ok(), started.elapsed().as_millis())
     });
-    let cleanup_task = scope.spawn(|| pulse_cleanup(m));
-    let workspace_task = scope.spawn(|| daw_workspace::current_projection(m));
+    let cleanup_task = linux_vst_bridge::spawn_recorded(scope, || pulse_cleanup(m));
+    let workspace_task = linux_vst_bridge::spawn_recorded(scope, || daw_workspace::current_projection(m));
     let before = token_with_registry(m, &db)?;
     let token_at = Instant::now(); phases.push(("token_before",token_at.duration_since(started).as_millis()));
     let authority_observed = timing::span(Stage::CaptureSoftwareCatalogue);
@@ -1331,6 +1331,15 @@ pub(super) mod tests {
         assert_eq!(products.len(),1);
         assert_eq!(products[0].actions[0].disabled_reason.as_deref(),
             Some("No completed setup is recorded for this plug-in. Choose its installer in Setup."));
+    }
+    #[test]
+    fn every_helper_thread_of_the_current_view_records_what_it_opens() {
+        // The service names the directories of every file a held page opens.
+        // A helper thread started without the composition's recorder would
+        // open files no watch covers.
+        let source = include_str!("current.rs");
+        let production = &source[..source.find("#[cfg(test)]\npub(super) mod tests").unwrap()];
+        assert!(!production.contains("scope.spawn("), "start helper threads with linux_vst_bridge::spawn_recorded");
     }
     #[test]
     fn a_view_is_reused_only_while_nothing_live_can_change_it_unwritten() {

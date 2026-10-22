@@ -33,8 +33,9 @@ pub struct Composed {
     pub directories: Vec<PathBuf>,
 }
 
-/// Product pages held at once, besides the current overview.
+/// Pages held at once, and their total size.
 const HELD: usize = 64;
+const HELD_BYTES: usize = 32 * 1024 * 1024;
 
 #[derive(Default)]
 pub struct Views {
@@ -47,6 +48,7 @@ pub struct Views {
 struct Held {
     generation: Option<(u64, u64)>,
     replies: HashMap<Read, Arc<Vec<u8>>>,
+    bytes: usize,
 }
 impl Views {
     /// Until [`cover`](Self::cover) is called, every read is composed.
@@ -90,19 +92,25 @@ impl Views {
             Hold::Live => if held.generation == Some(generation) { *held = Held::default(); },
             Hold::Quiet => {
                 if held.generation != Some(generation) {
-                    *held = Held { generation: Some(generation), replies: HashMap::new() };
+                    *held = Held { generation: Some(generation), ..Held::default() };
                 }
-                if held.replies.len() < HELD { held.replies.insert(read.clone(), reply.clone()); }
+                if held.replies.len() < HELD && held.bytes + reply.len() <= HELD_BYTES {
+                    held.bytes += reply.len();
+                    if let Some(replaced) = held.replies.insert(read.clone(), reply.clone()) {
+                        held.bytes -= replaced.len();
+                    }
+                }
             }
         }
         Ok(reply)
     }
     /// What the service reports about its reads (`linux-vst-bridge capacity`).
+    /// It takes no change reports, so reading it changes nothing.
     pub fn statistics(&self) -> serde_json::Value {
         let changes = self.changes.get();
         serde_json::json!({
             "watched_directories": changes.map_or(0, Changes::watched),
-            "covering": changes.is_some_and(|changes| changes.generation().is_some()),
+            "covering": changes.is_some_and(Changes::covering),
             "answered_again": self.answered_again.load(Ordering::Relaxed),
             "composed": self.composed.load(Ordering::Relaxed),
         })

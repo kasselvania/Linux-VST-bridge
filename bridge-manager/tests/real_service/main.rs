@@ -218,7 +218,9 @@ fn native_admission_counts_releases_and_refuses_at_the_limit() {
 #[test]
 fn service_reads_follow_every_writer() {
     use contract::{Read, Request, Transport};
-    let service = RealService::start(service::published());
+    let published = service::published();
+    let retained_proton = service::retained_runtime(&published.fixture.m);
+    let service = RealService::start(published);
     let p = service.plugin();
     let class = p.class_id.clone();
     let both = |read: Read| -> Value {
@@ -248,6 +250,18 @@ fn service_reads_follow_every_writer() {
     both(Read::CurrentOverview);
     both(Read::Product(p.key()));
     assert_eq!(again(), before + 2, "both pages came from the views the service holds");
+
+    // A retained runtime's pinned file goes away. No tree and no stamp covers
+    // its directory, only the files the held page opened while it was
+    // composed; the next read must be composed again and say so.
+    let runtime_failure = || both(Read::CurrentOverview)["current"]["managed_runtime_records"][0]["failure"].clone();
+    assert_eq!(runtime_failure(), Value::Null);
+    let pinned = fs::read(&retained_proton).unwrap();
+    fs::remove_file(&retained_proton).unwrap();
+    assert!(runtime_failure().is_string(), "the held overview is not answered after its file went away");
+    fs::write(&retained_proton, &pinned).unwrap();
+    fs::set_permissions(&retained_proton, fs::Permissions::from_mode(0o500)).unwrap();
+    assert_eq!(runtime_failure(), Value::Null);
 
     // A runtime file the snapshot verifies by its bytes changes. Runtime
     // trees are not watched; the snapshot is composed for every read.
