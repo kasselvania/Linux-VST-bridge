@@ -36,6 +36,6 @@ pub fn verify_host_python() -> Result<()> {
     };
     let mut output = String::new();
     child.stdout.take().ok_or("supervisor_python_probe")?.take(64).read_to_string(&mut output)?;
-    require(status.success() && output.trim() == "cpython-source-v1",
-        "This build requires host CPython >=3.13,<3.16. Your selected application was retained")
+    if status.success() && output.trim() == "cpython-source-v1" { return Ok(()); }
+    Err(format!("This build requires host {SOURCE_PYTHON_RANGE}. Your selected application was retained").into())
 }

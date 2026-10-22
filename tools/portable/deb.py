@@ -22,8 +22,9 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pkg0"))
-from pkg0.assemble import (KIT_DESTINATION, verify_kit, verify_kit_source,
-                           verify_kit_backend, validate_release_roster)  # noqa: E402
+from pkg0.assemble import (KIT_DESTINATION, SOURCE_PYTHON_RANGES, source_python_bounds,
+                           verify_kit, verify_kit_source, verify_kit_backend,
+                           validate_release_roster)  # noqa: E402
 from verify_package import verify_adoption  # noqa: E402
 
 PACKAGE = "linux-vst-bridge-beta"
@@ -48,11 +49,20 @@ PYTHON_ABIS = {
     bytes.fromhex("f30d0d0a"): "python3 (>= 3.13), python3 (<< 3.14)",
     bytes.fromhex("2b0e0d0a"): "python3 (>= 3.14), python3 (<< 3.15)",
 }
+# Source supervisors: every declared range, the current one last.
+SOURCE_PYTHON_ABIS = tuple("python3 (>= {}), python3 (<< {})".format(*source_python_bounds(python_range))
+                           for python_range in SOURCE_PYTHON_RANGES)
 
 
 def python_abi(headers):
+    """The interpreter dependency a new package declares for these supervisors."""
+    return python_abis(headers)[-1]
+
+
+def python_abis(headers):
+    """Every dependency a package with these supervisors may have declared."""
     if set(headers) == set(path[:-1] for path in SUPERVISOR_PATHS):
-        return "python3 (>= 3.13), python3 (<< 3.16)"
+        return SOURCE_PYTHON_ABIS
     if set(headers) != set(SUPERVISOR_PATHS):
         raise ValueError("supervisor Python ABI missing")
     magics = set()
@@ -62,7 +72,7 @@ def python_abi(headers):
         magics.add(header[:4])
     if len(magics) != 1 or next(iter(magics)) not in PYTHON_ABIS:
         raise ValueError("supervisor Python ABI mismatch or unsupported")
-    return PYTHON_ABIS[next(iter(magics))]
+    return (PYTHON_ABIS[next(iter(magics))],)
 
 
 def sha_with_header(source, header):
@@ -369,7 +379,7 @@ def verify(package, staged, source_root=None, rebuild_backend=False):
                     raise ValueError("Debian payload differs")
         if set(seen) != set(expected) or set(directories) != exact_directories:
             raise ValueError("Debian payload incomplete")
-        if control != control_bytes(manifest, python_abi(supervisor_headers)):
+        if control not in {control_bytes(manifest, abi) for abi in python_abis(supervisor_headers)}:
             raise ValueError("Debian control metadata differs")
         if not isinstance(adoption, dict):
             raise ValueError("Debian adoption authority absent")

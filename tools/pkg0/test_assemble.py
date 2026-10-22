@@ -4,8 +4,10 @@ import json
 import pathlib
 import io
 import copy
+import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import unittest
@@ -132,6 +134,43 @@ class PackageAssembly(unittest.TestCase):
                 data = b"# exact supervisor fixture\nVALUE = 1\n"
                 pathlib.Path(row["source"]).write_bytes(data)
                 row["sha256"] = hashlib.sha256(data).hexdigest()
+
+    def test_source_range_is_the_bootstrap_range_everywhere(self):
+        root = pathlib.Path(__file__).resolve().parents[2]
+        bootstrap = (root / "bridge-manager/runtime/bootstrap.py").read_text()
+        bounds = re.search(r"not \((\d+), (\d+)\) <= sys\.version_info\[:2\] < \((\d+), (\d+)\):", bootstrap)
+        self.assertIsNotNone(bounds, "the bootstrap's range check changed shape")
+        low, ceiling = f"{bounds[1]}.{bounds[2]}", f"{bounds[3]}.{bounds[4]}"
+        declared = f"CPython >={low},<{ceiling}"
+        self.assertIn(f'"supervisor requires host {declared}"', bootstrap)
+        self.assertIn(f'pub const SOURCE_PYTHON_RANGE: &str = "{declared}";',
+                      (root / "bridge-manager/src/supervisor.rs").read_text())
+        self.assertEqual(assemble.source_python_bounds(assemble.SOURCE_PYTHON_RANGE), (low, ceiling))
+        self.assertEqual(assemble.package_dependencies(assemble.SOURCE_PYTHON_RANGE)[-2:],
+                         (f"python>={low}", f"python<{ceiling}"))
+        sys.path.append(str(root / "tools/portable"))
+        import deb
+        self.assertEqual(deb.python_abi({path: b"" for path in assemble.SOURCE_SUPERVISOR_PATHS}),
+                         f"python3 (>= {low}), python3 (<< {ceiling})")
+
+    def test_verifier_accepts_each_declared_source_range_and_nothing_else(self):
+        manifest = {"version": "0.1.0beta1", "pkgrel": 1}
+        info = self.root / ".PKGINFO"
+        def write(dependencies):
+            info.write_text("pkgname = linux-vst-bridge-beta\npkgver = 0.1.0beta1-1\narch = x86_64\n"
+                            + "".join(f"depend = {dependency}\n" for dependency in dependencies))
+        for python_range in assemble.SOURCE_PYTHON_RANGES:
+            write(assemble.package_dependencies(python_range))
+            verify_package.package_info(info, manifest, assemble.SOURCE_PYTHON_RANGES)
+        for ceiling in ("3.17", "3.14"):
+            write((*assemble.DEPENDENCIES, "python>=3.13", f"python<{ceiling}"))
+            with self.assertRaisesRegex(ValueError, "dependencies differ"):
+                verify_package.package_info(info, manifest, assemble.SOURCE_PYTHON_RANGES)
+        # Debian packages accept the same ranges, Test225's first.
+        sys.path.append(str(pathlib.Path(__file__).resolve().parents[2] / "tools/portable"))
+        import deb
+        self.assertEqual(deb.python_abis({path: b"" for path in assemble.SOURCE_SUPERVISOR_PATHS}),
+                         ("python3 (>= 3.13), python3 (<< 3.15)", "python3 (>= 3.13), python3 (<< 3.16)"))
 
     def test_source_generation_has_only_source_and_declared_range(self):
         self.source_pair()

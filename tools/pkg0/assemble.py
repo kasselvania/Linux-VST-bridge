@@ -30,7 +30,20 @@ SUPERVISOR_PATHS = (
     "usr/lib/linux-vst-bridge/supervisor/ownership.pyc",
 )
 SOURCE_SUPERVISOR_PATHS = tuple(path[:-1] for path in SUPERVISOR_PATHS)
-SOURCE_PYTHON_RANGE = "3.13-3.15"
+# Every range source supervisors have declared, the current one last; it must
+# match bridge-manager/runtime/bootstrap.py. A newer checkout still verifies a
+# package built while an earlier range was current.
+SOURCE_PYTHON_RANGES = ("3.13-3.14", "3.13-3.15")
+SOURCE_PYTHON_RANGE = SOURCE_PYTHON_RANGES[-1]
+
+
+def source_python_bounds(python_range):
+    """The floor and the first excluded minor: ("3.13", "3.16") for "3.13-3.15"."""
+    if python_range not in SOURCE_PYTHON_RANGES:
+        raise ValueError("unsupported source Python range")
+    low, high = python_range.split("-")
+    major, minor = (int(part) for part in high.split("."))
+    return low, f"{major}.{minor + 1}"
 
 
 def source_supervisor(paths):
@@ -65,8 +78,9 @@ def supervisor_python_minor(headers):
 
 
 def package_dependencies(python_minor):
-    if python_minor == SOURCE_PYTHON_RANGE:
-        return (*DEPENDENCIES, "python>=3.13", "python<3.16")
+    if python_minor in SOURCE_PYTHON_RANGES:
+        low, ceiling = source_python_bounds(python_minor)
+        return (*DEPENDENCIES, f"python>={low}", f"python<{ceiling}")
     if python_minor not in PYTHON_MINOR_BY_MAGIC.values():
         raise ValueError("unsupported package Python ABI")
     major, minor = (int(part) for part in python_minor.split("."))
