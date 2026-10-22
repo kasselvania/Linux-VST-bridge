@@ -40,8 +40,8 @@
 //! mkdir -p /var/tmp/lvb-archives
 //! x86_64-w64-mingw32-gcc -std=c11 -O2 -municode -mwindows -o /tmp/stand-in.exe \
 //!     windows-fixtures/browser-return/single_instance_app.c -lbcrypt -lws2_32 -lshell32
-//! python3 -m pip install ziglang==0.14.1
-//! python3 -c 'import pathlib,sys,ziglang; sys.path.insert(0,"tools/naui2"); import package; \
+//! python3 -m venv /tmp/lvb-zig && /tmp/lvb-zig/bin/pip install ziglang==0.14.1
+//! /tmp/lvb-zig/bin/python -c 'import pathlib,sys,ziglang; sys.path.insert(0,"tools/naui2"); import package; \
 //!     package.build_adapter(pathlib.Path(ziglang.__file__).with_name("zig"), "tools/is2/launch.cpp", "/tmp/adapter.exe")'
 //! LVB_DISPOSABLE_ACCOUNT=1 LVB_SIGNIN_RUNTIME=managed-ge-proton11-7-slr4-20260805-r7 \
 //!     LVB_SIGNIN_ARCHIVES=/var/tmp/lvb-archives LVB_SIGNIN_ADAPTER=/tmp/adapter.exe \
@@ -208,7 +208,7 @@ fn browser_return_reaches_the_running_app_and_nothing_else() {
     report_return(&setup, &mut report, "fifth return", "refused: attempt cap", &capped);
 
     // While the session still runs, nothing holds a code.
-    search_for_codes(&setup, &inputs, &secrets, &mut report, "with the session running");
+    search_for_codes(&setup, &inputs, &secrets, &mut report, "with the session running", true);
 
     // Stop: everything retires, the service included.
     let (result, stopped) = session.stop();
@@ -236,6 +236,7 @@ fn browser_return_reaches_the_running_app_and_nothing_else() {
     //    C: drive while every Linux path stays the same, so the handler and
     //    the supervisor pass the return on and only the adapter can refuse.
     //    Control: through the mirror, the same file still delivers.
+    let drive_link = std::fs::read_link(setup.prefix.join("dosdevices/c:")).unwrap();
     let mirror = setup.app_path_through_mirror(false);
     setup.stand_in_mode("deliver");
     let url = secrets.url(sign_in);
@@ -251,19 +252,19 @@ fn browser_return_reaches_the_running_app_and_nothing_else() {
     session.wait_browser_return(3, 1, &["adapter_refused"]);
     assert!(setup.secondary_events(since).is_empty(), "the other build ran");
     drop(redirect);
+    assert_eq!(std::fs::read_link(setup.prefix.join("dosdevices/c:")).unwrap(), drive_link, "C: was not restored");
     report_return(&setup, &mut report, "another build at the app's Windows path", "adapter_refused", &redirected);
-    // The session is unharmed: the next return is delivered.
-    let url = secrets.url(sign_in);
-    deliver(&session, &secrets, "deliver after the refused build", &url, 4);
-    session.wait_browser_return(ATTEMPTS, 2, &["dispatched"]);
 
     // 10. A replaced app file: the handler refuses without contacting the
-    //     session, which ends itself, and the replacement never starts.
+    //     session, which ends itself, and the replacement never starts. The
+    //     session is below its attempt cap here, so even a connection too
+    //     brief for the socket sampling would change its browser_return.
     let replacement = setup.app_executable().with_file_name(".replacement.exe");
     let mut changed = setup.stand_in_bytes.clone();
     changed.extend_from_slice(b"different build");
     std::fs::write(&replacement, &changed).unwrap();
     std::fs::rename(&replacement, setup.app_executable()).unwrap();
+    let before = session.record()["browser_return"].clone();
     let url = secrets.url(sign_in);
     let since = unix_ms();
     let replaced = session.browser_return(&url);
@@ -271,20 +272,24 @@ fn browser_return_reaches_the_running_app_and_nothing_else() {
     assert!(replaced.connected_ms.is_none(), "a return for a replaced app file reached the supervisor");
     report_return(&setup, &mut report, "app file replaced", "refused by the handler", &replaced);
     assert!(setup.secondary_events(since).is_empty(), "the replaced file was started");
-    assert_eq!(setup.received().len(), 4);
+    assert_eq!(setup.received().len(), 3);
     let ended = session.wait_ended();
     report.note(format!("After the app file was replaced the session ended by itself: state {}, {}.",
         ended["state"], ended["error_code"]));
+    for field in ["attempts", "dispatched", "last_result"] {
+        assert_eq!(ended["browser_return"][field], before[field], "the replaced-file return reached the session: {field}");
+    }
     assert_retired_processes(&setup, &session);
     drop(session);
 
-    search_for_codes(&setup, &inputs, &secrets, &mut report, "after both sessions ended");
+    search_for_codes(&setup, &inputs, &secrets, &mut report, "after both sessions ended", false);
 }
 
 /// Nothing the product wrote or logged holds a code. Controls planted in the
-/// bridge's records, the prefix, /tmp and the journal prove the search finds
-/// what it looks for; inside the bridge's own files nothing may be unreadable.
-fn search_for_codes(setup: &Setup, inputs: &Inputs, secrets: &Secrets, report: &mut Report, when: &str) {
+/// bridge's records, the prefix (also in UTF-16LE), /tmp and the journal prove
+/// the search finds what it looks for; inside the bridge's own files nothing
+/// may be unreadable.
+fn search_for_codes(setup: &Setup, inputs: &Inputs, secrets: &Secrets, report: &mut Report, when: &str, live: bool) {
     let home = PathBuf::from(std::env::var_os("HOME").unwrap());
     let uid = unsafe { libc::getuid() };
     let roots = [home.clone(), PathBuf::from("/tmp"), PathBuf::from("/var/tmp"),
@@ -299,18 +304,21 @@ fn search_for_codes(setup: &Setup, inputs: &Inputs, secrets: &Secrets, report: &
     let marker = format!("lvb-signin-control-{}", linux_vst_bridge::random_id().unwrap());
     let controls = [PathBuf::from("/tmp"), setup.directory.clone(), setup.drive()].map(|place| place.join(&marker));
     for control in &controls { std::fs::write(control, format!("control {}\n", secrets.control())).unwrap(); }
+    let wide = setup.drive().join(format!("{marker}-utf16"));
+    std::fs::write(&wide, secrets.wide_control()).unwrap();
     let logged = Command::new("systemd-cat").args(["-t", "lvb-signin-control", "echo", secrets.control()]).status().unwrap();
     assert!(logged.success());
     wait_for(|| Command::new("journalctl").args(["--user", "-t", "lvb-signin-control", "-o", "cat", "--no-pager"])
         .output().is_ok_and(|output| String::from_utf8_lossy(&output.stdout).contains(secrets.control())), "the journal control");
-    let search = privacy::search(secrets, &roots, &skip, &setup.m.root);
-    for control in &controls { std::fs::remove_file(control).unwrap(); }
+    let search = privacy::search(secrets, &roots, &skip, &setup.m.root, live);
+    for control in controls.iter().chain([&wide]) { std::fs::remove_file(control).unwrap(); }
     report.note(format!("Searched {when}: {} files ({} MB) and the user and system journals; {} unreadable \
         outside the bridge's files, {} gone before they were read.", search.files, search.bytes / 1_000_000,
         search.unreadable, search.vanished));
     for control in &controls {
         assert!(search.controls.contains(&control.display().to_string()), "the search missed its control in {}", control.display());
     }
+    assert_eq!(search.wide_controls, [wide.display().to_string()], "the UTF-16LE control was not found exactly where it was planted");
     assert!(search.controls.iter().any(|place| place.ends_with("journal")), "the search missed its journal control");
     assert!(search.unreadable_strict.is_empty(), "unreadable bridge files: {:?}", search.unreadable_strict);
     assert!(search.found.is_empty(), "a code was written to: {:?}", search.found);

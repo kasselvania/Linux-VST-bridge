@@ -9,6 +9,7 @@ on:
     paths:
       - 'bridge-manager/**'
       - 'tools/is2/**'
+      - 'tools/naui2/package.py'
       - 'windows-fixtures/browser-return/**'
       - 'native-audio-client/**'
       - 'plugin-descriptor/**'
@@ -18,6 +19,7 @@ on:
     paths:
       - 'bridge-manager/**'
       - 'tools/is2/**'
+      - 'tools/naui2/package.py'
       - 'windows-fixtures/browser-return/**'
       - 'native-audio-client/**'
       - 'plugin-descriptor/**'
@@ -130,8 +132,21 @@ jobs:
             echo "== ${f#$managed/}"; sed -E 's/lvbfake[c]ode[0-9a-f]*/<code>/g' "$f" | head -c 20000; echo
           done
           journalctl --user -b --no-pager -n 200 | sed -E 's/lvbfake[c]ode[0-9a-f]*/<code>/g' || true
-      - name: Keep downloaded runtime archives
+      # Save only the complete declared set, every archive verified, so a
+      # partial download is never kept under the shared key.
+      - name: Check the downloaded runtime archives are complete
+        id: complete
         if: always() && matrix.runtime == 'r7' && steps.archives.outputs.cache-hit != 'true'
+        run: |
+          test -d "$ARCHIVES" || { echo "complete=false" >> "$GITHUB_OUTPUT"; exit 0; }
+          find "$ARCHIVES" -mindepth 1 -maxdepth 1 -name '.*' -delete
+          complete=true
+          for digest in $(grep -oE 'sha256: ?"[0-9a-f]{64}"' bridge-manager/src/runtime_delivery.rs | grep -oE '[0-9a-f]{64}' | sort -u); do
+            if ! echo "$digest  $ARCHIVES/$digest" | sha256sum --check --status; then complete=false; echo "missing or changed: $digest"; fi
+          done
+          echo "complete=$complete" >> "$GITHUB_OUTPUT"
+      - name: Keep downloaded runtime archives
+        if: always() && steps.complete.outputs.complete == 'true'
         uses: actions/cache/save@v4
         with:
           path: /var/tmp/lvb-runtime-archives

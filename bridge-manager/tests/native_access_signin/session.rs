@@ -48,6 +48,8 @@ pub struct Return {
     pub stdout: Vec<u8>,
     pub started_ms: u64,
     /// When the handler reached the supervisor's socket, after its checks.
+    /// Sampled every 5 ms, so a connection closed within one sample can be
+    /// missed; the supervisor's own record catches that (see main.rs).
     pub connected_ms: Option<u64>,
     pub exited_ms: u64,
     pub elapsed: Duration,
