@@ -11,7 +11,8 @@ use std::{
 
 /// Every fake code is this marker and a fresh random part. A URL carries its
 /// code, so finding either the marker or any random part finds every copy,
-/// including one with the marker cut off.
+/// including one with the marker cut off, in ASCII or UTF-16LE (Windows'
+/// own text and registry encoding).
 const MARKER: &[u8] = b"lvbfakecode";
 const RANDOM: usize = 32;
 /// The codes sent, and a control value the test itself writes to a file and
@@ -34,19 +35,36 @@ impl Secrets {
     }
     pub fn found_in(&self, bytes: &[u8]) -> bool { self.matches(bytes).0 }
     /// One pass: the marker, and every run of lowercase hex long enough to
-    /// hold a random part. Returns (a code, the control).
+    /// hold a random part, each in ASCII and UTF-16LE. Returns (a code, the control).
     fn matches(&self, bytes: &[u8]) -> (bool, bool) {
-        let (mut code, mut control) = (bytes.windows(MARKER.len()).any(|window| window == MARKER), false);
-        let mut run = 0;
-        for (index, byte) in bytes.iter().enumerate() {
-            if !matches!(byte, b'0'..=b'9' | b'a'..=b'f') { run = 0; continue; }
-            run += 1;
-            if run >= RANDOM {
-                let window = &bytes[index + 1 - RANDOM..=index];
-                code |= self.codes.contains(window);
-                control |= window == self.control.as_slice();
-                if code && control { break; }
-            }
+        let wide: Vec<u8> = MARKER.iter().flat_map(|byte| [*byte, 0]).collect();
+        let mut code = bytes.windows(MARKER.len()).any(|window| window == MARKER)
+            || bytes.windows(wide.len()).any(|window| window == wide.as_slice());
+        let mut control = false;
+        let hex = |byte: u8| matches!(byte, b'0'..=b'9' | b'a'..=b'f');
+        let (mut run, mut wide_runs) = (0, [0; 2]);
+        let mut narrowed = [0u8; RANDOM];
+        for index in 0..bytes.len() {
+            if hex(bytes[index]) {
+                run += 1;
+                if run >= RANDOM {
+                    let window = &bytes[index + 1 - RANDOM..=index];
+                    code |= self.codes.contains(window);
+                    control |= window == self.control.as_slice();
+                }
+            } else { run = 0; }
+            // A UTF-16LE character starting here: a hex byte, then zero.
+            let parity = index % 2;
+            if index + 1 < bytes.len() && hex(bytes[index]) && bytes[index + 1] == 0 {
+                wide_runs[parity] += 1;
+                if wide_runs[parity] >= RANDOM {
+                    let first = index + 2 - 2 * RANDOM;
+                    for (slot, byte) in narrowed.iter_mut().zip(bytes[first..=index].iter().step_by(2)) { *slot = *byte; }
+                    code |= self.codes.contains(narrowed.as_slice());
+                    control |= narrowed == self.control.as_slice();
+                }
+            } else { wide_runs[parity] = 0; }
+            if code && control { break; }
         }
         (code, control)
     }
@@ -58,22 +76,29 @@ pub struct Search {
     pub unreadable: usize,
     pub found: Vec<String>,
     pub controls: Vec<String>,
+    /// Anything that could not be read inside `strict`: there, nothing may be.
+    pub unreadable_strict: Vec<String>,
 }
 
 /// Search every regular file under `roots`, except below `skip`, and the
 /// account's and the system's journals.
-pub fn search(secrets: &Secrets, roots: &[PathBuf], skip: &[PathBuf]) -> Search {
-    let mut search = Search { files: 0, bytes: 0, unreadable: 0, found: vec![], controls: vec![] };
-    let longest = RANDOM.max(MARKER.len());
+pub fn search(secrets: &Secrets, roots: &[PathBuf], skip: &[PathBuf], strict: &Path) -> Search {
+    let mut search = Search { files: 0, bytes: 0, unreadable: 0, found: vec![], controls: vec![],
+        unreadable_strict: vec![] };
+    let longest = 2 * RANDOM.max(MARKER.len());
+    let unreadable = |search: &mut Search, path: &Path| {
+        search.unreadable += 1;
+        if path.starts_with(strict) { search.unreadable_strict.push(path.display().to_string()); }
+    };
     let mut pending: Vec<PathBuf> = roots.iter().filter(|root| root.exists()).cloned().collect();
     while let Some(path) = pending.pop() {
         if skip.iter().any(|skipped| path.starts_with(skipped)) { continue; }
-        let Ok(metadata) = fs::symlink_metadata(&path) else { search.unreadable += 1; continue };
+        let Ok(metadata) = fs::symlink_metadata(&path) else { unreadable(&mut search, &path); continue };
         let kind = metadata.file_type();
         if kind.is_dir() {
             match fs::read_dir(&path) {
                 Ok(entries) => pending.extend(entries.flatten().map(|entry| entry.path())),
-                Err(_) => search.unreadable += 1,
+                Err(_) => unreadable(&mut search, &path),
             }
         } else if kind.is_file() && !kind.is_fifo() {
             match file_contains(&path, secrets, longest) {
@@ -83,7 +108,7 @@ pub fn search(secrets: &Secrets, roots: &[PathBuf], skip: &[PathBuf]) -> Search 
                     if found { search.found.push(path.display().to_string()); }
                     if control { search.controls.push(path.display().to_string()); }
                 }
-                None => search.unreadable += 1,
+                None => unreadable(&mut search, &path),
             }
         }
     }

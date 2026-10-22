@@ -22,6 +22,8 @@
  *
  * What a later copy does is a fixture setting, the first line of
  * C:\LVBStandIn\mode: deliver | hang | refuse | crash | slow <seconds>.
+ * A slow copy hands over after <seconds>, or earlier once the test creates
+ * C:\LVBStandIn\release.
  * The first copy records each return in C:\LVBStandIn\received.log as a
  * SHA-256 and a length, never the URL, so the test can search every file the
  * run wrote for the code without exception. */
@@ -216,7 +218,10 @@ static int secondary(HWND remote) {
         RaiseException(EXCEPTION_ACCESS_VIOLATION, EXCEPTION_NONCONTINUABLE, 0, NULL);
         code = 8;
     } else if (sscanf(mode, "slow %u", &seconds) == 1) {
-        Sleep(seconds * 1000);
+        ULONGLONG until = GetTickCount64() + seconds * 1000ULL;
+        while (GetTickCount64() < until
+               && GetFileAttributesW(FIXTURE L"release") == INVALID_FILE_ATTRIBUTES)
+            Sleep(50);
         code = hand_over(remote);
     } else {
         code = hand_over(remote);
@@ -247,6 +252,7 @@ static int application(HINSTANCE instance) {
                                       NULL, instance, NULL);
         }
         ReleaseMutex(startup);
+        CloseHandle(startup);
         if (own) return primary(own);
         if (!remote) return 7;
     }

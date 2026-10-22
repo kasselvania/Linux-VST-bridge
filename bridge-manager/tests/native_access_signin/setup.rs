@@ -11,7 +11,8 @@ use linux_vst_bridge::{catalogue::Software, vendor_application::{Application, Ap
 use serde_json::json;
 use std::{
     fs,
-    os::unix::fs::PermissionsExt,
+    io::Write,
+    os::unix::fs::{symlink, PermissionsExt},
     path::{Path, PathBuf},
     process::Command,
     time::Instant,
@@ -29,8 +30,8 @@ const STAND_IN_DIRECTORY: &str = "LVBStandIn";
 const BUNDLED_INSTALLER_VERSION: &str = "1.0.0";
 /// Sizes of the Native Access build the bridge was first qualified with
 /// (session.py's RENDERER_PRODUCTION and NAD1_INSTALLER). The stand-in's files
-/// are padded to them so that the handler's and supervisor's hashing costs
-/// what it costs for the real app; the padding is zeros.
+/// are padded to them with stored bytes, so the handler and supervisor hash
+/// as many bytes as for the real app.
 const SIZES: [(&str, u64); 11] = [
     ("Native Access.exe", 225_757_168),
     ("chrome_100_percent.pak", 119_905),
@@ -140,10 +141,44 @@ impl Setup {
     }
 
     pub fn app_executable(&self) -> &Path { &self.app.executable.path }
+    pub fn drive(&self) -> PathBuf { self.prefix.join("drive_c") }
 
     /// The second copy's behaviour for the next return; a fixture setting.
     pub fn stand_in_mode(&self, mode: &str) {
         fs::write(self.stand_in.join("mode"), format!("{mode}\n")).unwrap();
+    }
+    /// A `slow` second copy hands over as soon as this exists.
+    pub fn release_slow_copy(&self, released: bool) {
+        let marker = self.stand_in.join("release");
+        if released { fs::write(marker, b"").unwrap() } else { let _ = fs::remove_file(marker); }
+    }
+
+    /// Point the prefix's C: drive at a mirror of drive_c that differs only
+    /// in the app's executable, which is another build. Every Linux path the
+    /// handler and supervisor check is unchanged; a Windows open of the app's
+    /// path now finds the other file. Undone on drop.
+    pub fn other_build_at_app_path(&self) -> DriveRedirect {
+        let drive = self.drive();
+        let mirror = self.prefix.join("drive_c-other-build");
+        let (mut original, mut copy) = (drive.clone(), mirror.clone());
+        private_dir(&copy).unwrap();
+        for component in self.app_executable().strip_prefix(&drive).unwrap().components() {
+            for entry in fs::read_dir(&original).unwrap().flatten() {
+                if entry.file_name() != component.as_os_str() {
+                    symlink(entry.path(), copy.join(entry.file_name())).unwrap();
+                }
+            }
+            original.push(component);
+            copy.push(component);
+            if original.is_dir() { private_dir(&copy).unwrap(); }
+        }
+        let mut other = self.stand_in_bytes.clone();
+        other.extend_from_slice(b"another build of the app");
+        fs::write(&copy, other).unwrap();
+        let link = self.prefix.join("dosdevices/c:");
+        let target = fs::read_link(&link).unwrap();
+        replace_link(&link, Path::new("../drive_c-other-build"));
+        DriveRedirect { link, target, mirror }
     }
     pub fn stand_in_lines(&self, log: &str) -> Vec<String> {
         match fs::read_to_string(self.stand_in.join(log)) {
@@ -152,6 +187,19 @@ impl Setup {
             Err(error) => panic!("{log}: {error}"),
         }
     }
+}
+
+pub struct DriveRedirect { link: PathBuf, target: PathBuf, mirror: PathBuf }
+impl Drop for DriveRedirect {
+    fn drop(&mut self) {
+        replace_link(&self.link, &self.target);
+        fs::remove_dir_all(&self.mirror).unwrap();
+    }
+}
+fn replace_link(link: &Path, target: &Path) {
+    let staged = link.with_file_name(".lvb-signin-c");
+    symlink(target, &staged).unwrap();
+    fs::rename(staged, link).unwrap();
 }
 
 fn environment(m: &Manager, runner: Runner) -> Environment {
@@ -219,11 +267,24 @@ fn runtime_environment(root: &Path) -> Vec<(String, String)> {
     values
 }
 
+/// Pad with stored, varied bytes, never a sparse hole. None is ASCII, so the
+/// padding can hold no code for the privacy search to find.
 fn write_padded(path: &Path, bytes: &[u8], size: u64) {
     private_dir(path.parent().unwrap()).unwrap();
-    fs::write(path, bytes).unwrap();
-    let file = fs::OpenOptions::new().write(true).open(path).unwrap();
-    file.set_len(size.max(bytes.len() as u64)).unwrap();
+    let mut file = fs::File::create(path).unwrap();
+    file.write_all(bytes).unwrap();
+    let mut state = 0x9e37_79b9_7f4a_7c15_u64 ^ size;
+    let block: Vec<u8> = (0..1 << 20).map(|_| {
+        state ^= state << 13; state ^= state >> 7; state ^= state << 17;
+        state as u8 | 0x80
+    }).collect();
+    let mut left = size.saturating_sub(bytes.len() as u64);
+    while left > 0 {
+        let n = left.min(block.len() as u64) as usize;
+        file.write_all(&block[..n]).unwrap();
+        left -= n as u64;
+    }
+    file.sync_all().unwrap();
 }
 
 /// The import and onboarding receipts a completed Native Access installation
