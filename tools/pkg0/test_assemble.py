@@ -137,7 +137,7 @@ class PackageAssembly(unittest.TestCase):
         self.source_pair()
         output = self.root / "source-staged"
         assemble.build(self.spec, output, 1_234_567_890)
-        self.assertIn("'python>=3.13' 'python<3.15'", (output / "PKGBUILD").read_text())
+        self.assertIn("'python>=3.13' 'python<3.16'", (output / "PKGBUILD").read_text())
         with tarfile.open(output / "payload.tar") as archive:
             adoption = json.load(archive.extractfile(assemble.ADOPTION_MANIFEST))
             self.assertEqual(adoption["schema"], 3)

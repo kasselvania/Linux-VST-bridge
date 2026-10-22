@@ -30,7 +30,7 @@ SUPERVISOR_PATHS = (
     "usr/lib/linux-vst-bridge/supervisor/ownership.pyc",
 )
 SOURCE_SUPERVISOR_PATHS = tuple(path[:-1] for path in SUPERVISOR_PATHS)
-SOURCE_PYTHON_RANGE = "3.13-3.14"
+SOURCE_PYTHON_RANGE = "3.13-3.15"
 
 
 def source_supervisor(paths):
@@ -66,7 +66,7 @@ def supervisor_python_minor(headers):
 
 def package_dependencies(python_minor):
     if python_minor == SOURCE_PYTHON_RANGE:
-        return (*DEPENDENCIES, "python>=3.13", "python<3.15")
+        return (*DEPENDENCIES, "python>=3.13", "python<3.16")
     if python_minor not in PYTHON_MINOR_BY_MAGIC.values():
         raise ValueError("unsupported package Python ABI")
     major, minor = (int(part) for part in python_minor.split("."))

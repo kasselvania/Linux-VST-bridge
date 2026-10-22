@@ -31,7 +31,7 @@
 //! Run it only in a disposable account: it writes that account's bridge state,
 //! starts user units and runs Wine. The account needs a user systemd manager
 //! with a session bus, an X server in that manager's environment (Xvfb is
-//! enough), unprivileged user namespaces and host CPython 3.13 or 3.14 at
+//! enough), unprivileged user namespaces and host CPython 3.13 to 3.15 at
 //! /usr/bin/python3. `.github/workflows/native-access-signin.yml` sets this up
 //! on a GitHub runner. Locally, in a throwaway Linux VM user, from the
 //! repository root:

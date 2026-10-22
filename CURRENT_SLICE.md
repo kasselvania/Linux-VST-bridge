@@ -7,7 +7,7 @@ an unrelated setup. Architecture and beta scope remain in `docs/ARCHITECTURE.md`
 
 Delivered reference comparison:
 - Test225 / PR 484 delivers exact signed supervisor source, isolated launch and
-  the enforced CPython 3.13/3.14 range, tested on both real interpreters.
+  CPython 3.13/3.14, tested on both (next package: >=3.13,<3.16, 3.15 in CI).
   Ordinary old bytecode → source → exact old restore → source passed Reference
   playback, saved-instance recall, full exit and clean retirement on CachyOS.
   The original long-home account also launches and retires with the repaired

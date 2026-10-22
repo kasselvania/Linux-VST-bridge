@@ -52,7 +52,7 @@ PYTHON_ABIS = {
 
 def python_abi(headers):
     if set(headers) == set(path[:-1] for path in SUPERVISOR_PATHS):
-        return "python3 (>= 3.13), python3 (<< 3.15)"
+        return "python3 (>= 3.13), python3 (<< 3.16)"
     if set(headers) != set(SUPERVISOR_PATHS):
         raise ValueError("supervisor Python ABI missing")
     magics = set()
