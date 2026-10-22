@@ -122,18 +122,19 @@ check_build() {
     cargo build --release --locked --manifest-path manager-ui/Cargo.toml --bins
 }
 
+# --no-fail-fast: one failing test binary must not hide the next one's results.
 check_manager() {
-    cargo test --locked --manifest-path bridge-manager/Cargo.toml --lib --bins
+    cargo test --locked --no-fail-fast --manifest-path bridge-manager/Cargo.toml --lib --bins
 }
 
 # The real `serve` on a fixture state, with the stand-in systemd-run and
 # systemctl the test itself installs (bridge-manager/tests/real_service).
 check_real_service() {
-    cargo test --locked --manifest-path bridge-manager/Cargo.toml --test real_service
+    cargo test --locked --no-fail-fast --manifest-path bridge-manager/Cargo.toml --test real_service
 }
 
 check_ui() {
-    cargo test --locked --manifest-path manager-ui/Cargo.toml
+    cargo test --locked --no-fail-fast --manifest-path manager-ui/Cargo.toml
 }
 
 check_supervisor() {

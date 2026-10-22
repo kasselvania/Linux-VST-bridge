@@ -111,7 +111,7 @@ jobs:
             "$IMAGE" bash testing/distro/run.sh
       - name: Report versions and check times
         if: ${{ !cancelled() }}
-        run: cat "$RUNNER_TEMP/lvb-distro/report/summary.md" >> "$GITHUB_STEP_SUMMARY" || true
+        run: tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/lvb-distro/report/summary.md" || true
       # The project's own crates are rebuilt on every change; keep only
       # third-party output so the cache stays small.
       - name: Drop the project's own build output
@@ -159,14 +159,12 @@ jobs:
       - name: Probe KVM with a throwaway guest
         run: |
           bios=$(mktemp); monitor=$(mktemp)
-          started=$(date +%s.%N)
           status=0
           { echo 'info kvm'; sleep 5; echo quit; } |
             timeout 30 qemu-system-x86_64 -accel kvm -cpu host -machine q35 -m 256 \
               -nodefaults -display none -no-reboot -monitor stdio \
               -chardev file,id=bios,path="$bios" -device isa-debugcon,iobase=0x402,chardev=bios \
               >"$monitor" 2>&1 || status=$?
-          took=$(echo "$(date +%s.%N) - $started" | bc)
           kvm_ok=$(kvm-ok 2>&1 | tr '\n' ' ' || true)
           if [ "$status" = 0 ] && grep -q 'kvm support: enabled' "$monitor" && grep -q SeaBIOS "$bios"; then
             result="usable: a q35 guest started under KVM and its firmware ran"
@@ -185,10 +183,9 @@ jobs:
             echo "| /dev/kvm | $(ls -l /dev/kvm 2>&1) |"
             echo "| kvm-ok | $kvm_ok |"
             echo "| QEMU | $(qemu-system-x86_64 --version | head -n 1) |"
-            echo "| Guest run | ${took}s including a 5 s hold |"
           } >> "$GITHUB_STEP_SUMMARY"
           cat "$GITHUB_STEP_SUMMARY"
-          echo "--- QEMU monitor"; cat "$monitor"
+          echo "--- QEMU monitor"; grep -a 'kvm support' "$monitor" || cat "$monitor"
           echo "--- SeaBIOS debug console"; head -n 20 "$bios"
           case "$result" in
             usable*) echo "::notice title=KVM::KVM is $result" ;;
