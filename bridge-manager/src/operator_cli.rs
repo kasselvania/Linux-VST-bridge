@@ -86,6 +86,11 @@ fn optional(path: &Path) -> Result<Value> {
         Ok(Value::Null)
     }
 }
+/// An operation's request, as `optional` reads it; read once per composition.
+fn operation_request(m: &Manager, operation: &Path) -> Result<Value> {
+    let path = operation.join("request.json");
+    m.derive_once(&format!("operation_request:{}", path.display()), || optional(&path))
+}
 fn token(m: &Manager) -> Result<String> {
     token_with_registry(m, &m.registry()?)
 }
@@ -1105,6 +1110,7 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
 /// Explicit report collection asks the same owner as plug-in Details for
 /// retained check diagnoses. Passive overviews deliberately omit these reads.
 pub(super) fn problem_report_snapshot(m: &Manager, expected_token: &str) -> Result<ui::Snapshot> {
+    let m = &m.composing();
     let mut captured = current::capture(m)?;
     require(captured.snapshot.state_token == expected_token, "operator_stale_request_refresh")?;
     let mut products = std::mem::take(&mut captured.snapshot.products);
@@ -1116,6 +1122,7 @@ pub(super) fn problem_report_snapshot(m: &Manager, expected_token: &str) -> Resu
     Ok(captured.snapshot)
 }
 fn overview(m: &Manager) -> Result<ui::InteractiveOverview> {
+    let m = &m.composing();
     linux_vst_bridge::with_readback_digests(|| {
         std::thread::scope(|scope| {
         let probe = scope.spawn(|| {
@@ -1148,6 +1155,7 @@ fn current_overview(m: &Manager) -> Result<ui::CurrentOverview> {
     current_overview_with_reuse(m).map(|(overview, _)| overview)
 }
 fn current_overview_with_reuse(m: &Manager) -> Result<(ui::CurrentOverview, current::Reuse)> {
+    let m = &m.composing();
     linux_vst_bridge::with_readback_digests(|| {
         let captured = current::capture(m)?;
         captured.recheck(m)?;
@@ -1166,6 +1174,7 @@ fn product_detail_with_reuse(m: &Manager, environment: &str, module: &str,
     // The entire product projection is readback, including scoped environment
     // and preparation context after capture. Launch/worker verification remains
     // outside this scope and hashes every runtime byte.
+    let m = &m.composing();
     linux_vst_bridge::with_readback_digests(||
         product_detail_projected(m, environment, module, class))
 }
@@ -1637,7 +1646,8 @@ fn snapshot_readonly_depth(
     plugin_setup::project(m,&mut products,&mut installer_setups,busy)?;
     let environment_installers = environment_install::projection(m,&products,busy,onboarding::live)?;
     let recheck = acquire_readback(m, ui::OperatorLock::Registry, id, timeout, waits)?;
-    let after = token(m)?;
+    // Derived afresh, never from what a composing caller derived for `before`.
+    let after = token(&m.composing())?;
     require(
         before == after && owners == capacity::owners(m)?
             && generation == pulse_generation(m)? && pending == pending_transactions(m)?,
@@ -1783,6 +1793,7 @@ fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
 fn validate_current_request(m: &Manager, request: &ui::Request) -> Result<()> {
     // Offer admission observes current identities; it does not execute them.
     // The separately queued mutation owner performs full execution verification.
+    let m = &m.composing();
     linux_vst_bridge::with_readback_digests(|| validate_current_request_readonly(m, request))
 }
 fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Result<()> {
@@ -4284,7 +4295,7 @@ fn worker(m: &Manager, id: &str) -> Result<()> {
     // One operation reads each exact runtime artifact afresh, then reuses only
     // its own byte observations while the complete file identity is unchanged.
     // No persisted readback cache grants permission to run an installer.
-    let observer_manager = Manager {root:m.root.clone(),publications:m.publications.clone()};
+    let observer_manager = Manager::new(m.root.clone(), m.publications.clone());
     let observer_id = id.to_owned();
     let mut reported = false;
     runtime_delivery::with_verification_progress(move |counts| {
@@ -4547,7 +4558,7 @@ pub(super) fn product_receipt(
         if !valid_hex(id, 32) || exclude_operation == Some(id) || !p.is_dir() {
             continue;
         }
-        let r = optional(&p.join("request.json"))?;
+        let r = operation_request(m, &p)?;
         let matched = r["action"]["selection"] == selection
             || candidate.is_some_and(|c| r["action"]["candidate"] == c);
         if matched {
@@ -4566,7 +4577,7 @@ pub(crate) mod tests {
     use super::*;
     fn contend_preference_commit(m: &Manager, release_after: Option<Duration>)
         -> (std::thread::JoinHandle<()>, std::sync::mpsc::Sender<()>) {
-        let reader = Manager {root:m.root.clone(), publications:m.publications.clone()};
+        let reader = Manager::new(m.root.clone(), m.publications.clone());
         let (start, started) = std::sync::mpsc::channel();
         let (held, acquired) = std::sync::mpsc::channel();
         let (release, released) = std::sync::mpsc::channel();
@@ -5878,10 +5889,7 @@ pub(crate) mod tests {
             .operation
             .unwrap();
         let held = f.m.lock("operator-receipt.lock").unwrap();
-        let m = Manager {
-            root: f.m.root.clone(),
-            publications: f.m.publications.clone(),
-        };
+        let m = Manager::new(f.m.root.clone(), f.m.publications.clone());
         let child_id = id.clone();
         let child =
             std::thread::spawn(move || finish_operation(&m, &child_id).map_err(|e| e.to_string()));
@@ -8677,10 +8685,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
     #[test]
     fn projection_recheck_refuses_registry_change_during_installer_record_readback() {
         let (f, _) = onboarding_worker_fixture();
-        let m = Manager {
-            root: f.m.root.clone(),
-            publications: f.m.publications.clone(),
-        };
+        let m = Manager::new(f.m.root.clone(), f.m.publications.clone());
         installer_import::IDENTITY_READ_BARRIER.with(|h| {
             *h.borrow_mut() = Some(Box::new(move || {
                 let _guard = m.lock("registry.lock").unwrap();
@@ -8712,6 +8717,23 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
             capacity_fixture(&f.m)
         });
         assert_eq!(result.unwrap_err().to_string(), "operator_state_changed_refresh");
+    }
+    #[test]
+    fn validation_refuses_a_runtime_change_made_during_its_projection() {
+        // A request validated against the snapshot composes it, deriving the
+        // state token's facts once. The closing token must still see a change.
+        let (f, _) = onboarding_worker_fixture();
+        test_fixture::retained_history(&f, test_fixture::Changes::Runtimes, 1, 2, 0);
+        let change = test_fixture::withheld_runtime_change(&f.m);
+        let request = ui::Request { schema: ui::OPERATOR_SCHEMA, state_token: token(&f.m).unwrap(),
+            action: ui::Action::CaptureDisarm {} };
+        installer_import::IDENTITY_READ_BARRIER.with(|hook| *hook.borrow_mut() = Some(Box::new(change)));
+        assert_eq!(validate_current_request(&f.m, &request).unwrap_err().to_string(),
+            "operator_state_changed_refresh");
+        assert!(installer_import::IDENTITY_READ_BARRIER.with(|hook| hook.borrow().is_none()),
+            "the change was made during the projection");
+        let request = ui::Request { state_token: token(&f.m).unwrap(), ..request };
+        validate_current_request(&f.m, &request).unwrap();
     }
     #[test]
     fn exact_readback_lock_purposes_for_acquisition_and_timeout() {
@@ -8790,10 +8812,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
     }
     fn mutation_contention_case(timeout: bool) {
         let (f, id) = onboarding_worker_fixture();
-        let m = Manager {
-            root: f.m.root.clone(),
-            publications: f.m.publications.clone(),
-        };
+        let m = Manager::new(f.m.root.clone(), f.m.publications.clone());
         let op = id.clone();
         let (sampled, arrival) = std::sync::mpsc::channel();
         let (locked, barrier) = std::sync::mpsc::channel();
@@ -8963,10 +8982,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
     #[test]
     fn installer_record_projection_leaves_registry_available() {
         let (f, _) = onboarding_worker_fixture();
-        let m = Manager {
-            root: f.m.root.clone(),
-            publications: f.m.publications.clone(),
-        };
+        let m = Manager::new(f.m.root.clone(), f.m.publications.clone());
         let (entered, arrival) = std::sync::mpsc::channel();
         let (release, barrier) = std::sync::mpsc::channel();
         let thread = std::thread::spawn(move || {
@@ -9076,10 +9092,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
     fn environment_worker_waits_then_creates_once_and_keeps_wait_receipt() {
         let (f, id) = onboarding_worker_fixture();
         let registry = f.m.lock("registry.lock").unwrap();
-        let m = Manager {
-            root: f.m.root.clone(),
-            publications: f.m.publications.clone(),
-        };
+        let m = Manager::new(f.m.root.clone(), f.m.publications.clone());
         let op = id.clone();
         let (tx, rx) = std::sync::mpsc::channel();
         let thread = std::thread::spawn(move || {
@@ -9122,10 +9135,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
     fn state_change_during_wait_refuses_original_request_without_mutation() {
         let (f, id) = onboarding_worker_fixture();
         let registry = f.m.lock("registry.lock").unwrap();
-        let m = Manager {
-            root: f.m.root.clone(),
-            publications: f.m.publications.clone(),
-        };
+        let m = Manager::new(f.m.root.clone(), f.m.publications.clone());
         let op = id.clone();
         let (tx, rx) = std::sync::mpsc::channel();
         let thread = std::thread::spawn(move || {
@@ -9153,14 +9163,8 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
     fn snapshot_capacity_and_creation_complete_without_reverse_wait_or_latest_theft() {
         let (f, id) = onboarding_worker_fixture();
         let registry = f.m.lock("registry.lock").unwrap();
-        let a = Manager {
-            root: f.m.root.clone(),
-            publications: f.m.publications.clone(),
-        };
-        let b = Manager {
-            root: f.m.root.clone(),
-            publications: f.m.publications.clone(),
-        };
+        let a = Manager::new(f.m.root.clone(), f.m.publications.clone());
+        let b = Manager::new(f.m.root.clone(), f.m.publications.clone());
         let op = id.clone();
         let (tx, rx) = std::sync::mpsc::channel();
         let (release_worker, worker_gate) = std::sync::mpsc::channel();
@@ -9247,7 +9251,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         let entered = Arc::new(AtomicBool::new(false));
         let after = entered.clone();
         let child = std::thread::spawn(move || {
-            let m = Manager { root, publications };
+            let m = Manager::new(root, publications);
             let _guard = canonical_lock(&m).unwrap();
             after.store(true, Ordering::SeqCst);
         });

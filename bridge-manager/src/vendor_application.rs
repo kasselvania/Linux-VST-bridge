@@ -480,7 +480,7 @@ pub fn installer_origin_operation(root: &Path, environment: &Environment,
     require(valid_hex(operation,32) && directory==root.join("operator").join(operation)
         && receipt.path==directory.join("installation-result.json"),"vendor_application_installation_binding")?;
     // These read-only revision helpers use managed custody, not publications.
-    let manager=Manager {root:root.into(),publications:root.join("publications")};
+    let manager=Manager::new(root.into(), root.join("publications"));
     let binding=crate::environment_revision::installer_record(&manager,operation)?;
     require(binding.installer==installer,"vendor_application_installation_binding")?;
     crate::environment_revision::require_owned_revision(&manager,&binding.environment,environment)?;

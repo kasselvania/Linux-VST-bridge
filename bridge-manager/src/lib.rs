@@ -76,7 +76,8 @@ pub fn private_dir(p: &Path) -> Result<()> {
 }
 /// More files than this, and a composition's opened files are not named.
 const OPENED_LIMIT: usize = 65536;
-type OpenedSet = std::sync::Arc<std::sync::Mutex<std::collections::BTreeSet<PathBuf>>>;
+/// Each file opened, and how many times.
+type OpenedSet = std::sync::Arc<std::sync::Mutex<BTreeMap<PathBuf, u32>>>;
 thread_local! {
     static OPENED: RefCell<Option<OpenedSet>> = const { RefCell::new(None) };
 }
@@ -110,6 +111,11 @@ pub fn spawn_recorded<'scope, T: Send + 'scope>(scope: &'scope std::thread::Scop
 /// helper threads it starts with [`spawn_recorded`]: every record read and
 /// every artifact checked. `None` past a bound, when they are too many to name.
 pub fn with_opened_files<T>(read: impl FnOnce() -> T) -> (T, Option<std::collections::BTreeSet<PathBuf>>) {
+    let (value, opened) = with_opened_counts(read);
+    (value, opened.map(|opened| opened.into_keys().collect()))
+}
+/// As [`with_opened_files`], with how many times each file was opened.
+pub fn with_opened_counts<T>(read: impl FnOnce() -> T) -> (T, Option<BTreeMap<PathBuf, u32>>) {
     let set = OpenedSet::default();
     let value = OpenedFiles(Some(set.clone())).record(read);
     let opened = std::mem::take(&mut *set.lock().unwrap_or_else(|poisoned| poisoned.into_inner()));
@@ -118,7 +124,11 @@ pub fn with_opened_files<T>(read: impl FnOnce() -> T) -> (T, Option<std::collect
 pub fn file(p: &Path) -> Result<File> {
     OPENED.with(|opened| if let Some(set) = opened.borrow().as_ref() {
         let mut set = set.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        if set.len() <= OPENED_LIMIT { set.insert(p.to_path_buf()); }
+        if let Some(count) = set.get_mut(p) {
+            *count = count.saturating_add(1);
+        } else if set.len() <= OPENED_LIMIT {
+            set.insert(p.to_path_buf(), 1);
+        }
     });
     let f = OpenOptions::new()
         .read(true)
@@ -746,6 +756,25 @@ impl Default for Registry {
 pub struct Manager {
     pub root: PathBuf,
     pub publications: PathBuf,
+    /// Facts derived once while this manager composes one view (`composing`).
+    derived: Option<Derived>,
+}
+/// Facts a composition derives from records, each derived once (#504). They
+/// last as long as the composition's manager; nothing outlives it.
+#[derive(Default)]
+struct Derived(std::sync::Mutex<HashMap<(String, std::any::TypeId), DerivedFact>>);
+type DerivedFact = std::sync::Arc<dyn std::any::Any + Send + Sync>;
+/// A derivation's failure, given to every use of the fact unchanged.
+#[derive(Clone)]
+struct DerivedError(std::sync::Arc<dyn std::error::Error + Send + Sync>);
+impl std::fmt::Debug for DerivedError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { std::fmt::Debug::fmt(&*self.0, f) }
+}
+impl std::fmt::Display for DerivedError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { std::fmt::Display::fmt(&*self.0, f) }
+}
+impl std::error::Error for DerivedError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> { Some(&*self.0) }
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -939,12 +968,42 @@ impl Manager {
         private_dir(&self.root.join("performance"))?;
         atomic_json(&self.root.join("performance").join(format!("{key}.json")), &value)
     }
+    pub fn new(root: PathBuf, publications: PathBuf) -> Self {
+        Self { root, publications, derived: None }
+    }
     pub fn installed() -> Result<Self> {
         let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
-        Ok(Self {
-            root: home.join(".local/share/linux-vst-bridge/managed"),
-            publications: home.join(".vst3"),
-        })
+        Ok(Self::new(home.join(".local/share/linux-vst-bridge/managed"), home.join(".vst3")))
+    }
+    /// The same state, for composing one view: each fact it derives through
+    /// [`derive_once`](Self::derive_once) is derived once, however many parts
+    /// of the view use it, so the parts agree. Compose each view, and each
+    /// recheck of one, with its own.
+    pub fn composing(&self) -> Self {
+        Self { derived: Some(Derived::default()), ..Self::new(self.root.clone(), self.publications.clone()) }
+    }
+    /// `derive`'s result. While composing, once per fact, failure included;
+    /// otherwise on every use. `fact` names everything the result depends on
+    /// besides the records. A failure given again keeps its text, not its
+    /// type: the original error is its `source`.
+    pub fn derive_once<T: Clone + Send + Sync + 'static>(&self, fact: &str,
+        derive: impl FnOnce() -> Result<T>) -> Result<T> {
+        let Some(Derived(derived)) = &self.derived else { return derive() };
+        let key = (fact.to_owned(), std::any::TypeId::of::<T>());
+        let known = derived.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).get(&key).cloned();
+        // Derived without the lock: a derivation uses other facts. Should two
+        // helper threads derive one fact at once, the first to finish holds.
+        let value = match known {
+            Some(value) => value,
+            None => {
+                let value: DerivedFact = std::sync::Arc::new(derive().map_err(|error| DerivedError(error.into())));
+                derived.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .entry(key).or_insert(value).clone()
+            }
+        };
+        let value = value.downcast_ref::<std::result::Result<T, DerivedError>>()
+            .ok_or("derived_fact_type")?;
+        value.clone().map_err(Into::into)
     }
     pub fn lock(&self, name: &str) -> Result<Lock> {
         // Only an operator action waits, and only for the lock status reads share.
@@ -1260,6 +1319,29 @@ mod tests {
         });
         assert_eq!(opened.unwrap(), [record, helper].into_iter().collect());
         assert!(OpenedFiles::here().0.is_none(), "nothing records after the composition");
+    }
+    #[test]
+    fn a_composition_derives_each_fact_once_and_nothing_outlives_it() {
+        let f = Fixture::new();
+        let derived = std::cell::Cell::new(0);
+        let count = || { derived.set(derived.get() + 1); Ok(derived.get()) };
+        assert_eq!((f.m.derive_once("fact", count).unwrap(), f.m.derive_once("fact", count).unwrap()), (1, 2),
+            "a manager that composes nothing derives on every use");
+        let composing = f.m.composing();
+        assert_eq!((composing.derive_once("fact", count).unwrap(), composing.derive_once("fact", count).unwrap()),
+            (3, 3));
+        assert_eq!(composing.derive_once("another fact", count).unwrap(), 4);
+        assert_eq!(f.m.composing().derive_once("fact", count).unwrap(), 5, "the next composition derives afresh");
+        // A failure reaches every use as it was, down to the refusal text.
+        let missing = || read_json::<u32>(&f.outer.join("missing.json"));
+        let expected = format!("{:?}", missing().unwrap_err());
+        assert!(expected.contains("NotFound"), "{expected}");
+        for _ in 0..2 {
+            assert_eq!(format!("{:?}", composing.derive_once("missing", missing).unwrap_err()), expected);
+        }
+        let failure = composing.derive_once("missing", missing).unwrap_err();
+        assert!(std::error::Error::source(&*failure).is_some_and(|source| source.is::<std::io::Error>()),
+            "the original failure is its source: {failure:?}");
     }
     #[test]
     fn shared_observation_guard_refuses_fifo_without_waiting_for_a_writer() {

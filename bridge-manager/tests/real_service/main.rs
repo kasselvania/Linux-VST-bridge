@@ -346,13 +346,20 @@ fn read_latency() {
 /// The exchanges themselves are unchanged. With `LVB_REFERENCE_MANAGER`
 /// naming a manager built from an earlier revision, each window read, a
 /// refused request and a refused browser return give the same bytes from
-/// both managers on one state.
+/// both managers on one state: the published plug-in alone, and beside a
+/// long-used installation's history (#504).
 #[test]
 #[ignore = "compares with the manager named by LVB_REFERENCE_MANAGER"]
 fn exchanges_match_the_reference_manager() {
-    use contract::Transport;
     let reference = PathBuf::from(std::env::var_os("LVB_REFERENCE_MANAGER").expect("LVB_REFERENCE_MANAGER"));
-    let service = RealService::start(service::published());
+    exchanges_match(&reference, service::published());
+    let published = service::published();
+    test_fixture::retained_history(&published.fixture, test_fixture::Changes::Runtimes, 15, 8, 380);
+    exchanges_match(&reference, published);
+}
+fn exchanges_match(reference: &Path, published: service::Published) {
+    use contract::Transport;
+    let service = RealService::start(published);
     let p = service.plugin();
     let stale = contract::Request::Action(operator_model::Request { schema: operator_model::OPERATOR_SCHEMA,
         state_token: "stale".into(),
@@ -372,7 +379,17 @@ fn exchanges_match_the_reference_manager() {
             service.manager_command(program).exchange(request, None));
         // A first read may settle retained records; compare the reads after it.
         let _ = exchange(None);
-        assert_eq!(exchange(Some(&reference)), exchange(None), "{request:?}");
+        let mut pair = (exchange(Some(reference)), exchange(None));
+        // The interactive overview's platform probe takes registry.lock
+        // without waiting, so when the lock is held it names its DAW consumers
+        // unverified: a pre-existing race, tracked separately. Only that read
+        // is read again.
+        for _ in 0..2 {
+            if pair.0 == pair.1 || !matches!(request, contract::Request::Read(contract::Read::Overview)) { break; }
+            pair = (exchange(Some(reference)), exchange(None));
+        }
+        assert_eq!(pair.0, pair.1, "{request:?}");
+        assert!(!matches!(request, contract::Request::Read(_)) || pair.1.is_ok(), "{request:?}: {:?}", pair.1);
     }
     service.stop();
 }

@@ -133,7 +133,11 @@ pub fn records(m: &Manager) -> Result<Vec<Record>> {
 /// Read-only installation history remains visible after product registration.
 /// Mutation entry points continue to use load(), which refuses registered environments.
 /// Records of deleted setups stay on disk as history and are skipped here.
+/// Read once per composition.
 pub fn history_records(m: &Manager) -> Result<Vec<Record>> {
+    m.derive_once("onboarding_history_records", || read_history_records(m))
+}
+fn read_history_records(m: &Manager) -> Result<Vec<Record>> {
     let dir=m.root.join("onboarding"); if !dir.exists(){return Ok(vec![])}
     let deleted=linux_vst_bridge::deleted_setup::environments(m)?;
     let mut out=vec![];

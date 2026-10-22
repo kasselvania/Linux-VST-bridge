@@ -1139,7 +1139,7 @@ fn prepared_publication_refuses_changed_authority_after_final_wait() {
             calls += 1;
             if calls == 2 {
                 let held = f.m.lock("registry.lock")?;
-                let reader = Manager { root: f.m.root.clone(), publications: f.m.publications.clone() };
+                let reader = Manager::new(f.m.root.clone(), f.m.publications.clone());
                 let class = c.selection.class.id.clone();
                 crate::operator_lock::BUSY_OBSERVER.with(|observer| {
                     *observer.borrow_mut() = Some(Box::new(move || {
@@ -2505,7 +2505,7 @@ fn package_refresh_preparation_waits_for_contention_and_rechecks_authority() {
         let before = f.m.registry().unwrap();
         let selected = fs::read(f.m.root.join("software.json")).unwrap();
         let held = f.m.lock("registry.lock").unwrap();
-        let reader = Manager {root:f.m.root.clone(),publications:f.m.publications.clone()};
+        let reader = Manager::new(f.m.root.clone(), f.m.publications.clone());
         let class = c.selection.class.id.clone();
         crate::operator_lock::BUSY_OBSERVER.with(|observer| {
             *observer.borrow_mut() = Some(Box::new(move || {
@@ -2577,7 +2577,7 @@ fn package_publication_commit_and_restore_wait_and_recheck_the_selected_binding(
             if held.borrow().is_none() { *held.borrow_mut() = Some(f.m.lock("registry.lock")?); }
             let release = held.clone();
             let change = change_at_commit && calls == 2;
-            let reader = Manager {root:f.m.root.clone(),publications:f.m.publications.clone()};
+            let reader = Manager::new(f.m.root.clone(), f.m.publications.clone());
             let key = c.selection.class.id.clone();
             crate::operator_lock::BUSY_OBSERVER.with(|observer| {
                 *observer.borrow_mut() = Some(Box::new(move || {

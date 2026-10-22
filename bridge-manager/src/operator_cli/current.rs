@@ -386,8 +386,10 @@ impl CurrentOverviewContext {
         observed.end(true);
         Ok(())
     }
+    /// A second observation of what the capture read: every part of it
+    /// derives its facts afresh, never from what the capture derived.
     pub(super) fn recheck(&self, m: &Manager) -> Result<()> {
-        self.recheck_with(m, || self.recheck_external(m))
+        self.recheck_with(&m.composing(), || self.recheck_external(&m.composing()))
     }
     /// What the service needs to answer this view again (`service::view`).
     pub(super) fn reuse(&self) -> Reuse {
@@ -2020,6 +2022,125 @@ pub(super) mod tests {
                 release_tx.send(()).unwrap();
             }
             worker.join().unwrap().unwrap();
+        });
+    }
+    const SETUPS: usize = 15;
+    /// A Deck-shaped history (#504): three published plug-ins beside fifteen
+    /// setups, each reached through eight retained installer runs, and 380
+    /// other finished operations. Returns the installer units, all closed.
+    fn retained_history() -> (test_fixture::Fixture, Vec<linux_vst_bridge::preparation::Candidate>, Vec<String>) {
+        use linux_vst_bridge::preparation as prep;
+        let (f, candidates) = test_fixture::projection_candidates_in(test_fixture::Fixture::new(), false, 3);
+        for candidate in &candidates {
+            prep::record_candidate(&f.m, candidate).unwrap();
+            prep::enable(&f.m, candidate, false).unwrap();
+        }
+        let units = test_fixture::retained_history(&f, test_fixture::Changes::Installers, SETUPS, 8, 380)
+            .iter().map(|operation| onboarding::unit(operation).unwrap()).collect();
+        (f, candidates, units)
+    }
+    const PAGES: [&str; 2] = ["current overview", "plug-in page"];
+    /// The current overview, or the first plug-in's page, as written.
+    fn page(m: &Manager, candidates: &[linux_vst_bridge::preparation::Candidate], name: &str) -> Result<Vec<u8>> {
+        let s = &candidates[0].selection;
+        Ok(if name == PAGES[0] { serde_json::to_vec(&current_overview(m)?)? } else {
+            serde_json::to_vec(&product_detail(m, &s.environment.id, &s.module.sha256, &s.class.id)?)?
+        })
+    }
+    #[test]
+    fn a_composition_reads_each_retained_record_a_bounded_number_of_times() {
+        // Before #504 each setup's revision chain read every operation
+        // record again: on this history each was opened up to 210 times per
+        // page, and more with every setup.
+        let (f, candidates, units) = retained_history();
+        readiness::with_unit_state_fixture(&units, "inactive", || {
+            for name in PAGES {
+                let server = overview_service_reply(&f.m, capacity_json(false,0,0));
+                let (composed, opened) = linux_vst_bridge::with_opened_counts(|| page(&f.m, &candidates, name));
+                server.join().unwrap();
+                composed.unwrap();
+                let opened = opened.unwrap();
+                let records: Vec<_> = opened.iter().filter(|(path, _)|
+                    ["operator", "onboarding"].iter().any(|kind| path.starts_with(f.m.root.join(kind)))).collect();
+                assert!(records.len() > 500, "{name}: {} records", records.len());
+                // The capture and its recheck each read a record a few times.
+                // Reading it again for each setup, as the revision chains did,
+                // opens it at least as often as there are setups.
+                let (path, most) = records.iter().max_by_key(|(_, opens)| **opens).unwrap();
+                assert!((**most as usize) < SETUPS, "{name} opened {path:?} {most} times");
+            }
+        });
+    }
+    #[test]
+    fn deriving_each_fact_once_changes_nothing_a_page_shows() {
+        let (f, candidates, units) = retained_history();
+        readiness::with_unit_state_fixture(&units, "inactive", || {
+            let server = overview_service_reply_with_counts(&f.m, capacity_json(false,0,0), (2,6));
+            let every_use = capture(&f.m).unwrap();
+            let once = capture(&f.m.composing()).unwrap();
+            every_use.recheck(&f.m).unwrap();
+            once.recheck(&f.m).unwrap();
+            server.join().unwrap();
+            assert_eq!(serde_json::to_string(&once.snapshot).unwrap(),
+                serde_json::to_string(&every_use.snapshot).unwrap());
+            assert_eq!(once.current_generation, every_use.current_generation);
+            let s = &candidates[0].selection;
+            let server = overview_service_reply_with_counts(&f.m, capacity_json(false,0,0), (2,6));
+            let every_use = product_detail_readonly(&f.m, &s.environment.id, &s.module.sha256, &s.class.id);
+            let once = product_detail(&f.m, &s.environment.id, &s.module.sha256, &s.class.id);
+            server.join().unwrap();
+            assert_eq!(serde_json::to_string(&once.unwrap()).unwrap(),
+                serde_json::to_string(&every_use.unwrap()).unwrap());
+        });
+    }
+    /// Not a check: what a page reads on a Deck-shaped history (#504), by
+    /// kind of record: opens, this process's read calls and bytes, and CPU.
+    #[test]
+    #[ignore = "measurement; run with --ignored --nocapture --test-threads=1"]
+    fn composition_reads_on_a_retained_history() {
+        fn io() -> (u64, u64) {
+            let text = fs::read_to_string("/proc/self/io").unwrap_or_default();
+            let field = |name: &str| text.lines().find_map(|line| line.strip_prefix(name))
+                .and_then(|value| value.trim().parse().ok()).unwrap_or(0);
+            (field("syscr:"), field("rchar:"))
+        }
+        fn cpu() -> f64 {
+            let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
+            unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut usage) };
+            let ms = |t: libc::timeval| t.tv_sec as f64 * 1000.0 + t.tv_usec as f64 / 1000.0;
+            ms(usage.ru_utime) + ms(usage.ru_stime)
+        }
+        let (f, candidates, units) = retained_history();
+        // Records of one kind differ only in their identities.
+        let kind = |path: &Path| path.strip_prefix(&f.m.root).unwrap_or(path).iter().map(|part| {
+            let part = part.to_string_lossy();
+            let identity = part.chars().take_while(|c| c.is_ascii_hexdigit() || *c == '-').count();
+            if identity >= 32 { format!("*{}", &part[identity..]) } else { part.into_owned() }
+        }).collect::<Vec<_>>().join("/");
+        readiness::with_unit_state_fixture(&units, "inactive", || {
+            for name in PAGES {
+                let server = overview_service_reply(&f.m, capacity_json(false,0,0));
+                let ((calls, bytes), cpu_before, started) = (io(), cpu(), Instant::now());
+                let (composed, opened) = linux_vst_bridge::with_opened_counts(|| page(&f.m, &candidates, name));
+                let (wall, cpu_ms, (calls_after, bytes_after)) = (started.elapsed(), cpu() - cpu_before, io());
+                server.join().unwrap();
+                let (reply, opened) = (composed.unwrap(), opened.unwrap());
+                let mut kinds: BTreeMap<String, (u32, u32, u32)> = BTreeMap::new();
+                for (path, opens) in &opened {
+                    let entry = kinds.entry(kind(path)).or_default();
+                    entry.0 += 1;
+                    entry.1 += opens;
+                    entry.2 = entry.2.max(*opens);
+                }
+                eprintln!("READS {name}: {} bytes; {} files opened {} times; {} read calls, {:.1} MB; \
+                    CPU {cpu_ms:.0} ms, wall {} ms", reply.len(), opened.len(), opened.values().sum::<u32>(),
+                    calls_after - calls, (bytes_after - bytes) as f64 / 1e6, wall.as_millis());
+                let mut rows: Vec<_> = kinds.into_iter().collect();
+                rows.sort_by_key(|(_, (_, opens, _))| std::cmp::Reverse(*opens));
+                for (kind, (files, opens, most)) in rows.iter().take(12) {
+                    eprintln!("  {opens:>7} opens of {files:>4} files, at most {most:>4} each: {kind}");
+                }
+            }
         });
     }
 }

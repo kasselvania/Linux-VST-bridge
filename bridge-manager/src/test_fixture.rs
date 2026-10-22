@@ -17,20 +17,20 @@ pub(crate) struct Fixture {
 }
 impl Fixture {
     pub(crate) fn new() -> Self {
-        Self::with_layout("lvb-manager", |outer| Manager {
-            root: outer.join("managed"),
-            publications: outer.join("vst3"),
-        })
+        Self::with_layout("lvb-manager", |outer| Manager::new(
+            outer.join("managed"),
+            outer.join("vst3"),
+        ))
     }
     /// The same fixture at the layout `Manager::installed()` resolves when
     /// HOME is `outer`, so a real manager process started with that HOME owns
     /// it. Used by the real-service tests under `tests/`.
     #[allow(dead_code)] // This shared fixture is also compiled by library-only tests.
     pub(crate) fn installed() -> Self {
-        Self::with_layout("lvb-home", |home| Manager {
-            root: home.join(".local/share/linux-vst-bridge/managed"),
-            publications: home.join(".vst3"),
-        })
+        Self::with_layout("lvb-home", |home| Manager::new(
+            home.join(".local/share/linux-vst-bridge/managed"),
+            home.join(".vst3"),
+        ))
     }
     fn with_layout(prefix: &str, layout: impl FnOnce(&Path) -> Manager) -> Self {
         unsafe {
@@ -493,6 +493,135 @@ pub(crate) fn projection_candidates_in(f: Fixture, effect: bool, count: usize)
     }).collect();
     atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
     (f, candidates)
+}
+/// How the setups of a retained history were changed.
+#[allow(dead_code)] // This shared fixture is also compiled by library-only tests.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Changes {
+    /// Installer runs in each setup, after the installation that created it.
+    /// Their units are asked about; the caller reports them closed.
+    Installers,
+    /// Runtime changes back and forth, in setups whose installer never ran.
+    /// Nothing about them is asked of systemd.
+    Runtimes,
+}
+/// What a long-used installation retains, in the shape of the maintainer's
+/// Deck (#504): `setups` setups created from one imported installer, each
+/// changed `edges` times, so every record bound when a setup was created
+/// reaches its current revision through the whole chain; and `finished`
+/// other finished operations. Records only: no prefix contents. Returns the
+/// installer operations whose units are asked about.
+#[allow(dead_code)] // This shared fixture is also compiled by library-only tests.
+pub(crate) fn retained_history(f: &Fixture, changes: Changes, setups: usize, edges: u64,
+    finished: usize) -> Vec<String> {
+    use serde_json::json;
+    let m = &f.m;
+    let installers = m.root.join("installers");
+    private_dir(&installers).unwrap();
+    let image = installers.join("retained.exe");
+    fs::write(&image, b"MZ retained history installer").unwrap();
+    let installer = digest(&image).unwrap();
+    let image = {
+        let named = installers.join(format!("{installer}.exe"));
+        fs::rename(&image, &named).unwrap();
+        fs::set_permissions(&named, fs::Permissions::from_mode(0o400)).unwrap();
+        named
+    };
+    atomic_json(&installers.join(format!("{installer}.json")), &json!({"schema":1,"id":installer,
+        "artifact":{"path":image,"sha256":installer},"byte_size":29,"format":"pe_executable",
+        "name_hint":"Retained history installer","source_class":"operator_selected_file",
+        "import_result":"imported","created_at":1,"vendor":null,"product":null})).unwrap();
+    // A second runtime to change to and back.
+    let runners = {
+        let first = f.r.environment.runner.clone();
+        let pinned = |name: &str| {
+            let path = f.outer.join(name);
+            fs::write(&path, name.as_bytes()).unwrap();
+            Artifact { sha256: digest(&path).unwrap(), path }
+        };
+        let (proton, entry) = (pinned("retained-proton"), pinned("retained-entry"));
+        [first, Runner { id: "exact-runner-2".into(), version: "pinned".into(),
+            proton: proton.path.clone(), entry_point: entry.path.clone(), files: vec![proton, entry],
+            policy: None }]
+    };
+    let closed = |operation: &str| json!({"schema":2,"operation":operation,"state":"completed",
+        "raw_exit":0,"cleanup_confirmed":true,"owned_live":0,"error":null});
+    let job = |operation: &str, request: operator_model::Action| {
+        let directory = m.root.join("operator").join(operation);
+        private_dir(&directory).unwrap();
+        atomic_json(&directory.join("request.json"), &operator_model::Request {
+            schema: operator_model::OPERATOR_SCHEMA, state_token: "retained".into(), action: request }).unwrap();
+        atomic_json(&directory.join("result.json"), &json!({"schema":1,"operation":operation,
+            "state":"completed","result":{}})).unwrap();
+        directory
+    };
+    let mut units = Vec::new();
+    for setup in 0..setups {
+        let id = format!("{:032x}", 0xa11_0000 + setup);
+        let root = m.root.join("environments").join(&id);
+        private_dir(&root.join("compatdata/pfx/drive_c")).unwrap();
+        let at = |revision: u64| Environment { id: id.clone(), root: root.clone(), revision,
+            runner: runners[if changes == Changes::Runtimes { (revision as usize + 1) % 2 } else { 0 }].clone() };
+        let onboarding = m.root.join("onboarding").join(&id);
+        private_dir(&onboarding).unwrap();
+        let installed = (changes == Changes::Installers).then(|| random_id().unwrap());
+        if let Some(installed) = &installed {
+            atomic_json(&onboarding.join(format!("{installed}-result.json")), &closed(installed)).unwrap();
+            units.push(installed.clone());
+        }
+        let record = onboarding.join("record.json");
+        atomic_json(&record, &json!({"schema":1,"id":id,"installer":installer,"environment":at(1),
+            "created_at":1 + setup,"creation_operation":random_id().unwrap(),
+            "installation_operation":installed,"published":false})).unwrap();
+        for revision in 1..=edges {
+            let operation = random_id().unwrap();
+            let (before, environment) = (at(revision), at(revision + 1));
+            if changes == Changes::Installers {
+                let directory = job(&operation, operator_model::Action::EnvironmentInstallerStart {
+                    environment: id.clone(), installer: installer.clone() });
+                atomic_json(&directory.join("installation.json"), &environment_revision::InstallerBinding {
+                    schema: 1, operation: operation.clone(), installer: installer.clone(), before, environment,
+                    created_at: 1000 * (setup as u64 + 1) + revision, preserve_existing_prefix: Some(true),
+                    automatic_request: None }).unwrap();
+                atomic_json(&directory.join("installation-result.json"), &closed(&operation)).unwrap();
+                units.push(operation);
+            } else {
+                let directory = job(&operation, operator_model::Action::EnvironmentRuntimeSelect {
+                    environment: id.clone(), runner: catalogue::runner_key(&environment.runner).unwrap(),
+                    expected_environment: environment_revision::identity(&before).unwrap() });
+                atomic_json(&directory.join("runtime-transition.json"), &environment_revision::RuntimeBinding {
+                    schema: 1, operation, before, environment,
+                    affected: vec![environment_revision::RuntimeOwner::Setup {
+                        record: Artifact { sha256: digest(&record).unwrap(), path: record.clone() },
+                        environment: at(1) }],
+                    state: environment_revision::RuntimeState::Scanned }).unwrap();
+            }
+        }
+        atomic_json(&root.join("environment.json"), &at(edges + 1)).unwrap();
+    }
+    for _ in 0..finished {
+        job(&random_id().unwrap(), operator_model::Action::BufferingSet { class_id: f.r.key(),
+            added_frames: 256 });
+    }
+    units
+}
+
+/// Undo a retained history's last runtime change, as if it had not been
+/// made yet. The returned closure makes it the way the product does: its edge
+/// record first, then the environment it leads to.
+#[allow(dead_code)] // This shared fixture is also compiled by library-only tests.
+pub(crate) fn withheld_runtime_change(m: &Manager) -> impl FnOnce() + 'static {
+    let last = environment_revision::runtime_records(m).unwrap().into_iter()
+        .max_by_key(|record| record.environment.revision).unwrap();
+    let directory = m.root.join("operator").join(&last.operation);
+    let held = m.root.join(format!("withheld-{}", last.operation));
+    let current = last.environment.root.join("environment.json");
+    fs::rename(&directory, &held).unwrap();
+    atomic_json(&current, &last.before).unwrap();
+    move || {
+        fs::rename(&held, &directory).unwrap();
+        atomic_json(&current, &last.environment).unwrap();
+    }
 }
 /// The scanner host with a reusable preparation kit declaring the current
 /// loaded-engine admission and audio completion contracts.

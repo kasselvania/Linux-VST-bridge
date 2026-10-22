@@ -875,7 +875,7 @@ mod tests {
         let marker_before=fs::read(stage.join(COMMON).join("native-command-session.json")).unwrap();
         let mut overlay_rows=rows.clone();
         assert!(compose_components(&stage,&revision,&mut overlay_rows).unwrap_err().to_string().contains("correction_layout"));
-        let m=Manager {root:tmp.0.clone(),publications:tmp.0.join("publications")};
+        let m=Manager::new(tmp.0.clone(), tmp.0.join("publications"));
         let dest=revision_record_path(&m,&revision).parent().unwrap().to_owned();
         fs::DirBuilder::new().mode(0o700).create(dest.parent().unwrap()).unwrap();
         let runner=seal_stage(&stage,&dest,&revision,rows).unwrap();
@@ -960,7 +960,7 @@ mod tests {
     #[test]
     fn verification_progress_is_scoped_and_cleared_when_tree_verification_fails() {
         let tmp = Scratch::new();
-        let m = Manager {root:tmp.0.clone(),publications:tmp.0.join("publications")};
+        let m = Manager::new(tmp.0.clone(), tmp.0.join("publications"));
         let runner = retained_revision(&m, &revisions().remove(0));
         let events = std::rc::Rc::new(RefCell::new(Vec::new()));
         let captured = events.clone();
@@ -978,7 +978,7 @@ mod tests {
     #[test]
     fn retained_revisions_coexist_without_substitution_when_old_payload_is_missing() {
         let tmp=Scratch::new();
-        let m=Manager {root:tmp.0.clone(),publications:tmp.0.join("publications")};
+        let m=Manager::new(tmp.0.clone(), tmp.0.join("publications"));
         let old=revisions().remove(0);
         let new=recommended();
         let prior=retained_revision(&m,&old);
@@ -999,7 +999,7 @@ mod tests {
     #[test]
     fn incomplete_acquisition_is_never_an_installed_revision() {
         let tmp=Scratch::new();
-        let m=Manager {root:tmp.0.clone(),publications:tmp.0.join("publications")};
+        let m=Manager::new(tmp.0.clone(), tmp.0.join("publications"));
         let old=revisions().remove(0);
         let new=recommended();
         let prior=retained_revision(&m,&old);
@@ -1022,7 +1022,7 @@ mod tests {
     #[test]
     fn malformed_old_record_preserves_failure_and_does_not_hide_an_independent_revision() {
         let tmp=Scratch::new();
-        let m=Manager {root:tmp.0.clone(),publications:tmp.0.join("publications")};
+        let m=Manager::new(tmp.0.clone(), tmp.0.join("publications"));
         let old=revisions().remove(0);
         let new=recommended();
         retained_revision(&m,&old);
@@ -1048,7 +1048,7 @@ mod tests {
     fn unreadable_old_record_does_not_hide_an_independent_owned_revision() {
         if unsafe {libc::getuid()}==0 {return;}
         let tmp=Scratch::new();
-        let m=Manager {root:tmp.0.clone(),publications:tmp.0.join("publications")};
+        let m=Manager::new(tmp.0.clone(), tmp.0.join("publications"));
         let old=revisions().remove(0);
         let new=recommended();
         retained_revision(&m,&old);let next=retained_revision(&m,&new);
@@ -1064,7 +1064,7 @@ mod tests {
     #[test]
     fn managed_record_stamp_requires_exact_owned_runner_and_does_not_claim_another_root() {
         let tmp=Scratch::new();
-        let m=Manager {root:tmp.0.clone(),publications:tmp.0.join("publications")};
+        let m=Manager::new(tmp.0.clone(), tmp.0.join("publications"));
         let revision=recommended();let runner=retained_revision(&m,&revision);
         assert_eq!(selected_record_path(&m,&runner).unwrap(),Some(record_path(&m)));
         let mut changed=runner.clone();changed.version="different declaration".into();
