@@ -117,7 +117,9 @@ fn offered_buffering_change_round_trips_through_request_worker_and_result() {
     };
     assert_eq!(*added_frames, 256);
     // While it plays, the page reads the service's census and withholds
-    // configuration changes for that plug-in.
+    // configuration changes for that plug-in. The admission's own records
+    // settle first: the page is read once the census shows the instance.
+    service.capacity_when(|capacity| capacity["dsp"] == 1);
     let playing = service.product_detail();
     assert_eq!(playing["system"]["dsp"], 1, "{:#}", playing["system"]);
     let offered = service::offers(&playing["product"]);
@@ -210,8 +212,9 @@ fn native_admission_counts_releases_and_refuses_at_the_limit() {
 /// Oracle 4. The running service answers the window's status reads from
 /// views it holds, and what it answers is exactly what the command line
 /// composes afresh, after each kind of writer: an independent process
-/// changing a record directly, an operation's worker, and the service's own
-/// admission and retirement of an instance.
+/// changing a record directly, a runtime file changing outside every watched
+/// tree, an operation's worker, and the service's own admission and
+/// retirement of an instance.
 #[test]
 fn service_reads_follow_every_writer() {
     use contract::{Read, Request, Transport};
@@ -236,6 +239,27 @@ fn service_reads_follow_every_writer() {
         both(read);
     }
     assert_eq!(current_frames(), [512], "the installed default");
+    // The held pages were answered again, not composed again.
+    let views = service.views();
+    assert_eq!(views["covering"], true, "{views:#}");
+    assert!(views["watched_directories"].as_u64().unwrap() > 0, "{views:#}");
+    let again = || service.views()["answered_again"].as_u64().unwrap();
+    let before = again();
+    both(Read::CurrentOverview);
+    both(Read::Product(p.key()));
+    assert_eq!(again(), before + 2, "both pages came from the views the service holds");
+
+    // A runtime file the snapshot verifies by its bytes changes. Runtime
+    // trees are not watched; the snapshot is composed for every read.
+    let proton = service.published.fixture.r.environment.runner.proton.clone();
+    let original = fs::read(&proton).unwrap();
+    let runner_valid = || service.product(&both(Read::Snapshot))["details"]["runner_valid"].clone();
+    assert_eq!(runner_valid(), true);
+    fs::write(&proton, b"changed runtime bytes").unwrap();
+    assert_eq!(runner_valid(), false);
+    both(Read::CurrentOverview);
+    fs::write(&proton, &original).unwrap();
+    assert_eq!(runner_valid(), true);
 
     // An independent writer, as the removed set-delay command was.
     service.published.fixture.m.select_delay(&class, 256).unwrap();
@@ -257,6 +281,7 @@ fn service_reads_follow_every_writer() {
 
     // The service's own admission and retirement.
     let instance = service.admit(p);
+    service.capacity_when(|capacity| capacity["dsp"] == 1);
     assert_eq!(both(Read::Product(p.key()))["system"]["dsp"], 1);
     both(Read::CurrentOverview);
     instance.release();

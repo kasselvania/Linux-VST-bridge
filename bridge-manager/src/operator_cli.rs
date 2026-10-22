@@ -564,6 +564,7 @@ fn pulse_generation(m: &Manager) -> Result<String> {
     Ok(hex(&sha2::Sha256::digest(serde_json::to_vec(&stamps)?)))
 }
 fn pulse_cleanup(m: &Manager) -> Option<bool> {
+    if let Some(census) = SERVICE_CENSUS.get() { return Some((census.cleanup)()); }
     let mut peer = UnixStream::connect(m.root.join("runtime/owner.sock")).ok()?;
     peer.set_read_timeout(Some(Duration::from_millis(200))).ok()?;
     peer.set_write_timeout(Some(Duration::from_millis(200))).ok()?;
@@ -4463,25 +4464,9 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
     }
     Ok(())
 }
-/// Answer a window read or action request (`service::contract`).
-pub(super) fn answer(m: &Manager, request: contract::Request) -> Result<contract::Reply> {
+/// Answer a window status read (`service::contract`).
+pub(super) fn answer_read(m: &Manager, read: &contract::Read) -> Result<contract::Reply> {
     use contract::{Read, Reply};
-    let read = match request {
-        contract::Request::Read(read) => read,
-        contract::Request::Action(request) => {
-            let receipt = match operator_wait(|| dispatch(m, request)) {
-                Ok(r) => r,
-                Err(e) => ui::Receipt {
-                    schema: ui::OPERATOR_SCHEMA,
-                    accepted: false,
-                    operation: None,
-                    refusal: Some(e.to_string()),
-                },
-            };
-            return Ok(Reply::Receipt(receipt));
-        }
-        _ => return Err("operator_request_not_an_operator_exchange".into()),
-    };
     Ok(match read {
         Read::CurrentOverview => Reply::CurrentOverview(Box::new(current_overview(m)?)),
         Read::Overview => Reply::Overview(Box::new(overview(m)?)),
@@ -4492,26 +4477,53 @@ pub(super) fn answer(m: &Manager, request: contract::Request) -> Result<contract
         Read::Pulse => Reply::Pulse(pulse(m)?),
     })
 }
+/// Answer a window action request with its receipt.
+pub(super) fn answer_action(m: &Manager, request: ui::Request) -> contract::Reply {
+    contract::Reply::Receipt(match operator_wait(|| dispatch(m, request)) {
+        Ok(r) => r,
+        Err(e) => ui::Receipt {
+            schema: ui::OPERATOR_SCHEMA,
+            accepted: false,
+            operation: None,
+            refusal: Some(e.to_string()),
+        },
+    })
+}
 
 /// A status read as the service answers it (`service::view`). The current
-/// overview and product pages say whether anything live could change them
-/// without a record write; a snapshot cannot tell. Activity and pulse are
-/// the window's live signals and are composed for every read.
+/// overview and product pages are held while they find nothing live; every
+/// other read, including the snapshot, which verifies artifact and runtime
+/// bytes the change watch does not cover, is composed for every read. A held
+/// page names the directories of every file its composing thread opened; its
+/// helper threads (census, units, workspace) read only records inside the
+/// watched trees.
 pub(super) fn view(m: &Manager, read: &contract::Read) -> Result<linux_vst_bridge::service::view::Composed> {
     use contract::{Read, Reply};
-    let (reply, quiescent, directories) = match read {
+    use linux_vst_bridge::service::view::{Composed, Hold};
+    let held = |reply: Reply, reuse: current::Reuse, opened: Option<std::collections::BTreeSet<PathBuf>>|
+        -> Result<Composed> {
+        let Some(opened) = opened else {
+            return Ok(Composed { reply: reply.written()?, hold: Hold::Never, directories: vec![] });
+        };
+        let mut directories: std::collections::BTreeSet<_> = reuse.directories.into_iter().collect();
+        directories.extend(opened.iter().filter_map(|file| file.parent().map(Path::to_path_buf)));
+        Ok(Composed { reply: reply.written()?, hold: if reuse.quiescent { Hold::Quiet } else { Hold::Live },
+            directories: directories.into_iter().collect() })
+    };
+    match read {
         Read::CurrentOverview => {
-            let (overview, reuse) = current_overview_with_reuse(m)?;
-            (Reply::CurrentOverview(Box::new(overview)), Some(reuse.quiescent), reuse.directories)
+            let (composed, opened) = linux_vst_bridge::with_opened_files(|| current_overview_with_reuse(m));
+            let (overview, reuse) = composed?;
+            held(Reply::CurrentOverview(Box::new(overview)), reuse, opened)
         }
         Read::Product(key) => {
-            let (detail, reuse) = product_detail_with_reuse(m, &key.environment, &key.module_sha256, &key.class_id)?;
-            (Reply::Product(Box::new(detail)), Some(reuse.quiescent), reuse.directories)
+            let (composed, opened) = linux_vst_bridge::with_opened_files(||
+                product_detail_with_reuse(m, &key.environment, &key.module_sha256, &key.class_id));
+            let (detail, reuse) = composed?;
+            held(Reply::Product(Box::new(detail)), reuse, opened)
         }
-        Read::Snapshot => (answer(m, contract::Request::Read(Read::Snapshot))?, None, vec![]),
-        read => (answer(m, contract::Request::Read(read.clone()))?, Some(false), vec![]),
-    };
-    Ok(linux_vst_bridge::service::view::Composed { reply: reply.written()?, quiescent, directories })
+        read => Ok(Composed { reply: answer_read(m, read)?.written()?, hold: Hold::Never, directories: vec![] }),
+    }
 }
 
 /// Retained per-product feedback is selected by exact request identity, never by

@@ -73,7 +73,29 @@ pub fn private_dir(p: &Path) -> Result<()> {
     // Creation callers use umask 077; never chmod an existing public directory.
     require(m.mode() & 0o077 == 0, "directory must be private")
 }
+thread_local! {
+    static OPENED: RefCell<Option<std::collections::BTreeSet<PathBuf>>> = const { RefCell::new(None) };
+}
+/// Files this thread opens through [`file`] while `read` runs: every record
+/// read and every artifact checked. `None` past a bound, when they are too
+/// many to name.
+pub fn with_opened_files<T>(read: impl FnOnce() -> T) -> (T, Option<std::collections::BTreeSet<PathBuf>>) {
+    type Opened = Option<std::collections::BTreeSet<PathBuf>>;
+    struct Restore(Option<Opened>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            if let Some(previous) = self.0.take() { OPENED.with(|opened| *opened.borrow_mut() = previous); }
+        }
+    }
+    let mut restore = Restore(Some(OPENED.with(|opened| opened.replace(Some(Default::default())))));
+    let value = read();
+    let opened = OPENED.with(|opened| opened.replace(restore.0.take().flatten()));
+    (value, opened.filter(|opened| opened.len() <= 65536))
+}
 pub fn file(p: &Path) -> Result<File> {
+    OPENED.with(|opened| if let Some(opened) = opened.borrow_mut().as_mut() {
+        if opened.len() <= 65536 { opened.insert(p.to_path_buf()); }
+    });
     let f = OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)

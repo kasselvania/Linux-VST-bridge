@@ -1318,7 +1318,23 @@ fn finish_supervised_delivery(context:SupervisorDelivery<'_>,delivery:Result<()>
     delivery?;
     retirement
 }
+/// Inside `serve`, its own census, as LVC1 and LVP1 give it, without a
+/// connection to itself. Status reads refresh cleanup before they take their
+/// key, so this census does not refresh it again.
+pub(crate) struct ServiceCensus {
+    capacity: Box<dyn Fn() -> serde_json::Value + Send + Sync>,
+    pub(crate) cleanup: Box<dyn Fn() -> bool + Send + Sync>,
+}
+pub(crate) static SERVICE_CENSUS: std::sync::OnceLock<ServiceCensus> = std::sync::OnceLock::new();
+/// The LVC1 answer: capacity, or why it is unavailable.
+fn capacity_value(m: &Manager, limits: &capacity::Limits, workers: usize, blocked: bool) -> serde_json::Value {
+    match capacity::status(m, limits.clone(), workers, blocked) {
+        Ok(status) => serde_json::json!({"ok":true,"capacity":status}),
+        Err(e) => serde_json::json!({"ok":false,"refusal":readback::refusal(e.as_ref())}),
+    }
+}
 fn capacity_reply(m: &Manager) -> Result<serde_json::Value> {
+    if let Some(census) = SERVICE_CENSUS.get() { return Ok((census.capacity)()); }
     let mut peer = UnixStream::connect(m.root.join("runtime/owner.sock"))?;
     peer.set_read_timeout(Some(Duration::from_secs(5)))?;
     peer.set_write_timeout(Some(Duration::from_secs(1)))?;
@@ -1341,31 +1357,27 @@ fn capacity_read(m: &Manager) -> Result<()> {
 /// runtime records but not the runtime trees, the published plug-in links,
 /// the memory transport's sessions and the system package's manifest. Files
 /// a view reads elsewhere, inside setups and runtimes, are added by the view.
-fn view_changes(m: &Manager) -> Option<service::changes::Changes> {
+fn view_changes(m: &Manager) -> service::changes::Changes {
     use service::changes::Tree;
-    let bridge = m.root.parent()?.to_owned();
-    let trees = vec![Tree { root: bridge, depth: None },
+    let bridge = m.root.parent().unwrap_or(&m.root).to_owned();
+    service::changes::Changes::new(vec![Tree { root: bridge, depth: None },
         Tree { root: m.root.join("runners"), depth: Some(1) },
         Tree { root: m.publications.clone(), depth: Some(0) },
         Tree { root: transport_storage::root(), depth: Some(0) },
-        Tree { root: PathBuf::from("/usr/share/linux-vst-bridge"), depth: Some(0) }];
-    match service::changes::Changes::new(trees) {
-        Ok(changes) => Some(changes),
-        Err(error) => {
-            eprintln!("status change watch unavailable; every status read is composed: {error}");
-            None
-        }
-    }
+        Tree { root: PathBuf::from("/usr/share/linux-vst-bridge"), depth: Some(0) }])
 }
 /// One status read on the service socket (`service::contract`): from a held
 /// view while it is current, otherwise composed as the command line does.
-/// The reading process is the same user's (the socket's private directory
-/// and SO_PEERCRED) and its frontend must still be the selected one.
+/// The reading process must be this user's (the socket's private directory,
+/// and SO_PEERCRED here) and its frontend must still be the selected one.
 fn answer_view(m: &Manager, peer: &mut UnixStream, views: &service::view::Views,
     blocked: &AdmissionCleanup) -> Result<()> {
     let answered = (|| {
+        transport_storage::require_same_user(peer)?;
         let read = service::contract::read_view_request(peer)?;
         package_authority::require_current_frontend_peer(m, peer)?;
+        // Settle the cleanup census before it becomes part of the key.
+        blocked.refresh(m)?;
         views.answer(&read, u64::from(blocked.blocked()), || operator_cli::view(m, &read))
     })();
     let refusal;
@@ -1453,8 +1465,21 @@ fn serve(m: Manager) -> Result<()> {
     let keepers = Arc::new(Mutex::new(Vec::new()));
     let limits = capacity::service_limits();
     let workers = Arc::new(AtomicUsize::new(0));
-    // Watch before the first status read is composed.
-    let views = Arc::new(service::view::Views::new(view_changes(&manager)));
+    let census = (manager.clone(), limits.clone(), workers.clone(), blocked.clone(), blocked.clone());
+    let _ = SERVICE_CENSUS.set(ServiceCensus {
+        capacity: Box::new(move || capacity_value(&census.0, &census.1, census.2.load(Ordering::Acquire),
+            census.3.blocked())),
+        cleanup: Box::new(move || census.4.blocked()),
+    });
+    // Status reads are composed until the change watch covers them; its walk
+    // never delays admission, capacity or pulse.
+    let views = Arc::new(service::view::Views::new());
+    let watch_manager = manager.clone();
+    let watch_views = views.clone();
+    if let Err(error) = std::thread::Builder::new().spawn(move ||
+        watch_views.cover(view_changes(&watch_manager))) {
+        eprintln!("status change watch unavailable; every status read is composed: {error}");
+    }
     let idle_manager = manager.clone();
     let idle_keepers = keepers.clone();
     let idle_retirement = std::thread::Builder::new().spawn(move || {
@@ -1508,7 +1533,10 @@ fn serve(m: Manager) -> Result<()> {
                 let mut greeting = [0; 117];
                 peer.read_exact(&mut greeting[..5])?;
                 if &greeting[..5] == service::contract::VIEW_GREETING {
-                    return answer_view(&m, &mut peer, &views, &blocked);
+                    if let Err(error) = answer_view(&m, &mut peer, &views, &blocked) {
+                        eprintln!("status read: {error}");
+                    }
+                    return Ok(());
                 }
                 if &greeting[..5] != b"LVP1\n" { blocked.refresh(&m)?; }
                 if &greeting[..5]==b"LVM1\n" {
@@ -1579,10 +1607,9 @@ fn serve(m: Manager) -> Result<()> {
                     });
                 }
                 if &greeting[..5]==b"LVC1\n" {
-                    let value=match capacity::status(&m,limits.clone(),workers.load(Ordering::Acquire),blocked.blocked()) {
-                        Ok(status)=>serde_json::json!({"ok":true,"capacity":status}),
-                        Err(e)=>serde_json::json!({"ok":false,"refusal":readback::refusal(e.as_ref())}),
-                    };
+                    let mut value=capacity_value(&m,&limits,workers.load(Ordering::Acquire),blocked.blocked());
+                    // How the status reads are answered, for `linux-vst-bridge capacity`.
+                    value["views"]=views.statistics();
                     let bytes=serde_json::to_vec(&value)?;
                     require(bytes.len()<=65536,"capacity_readback_extent")?;
                     peer.set_write_timeout(Some(Duration::from_secs(1)))?;
@@ -2002,7 +2029,8 @@ fn answer_client(m: &Manager, request: service::contract::Request) -> Result<()>
                 .map_err(|_| service::contract::BROWSER_RETURN_UNDELIVERED)?;
             Reply::Delivered
         }
-        request => operator_cli::answer(m, request)?,
+        Request::Read(read) => operator_cli::answer_read(m, &read)?,
+        Request::Action(request) => operator_cli::answer_action(m, request),
     };
     let serialization_at = Instant::now();
     let encoded = reply.encode()?;
@@ -2055,11 +2083,10 @@ fn main() -> Result<()> {
     Ok(())
   },
   Some("operator")=>operator_cli::run(&m,&args[1..]),
-  Some("import-installer") if args.len()==1=>{let source=fs::File::from(std::io::stdin().as_fd().try_clone_to_owned()?);println!("{}",serde_json::to_string(&installer_import::import(&m,source)?)?);Ok(())},
   Some("workspace")=>daw_workspace::run(&m,&args[1..]),
   Some("serve") if args.len()==1=>serve(m),
   Some("capacity") if args.len()==1=>capacity_read(&m),
-  _=>Err("Usage: linux-vst-bridge serve | capacity | operator ... | import-installer [NAME] | workspace ... | native-access-callback URI | package-...".into())
+  _=>Err("Usage: linux-vst-bridge serve | capacity | operator ... | import-installer NAME | workspace ... | native-access-callback URI | package-...".into())
  }
 }
 

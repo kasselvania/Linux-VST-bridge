@@ -201,6 +201,13 @@ impl RealService {
     }
     /// LVC1: the service's own capacity census.
     pub fn capacity(&self) -> Value {
+        self.census()["capacity"].clone()
+    }
+    /// LVC1: how the service answers status reads.
+    pub fn views(&self) -> Value {
+        self.census()["views"].clone()
+    }
+    fn census(&self) -> Value {
         let mut peer = UnixStream::connect(self.socket()).unwrap();
         peer.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
         peer.write_all(b"LVC1\n").unwrap();
@@ -210,7 +217,7 @@ impl RealService {
         peer.read_exact(&mut bytes).unwrap();
         let reply: Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(reply["ok"], true, "{reply:#}");
-        reply["capacity"].clone()
+        reply
     }
     /// LVC1 until `settled` holds, within the service's retirement bound.
     pub fn capacity_when(&self, settled: impl Fn(&Value) -> bool) -> Value {
@@ -233,12 +240,14 @@ impl RealService {
     pub fn service(&self) -> contract::Service {
         contract::Service::new(self.socket())
     }
-    /// One window exchange through the client contract. Its reply passed the
-    /// contract's checks; it is returned as the document the window decoded.
+    /// One window exchange through the client contract. The reply must pass
+    /// the contract's checks, and it is returned exactly as the service or
+    /// command wrote it, so nothing the typed model would drop goes unseen.
     pub fn call(&self, transport: impl contract::Transport, request: &contract::Request) -> Value {
-        let reply = contract::Client::new(transport).call(request, None)
+        let written = contract::Transport::exchange(&transport, request, None)
             .unwrap_or_else(|failure| panic!("{request:?}: {failure:?}"));
-        serde_json::from_str(&reply.encode().unwrap().expect("a reply document")).unwrap()
+        contract::decode(request, &written).unwrap_or_else(|refused| panic!("{request:?}: {refused}"));
+        serde_json::from_slice(&written).unwrap()
     }
     /// A status read as the window makes it: from the running service, or
     /// for the overview, through the manager command.

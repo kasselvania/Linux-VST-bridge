@@ -30,6 +30,8 @@ pub const REFUSAL_LIMIT: u64 = 4096;
 const REFUSAL_SHOWN: usize = 512;
 /// Every exchange except an installer import, which copies the chosen file.
 pub const DEADLINE: Duration = Duration::from_secs(45);
+/// A connection to the service, which is waited for only while it is busy accepting.
+pub const CONNECT_DEADLINE: Duration = Duration::from_secs(2);
 pub const IMPORT_DEADLINE: Duration = Duration::from_secs(300);
 
 /// The refusal a previous frontend receives after an update or restore
@@ -153,13 +155,14 @@ impl Request {
         }
     }
     /// What the command reads on its input, besides an imported installer.
-    fn body(&self) -> serde_json::Result<Option<Vec<u8>>> {
+    pub fn body(&self) -> serde_json::Result<Option<Vec<u8>>> {
         match self {
             Self::Action(request) => serde_json::to_vec(request).map(Some),
             _ => Ok(None),
         }
     }
-    fn deadline(&self) -> Duration {
+    /// How long the exchange may take.
+    pub fn deadline(&self) -> Duration {
         if matches!(self, Self::ImportInstaller { .. }) { IMPORT_DEADLINE } else { DEADLINE }
     }
 }
@@ -378,55 +381,112 @@ impl Service {
         Self { socket: socket.into() }
     }
 }
+/// One attempt at a status read.
+enum Attempt {
+    /// The connection closed or reset before the whole reply: the service
+    /// stopped or restarted.
+    Dropped,
+    Failed(Failure),
+}
 impl Transport for Service {
     fn exchange(&self, request: &Request, _: Option<File>) -> Result<Vec<u8>, Failure> {
         let error = |text: &str| Failure::Error(text.into());
         if !matches!(request, Request::Read(read) if read.served()) {
             return Err(error("The bridge service does not answer this request"));
         }
-        let mut peer = UnixStream::connect(&self.socket).map_err(|e| match e.kind() {
-            io::ErrorKind::NotFound | io::ErrorKind::ConnectionRefused => Failure::Unavailable,
-            _ => error("Bridge service is unavailable"),
-        })?;
-        let deadline = Instant::now() + DEADLINE;
-        // A service from another release closes the connection on an unknown
-        // greeting. It is reported at once, never waited out.
-        let read = |peer: &mut UnixStream, buffer: &mut [u8]| {
-            peer.set_read_timeout(Some(deadline.saturating_duration_since(Instant::now())
-                .max(Duration::from_millis(1))))?;
-            peer.read_exact(buffer)
-        };
-        let failed = |e: io::Error| match e.kind() {
-            io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut =>
-                error("Manager readback timed out. Refresh to inspect any accepted operation."),
-            _ => error("Update the frontend and manager together: the running bridge service did not answer this read"),
-        };
         let body = serde_json::to_vec(&ViewRequest { operator_schema: ui::OPERATOR_SCHEMA,
             command: request.command() }).map_err(|_| error("Request encoding failed"))?;
         let mut frame = VIEW_GREETING.to_vec();
         frame.extend((body.len() as u32).to_le_bytes());
         frame.extend(body);
-        peer.set_write_timeout(Some(Duration::from_secs(1))).map_err(failed)?;
-        peer.write_all(&frame).map_err(failed)?;
-        let mut header = [0; 5];
-        read(&mut peer, &mut header).map_err(failed)?;
-        let length = u32::from_le_bytes(header[1..].try_into().expect("four length bytes")) as u64;
-        match header[0] {
-            0 if length <= REPLY_LIMIT => {}
-            1 if length <= REFUSAL_LIMIT => {}
-            0 | 1 => return Err(error("Manager response exceeded its bound")),
-            _ => return Err(failed(io::ErrorKind::InvalidData.into())),
+        let deadline = Instant::now() + request.deadline();
+        // An operation can pause the service, or it can restart, between two
+        // reads: a read it dropped is asked once more, and if nothing listens
+        // by then, the window's command answers it.
+        for attempt in 0..2 {
+            let mut peer = connect(&self.socket, CONNECT_DEADLINE).map_err(|e| match e.kind() {
+                io::ErrorKind::NotFound | io::ErrorKind::ConnectionRefused => Failure::Unavailable,
+                io::ErrorKind::TimedOut =>
+                    error("The bridge service is busy and did not take this status read. Refresh to try again."),
+                _ => error("Bridge service is unavailable"),
+            })?;
+            match read_once(&mut peer, &frame, deadline) {
+                Ok(reply) => return Ok(reply),
+                Err(Attempt::Failed(failure)) => return Err(failure),
+                Err(Attempt::Dropped) if attempt == 0 => continue,
+                // Also how a service from before this greeting answers it.
+                Err(Attempt::Dropped) => return Err(error(
+                    "The bridge service stopped answering this status read. Refresh to try again.")),
+            }
         }
-        let mut bytes = vec![0; length as usize];
-        read(&mut peer, &mut bytes).map_err(failed)?;
-        if header[0] == 0 { Ok(bytes) } else { Err(refusal(&bytes)) }
+        unreachable!("the second attempt returns")
     }
+}
+fn read_once(peer: &mut UnixStream, frame: &[u8], deadline: Instant) -> Result<Vec<u8>, Attempt> {
+    let lost = |e: io::Error| match e.kind() {
+        io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut => Attempt::Failed(Failure::Error(
+            "Manager readback timed out. Refresh to inspect any accepted operation.".into())),
+        _ => Attempt::Dropped,
+    };
+    let read = |peer: &mut UnixStream, buffer: &mut [u8]| {
+        peer.set_read_timeout(Some(deadline.saturating_duration_since(Instant::now())
+            .max(Duration::from_millis(1))))?;
+        peer.read_exact(buffer)
+    };
+    peer.set_write_timeout(Some(Duration::from_secs(1))).map_err(lost)?;
+    peer.write_all(frame).map_err(lost)?;
+    let mut header = [0; 5];
+    read(peer, &mut header).map_err(lost)?;
+    let length = u32::from_le_bytes(header[1..].try_into().expect("four length bytes")) as u64;
+    match header[0] {
+        0 if length <= REPLY_LIMIT => {}
+        1 if length <= REFUSAL_LIMIT => {}
+        0 | 1 => return Err(Attempt::Failed(Failure::Error("Manager response exceeded its bound".into()))),
+        _ => return Err(Attempt::Dropped),
+    }
+    let mut bytes = vec![0; length as usize];
+    read(peer, &mut bytes).map_err(lost)?;
+    if header[0] == 0 { Ok(bytes) } else { Err(Attempt::Failed(refusal(&bytes))) }
+}
+/// Connect to `socket`, waiting at most `within` while its listen queue is
+/// full; any other refusal is at once.
+#[cfg(target_os = "linux")]
+fn connect(socket: &Path, within: Duration) -> io::Result<UnixStream> {
+    use std::os::{fd::{AsRawFd, FromRawFd}, unix::ffi::OsStrExt};
+    let path = socket.as_os_str().as_bytes();
+    let mut address: libc::sockaddr_un = unsafe { std::mem::zeroed() };
+    if path.len() >= address.sun_path.len() { return Err(io::ErrorKind::InvalidInput.into()); }
+    address.sun_family = libc::AF_UNIX as libc::sa_family_t;
+    for (slot, byte) in address.sun_path.iter_mut().zip(path) { *slot = *byte as libc::c_char; }
+    let length = (std::mem::size_of::<libc::sa_family_t>() + path.len() + 1) as libc::socklen_t;
+    let fd = unsafe { libc::socket(libc::AF_UNIX, libc::SOCK_STREAM | libc::SOCK_CLOEXEC | libc::SOCK_NONBLOCK, 0) };
+    if fd < 0 { return Err(io::Error::last_os_error()); }
+    let stream = unsafe { UnixStream::from_raw_fd(fd) };
+    let deadline = Instant::now() + within;
+    while unsafe { libc::connect(stream.as_raw_fd(), (&address as *const libc::sockaddr_un).cast(), length) } != 0 {
+        let error = io::Error::last_os_error();
+        match error.raw_os_error() {
+            Some(libc::EAGAIN) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(5)),
+            Some(libc::EAGAIN) => return Err(io::ErrorKind::TimedOut.into()),
+            Some(libc::EINTR) => {}
+            _ => return Err(error),
+        }
+    }
+    stream.set_nonblocking(false)?;
+    Ok(stream)
+}
+#[cfg(not(target_os = "linux"))]
+fn connect(socket: &Path, _within: Duration) -> io::Result<UnixStream> {
+    UnixStream::connect(socket)
 }
 
 /// The installed manager as the window reaches it. Status reads go to the
 /// running service, and run the manager command only while no service
 /// listens: an operation paused it for exclusive maintenance, or it is
 /// restarting. Actions, imports and the overview always run the command.
+///
+/// The command fallback for status reads goes away in #489 step 5, with the
+/// whole-service stop that makes it necessary.
 pub struct Installed {
     service: Service,
     command: Subprocess,
@@ -702,50 +762,83 @@ mod tests {
         assert_eq!(refusal(b"Error: \"operator_state_changed_refresh\"\n"),
             Failure::Error("Error: \"operator_state_changed_refresh\"\n".into()));
     }
+    /// An executable script. A shell writes it, so this test process never
+    /// holds it open for writing while another test thread starts a child
+    /// (which would make running it fail with "Text file busy").
+    fn script(path: &Path, body: &str) {
+        let mut writer = Command::new("/bin/sh")
+            .args(["-c", "umask 077; cat > \"$1\" && chmod 700 \"$1\"", "sh"]).arg(path)
+            .stdin(Stdio::piped()).spawn().unwrap();
+        writer.stdin.take().unwrap().write_all(body.as_bytes()).unwrap();
+        assert!(writer.wait().unwrap().success());
+    }
     #[test]
     fn service_reads_fail_clearly_across_releases_and_use_the_command_only_without_a_service() {
-        use std::os::unix::{fs::PermissionsExt, net::UnixListener};
+        use std::os::unix::net::UnixListener;
         let root = std::env::temp_dir().join(format!("lvb-service-{}", crate::random_id().unwrap()));
         std::fs::create_dir_all(&root).unwrap();
         let socket = root.join("owner.sock");
         let program = root.join("manager");
-        std::fs::write(&program, "#!/bin/sh\necho \"$2 from the command\"\n").unwrap();
-        std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o700)).unwrap();
-        let installed = || Installed::new(Service::new(&socket), Subprocess::new(&program)
+        script(&program, "#!/bin/sh\necho \"$2 from the command\"\n");
+        let installed = |socket: &Path| Installed::new(Service::new(socket), Subprocess::new(&program)
             .with_environment([("PATH", "/usr/bin:/bin")]));
         let pulse = Request::Read(Read::Pulse);
         // No service listens: an operation paused it, or it is restarting.
         assert_eq!(Service::new(&socket).exchange(&pulse, None).unwrap_err(), Failure::Unavailable);
-        assert_eq!(installed().exchange(&pulse, None).unwrap(), b"pulse from the command\n");
-        assert_eq!(installed().exchange(&Request::Read(Read::Overview), None).unwrap(),
+        assert_eq!(installed(&socket).exchange(&pulse, None).unwrap(), b"pulse from the command\n");
+        assert_eq!(installed(&socket).exchange(&Request::Read(Read::Overview), None).unwrap(),
             b"overview from the command\n", "the overview is the window's own assessment");
         let listener = UnixListener::bind(&socket).unwrap();
-        let serve = |answer: fn(&mut UnixStream)| {
+        let serve = |connections: usize, answer: fn(&mut UnixStream)| {
             let listener = listener.try_clone().unwrap();
-            std::thread::spawn(move || answer(&mut listener.accept().unwrap().0))
+            std::thread::spawn(move || for _ in 0..connections { answer(&mut listener.accept().unwrap().0) })
         };
         // This release's service: one read, one reply, as the command writes it.
-        let current = serve(|peer| {
+        let current = serve(1, |peer| {
             let mut greeting = [0; 5];
             peer.read_exact(&mut greeting).unwrap();
             assert_eq!(&greeting, VIEW_GREETING);
             assert_eq!(read_view_request(peer).unwrap(), Read::Pulse);
             write_view_reply(peer, Ok(&b"held pulse\n"[..])).unwrap();
         });
-        assert_eq!(installed().exchange(&pulse, None).unwrap(), b"held pulse\n");
+        assert_eq!(installed(&socket).exchange(&pulse, None).unwrap(), b"held pulse\n");
         current.join().unwrap();
-        // An earlier service reads the greeting as a registration and closes.
-        let earlier = serve(|peer| {
+        // A read the service dropped is asked once more.
+        let restarting = listener.try_clone().unwrap();
+        let restarted = std::thread::spawn(move || for answered in [false, true] {
+            let (mut peer, _) = restarting.accept().unwrap();
+            let mut greeting = [0; 5];
+            peer.read_exact(&mut greeting).unwrap();
+            assert_eq!(read_view_request(&mut peer).unwrap(), Read::Pulse);
+            if answered { write_view_reply(&mut peer, Ok(&b"asked again\n"[..])).unwrap(); }
+        });
+        assert_eq!(installed(&socket).exchange(&pulse, None).unwrap(), b"asked again\n");
+        restarted.join().unwrap();
+        // An earlier service reads the greeting as a registration and closes,
+        // each time. That is reported at once, and not as a version mismatch.
+        let earlier = serve(2, |peer| {
             let mut registration = [0; 53];
             peer.read_exact(&mut registration).unwrap();
         });
         let started = Instant::now();
-        let Failure::Error(shown) = installed().exchange(&pulse, None).unwrap_err() else { panic!("expected a failure") };
-        assert!(shown.starts_with("Update the frontend and manager together"), "{shown}");
+        assert_eq!(installed(&socket).exchange(&pulse, None).unwrap_err(), Failure::Error(
+            "The bridge service stopped answering this status read. Refresh to try again.".into()));
         assert!(started.elapsed() < Duration::from_secs(5), "reported at once, never waited out");
         earlier.join().unwrap();
+        // A service that stops while answering: once nothing listens, the
+        // command answers.
+        let stopping = root.join("stopping.sock");
+        let stopping_listener = UnixListener::bind(&stopping).unwrap();
+        let stop = std::thread::spawn(move || {
+            let (mut peer, _) = stopping_listener.accept().unwrap();
+            let mut greeting = [0; 5];
+            peer.read_exact(&mut greeting).unwrap();
+            drop(stopping_listener);
+        });
+        assert_eq!(installed(&stopping).exchange(&pulse, None).unwrap(), b"pulse from the command\n");
+        stop.join().unwrap();
         // A service of another operator model refuses with what the window shows.
-        let other = serve(|peer| {
+        let other = serve(1, |peer| {
             let mut greeting = [0; 5];
             peer.read_exact(&mut greeting).unwrap();
             let refused = read_view_request(peer).unwrap_err();
@@ -768,13 +861,11 @@ mod tests {
     }
     #[test]
     fn subprocess_carries_exit_status_bounds_and_input() {
-        use std::os::unix::fs::PermissionsExt;
         let root = std::env::temp_dir().join(format!("lvb-contract-{}", crate::random_id().unwrap()));
         std::fs::create_dir_all(&root).unwrap();
         let program = root.join("manager");
         // Echo the request body back as the reply; refuse when told to.
-        std::fs::write(&program, "#!/bin/sh\ncase \"$2\" in\n  request) cat ;;\n  pulse) echo 'Error: \"operator_state_changed_refresh\"' >&2; exit 1 ;;\n  snapshot) head -c 8388609 /dev/zero ;;\nesac\n").unwrap();
-        std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o700)).unwrap();
+        script(&program, "#!/bin/sh\ncase \"$2\" in\n  request) cat ;;\n  pulse) echo 'Error: \"operator_state_changed_refresh\"' >&2; exit 1 ;;\n  snapshot) head -c 8388609 /dev/zero ;;\nesac\n");
         let transport = Subprocess::new(&program).with_environment([("PATH", "/usr/bin:/bin")]);
         let request = action();
         assert_eq!(transport.exchange(&request, None).unwrap(), request.body().unwrap().unwrap());
