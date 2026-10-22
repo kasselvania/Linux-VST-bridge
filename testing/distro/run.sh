@@ -26,7 +26,7 @@ set -euo pipefail
 
 RUST_TOOLCHAIN=1.95.0 # as ap12-manager.yml and tools/pkg0 (KIT_RUST_TOOLCHAIN)
 TEST_USER=lvbtest
-CHECKS=(toolchain python build manager real-service ui supervisor pkg0 root-intake portable)
+CHECKS=(toolchain python build model manager real-service ui supervisor pkg0 root-intake portable)
 
 # shellcheck disable=SC1091
 . /etc/os-release
@@ -123,6 +123,10 @@ check_build() {
 }
 
 # --no-fail-fast: one failing test binary must not hide the next one's results.
+check_model() {
+    cargo test --locked --no-fail-fast --manifest-path crates/model/Cargo.toml
+}
+
 check_manager() {
     cargo test --locked --no-fail-fast --manifest-path bridge-manager/Cargo.toml --lib --bins
 }

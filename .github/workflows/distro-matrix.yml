@@ -12,6 +12,7 @@ on:
       - '.github/workflows/distro-matrix.yml'
       - 'testing/distro/**'
       - 'bridge-manager/**'
+      - 'crates/**'
       - 'manager-ui/**'
       - 'native-audio-client/**'
       - 'plugin-descriptor/**'
@@ -30,6 +31,7 @@ on:
       - '.github/workflows/distro-matrix.yml'
       - 'testing/distro/**'
       - 'bridge-manager/**'
+      - 'crates/**'
       - 'manager-ui/**'
       - 'native-audio-client/**'
       - 'plugin-descriptor/**'
@@ -89,7 +91,7 @@ jobs:
             ${{ runner.temp }}/lvb-distro/cargo/registry/cache
             ${{ runner.temp }}/lvb-distro/cargo/git/db
             ${{ runner.temp }}/lvb-distro/target
-          key: distro-${{ matrix.id }}-${{ steps.image.outputs.id }}-${{ hashFiles('bridge-manager/Cargo.lock', 'manager-ui/Cargo.lock', 'native-vst3-proxy/backend/Cargo.lock') }}
+          key: distro-${{ matrix.id }}-${{ steps.image.outputs.id }}-${{ hashFiles('bridge-manager/Cargo.lock', 'manager-ui/Cargo.lock', 'crates/*/Cargo.lock', 'native-vst3-proxy/backend/Cargo.lock') }}
           restore-keys: |
             distro-${{ matrix.id }}-${{ steps.image.outputs.id }}-
             distro-${{ matrix.id }}-
@@ -118,13 +120,16 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           target="$RUNNER_TEMP/lvb-distro/target"
+          own=()
+          for crate in 'linux?vst?bridge' 'linux?audio?compatibility?manager' 'ap1?native?client' \
+              'lvb?' 'uio1' 'real?service'; do
+            own+=(-o -name "$crate*" -o -name "lib$crate*")
+          done
           for profile in "$target/debug" "$target/release"; do
             [ -d "$profile" ] || continue
             find "$profile" -maxdepth 1 -type f -delete
             find "$profile/deps" "$profile/.fingerprint" "$profile/build" -mindepth 1 -maxdepth 1 \
-              \( -name 'linux*vst*bridge*' -o -name 'linux*audio*compatibility*manager*' \
-                 -o -name 'ap1*native*client*' -o -name 'lvb*plugin*descriptor*' \
-                 -o -name 'uio1*' -o -name 'real_service*' \) -exec rm -rf {} +
+              \( "${own[@]:1}" \) -exec rm -rf {} +
           done
           du -sh "$target" "$RUNNER_TEMP/lvb-distro/cargo" || true
       - name: Save the Cargo registry and build output
