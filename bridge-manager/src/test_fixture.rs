@@ -606,6 +606,23 @@ pub(crate) fn retained_history(f: &Fixture, changes: Changes, setups: usize, edg
     units
 }
 
+/// Undo a retained history's last runtime change, as if it had not been
+/// made yet. The returned closure makes it the way the product does: its edge
+/// record first, then the environment it leads to.
+#[allow(dead_code)] // This shared fixture is also compiled by library-only tests.
+pub(crate) fn withheld_runtime_change(m: &Manager) -> impl FnOnce() + 'static {
+    let last = environment_revision::runtime_records(m).unwrap().into_iter()
+        .max_by_key(|record| record.environment.revision).unwrap();
+    let directory = m.root.join("operator").join(&last.operation);
+    let held = m.root.join(format!("withheld-{}", last.operation));
+    let current = last.environment.root.join("environment.json");
+    fs::rename(&directory, &held).unwrap();
+    atomic_json(&current, &last.before).unwrap();
+    move || {
+        fs::rename(&held, &directory).unwrap();
+        atomic_json(&current, &last.environment).unwrap();
+    }
+}
 /// The scanner host with a reusable preparation kit declaring the current
 /// loaded-engine admission and audio completion contracts.
 fn projection_kit_software(f: &Fixture, manifest: &Artifact) -> Software {

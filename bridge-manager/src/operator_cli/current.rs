@@ -2024,6 +2024,7 @@ pub(super) mod tests {
             worker.join().unwrap().unwrap();
         });
     }
+    const SETUPS: usize = 15;
     /// A Deck-shaped history (#504): three published plug-ins beside fifteen
     /// setups, each reached through eight retained installer runs, and 380
     /// other finished operations. Returns the installer units, all closed.
@@ -2034,7 +2035,7 @@ pub(super) mod tests {
             prep::record_candidate(&f.m, candidate).unwrap();
             prep::enable(&f.m, candidate, false).unwrap();
         }
-        let units = test_fixture::retained_history(&f, test_fixture::Changes::Installers, 15, 8, 380)
+        let units = test_fixture::retained_history(&f, test_fixture::Changes::Installers, SETUPS, 8, 380)
             .iter().map(|operation| onboarding::unit(operation).unwrap()).collect();
         (f, candidates, units)
     }
@@ -2062,10 +2063,11 @@ pub(super) mod tests {
                 let records: Vec<_> = opened.iter().filter(|(path, _)|
                     ["operator", "onboarding"].iter().any(|kind| path.starts_with(f.m.root.join(kind)))).collect();
                 assert!(records.len() > 500, "{name}: {} records", records.len());
-                // Capture and recheck each read a record a few times; reading
-                // it again per setup or per plug-in would multiply that.
+                // The capture and its recheck each read a record a few times.
+                // Reading it again for each setup, as the revision chains did,
+                // opens it at least as often as there are setups.
                 let (path, most) = records.iter().max_by_key(|(_, opens)| **opens).unwrap();
-                assert!(**most <= 24, "{name} opened {path:?} {most} times");
+                assert!((**most as usize) < SETUPS, "{name} opened {path:?} {most} times");
             }
         });
     }

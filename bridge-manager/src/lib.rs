@@ -774,7 +774,7 @@ impl std::fmt::Display for DerivedError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { std::fmt::Display::fmt(&*self.0, f) }
 }
 impl std::error::Error for DerivedError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> { self.0.source() }
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> { Some(&*self.0) }
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -984,7 +984,8 @@ impl Manager {
     }
     /// `derive`'s result. While composing, once per fact, failure included;
     /// otherwise on every use. `fact` names everything the result depends on
-    /// besides the records.
+    /// besides the records. A failure given again keeps its text, not its
+    /// type: the original error is its `source`.
     pub fn derive_once<T: Clone + Send + Sync + 'static>(&self, fact: &str,
         derive: impl FnOnce() -> Result<T>) -> Result<T> {
         let Some(Derived(derived)) = &self.derived else { return derive() };
@@ -1338,6 +1339,9 @@ mod tests {
         for _ in 0..2 {
             assert_eq!(format!("{:?}", composing.derive_once("missing", missing).unwrap_err()), expected);
         }
+        let failure = composing.derive_once("missing", missing).unwrap_err();
+        assert!(std::error::Error::source(&*failure).is_some_and(|source| source.is::<std::io::Error>()),
+            "the original failure is its source: {failure:?}");
     }
     #[test]
     fn shared_observation_guard_refuses_fifo_without_waiting_for_a_writer() {

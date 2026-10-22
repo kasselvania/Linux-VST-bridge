@@ -1646,7 +1646,8 @@ fn snapshot_readonly_depth(
     plugin_setup::project(m,&mut products,&mut installer_setups,busy)?;
     let environment_installers = environment_install::projection(m,&products,busy,onboarding::live)?;
     let recheck = acquire_readback(m, ui::OperatorLock::Registry, id, timeout, waits)?;
-    let after = token(m)?;
+    // Derived afresh, never from what a composing caller derived for `before`.
+    let after = token(&m.composing())?;
     require(
         before == after && owners == capacity::owners(m)?
             && generation == pulse_generation(m)? && pending == pending_transactions(m)?,
@@ -8716,6 +8717,23 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
             capacity_fixture(&f.m)
         });
         assert_eq!(result.unwrap_err().to_string(), "operator_state_changed_refresh");
+    }
+    #[test]
+    fn validation_refuses_a_runtime_change_made_during_its_projection() {
+        // A request validated against the snapshot composes it, deriving the
+        // state token's facts once. The closing token must still see a change.
+        let (f, _) = onboarding_worker_fixture();
+        test_fixture::retained_history(&f, test_fixture::Changes::Runtimes, 1, 2, 0);
+        let change = test_fixture::withheld_runtime_change(&f.m);
+        let request = ui::Request { schema: ui::OPERATOR_SCHEMA, state_token: token(&f.m).unwrap(),
+            action: ui::Action::CaptureDisarm {} };
+        installer_import::IDENTITY_READ_BARRIER.with(|hook| *hook.borrow_mut() = Some(Box::new(change)));
+        assert_eq!(validate_current_request(&f.m, &request).unwrap_err().to_string(),
+            "operator_state_changed_refresh");
+        assert!(installer_import::IDENTITY_READ_BARRIER.with(|hook| hook.borrow().is_none()),
+            "the change was made during the projection");
+        let request = ui::Request { state_token: token(&f.m).unwrap(), ..request };
+        validate_current_request(&f.m, &request).unwrap();
     }
     #[test]
     fn exact_readback_lock_purposes_for_acquisition_and_timeout() {

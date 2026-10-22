@@ -56,18 +56,29 @@ pub fn require_owned_revision(m: &Manager, bound: &Environment,
         && valid_environment_id(&bound.id), "installer_environment_identity")?;
     require(same_space(bound, target), "installer_environment_binding_changed")?;
     if target != bound {
-        let edges=revision_edges(m)?;
-        let mut step=bound.clone();
-        for _ in 0..edges.len() {
-            if step == *target {break;}
-            let mut successors=edges.iter().filter(|(before,_)|*before==step);
-            let next=&successors.next().ok_or("installer_environment_revision_unowned")?.1;
-            require(successors.next().is_none(),"environment_revision_ownership_conflict")?;
-            step=next.clone();
+        let walked=walk_revisions(&revision_edges(m)?,bound,target);
+        if walked.is_err() && m.derived.is_some() {
+            // A change writes its edge record before the environment it leads
+            // to. An environment read after this composition derived its
+            // edges can be ahead of them: walk the edges as they are now.
+            let now=Manager::new(m.root.clone(),m.publications.clone());
+            return walk_revisions(&revision_edges(&now)?,bound,target);
         }
-        require(step == *target,"installer_environment_revision_unowned")?;
+        walked?;
     }
     Ok(())
+}
+fn walk_revisions(edges: &[(Environment, Environment)], bound: &Environment,
+    target: &Environment) -> Result<()> {
+    let mut step=bound.clone();
+    for _ in 0..edges.len() {
+        if step == *target {break;}
+        let mut successors=edges.iter().filter(|(before,_)|*before==step);
+        let next=&successors.next().ok_or("installer_environment_revision_unowned")?.1;
+        require(successors.next().is_none(),"environment_revision_ownership_conflict")?;
+        step=next.clone();
+    }
+    require(step == *target,"installer_environment_revision_unowned")
 }
 /// Every retained revision edge, `(before, after)`, once per composition.
 fn revision_edges(m: &Manager) -> Result<std::sync::Arc<Vec<(Environment, Environment)>>> {
@@ -419,6 +430,22 @@ fn read_runtime_records(m: &Manager) -> Result<Vec<RuntimeBinding>> {
         atomic_json(&owned.join("renderer-maintenance.json"),&binding).unwrap();
         atomic_json(&binding.environment.root.join("environment.json"),&binding.environment).unwrap();
         (f,binding)
+    }
+    #[test] fn a_composition_follows_a_runtime_change_made_after_it_derived_the_edges() {
+        let f=test_fixture::Fixture::new();
+        test_fixture::retained_history(&f,test_fixture::Changes::Runtimes,1,2,0);
+        let created=runtime_records(&f.m).unwrap()[0].before.clone();
+        let change=test_fixture::withheld_runtime_change(&f.m);
+        let composing=f.m.composing();
+        assert_eq!(current_environment(&composing,&created).unwrap().revision,2);
+        // The edge record lands first, then the environment it leads to.
+        change();
+        assert_eq!(current_environment(&composing,&created).unwrap().revision,3,
+            "the composition's edges are older than the environment it reads now");
+        assert_eq!(current_environment(&f.m,&created).unwrap().revision,3);
+        let mut unowned=created.clone();unowned.revision=4;
+        assert_eq!(require_owned_revision(&composing,&created,&unowned).unwrap_err().to_string(),
+            "installer_environment_revision_unowned");
     }
     #[test] fn renderer_history_reads_exact_owned_edge_without_live_session_or_current_images() {
         let (f,binding)=renderer_edge();

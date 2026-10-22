@@ -379,12 +379,13 @@ fn exchanges_match(reference: &Path, published: service::Published) {
             service.manager_command(program).exchange(request, None));
         // A first read may settle retained records; compare the reads after it.
         let _ = exchange(None);
-        // The overview's platform assessment does not wait for registry.lock,
-        // and a census the service answers meanwhile holds it: that reply
-        // then names its DAW consumers unverified. Read such a pair again.
         let mut pair = (exchange(Some(reference)), exchange(None));
+        // The interactive overview's platform probe takes registry.lock
+        // without waiting, so when the lock is held it names its DAW consumers
+        // unverified: a pre-existing race, tracked separately. Only that read
+        // is read again.
         for _ in 0..2 {
-            if pair.0 == pair.1 { break; }
+            if pair.0 == pair.1 || !matches!(request, contract::Request::Read(contract::Read::Overview)) { break; }
             pair = (exchange(Some(reference)), exchange(None));
         }
         assert_eq!(pair.0, pair.1, "{request:?}");
