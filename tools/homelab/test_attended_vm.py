@@ -12,13 +12,13 @@ import attended_vm as vm
 
 class AdmissionTests(unittest.TestCase):
     def test_memory_reserve_includes_the_complete_container_ceiling(self):
-        config = {"NanoCpus": 2_000_000_000, "Memory": 5 * vm.GIB,
-                  "MemorySwap": 5 * vm.GIB, "RestartPolicy": {"Name": "no"}}
+        config = {"NanoCpus": 2_000_000_000, "Memory": 7 * vm.GIB,
+                  "MemorySwap": 7 * vm.GIB, "RestartPolicy": {"Name": "no"}}
         with self.assertRaisesRegex(RuntimeError, "memory reserve"):
-            vm.require_capacity(config, 9 * vm.GIB - 1)
-        vm.require_capacity(config, 9 * vm.GIB)
+            vm.require_capacity(config, 11 * vm.GIB - 1)
+        vm.require_capacity(config, 11 * vm.GIB)
         with self.assertRaisesRegex(RuntimeError, "no extra swap"):
-            vm.require_capacity(dict(config, MemorySwap=6 * vm.GIB), 12 * vm.GIB)
+            vm.require_capacity(dict(config, MemorySwap=8 * vm.GIB), 16 * vm.GIB)
 
     def test_either_existing_lock_prevents_even_the_workload_census(self):
         with tempfile.TemporaryDirectory() as directory:

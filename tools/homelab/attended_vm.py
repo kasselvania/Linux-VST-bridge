@@ -14,6 +14,10 @@ BASE = Path("/mnt/Storage2/LinuxPluginBridge")
 VM = "lvb430-test205-cachyos"
 QMP = BASE / "runtime-430/fresh-cachyos/qmp.sock"
 GIB = 1024**3
+# Guest memory and the container ceiling around it (QEMU overhead included).
+# With the 4 GiB reserve the host needs 11 GiB available to start the fixture.
+GUEST_MIB = 6144
+CEILING = 7 * GIB
 LEASE_SECONDS = 25 * 60
 
 
@@ -45,8 +49,8 @@ def pressure():
 def require_capacity(config, available):
     if config["NanoCpus"] != 2_000_000_000:
         raise RuntimeError("fixture must be limited to two CPUs")
-    if config["Memory"] != 5 * GIB or config["MemorySwap"] != 5 * GIB:
-        raise RuntimeError("fixture must have a 5 GiB ceiling with no extra swap")
+    if config["Memory"] != CEILING or config["MemorySwap"] != CEILING:
+        raise RuntimeError("fixture must have a 7 GiB ceiling with no extra swap")
     if config["RestartPolicy"]["Name"] != "no":
         raise RuntimeError("automatic fixture restart is forbidden")
     if available < config["Memory"] + 4 * GIB:
@@ -164,8 +168,8 @@ def main():
         if vm["State"]["Running"]:
             raise RuntimeError("fixture is already running")
         args = vm["Config"]["Cmd"]
-        if args[args.index("-m") + 1] != "4096":
-            raise RuntimeError("fixture guest memory must be 4 GiB")
+        if args[args.index("-m") + 1] != str(GUEST_MIB):
+            raise RuntimeError("fixture guest memory must be 6 GiB")
         pairs = list(zip(args, args[1:]))
         if ("-drive", "file=/vm/test224-data.qcow2,if=none,format=qcow2,id=lvb-test224-blank") not in pairs or (
             "-device", "usb-storage,drive=lvb-test224-blank,id=lvbtest224disk,serial=LVB-TEST224-BLANK,bus=xhci.0"
