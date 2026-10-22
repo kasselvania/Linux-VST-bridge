@@ -221,7 +221,7 @@ impl Manager {
             let environment_valid =
                 read_json::<Environment>(&r.environment.root.join("environment.json"))
                     .is_ok_and(|current| current == r.environment);
-            let runner_valid = r.environment.runner.verify().is_ok();
+            let runner_valid = self.verify_runner(&r.environment.runner).is_ok();
             let host_result = self.verify_served_host(r, installed_host, source, profiles);
             let host_valid = host_result.is_ok();
             let pending = self.publication_pending(key)?;

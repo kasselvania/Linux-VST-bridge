@@ -76,8 +76,9 @@ pub fn private_dir(p: &Path) -> Result<()> {
 }
 /// More files than this, and a composition's opened files are not named.
 const OPENED_LIMIT: usize = 65536;
-/// Each file opened, and how many times.
-type OpenedSet = std::sync::Arc<std::sync::Mutex<BTreeMap<PathBuf, u32>>>;
+/// Each file opened: how many times, and how many bytes were read from it.
+pub type OpenedReads = BTreeMap<PathBuf, (u32, u64)>;
+type OpenedSet = std::sync::Arc<std::sync::Mutex<OpenedReads>>;
 thread_local! {
     static OPENED: RefCell<Option<OpenedSet>> = const { RefCell::new(None) };
 }
@@ -116,20 +117,33 @@ pub fn with_opened_files<T>(read: impl FnOnce() -> T) -> (T, Option<std::collect
 }
 /// As [`with_opened_files`], with how many times each file was opened.
 pub fn with_opened_counts<T>(read: impl FnOnce() -> T) -> (T, Option<BTreeMap<PathBuf, u32>>) {
+    let (value, opened) = with_opened_reads(read);
+    (value, opened.map(|opened| opened.into_iter().map(|(path, (opens, _))| (path, opens)).collect()))
+}
+/// As [`with_opened_counts`], with the bytes read from each file as a
+/// record ([`read_json`]) or to hash it ([`digest`]).
+pub fn with_opened_reads<T>(read: impl FnOnce() -> T) -> (T, Option<OpenedReads>) {
     let set = OpenedSet::default();
     let value = OpenedFiles(Some(set.clone())).record(read);
     let opened = std::mem::take(&mut *set.lock().unwrap_or_else(|poisoned| poisoned.into_inner()));
     (value, (opened.len() <= OPENED_LIMIT).then_some(opened))
 }
-pub fn file(p: &Path) -> Result<File> {
+/// Count `bytes` read from `p` (and `opens` openings) for the composition
+/// running on this thread ([`with_opened_reads`]); a reader that does not
+/// use [`read_json`] says what it read.
+pub fn record_opened(p: &Path, opens: u32, bytes: u64) {
     OPENED.with(|opened| if let Some(set) = opened.borrow().as_ref() {
         let mut set = set.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some(count) = set.get_mut(p) {
-            *count = count.saturating_add(1);
+        if let Some((count, read)) = set.get_mut(p) {
+            *count = count.saturating_add(opens);
+            *read = read.saturating_add(bytes);
         } else if set.len() <= OPENED_LIMIT {
-            set.insert(p.to_path_buf(), 1);
+            set.insert(p.to_path_buf(), (opens, bytes));
         }
     });
+}
+pub fn file(p: &Path) -> Result<File> {
+    record_opened(p, 1, 0);
     let f = OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
@@ -315,11 +329,14 @@ fn digest_observed(p: &Path, mut observe: impl FnMut(DigestReadStep) -> Result<(
         let value = if let Some(value) = cached { value } else {
             let mut h = Sha256::new();
             let mut b = [0u8; 65536];
+            let mut read = 0;
             loop {
                 let n = f.read(&mut b)?;
                 if n == 0 { break; }
                 h.update(&b[..n]);
+                read += n as u64;
             }
+            record_opened(p, 0, read);
             hex(&h.finalize())
         };
         let fd_after = DigestFileIdentity::from(&f.metadata()?);
@@ -360,6 +377,7 @@ fn read_control_bytes_with(p: &Path, limit: usize, after_open: impl FnOnce() -> 
     after_open()?;
     let mut bytes = Vec::new();
     std::io::Read::by_ref(&mut held).take(limit as u64 + 1).read_to_end(&mut bytes)?;
+    record_opened(p, 0, bytes.len() as u64);
     require(bytes.len() <= limit && bytes.len() as u64 == before.length
         && DigestFileIdentity::from(&held.metadata()?) == before
         && DigestFileIdentity::from(&fs::symlink_metadata(p)?) == before,
@@ -666,8 +684,12 @@ impl Registration {
         Ok(())
     }
     pub fn verify(&self, root: &Path) -> Result<()> {
+        self.verify_with_runner(root, Runner::verify)
+    }
+    /// As [`verify`](Self::verify), with the runner verified by `runner`.
+    pub fn verify_with_runner(&self, root: &Path, runner: impl FnOnce(&Runner) -> Result<()>) -> Result<()> {
         self.validate_record(root)?;
-        self.environment.runner.verify()?;
+        runner(&self.environment.runner)?;
         self.module.verify()?;
         self.host.verify()?;
         self.native.verify()
@@ -1004,6 +1026,13 @@ impl Manager {
         let value = value.downcast_ref::<std::result::Result<T, DerivedError>>()
             .ok_or("derived_fact_type")?;
         value.clone().map_err(Into::into)
+    }
+    /// `runner`'s full verification ([`Runner::verify`]). While composing, a
+    /// runtime shared by several plug-ins is verified once for all of them,
+    /// as a status read or as a launch verifies it.
+    pub fn verify_runner(&self, runner: &Runner) -> Result<()> {
+        self.derive_once(&format!("runner_verified:{}:{}", catalogue::runner_key(runner)?,
+            readback_digests_active()), || runner.verify())
     }
     pub fn lock(&self, name: &str) -> Result<Lock> {
         // Only an operator action waits, and only for the lock status reads share.

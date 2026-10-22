@@ -6,8 +6,11 @@ use linux_vst_bridge::{operator_model as ui, preparation as prep};
 pub(super) fn project(m: &Manager, product: &mut ui::Product,
     workflow: &mut ui::CompatibilityWorkflow, view: &prep::View,
     candidates: &[prep::Candidate], busy: Option<&str>) -> Result<()> {
-    let Some(c) = candidates.iter().find(|c|
-        c.id().ok().as_deref() == workflow.current_candidate.as_deref()) else { return Ok(()) };
+    // Only this product's candidates can be its current one.
+    let Some(c) = candidates.iter().filter(|c| c.selection.class.id == product.class_id
+        && c.selection.module.sha256 == product.module_sha256
+        && c.selection.environment.id == product.environment)
+        .find(|c| c.id().ok().as_deref() == workflow.current_candidate.as_deref()) else { return Ok(()) };
     let id = c.id()?;
     let row = view.candidates.iter().find(|row| row.id == id).ok_or("graphics_candidate_view")?;
     let mut configuration = prep::configuration::view(m, c)?;

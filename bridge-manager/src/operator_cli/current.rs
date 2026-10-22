@@ -230,11 +230,15 @@ pub(super) struct CurrentOverviewContext {
     captured_at: Instant,
 }
 impl CurrentOverviewContext {
+    /// Stamp the preparation records a projection read. The view's own files
+    /// are bounded at capture; each product's history, and all of them
+    /// together, by the readback, which leaves out what it cannot watch.
     pub(super) fn capture_preparation_watches(&mut self) -> Result<()> {
+        require(self.preparation.watching(), "preparation_record_watch_absent")?;
         for path in self.preparation.watched_paths()? {
             if !self.watched.contains_key(&path) { self.watched.insert(path.clone(), stamp(&path)?); }
         }
-        require(self.watched.len() <= 4096, "operator_current_watch_bound")
+        Ok(())
     }
     pub(super) fn class_busy(&self, class: &str) -> Option<&'static str> {
         class_inactive_reason(&self.snapshot.system, &self.owners, self.all_vendor_retired, class)
@@ -755,7 +759,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     let token_at = Instant::now(); phases.push(("token_before",token_at.duration_since(started).as_millis()));
     let authority_observed = timing::span(Stage::CaptureSoftwareCatalogue);
     let sw = software_record(m)?;
-    let preparation = preparation::RecordReadback::capture(m)?;
+    let preparation = preparation::RecordReadback::capture_watched(m)?;
     let mut watched = watch_paths(m, &sw, &db)?;
     let catalogue = operator_catalogue_records(m, &sw, &db, &preparation)?;
     for path in preparation.watched_paths()? { watched.insert(path.clone(), stamp(&path)?); }
@@ -1399,7 +1403,7 @@ pub(super) mod tests {
                 bridge:Default::default()},
             busy:None,profiles:vec![],revisions:BTreeMap::new(),
             current_generation:pulse_generation(m).unwrap(),
-            software,registry:m.registry().unwrap(),preparation:preparation::RecordReadback::capture(m).unwrap(),
+            software,registry:m.registry().unwrap(),preparation:preparation::RecordReadback::capture_watched(m).unwrap(),
             bindings:vec![],
             owners:capacity::owners(m).unwrap(),watched,installer_live:BTreeMap::new(),
             vendor_progress:None,
@@ -2044,12 +2048,15 @@ pub(super) mod tests {
             .iter().map(|operation| onboarding::unit(operation).unwrap()).collect();
         (f, candidates, units)
     }
-    const PAGES: [&str; 2] = ["current overview", "plug-in page"];
-    /// The current overview, or the first plug-in's page, as written.
+    const PAGES: [&str; 3] = ["current overview", "plug-in page", "snapshot"];
+    /// The current overview, the first plug-in's page, or the snapshot, as written.
     fn page(m: &Manager, candidates: &[linux_vst_bridge::preparation::Candidate], name: &str) -> Result<Vec<u8>> {
         let s = &candidates[0].selection;
-        Ok(if name == PAGES[0] { serde_json::to_vec(&current_overview(m)?)? } else {
-            serde_json::to_vec(&product_detail(m, &s.environment.id, &s.module.sha256, &s.class.id)?)?
+        Ok(match name {
+            "current overview" => serde_json::to_vec(&current_overview(m)?)?,
+            "plug-in page" => serde_json::to_vec(&product_detail(m, &s.environment.id, &s.module.sha256, &s.class.id)?)?,
+            _ => serde_json::to_vec(&snapshot_for_operation(m, None, OPERATOR_WAIT, &mut vec![],
+                &|| crate::operator_cli::tests::capacity_fixture(m))?)?,
         })
     }
     #[test]
@@ -2060,9 +2067,10 @@ pub(super) mod tests {
         let (f, candidates, units) = retained_history();
         readiness::with_unit_state_fixture(&units, "inactive", || {
             for name in PAGES {
-                let server = overview_service_reply(&f.m, capacity_json(false,0,0));
+                // The snapshot is given the service's census directly.
+                let server = (name != "snapshot").then(|| overview_service_reply(&f.m, capacity_json(false,0,0)));
                 let (composed, opened) = linux_vst_bridge::with_opened_counts(|| page(&f.m, &candidates, name));
-                server.join().unwrap();
+                if let Some(server) = server { server.join().unwrap(); }
                 composed.unwrap();
                 let opened = opened.unwrap();
                 let records: Vec<_> = opened.iter().filter(|(path, _)|
@@ -2073,6 +2081,11 @@ pub(super) mod tests {
                 // opens it at least as often as there are setups.
                 let (path, most) = records.iter().max_by_key(|(_, opens)| **opens).unwrap();
                 assert!((**most as usize) < SETUPS, "{name} opened {path:?} {most} times");
+                // The snapshot read the registry once for every retained
+                // preparation it showed (#503). Each setup's card still reads
+                // it twice; nothing else reads it once per record.
+                let registry = opened.get(&f.m.root.join("registry.json")).copied().unwrap_or(0);
+                assert!((registry as usize) < 5 * (SETUPS + 1), "{name} opened the registry {registry} times");
             }
         });
     }

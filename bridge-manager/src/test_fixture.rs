@@ -606,6 +606,82 @@ pub(crate) fn retained_history(f: &Fixture, changes: Changes, setups: usize, edg
     units
 }
 
+/// Give the fixture setup a runtime of `files` files with its tree manifest,
+/// as a delivered runtime has, and record the observations a launch leaves
+/// for status reads to check its files against.
+#[allow(dead_code)] // This shared fixture is also compiled by library-only tests.
+pub(crate) fn runtime_tree(f: &mut Fixture, files: usize) {
+    use serde_json::json;
+    let base = f.outer.join("runtime");
+    let directory = |relative: &Path| {
+        private_dir(&base.join(relative)).unwrap();
+        json!({"path":relative,"sha256":null,"target":null,"size":0,"mode":0o700,"directory":true})
+    };
+    let file = |relative: PathBuf, bytes: &[u8]| {
+        let path = base.join(&relative);
+        fs::write(&path, bytes).unwrap();
+        let artifact = Artifact { sha256: digest(&path).unwrap(), path };
+        (json!({"path":relative,"sha256":artifact.sha256,"target":null,"size":bytes.len(),
+            "mode":0o600,"directory":false}), artifact)
+    };
+    let mut rows = vec![directory(Path::new("lib"))];
+    let (proton, entry) = (file("proton".into(), b"runner"), file("entry".into(), b"runtime"));
+    rows.extend([proton.0, entry.0]);
+    for index in 0..files {
+        let parent = PathBuf::from("lib").join(format!("{:03}", index / 200));
+        if index % 200 == 0 { rows.push(directory(&parent)); }
+        rows.push(file(parent.join(format!("module-{index}.dll")), format!("runtime file {index}").as_bytes()).0);
+    }
+    let tree = base.join("runtime-tree.json");
+    atomic_json(&tree, &rows).unwrap();
+    let tree = Artifact { sha256: digest(&tree).unwrap(), path: tree };
+    let runner = Runner { id: "exact-runner-1".into(), version: "pinned".into(), proton: proton.1.path.clone(),
+        entry_point: entry.1.path.clone(), files: vec![proton.1, entry.1, tree], policy: None };
+    runner.verify().unwrap();
+    f.r.environment.runner = runner;
+    atomic_json(&f.r.environment.root.join("environment.json"), &f.r.environment).unwrap();
+}
+/// What a long-used installation retains of its preparations, in the shape
+/// of the maintainer's Deck (#503): each of `candidates` recorded after
+/// `earlier` preparations of the same plug-in, each with its own native
+/// build, as one lineage. Records only; none is published.
+#[allow(dead_code)] // This shared fixture is also compiled by library-only tests.
+pub(crate) fn preparation_history(f: &Fixture, candidates: &[preparation::Candidate], earlier: usize) {
+    let lineage = f.m.root.join("preparation/lineage");
+    let mut ordinal = 0;
+    // The ordinary owner finds a predecessor among every retained candidate;
+    // this history is recorded with its lineage written first instead.
+    let mut record = |candidate: &preparation::Candidate, predecessor: Option<String>| {
+        let id = candidate.id().unwrap();
+        ordinal += 1;
+        private_dir(&lineage.join(&id)).unwrap();
+        atomic_json(&lineage.join(&id).join("record.json"), &preparation::CandidateLineage {
+            schema: 1, candidate: id.clone(), preparation_identity: id.clone(), ordinal, predecessor }).unwrap();
+        preparation::record_candidate(&f.m, candidate).unwrap()
+    };
+    for candidate in candidates {
+        let mut predecessor = None;
+        for generation in 0..earlier {
+            let work = f.m.root.join("preparation/work").join(random_id().unwrap());
+            private_dir(&work).unwrap();
+            let mut native = candidate.native.clone();
+            native.artifact.path = work.join("native.so");
+            fs::write(&native.artifact.path, format!("earlier native build {generation}")).unwrap();
+            native.artifact.sha256 = digest(&native.artifact.path).unwrap();
+            if let Some(descriptor) = native.descriptor.as_mut() {
+                let copy = work.join(descriptor.path.file_name().unwrap());
+                fs::copy(&descriptor.path, &copy).unwrap();
+                descriptor.path = copy;
+            }
+            let prior = preparation::prepared(candidate.selection.clone(), candidate.inspection.clone(),
+                native, candidate.host.clone(), candidate.source_manifest.clone(),
+                candidate.recipe_sha256.clone()).unwrap();
+            predecessor = Some(record(&prior, predecessor));
+        }
+        record(candidate, predecessor);
+    }
+}
+
 /// Undo a retained history's last runtime change, as if it had not been
 /// made yet. The returned closure makes it the way the product does: its edge
 /// record first, then the environment it leads to.

@@ -53,7 +53,8 @@ pub fn retain_lineage(
             ordinal,
             predecessor: predecessor.map(str::to_owned),
         },
-    )
+    )?;
+    changed(m)
 }
 pub fn lineage(m: &Manager, c: &Candidate) -> Result<CandidateLineage> {
     let path = object(m, "lineage", &c.id()?)?.join("record.json");
@@ -234,6 +235,17 @@ pub(super) fn materialize_legacy(m: &Manager, c: &Candidate, b: &Value) -> Resul
     materialize_legacy_with(m, c, b, None)
 }
 pub(super) fn materialize_legacy_with(
+    m: &Manager,
+    c: &Candidate,
+    b: &Value,
+    fail: Option<MaterializeBoundary>,
+) -> Result<()> {
+    let written = write_legacy(m, c, b, fail);
+    // What it wrote changes the state token, even when it stopped part way.
+    changed(m)?;
+    written
+}
+fn write_legacy(
     m: &Manager,
     c: &Candidate,
     b: &Value,

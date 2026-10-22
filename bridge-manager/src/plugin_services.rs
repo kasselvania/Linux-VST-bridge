@@ -20,6 +20,7 @@ fn registry(environment: &Environment) -> Result<Option<String>> {
     if !path.try_exists()? {return Ok(None)}
     let mut hive=String::new();
     file(&path)?.take(16*1024*1024+1).read_to_string(&mut hive)?;
+    linux_vst_bridge::record_opened(&path,0,hive.len() as u64);
     require(hive.len()<=16*1024*1024,"plugin_service_registry_bound")?;
     Ok(Some(hive))
 }
