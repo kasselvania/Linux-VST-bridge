@@ -23,3 +23,10 @@ tar = "=0.4.46"
 flate2 = "=1.1.10"
 xz2 = { version = "=0.1.7", features = ["static"] }
 ed25519-dalek = { version = "=2.2.0", default-features = false, features = ["std"] }
+
+# Needs a disposable account, a user systemd manager and a downloaded Wine
+# runtime; see the test's own documentation and .github/workflows.
+[[test]]
+name = "native_access_signin"
+path = "tests/native_access_signin/main.rs"
+required-features = ["runtime-revision-fixture"]

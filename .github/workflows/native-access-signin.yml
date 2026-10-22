@@ -1,0 +1,123 @@
+name: Native Access browser return
+# The sign-in return through the real handler, supervisor, launch adapter and
+# a product-delivered Wine runtime, with a first-party stand-in app
+# (bridge-manager/tests/native_access_signin). Pull requests run the
+# recommended runtime; main runs every runtime a setup can be on.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'bridge-manager/**'
+      - 'tools/is2/**'
+      - 'windows-fixtures/browser-return/**'
+      - 'native-audio-client/**'
+      - 'plugin-descriptor/**'
+      - '.github/workflows/native-access-signin.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'bridge-manager/**'
+      - 'tools/is2/**'
+      - 'windows-fixtures/browser-return/**'
+      - 'native-audio-client/**'
+      - 'plugin-descriptor/**'
+      - '.github/workflows/native-access-signin.yml'
+permissions:
+  contents: read
+jobs:
+  browser-return:
+    name: browser return on ${{ matrix.runtime }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: ${{ fromJSON(github.ref == 'refs/heads/main' && '["r4","r5","r7"]' || '["r7"]') }}
+    env:
+      ARCHIVES: /var/tmp/lvb-runtime-archives
+      FIXTURE: ${{ github.workspace }}/../browser-return
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Windows cross compilers
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-mingw-w64-x86-64 xvfb dbus-user-session >/dev/null
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Select the disposable host interpreter at the product path
+        run: |
+          python -m pip install --quiet ziglang==0.14.1
+          sudo ln -sfn "$(command -v python3)" /usr/bin/python3
+          /usr/bin/python3 -I -B -c 'import sys; print(sys.version)'
+      # The launch adapter with its recorded recipe (tools/naui2/package.py),
+      # and the stand-in with mingw-w64.
+      - name: Build the launch adapter and the stand-in app
+        run: |
+          mkdir -p "$FIXTURE"
+          python -m ziglang c++ -target x86_64-windows-gnu -std=c++20 -O2 -municode -DUNICODE -D_UNICODE \
+            tools/is2/launch.cpp -lbcrypt -ladvapi32 -o "$FIXTURE/adapter.exe"
+          x86_64-w64-mingw32-gcc -std=c11 -O2 -Wall -Wextra -Werror -municode -mwindows \
+            -o "$FIXTURE/stand-in.exe" windows-fixtures/browser-return/single_instance_app.c \
+            -lbcrypt -lws2_32 -lshell32
+          sha256sum "$FIXTURE"/*.exe
+      - run: rustup toolchain install 1.95.0 --profile minimal --component clippy
+      - name: Build the manager and the test
+        run: cargo +1.95.0 test --release --locked --manifest-path bridge-manager/Cargo.toml --features runtime-revision-fixture --test native_access_signin --no-run
+      - run: cargo +1.95.0 clippy --release --locked --manifest-path bridge-manager/Cargo.toml --features runtime-revision-fixture --test native_access_signin -- -D warnings
+      - name: Restore downloaded runtime archives
+        id: archives
+        uses: actions/cache/restore@v4
+        with:
+          path: /var/tmp/lvb-runtime-archives
+          key: lvb-runtime-archives-${{ matrix.runtime }}-${{ hashFiles('bridge-manager/src/runtime_delivery.rs') }}
+      # The runner account is disposable. Give it what a desktop login has:
+      # its own systemd manager with a session bus, and an X server.
+      - name: User session, display and a second account
+        run: |
+          mkdir -p "$ARCHIVES"
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          sudo loginctl enable-linger "$USER"
+          uid=$(id -u)
+          for _ in $(seq 1 120); do test -S /run/user/$uid/bus && test -S /run/user/$uid/systemd/private && break; sleep 0.5; done
+          echo "XDG_RUNTIME_DIR=/run/user/$uid" >> "$GITHUB_ENV"
+          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus" >> "$GITHUB_ENV"
+          export XDG_RUNTIME_DIR=/run/user/$uid
+          systemd-run --user --unit=lvb-test-display.service /usr/bin/Xvfb :99 -screen 0 1280x800x24 -nolisten tcp
+          systemctl --user set-environment DISPLAY=:99
+          for _ in $(seq 1 60); do test -S /tmp/.X11-unix/X99 && break; sleep 0.5; done
+          sudo useradd --system --no-create-home lvb-other
+      - name: Browser return on ${{ matrix.runtime }}
+        timeout-minutes: 20
+        env:
+          LVB_DISPOSABLE_ACCOUNT: '1'
+          LVB_SIGNIN_RUNTIME: managed-ge-proton11-7-slr4-20260805-${{ matrix.runtime }}
+          LVB_SIGNIN_ARCHIVES: /var/tmp/lvb-runtime-archives
+          LVB_SIGNIN_OTHER_USER: lvb-other
+        run: |
+          export LVB_SIGNIN_ADAPTER="$(realpath "$FIXTURE/adapter.exe")" LVB_SIGNIN_STAND_IN="$(realpath "$FIXTURE/stand-in.exe")"
+          export LVB_SIGNIN_REPORT="$(realpath "$FIXTURE")/report.md"
+          cargo +1.95.0 test --release --locked --manifest-path bridge-manager/Cargo.toml --features runtime-revision-fixture --test native_access_signin -- --nocapture
+      - name: Timing
+        if: always()
+        run: test -f "$FIXTURE/report.md" && cat "$FIXTURE/report.md" >> "$GITHUB_STEP_SUMMARY" || true
+      # Records only, never a prefix or private capture; any fake code redacted.
+      # The pattern avoids spelling the marker, which the test searches for.
+      - name: Session records after a failure
+        if: failure()
+        run: |
+          managed=~/.local/share/linux-vst-bridge/managed
+          systemctl --user list-units --all 'linux-vst-bridge*' --no-pager || true
+          for f in $(find "$managed/vendor-applications" -maxdepth 3 -name '*.json' -size -2M 2>/dev/null) \
+                   $(find "$managed/environments" -path '*/drive_c/LVBStandIn/*' -size -1M 2>/dev/null); do
+            echo "== ${f#$managed/}"; sed -E 's/lvbfake[c]ode[0-9a-f]*/<code>/g' "$f" | head -c 20000; echo
+          done
+          journalctl --user -b --no-pager -n 200 | sed -E 's/lvbfake[c]ode[0-9a-f]*/<code>/g' || true
+      - name: Keep downloaded runtime archives
+        if: always() && steps.archives.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: /var/tmp/lvb-runtime-archives
+          key: lvb-runtime-archives-${{ matrix.runtime }}-${{ hashFiles('bridge-manager/src/runtime_delivery.rs') }}

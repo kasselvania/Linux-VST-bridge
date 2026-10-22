@@ -111,6 +111,10 @@ cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets --
 python3 -m unittest discover -s bridge-manager/runtime -v
 ```
 
+The Native Access browser return has its own end-to-end test on a real Wine
+runtime with a first-party stand-in app. It needs a disposable account; see
+`tests/native_access_signin/main.rs` and `.github/workflows/native-access-signin.yml`.
+
 Run native and Windows lanes only when their owners or shared contracts change. Synthetic tests do not substitute for real ASC, Pigments, and normally launched Bitwig evidence.
 
 ## Accepted Pigments software
