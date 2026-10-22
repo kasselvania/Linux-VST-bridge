@@ -1664,177 +1664,177 @@ pub(super) mod tests {
         // Model them rather than depending on the test host's user manager.
         let units=[onboarding::unit(&"12".repeat(16)).unwrap(),vendor_cli::unit(&"ab".repeat(32)).unwrap()];
         readiness::with_unit_state_fixture(&units,"inactive",|| {
-        let fixture=test_fixture::Fixture::new();
-        let m=&fixture.m;
-        let a=fixture.r.host.clone();
-        let sw=Software {installer_launch:None,preparation_kit:None,operator_frontend:None,
-            manager:a.clone(),supervisor:a.clone(),ownership:a.clone(),host:a.clone(),
-            source_manifest:a,source_sha256:"ab".repeat(32),native_catalogue:None};
-        let installer_id="ab".repeat(32);
-        let installer_path=m.root.join("installers").join(format!("{installer_id}.exe"));
-        private_dir(installer_path.parent().unwrap()).unwrap();
-        fs::write(&installer_path,b"installer").unwrap();
-        let installer=installer_import::Installer {schema:1,id:installer_id.clone(),
-            artifact:Artifact {path:installer_path.clone(),sha256:installer_id.clone()},
-            byte_size:9,format:"pe_executable".into(),name_hint:"Fixture".into(),
-            source_class:"operator_selected_file".into(),import_result:"imported".into(),
-            created_at:1,vendor:None,product:None};
-        let installer_record=m.root.join("installers").join(format!("{installer_id}.json"));
-        atomic_json(&installer_record,&installer).unwrap();
-        let presentation=m.root.join("installers/presentation").join(format!("{installer_id}.json"));
-        private_dir(presentation.parent().unwrap()).unwrap();
-        atomic_json(&presentation,&installer_import::Presentation {schema:1,
-            installer_sha256:installer_id.clone(),display_label:"Fixture".into(),
-            label_source:"operator_named".into(),updated_at:1}).unwrap();
-        let environment_id="ef".repeat(16);
-        let mut environment=fixture.r.environment.clone();
-        environment.id=environment_id.clone();
-        environment.root=m.root.join("environments").join(&environment_id);
-        private_dir(&environment.root).unwrap();
-        atomic_json(&environment.root.join("environment.json"),&environment).unwrap();
-        let operation="12".repeat(16);
-        let onboarding_dir=m.root.join("onboarding").join(&environment_id);
-        private_dir(&onboarding_dir).unwrap();
-        let onboarding_record=onboarding_dir.join("record.json");
-        atomic_json(&onboarding_record,&onboarding::Record {schema:1,id:environment_id.clone(),
-            installer:installer_id,environment,created_at:1,creation_operation:"34".repeat(16),
-            installation_operation:Some(operation.clone()),published:false,automatic:None,previous_attempt:None}).unwrap();
-        let result=onboarding_dir.join(format!("{operation}-result.json"));
-        fs::write(&result,b"old result").unwrap();
-        let private_report=onboarding_dir.join(format!("{operation}-transaction-private.json"));
-        let mut observation=json!({"schema":1,"operation":operation,
-            "durable_installation":{"application_registrations":[]},"diagnostics":{"progress":0}});
-        atomic_json(&private_report,&observation).unwrap();
-        let inventory=m.root.join("inventory").join(format!("{environment_id}.json"));
-        private_dir(inventory.parent().unwrap()).unwrap();
-        fs::write(&inventory,b"old scan").unwrap();
-        let workspace=m.root.join("daw-workspaces/fl-studio/workspace.json");
-        let pending=m.root.join("transactions").join(format!("{}.pending.json","56".repeat(16)));
-        private_dir(pending.parent().unwrap()).unwrap();
-        fs::write(&pending,b"old pending").unwrap();
-        let class="78".repeat(16);
-        let performance=m.root.join("performance").join(format!("{class}.json"));
-        private_dir(performance.parent().unwrap()).unwrap();
-        fs::write(&performance,b"old performance").unwrap();
-        let mut db=Registry::default();
-        let mut registration=fixture.r.clone();
-        registration.metadata.class_id=class;
-        db.classes.insert(registration.key(),linux_vst_bridge::Entry {
-            registration,publication:Publication::Removed,managed_revision:None});
-        let before=watch_paths(m,&sw,&db).unwrap();
-        let vendor=m.root.join("vendor-applications");
-        let context=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
-        let before_mode=stamp(&installer_path).unwrap();
-        fs::set_permissions(&installer_path,fs::Permissions::from_mode(0o600)).unwrap();
-        assert_ne!(stamp(&installer_path).unwrap(),before_mode);
-        assert!(context.recheck(m).is_err());
-        for path in [&vendor,&installer_record,&installer_path,&presentation,&onboarding_record,
-            &result,&private_report,&inventory,&pending,&performance,&workspace] {
-            assert!(before.contains_key(path),"unwatched current input: {}",path.display());
+            let fixture=test_fixture::Fixture::new();
+            let m=&fixture.m;
+            let a=fixture.r.host.clone();
+            let sw=Software {installer_launch:None,preparation_kit:None,operator_frontend:None,
+                manager:a.clone(),supervisor:a.clone(),ownership:a.clone(),host:a.clone(),
+                source_manifest:a,source_sha256:"ab".repeat(32),native_catalogue:None};
+            let installer_id="ab".repeat(32);
+            let installer_path=m.root.join("installers").join(format!("{installer_id}.exe"));
+            private_dir(installer_path.parent().unwrap()).unwrap();
+            fs::write(&installer_path,b"installer").unwrap();
+            let installer=installer_import::Installer {schema:1,id:installer_id.clone(),
+                artifact:Artifact {path:installer_path.clone(),sha256:installer_id.clone()},
+                byte_size:9,format:"pe_executable".into(),name_hint:"Fixture".into(),
+                source_class:"operator_selected_file".into(),import_result:"imported".into(),
+                created_at:1,vendor:None,product:None};
+            let installer_record=m.root.join("installers").join(format!("{installer_id}.json"));
+            atomic_json(&installer_record,&installer).unwrap();
+            let presentation=m.root.join("installers/presentation").join(format!("{installer_id}.json"));
+            private_dir(presentation.parent().unwrap()).unwrap();
+            atomic_json(&presentation,&installer_import::Presentation {schema:1,
+                installer_sha256:installer_id.clone(),display_label:"Fixture".into(),
+                label_source:"operator_named".into(),updated_at:1}).unwrap();
+            let environment_id="ef".repeat(16);
+            let mut environment=fixture.r.environment.clone();
+            environment.id=environment_id.clone();
+            environment.root=m.root.join("environments").join(&environment_id);
+            private_dir(&environment.root).unwrap();
+            atomic_json(&environment.root.join("environment.json"),&environment).unwrap();
+            let operation="12".repeat(16);
+            let onboarding_dir=m.root.join("onboarding").join(&environment_id);
+            private_dir(&onboarding_dir).unwrap();
+            let onboarding_record=onboarding_dir.join("record.json");
+            atomic_json(&onboarding_record,&onboarding::Record {schema:1,id:environment_id.clone(),
+                installer:installer_id,environment,created_at:1,creation_operation:"34".repeat(16),
+                installation_operation:Some(operation.clone()),published:false,automatic:None,previous_attempt:None}).unwrap();
+            let result=onboarding_dir.join(format!("{operation}-result.json"));
+            fs::write(&result,b"old result").unwrap();
+            let private_report=onboarding_dir.join(format!("{operation}-transaction-private.json"));
+            let mut observation=json!({"schema":1,"operation":operation,
+                "durable_installation":{"application_registrations":[]},"diagnostics":{"progress":0}});
+            atomic_json(&private_report,&observation).unwrap();
+            let inventory=m.root.join("inventory").join(format!("{environment_id}.json"));
+            private_dir(inventory.parent().unwrap()).unwrap();
+            fs::write(&inventory,b"old scan").unwrap();
+            let workspace=m.root.join("daw-workspaces/fl-studio/workspace.json");
+            let pending=m.root.join("transactions").join(format!("{}.pending.json","56".repeat(16)));
+            private_dir(pending.parent().unwrap()).unwrap();
+            fs::write(&pending,b"old pending").unwrap();
+            let class="78".repeat(16);
+            let performance=m.root.join("performance").join(format!("{class}.json"));
+            private_dir(performance.parent().unwrap()).unwrap();
+            fs::write(&performance,b"old performance").unwrap();
+            let mut db=Registry::default();
+            let mut registration=fixture.r.clone();
+            registration.metadata.class_id=class;
+            db.classes.insert(registration.key(),linux_vst_bridge::Entry {
+                registration,publication:Publication::Removed,managed_revision:None});
+            let before=watch_paths(m,&sw,&db).unwrap();
+            let vendor=m.root.join("vendor-applications");
             let context=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
-            context.recheck(m).unwrap();
-            let original=fs::read(path).ok();
-            if path == &vendor {private_dir(path).unwrap();}
-            else {
-                private_dir(path.parent().unwrap()).unwrap();
-                fs::write(path,b"a changed current record").unwrap();
+            let before_mode=stamp(&installer_path).unwrap();
+            fs::set_permissions(&installer_path,fs::Permissions::from_mode(0o600)).unwrap();
+            assert_ne!(stamp(&installer_path).unwrap(),before_mode);
+            assert!(context.recheck(m).is_err());
+            for path in [&vendor,&installer_record,&installer_path,&presentation,&onboarding_record,
+                &result,&private_report,&inventory,&pending,&performance,&workspace] {
+                assert!(before.contains_key(path),"unwatched current input: {}",path.display());
+                let context=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
+                context.recheck(m).unwrap();
+                let original=fs::read(path).ok();
+                if path == &vendor {private_dir(path).unwrap();}
+                else {
+                    private_dir(path.parent().unwrap()).unwrap();
+                    fs::write(path,b"a changed current record").unwrap();
+                }
+                assert_ne!(stamp(path).unwrap(),before[path]);
+                assert!(context.recheck(m).is_err(),"accepted changed current input: {}",path.display());
+                if let Some(bytes)=original {fs::write(path,bytes).unwrap();}
+                else {
+                    if path == &vendor {fs::remove_dir(path).unwrap();}
+                    else {fs::remove_file(path).unwrap();}
+                }
             }
-            assert_ne!(stamp(path).unwrap(),before[path]);
-            assert!(context.recheck(m).is_err(),"accepted changed current input: {}",path.display());
-            if let Some(bytes)=original {fs::write(path,bytes).unwrap();}
-            else {
-                if path == &vendor {fs::remove_dir(path).unwrap();}
-                else {fs::remove_file(path).unwrap();}
-            }
-        }
-        // Registration can finish inside an already-created selector directory.
-        // Neither a root-only watch nor only registered applications covers it.
-        let unregistered=vendor.join("ab".repeat(32));
-        private_dir(&unregistered).unwrap();
-        let context=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
-        let application=unregistered.join("application.json");
-        assert!(context.watched.contains_key(&application));
-        fs::write(&application,b"new selected application").unwrap();
-        assert!(context.recheck(m).is_err());
-        fs::remove_file(application).unwrap();
-        fs::remove_dir(unregistered).unwrap();
-        // A live installer needs recovery controls while its observations change.
-        // The same file retains installation evidence after retirement, so that
-        // file remains covered by the retired-input checks above.
-        let mut live=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
-        live.installer_live.insert(operation.clone(),true);
-        live.snapshot.onboarding.push(ui::Onboarding {failure:None,
-            installer:installer.id.clone(),name:"Fixture".into(),byte_size:9,
-            format:"pe_executable".into(),environment:Some(environment_id.clone()),
-            state:"running".into(),required_human_action:"Use exact Stop".into(),
-            details:json!({"installation":{"operation":operation,"state":"running"}}),actions:vec![]});
-        atomic_json(&result,&json!({"schema":2,"operation":operation,
-            "state":"running","owned_live":2,"cleanup_confirmed":false})).unwrap();
-        live.recheck_with(m,||Ok(())).unwrap();
-        atomic_json(&result,&json!({"schema":2,"operation":operation,
-            "state":"running","owned_live":7,"cleanup_confirmed":false})).unwrap();
-        observation["diagnostics"]["progress"]=1.into();
-        atomic_json(&private_report,&observation).unwrap();
-        live.recheck_with(m,||Ok(())).unwrap();
-        for state in ["queued","starting","running","unknown"] {
-            live.snapshot.onboarding[0].details["installation"]["state"]=state.into();
+            // Registration can finish inside an already-created selector directory.
+            // Neither a root-only watch nor only registered applications covers it.
+            let unregistered=vendor.join("ab".repeat(32));
+            private_dir(&unregistered).unwrap();
+            let context=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
+            let application=unregistered.join("application.json");
+            assert!(context.watched.contains_key(&application));
+            fs::write(&application,b"new selected application").unwrap();
+            assert!(context.recheck(m).is_err());
+            fs::remove_file(application).unwrap();
+            fs::remove_dir(unregistered).unwrap();
+            // A live installer needs recovery controls while its observations change.
+            // The same file retains installation evidence after retirement, so that
+            // file remains covered by the retired-input checks above.
+            let mut live=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
+            live.installer_live.insert(operation.clone(),true);
+            live.snapshot.onboarding.push(ui::Onboarding {failure:None,
+                installer:installer.id.clone(),name:"Fixture".into(),byte_size:9,
+                format:"pe_executable".into(),environment:Some(environment_id.clone()),
+                state:"running".into(),required_human_action:"Use exact Stop".into(),
+                details:json!({"installation":{"operation":operation,"state":"running"}}),actions:vec![]});
             atomic_json(&result,&json!({"schema":2,"operation":operation,
-                "state":state,"owned_live":7,"cleanup_confirmed":false})).unwrap();
-            observation["diagnostics"]["state"]=state.into();
+                "state":"running","owned_live":2,"cleanup_confirmed":false})).unwrap();
+            live.recheck_with(m,||Ok(())).unwrap();
+            atomic_json(&result,&json!({"schema":2,"operation":operation,
+                "state":"running","owned_live":7,"cleanup_confirmed":false})).unwrap();
+            observation["diagnostics"]["progress"]=1.into();
             atomic_json(&private_report,&observation).unwrap();
             live.recheck_with(m,||Ok(())).unwrap();
-        }
-        live.snapshot.onboarding[0].details["installation"]["state"]="running".into();
-        let running=fs::read(&result).unwrap();
-        let terminal=json!({"schema":2,"operation":operation,"state":"completed",
-            "raw_exit":0,"owned_live":0,"cleanup_confirmed":true});
-        // Retirement may be published before the same live unit exits. Once
-        // terminal, durable installation observations are authoritative.
-        atomic_json(&result,&terminal).unwrap();
-        live.snapshot.onboarding[0].details["installation"]["state"]="completed".into();
-        live.watched=watch_paths(m,&sw,&db).unwrap();
-        observation["durable_installation"]["application_registrations"]=json!([{"changed":true}]);
-        atomic_json(&private_report,&observation).unwrap();
-        assert!(live.recheck_with(m,||Ok(())).is_err());
-        // A running snapshot cannot exempt a receipt that retired during
-        // capture, even if its new file stamp was captured afterward.
-        live.snapshot.onboarding[0].details["installation"]["state"]="running".into();
-        live.watched=watch_paths(m,&sw,&db).unwrap();
-        assert!(live.recheck_with(m,||Ok(())).is_err());
-        fs::write(&result,&running).unwrap();
-        live.watched=watch_paths(m,&sw,&db).unwrap();
-        let mut checks=0;
-        assert!(live.recheck_with(m,|| {
-            checks+=1;
-            if checks==2 {atomic_json(&result,&terminal)?;}
-            Ok(())
-        }).is_err());
-        assert_eq!(checks,2,"receipt transition must also be checked after the watch");
-        fs::write(&result,&running).unwrap();
-        live.watched=watch_paths(m,&sw,&db).unwrap();
-        // The real external recheck cannot accept our simulated live unit.
-        assert!(live.recheck(m).is_err());
-        live.installer_live.insert(operation.clone(),false);
-        observation["diagnostics"]["progress"]=2.into();
-        atomic_json(&private_report,&observation).unwrap();
-        assert!(live.recheck_with(m,||Ok(())).is_err());
-        live.installer_live.insert(operation.clone(),true);
-        let original_record=fs::read(&onboarding_record).unwrap();
-        let mut changed:Value=serde_json::from_slice(&original_record).unwrap();
-        changed["installation_operation"]="90".repeat(16).into();
-        atomic_json(&onboarding_record,&changed).unwrap();
-        assert!(live.recheck_with(m,||Ok(())).is_err());
-        fs::write(&onboarding_record,&original_record).unwrap();
-        // Recapture after restoring the record so only directory replacement
-        // changes custody, even when its record/result files keep their inodes.
-        live.watched=watch_paths(m,&sw,&db).unwrap();
-        let moved=onboarding_dir.with_extension("retained");
-        fs::rename(&onboarding_dir,&moved).unwrap();
-        private_dir(&onboarding_dir).unwrap();
-        for name in ["record.json".into(),format!("{operation}-result.json")] {
-            fs::rename(moved.join(&name),onboarding_dir.join(&name)).unwrap();
-        }
-        assert!(live.recheck_with(m,||Ok(())).is_err());
+            for state in ["queued","starting","running","unknown"] {
+                live.snapshot.onboarding[0].details["installation"]["state"]=state.into();
+                atomic_json(&result,&json!({"schema":2,"operation":operation,
+                    "state":state,"owned_live":7,"cleanup_confirmed":false})).unwrap();
+                observation["diagnostics"]["state"]=state.into();
+                atomic_json(&private_report,&observation).unwrap();
+                live.recheck_with(m,||Ok(())).unwrap();
+            }
+            live.snapshot.onboarding[0].details["installation"]["state"]="running".into();
+            let running=fs::read(&result).unwrap();
+            let terminal=json!({"schema":2,"operation":operation,"state":"completed",
+                "raw_exit":0,"owned_live":0,"cleanup_confirmed":true});
+            // Retirement may be published before the same live unit exits. Once
+            // terminal, durable installation observations are authoritative.
+            atomic_json(&result,&terminal).unwrap();
+            live.snapshot.onboarding[0].details["installation"]["state"]="completed".into();
+            live.watched=watch_paths(m,&sw,&db).unwrap();
+            observation["durable_installation"]["application_registrations"]=json!([{"changed":true}]);
+            atomic_json(&private_report,&observation).unwrap();
+            assert!(live.recheck_with(m,||Ok(())).is_err());
+            // A running snapshot cannot exempt a receipt that retired during
+            // capture, even if its new file stamp was captured afterward.
+            live.snapshot.onboarding[0].details["installation"]["state"]="running".into();
+            live.watched=watch_paths(m,&sw,&db).unwrap();
+            assert!(live.recheck_with(m,||Ok(())).is_err());
+            fs::write(&result,&running).unwrap();
+            live.watched=watch_paths(m,&sw,&db).unwrap();
+            let mut checks=0;
+            assert!(live.recheck_with(m,|| {
+                checks+=1;
+                if checks==2 {atomic_json(&result,&terminal)?;}
+                Ok(())
+            }).is_err());
+            assert_eq!(checks,2,"receipt transition must also be checked after the watch");
+            fs::write(&result,&running).unwrap();
+            live.watched=watch_paths(m,&sw,&db).unwrap();
+            // The real external recheck cannot accept our simulated live unit.
+            assert!(live.recheck(m).is_err());
+            live.installer_live.insert(operation.clone(),false);
+            observation["diagnostics"]["progress"]=2.into();
+            atomic_json(&private_report,&observation).unwrap();
+            assert!(live.recheck_with(m,||Ok(())).is_err());
+            live.installer_live.insert(operation.clone(),true);
+            let original_record=fs::read(&onboarding_record).unwrap();
+            let mut changed:Value=serde_json::from_slice(&original_record).unwrap();
+            changed["installation_operation"]="90".repeat(16).into();
+            atomic_json(&onboarding_record,&changed).unwrap();
+            assert!(live.recheck_with(m,||Ok(())).is_err());
+            fs::write(&onboarding_record,&original_record).unwrap();
+            // Recapture after restoring the record so only directory replacement
+            // changes custody, even when its record/result files keep their inodes.
+            live.watched=watch_paths(m,&sw,&db).unwrap();
+            let moved=onboarding_dir.with_extension("retained");
+            fs::rename(&onboarding_dir,&moved).unwrap();
+            private_dir(&onboarding_dir).unwrap();
+            for name in ["record.json".into(),format!("{operation}-result.json")] {
+                fs::rename(moved.join(&name),onboarding_dir.join(&name)).unwrap();
+            }
+            assert!(live.recheck_with(m,||Ok(())).is_err());
         });
     }
     #[test]

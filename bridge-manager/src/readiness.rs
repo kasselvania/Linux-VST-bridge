@@ -181,6 +181,9 @@ static UNIT_STATE_TURN: std::sync::Mutex<()> = std::sync::Mutex::new(());
 thread_local! {
     static UNIT_STATE_DEPTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
+/// Models `units` as `state` for the queries `run` makes, on any thread.
+/// Nest fixtures on the test's own thread only: one called from a thread that
+/// `run` spawned waits for the turn its parent holds, and the test hangs.
 #[cfg(test)]
 pub(super) fn with_unit_state_fixture<T>(units: &[String], state: &str, run: impl FnOnce() -> T) -> T {
     // Nested fixtures on one test's thread share its turn.
