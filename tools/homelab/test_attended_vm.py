@@ -19,6 +19,23 @@ class AdmissionTests(unittest.TestCase):
         vm.require_capacity(config, 11 * vm.GIB)
         with self.assertRaisesRegex(RuntimeError, "no extra swap"):
             vm.require_capacity(dict(config, MemorySwap=8 * vm.GIB), 16 * vm.GIB)
+        with self.assertRaisesRegex(RuntimeError, "7 GiB ceiling"):
+            vm.require_capacity(dict(config, Memory=5 * vm.GIB, MemorySwap=5 * vm.GIB), 16 * vm.GIB)
+
+    def test_guest_memory_and_retained_disk_are_required(self):
+        args = ["qemu-system-x86_64", "-m", "6144",
+                "-drive", "file=/vm/test224-data.qcow2,if=none,format=qcow2,id=lvb-test224-blank",
+                "-device", "usb-storage,drive=lvb-test224-blank,id=lvbtest224disk,serial=LVB-TEST224-BLANK,bus=xhci.0"]
+        vm.require_arguments(args)
+        with self.assertRaisesRegex(RuntimeError, "6 GiB"):
+            vm.require_arguments([("4096" if arg == "6144" else arg) for arg in args])
+        with self.assertRaisesRegex(RuntimeError, "disk is not attached"):
+            vm.require_arguments(args[:3])
+
+    def test_a_killed_vm_is_never_reported_as_shut_down(self):
+        self.assertIn("VM stopped", vm.stopped_notice({"Running": False, "ExitCode": 0, "OOMKilled": False}))
+        self.assertIn("memory ceiling", vm.stopped_notice({"Running": False, "ExitCode": 137, "OOMKilled": True}))
+        self.assertIn("exit code 1", vm.stopped_notice({"Running": False, "ExitCode": 1, "OOMKilled": False}))
 
     def test_either_existing_lock_prevents_even_the_workload_census(self):
         with tempfile.TemporaryDirectory() as directory:
