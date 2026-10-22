@@ -8,6 +8,9 @@ cpi2-test-contract = []
 # Private, bounded manager readback/configuration timing observation; excluded
 # from normal packages and independent of installed product qualification.
 pb0-c0-audit = []
+# Test fixture only: lets the browser-return test acquire every declared
+# runtime revision through the product's delivery code. Never in packages.
+runtime-revision-fixture = []
 [dependencies]
 lvb-plugin-descriptor = { path = "../plugin-descriptor" }
 ap1-native-client = { path = "../native-audio-client" }
