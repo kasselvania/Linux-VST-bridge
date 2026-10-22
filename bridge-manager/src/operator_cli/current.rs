@@ -1,5 +1,6 @@
-//! Current Home/Setup authority. Historical revisions, incidents and operation
-//! bodies belong to the separate Diagnostics snapshot.
+//! The view composer. Home, Setup and a plug-in's page are its current view;
+//! the Diagnostics snapshot adds verified bytes, historical revisions,
+//! incidents and sessions to the same composition.
 use super::*;
 use std::collections::{BTreeMap, BTreeSet};
 use std::os::unix::fs::MetadataExt;
@@ -679,9 +680,11 @@ pub(super) fn project_last_load(m: &Manager, product: &mut ui::Product) {
         "observed_at":record["observed_at"],"problem":problem.value()});
 }
 
+/// Plug-ins found in the setups' inventories that are not yet published.
+/// Diagnostics checks their scanner and module bytes and says more about each.
 fn append_discovered(m: &Manager, sw: &Software, environments: &[Environment],
     bindings: &[linux_vst_bridge::catalogue::EnvironmentBinding], db: &Registry,
-    products: &mut Vec<ui::Product>, busy: Option<&str>) -> Result<()> {
+    products: &mut Vec<ui::Product>, diagnostics: bool) -> Result<()> {
     for environment in environments {
         let path = m.root.join("inventory").join(format!("{}.json", environment.id));
         if !path.try_exists()? { continue; }
@@ -689,16 +692,31 @@ fn append_discovered(m: &Manager, sw: &Software, environments: &[Environment],
         require(scan.schema == 1 && scan.environment.id == environment.id,
             "operator_inventory_environment_changed")?;
         for (index, module) in scan.modules.iter().cloned().enumerate() {
-            let stale = inventory::record_stale_reason(&module, &scan.environment, &scan.host,
-                &scan.host_source_sha256, environment, &sw.host, &sw.source_sha256);
+            let stale = if diagnostics {
+                inventory::stale_reason(&module, &scan.environment, &scan.host,
+                    &scan.host_source_sha256, environment, &sw.host, &sw.source_sha256)
+            } else {
+                inventory::record_stale_reason(&module, &scan.environment, &scan.host,
+                    &scan.host_source_sha256, environment, &sw.host, &sw.source_sha256)
+            };
             if module.quarantine_reason.is_some() {
                 let retry_disabled = quarantined_retry_disabled(m, bindings, db,
                     environment)?;
-                products.push(quarantined_product(&scan,index,module,stale,busy,
+                products.push(quarantined_product(&scan,index,module,stale,None,
                     retry_disabled)?);
                 continue;
             }
             let problem = if stale.is_none() { inventory::problem(&module) } else { None };
+            let mut details = json!({"scan":scan.id,"current":stale.is_none(),"observed_at":scan.completed_at,
+                "problem":problem});
+            if diagnostics {
+                details["scanner_host_sha256"] = json!(scan.host.sha256);
+                details["scanner_source_sha256"] = json!(scan.host_source_sha256);
+                details["inspection_error"] = json!(module.inspection_error);
+                details["inspection_hint"] = json!(if stale.is_none() {
+                    inventory::inspection_hint(&module).ok().flatten() } else { None });
+                details["activation_permitted"] = json!(false);
+            }
             for class in module.classes {
                 if class.category != "Audio Module Class" || products.iter().any(|p|
                     p.class_id == class.id && p.module_sha256 == module.artifact.sha256
@@ -711,66 +729,193 @@ fn append_discovered(m: &Manager, sw: &Software, environments: &[Environment],
                     limitations:vec![stale.unwrap_or("Installed but not published").into()],
                     history:vec![],actions:vec![],compatibility:None,
                     availability:discovered_availability(problem.as_ref()),
-                    details:json!({"scan":scan.id,"current":stale.is_none(),"observed_at":scan.completed_at,
-                        "problem":problem}) });
+                    details:details.clone() });
             }
         }
     }
     Ok(())
 }
+/// Diagnostics: each published plug-in from fully verified bytes, with its
+/// retained history and the offers its history and bytes allow.
+fn verified_products(m: &Manager, sw: &Software, profiles: &[profiles::Profile], db: &Registry,
+    busy: Option<&str>, class_scope: &dyn Fn(&str) -> Option<&'static str>) -> Result<Vec<ui::Product>> {
+    let canonical = m.project_managed_registry(&sw.host, &sw.source_sha256, profiles, db)?;
+    let mut products = Vec::new();
+    for p in canonical.products {
+        let entry = db.classes.get(&p.class_id).ok_or("operator_registry_changed")?;
+        let hist = history(m, &p.class_id, entry)?;
+        let recommended = profiles.iter().find(|r| r.class.class_id == p.class_id);
+        let mut actions = Vec::new();
+        let class_busy = class_scope(&p.class_id);
+        buffering_actions(m, &entry.registration, &mut actions, class_busy);
+        actions.extend(setup_removal::plugin_offers(m, &p.class_id, entry, class_busy, busy));
+        for h in &hist {
+            if h.rollback_allowed && !h.active {
+                actions.push(action(&format!("Restore {}", h.description),
+                    ui::Action::OrdinaryRollback {class_id:p.class_id.clone(), publication:h.publication.clone()},
+                    class_busy.or(h.rollback_unavailable.as_deref())));
+            }
+        }
+        let active_revision = p.profile.as_ref().map(|p| p.revision);
+        if recommended.is_some_and(|r| Some(r.revision) != active_revision) {
+            actions.push(action("Restore recommended revision",
+                ui::Action::OrdinaryRestoreRecommended {class_id:p.class_id.clone()},
+                busy.or(recommended_restore_unavailable(m,sw,&entry.registration)?)));
+        }
+        actions.push(action("Arm crash capture for next launch",
+            ui::Action::CaptureArm {class_id:p.class_id.clone()},
+            if !p.publication_valid || p.publication != Publication::Published || p.qualification.is_some() {
+                Some("An exact ordinary publication is required")
+            } else { None }));
+        let available = p.refusal.is_none() && p.publication_valid && p.publication == Publication::Published;
+        products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),
+            vendor:entry.registration.metadata.vendor.clone(),
+            role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),
+            disposition:if available {"ready"} else {"needs_attention"}.into(),active_revision,
+            recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),
+            runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),
+            limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter()
+                .filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),
+            history:hist,actions,compatibility:None,
+            availability:Some(ui::NativeAvailability {available,
+                reason:if available {None} else {Some("The native DAW connection needs attention.".into())}}),
+            details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,
+                "module_valid":p.module_valid,"environment_valid":p.environment_valid,
+                "environment_revision":p.environment_revision,"runner_valid":p.runner_valid,
+                "runner_policy":entry.registration.environment.runner.policy,
+                "requested_graphics":linux_vst_bridge::graphics::requested_backend(entry.registration.environment.runner.policy.as_ref()),
+                "native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,
+                "publication_valid":p.publication_valid,"publication_selected":p.publication == Publication::Published,
+                "host_sha256":entry.registration.host.sha256,"host_source_sha256":entry.registration.host_source_sha256,
+                "native_sha256":entry.registration.native.sha256,"qualification":p.qualification,
+                "capabilities":p.capabilities,"compatibility":p.compatibility,
+                "recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
+    }
+    Ok(products)
+}
+
+/// What a composition is for. The current view (Home, Setup, a plug-in's
+/// page) is composed from control records and rechecked against the stamps
+/// of the files it read. The Diagnostics snapshot is the same composition with
+/// every artifact and runtime byte verified and with history, incidents and
+/// sessions added; it rechecks its state token before it is answered.
+pub(super) enum Depth<'a> {
+    Current,
+    Diagnostics(Diagnostics<'a>),
+}
+pub(super) struct Diagnostics<'a> {
+    /// The operation validating its own request against this snapshot. It
+    /// takes operator serialization, and its lock waits are recorded.
+    pub operation: Option<&'a str>,
+    pub timeout: Duration,
+    pub waits: &'a mut Vec<ui::LockFacts>,
+    pub capacity_read: &'a dyn Fn() -> Option<CapacityReadback>,
+}
 
 pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
     timing::measure(Stage::CurrentCapture, || {
-        linux_vst_bridge::with_readback_digests(|| capture_readonly(m))
+        linux_vst_bridge::with_readback_digests(|| compose_with(m, onboarding::live, Depth::Current))
     })
 }
-fn capture_readonly(m: &Manager) -> Result<CurrentOverviewContext> {
-    capture_readonly_with(m,onboarding::live)
+/// The Diagnostics snapshot: the current view's composition, verified in
+/// full, with what only Diagnostics shows.
+pub(super) fn diagnostics(m: &Manager, depth: Diagnostics<'_>) -> Result<ui::Snapshot> {
+    compose_with(m, onboarding::live, Depth::Diagnostics(depth)).map(|composed| composed.snapshot)
 }
 #[cfg(test)]
 pub(super) fn capture_with_installer_live(m: &Manager, is_live: impl FnMut(&str)->Result<bool>)
     -> Result<CurrentOverviewContext> {
-    capture_readonly_with(m,is_live)
+    compose_with(m, is_live, Depth::Current)
 }
-fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->Result<bool>)
+/// The one view composer: each fact both views show is derived here once.
+fn compose_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->Result<bool>, mut depth: Depth<'_>)
     -> Result<CurrentOverviewContext> {
     let started = Instant::now();
     let mut phases = Vec::new();
-    // Status is an observation, not a serialized user operation. Capture the
-    // registry/owners together, then perform expensive and external probes
-    // without action ownership. The caller rechecks exact tokens, file stamps,
-    // owners and external state before exposing any offered action.
-    let _registry_guard = timing::measure(Stage::CaptureRegistry, ||
-        acquire_readback(m, ui::OperatorLock::Registry, None, OPERATOR_WAIT, &mut vec![]))?;
-    let owners = capacity::owners(m)?;
-    let db = m.registry()?;
-    drop(_registry_guard);
-    let current_generation = pulse_generation(m)?;
+    let diagnostics = matches!(depth, Depth::Diagnostics(_));
+    let (owners, db, current_generation, sampled, _serialized) = match &mut depth {
+        Depth::Current => {
+            // Status is an observation, not a serialized user operation. Capture the
+            // registry/owners together, then perform expensive and external probes
+            // without action ownership. The caller rechecks exact tokens, file stamps,
+            // owners and external state before exposing any offered action.
+            let _registry_guard = timing::measure(Stage::CaptureRegistry, ||
+                acquire_readback(m, ui::OperatorLock::Registry, None, OPERATOR_WAIT, &mut vec![]))?;
+            let owners = capacity::owners(m)?;
+            let db = m.registry()?;
+            drop(_registry_guard);
+            (owners, db, pulse_generation(m)?, None, None)
+        }
+        Depth::Diagnostics(d) => {
+            // Bounded wait order: operator serialization -> registry authority. Only
+            // an action validating its own request takes serialization. A status read
+            // (no operation) is optimistic like the overview: it samples registry
+            // authority briefly and rechecks the same token after projection, so it
+            // never holds operator actions or their checks out for a whole projection.
+            let serialized = d.operation.map(|_| acquire_readback(m, ui::OperatorLock::Canonical,
+                d.operation, d.timeout, d.waits)).transpose()?;
+            // History migration can change the projection token. Complete it before
+            // sampling registry/capacity authority; never hash provenance under registry.lock.
+            linux_vst_bridge::preparation::materialize_retained_history(m)?;
+            // LVC1 itself takes registry.lock in the service. Never request it while
+            // holding that lock. Its owner census must still match after acquisition.
+            let deadline = Instant::now() + d.timeout;
+            let mut cap = (d.capacity_read)();
+            let mut registry = acquire_readback(m, ui::OperatorLock::Registry, d.operation,
+                deadline.saturating_duration_since(Instant::now()), d.waits)?;
+            if cap.is_none() {
+                // LVC1 may itself have lost the same fail-fast registry race. After
+                // contention clears, resample once without owning its required lock.
+                // Unreachable/malformed/blocked service still never becomes healthy.
+                drop(registry);
+                cap = (d.capacity_read)();
+                registry = acquire_readback(m, ui::OperatorLock::Registry, d.operation,
+                    deadline.saturating_duration_since(Instant::now()), d.waits)?;
+            }
+            let owners = capacity::owners(m)?;
+            let cap = cap.filter(|c| c.owners == owners);
+            let before = token(m)?;
+            // The same change samples the overview takes: scan results, pending
+            // updates and buffer settings are not all in the state token.
+            let generation = pulse_generation(m)?;
+            let db = m.registry()?;
+            drop(registry);
+            (owners, db, generation, Some((cap, before)), serialized)
+        }
+    };
     std::thread::scope(|scope| {
-    let capacity_task = linux_vst_bridge::spawn_recorded(scope, || {
+    // Diagnostics sampled capacity with registry authority; a current view
+    // reads it, cleanup and the workspace beside its own projection.
+    let capacity_task = (!diagnostics).then(|| linux_vst_bridge::spawn_recorded(scope, || {
         let started = Instant::now();
         (live_capacity(m).ok(), started.elapsed().as_millis())
-    });
-    let cleanup_task = linux_vst_bridge::spawn_recorded(scope, || pulse_cleanup(m));
-    let workspace_task = linux_vst_bridge::spawn_recorded(scope, || daw_workspace::current_projection(m));
-    let before = token_with_registry(m, &db)?;
+    }));
+    let cleanup_task = (!diagnostics).then(|| linux_vst_bridge::spawn_recorded(scope, || pulse_cleanup(m)));
+    let workspace_task = (!diagnostics).then(|| linux_vst_bridge::spawn_recorded(scope,
+        || daw_workspace::current_projection(m)));
+    let before = match &sampled { Some((_, before)) => before.clone(), None => token_with_registry(m, &db)? };
     let token_at = Instant::now(); phases.push(("token_before",token_at.duration_since(started).as_millis()));
     let authority_observed = timing::span(Stage::CaptureSoftwareCatalogue);
-    let sw = software_record(m)?;
-    let preparation = preparation::RecordReadback::capture_watched(m)?;
-    let mut watched = watch_paths(m, &sw, &db)?;
+    // Digests, runner verification, systemd and presentation run outside the
+    // registry lock. The captured registry is checked again after projection.
+    let sw = if diagnostics { software(m)? } else { software_record(m)? };
+    // Diagnostics is composed for every read and rechecks its token; only a
+    // current view is rechecked against the stamps of what it read.
+    let preparation = if diagnostics { preparation::RecordReadback::capture(m)? }
+        else { preparation::RecordReadback::capture_watched(m)? };
+    let mut watched = if diagnostics { BTreeMap::new() } else { watch_paths(m, &sw, &db)? };
     let catalogue = operator_catalogue_records(m, &sw, &db, &preparation)?;
     for path in preparation.watched_paths()? { watched.insert(path.clone(), stamp(&path)?); }
     require(watched.len() <= 4096, "operator_current_watch_bound")?;
     let profiles = profiles::installed_profiles()?;
     authority_observed.end(true);
     let authority_at = Instant::now(); phases.push(("software_catalogue_profiles",authority_at.duration_since(token_at).as_millis()));
-    let (mut products, revisions) = timing::measure(Stage::CaptureProducts, ||
-        current_products(m, &db, &sw, &profiles))?;
+    let (mut products, revisions) = if diagnostics { (Vec::new(), BTreeMap::new()) } else {
+        timing::measure(Stage::CaptureProducts, || current_products(m, &db, &sw, &profiles))? };
     let product_at = Instant::now(); phases.push(("current_products",product_at.duration_since(authority_at).as_millis()));
     let pending = pending_transactions(m)?;
     let vendor = vendor_retired(m)?;
-    let vendor_progress = live_vendor_progress(m)?;
+    let vendor_progress = if diagnostics { None } else { live_vendor_progress(m)? };
     let records = onboarding::history_records(m)?;
     let managed_environments: BTreeSet<_> = db.classes.values()
         .map(|entry| entry.registration.environment.id.as_str()).collect();
@@ -782,12 +927,18 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
                 || onboarding::retired(&onboarding::result(m, record)?))
         })?;
     let retired = vendor && installers_retired && environment_install::all_retired(m)? && uninstall::all_retired(m)?;
+    if let Some((cap, _)) = &sampled {
+        let scope_system = system_from_capacity(cap.as_ref(), pending, 0);
+        products = verified_products(m, &sw, &profiles, &db,
+            inactive_reason(cap.as_ref(), retired, pending, false),
+            &|class| class_inactive_reason(&scope_system, &owners, retired, class))?;
+    }
     let owner_at = Instant::now(); phases.push(("current_owners",owner_at.duration_since(product_at).as_millis()));
     let installers = installer_import::list_identity_records(m)?;
     let record_at = Instant::now(); phases.push(("setup_records",record_at.duration_since(owner_at).as_millis()));
     let managed_bindings = managed_environment_bindings(m, catalogue.as_ref(), &db)?;
     let inventory_environments = discovery_environments(&managed_bindings,&records)?;
-    for environment in &inventory_environments {
+    for environment in inventory_environments.iter().filter(|_| !diagnostics) {
         for path in [m.root.join("inventory").join(format!("{}.json",environment.id)),
             environment.root.join("environment.json")] {
             // Preserve any earlier observation. Capture each exact inventory
@@ -799,17 +950,19 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
         }
     }
     require(watched.len() <= 4096,"operator_current_watch_bound")?;
-    append_discovered(m, &sw, &inventory_environments, &managed_bindings, &db, &mut products, None)?;
-    // This readback has no compatibility workflow. A retained candidate for
-    // the exact plug-in file means a later check passed, which supersedes
-    // the discovery-time explanation; the product detail applies the full rule.
-    for product in products.iter_mut() {
-        let Ok(found) = serde_json::from_value::<linux_vst_bridge::problem::Explanation>(
-            product.details["problem"].clone()) else { continue };
-        if preparation.candidates.iter().any(|c| c.selection.class.id == product.class_id
-            && c.selection.module.sha256 == product.module_sha256
-            && c.selection.environment.id == product.environment) {
-            retire_discovered_problem(product, &found);
+    append_discovered(m, &sw, &inventory_environments, &managed_bindings, &db, &mut products, diagnostics)?;
+    if !diagnostics {
+        // This readback has no compatibility workflow. A retained candidate for
+        // the exact plug-in file means a later check passed, which supersedes
+        // the discovery-time explanation; the product detail applies the full rule.
+        for product in products.iter_mut() {
+            let Ok(found) = serde_json::from_value::<linux_vst_bridge::problem::Explanation>(
+                product.details["problem"].clone()) else { continue };
+            if preparation.candidates.iter().any(|c| c.selection.class.id == product.class_id
+                && c.selection.module.sha256 == product.module_sha256
+                && c.selection.environment.id == product.environment) {
+                retire_discovered_problem(product, &found);
+            }
         }
     }
     let discovery_at = Instant::now(); phases.push(("inventory_discovery",discovery_at.duration_since(record_at).as_millis()));
@@ -828,32 +981,58 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
                 Ok(live)
             })?;
     let setup_at = Instant::now(); phases.push(("current_setup",setup_at.duration_since(discovery_at).as_millis()));
-    let (cap, capacity_ms) = capacity_task.join().unwrap_or((None, 0));
+    let ((cap, capacity_ms), cleanup_seen) = match (sampled.map(|(cap, _)| cap), capacity_task, cleanup_task) {
+        (Some(cap), _, _) => ((cap, 0), None),
+        (None, Some(capacity), Some(cleanup)) => {
+            let (cap, capacity_ms) = capacity.join().unwrap_or((None, 0));
+            let cap = cap.filter(|read| read.owners == owners);
+            // Historical selected services predate LVP1. Their staged readback still
+            // uses the full LVC1 capacity result; an installed paired service also
+            // supplies the cheap blocked-state recheck.
+            let cleanup_seen = cleanup.join().map_err(|_| "operator_cleanup_probe_failed")?;
+            if let (Some(cap),Some(signal)) = (cap.as_ref(),cleanup_seen) {
+                require(cap.cleanup_unconfirmed == signal,"operator_cleanup_state_changed_refresh")?;
+            }
+            ((cap, capacity_ms), cleanup_seen)
+        }
+        _ => return Err("operator_capacity_probe_failed".into()),
+    };
     let joined_at = Instant::now(); phases.push(("capacity_wait",joined_at.duration_since(setup_at).as_millis()));
-    let cap = cap.filter(|read| read.owners == owners);
-    // Historical selected services predate LVP1. Their staged readback still
-    // uses the full LVC1 capacity result; an installed paired service also
-    // supplies the cheap blocked-state recheck.
-    let cleanup_seen = cleanup_task.join()
-        .map_err(|_| "operator_cleanup_probe_failed")?;
-    if let (Some(cap),Some(signal)) = (cap.as_ref(),cleanup_seen) {
-        require(cap.cleanup_unconfirmed == signal,"operator_cleanup_state_changed_refresh")?;
-    }
     phases.push(("capacity_parallel", capacity_ms));
     let busy = inactive_reason(cap.as_ref(), retired, pending, false);
+    let scope_system = system_from_capacity(cap.as_ref(),pending,0);
+    let class_scope = |class: &str| class_inactive_reason(&scope_system,&owners,retired,class);
     if let Some(reason) = busy {
+        // Waiting work holds back what needs the setups inactive. Focusing or
+        // stopping an installer, or checking that one closed, is how it ends.
         for offer in products.iter_mut().flat_map(|product| &mut product.actions)
-            .chain(onboarding.iter_mut().flat_map(|row| &mut row.actions)) {
-            if !matches!(offer.action, ui::Action::InstallerFocus {..} | ui::Action::InstallerStop {..}) {
-                offer.disabled_reason = Some(reason.into());
-            }
+            .filter(|offer| matches!(offer.action, ui::Action::QuarantinedModuleRetry {..}))
+            .chain(onboarding.iter_mut().flat_map(|row| &mut row.actions)
+                .filter(|offer| !matches!(offer.action, ui::Action::InstallerFocus {..}
+                    | ui::Action::InstallerStop {..} | ui::Action::InstallerCloseCheck {..}))) {
+            offer.disabled_reason = Some(reason.into());
         }
     }
-    let (workspaces, workspace_installers) = workspace_task.join()
-        .map_err(|_| "operator_workspace_probe_failed")??;
+    let (workspaces, workspace_installers) = match workspace_task {
+        Some(task) => task.join().map_err(|_| "operator_workspace_probe_failed")??,
+        None => daw_workspace::projection(m, &onboarding)?,
+    };
     onboarding.retain(|row| !workspace_installers.contains(&row.installer));
-    preparation_cli::project_required_recovery(m,&mut products,&preparation,&|class|
-        class_inactive_reason(&system_from_capacity(cap.as_ref(),pending,0),&owners,retired,class))?;
+    let live_operation = automatic_install::current_operation(m)?;
+    if diagnostics {
+        if let Some(receipt) = &live_operation {
+            project_onboarding_failure(m, receipt, &mut onboarding)?;
+        }
+        let operation = match &depth { Depth::Diagnostics(d) => d.operation, Depth::Current => None };
+        preparation_cli::project_scoped_records(m, &sw, &mut products, busy, operation, &class_scope, &preparation)?;
+        for product in &mut products {
+            if let Some(entry) = db.classes.get(&product.class_id) {
+                setup_removal::present_removed(m, product, entry);
+            }
+        }
+    } else {
+        preparation_cli::project_required_recovery(m,&mut products,&preparation,&class_scope)?;
+    }
     let mut installer_setups = onboarding::setup_projection_current(m, &onboarding, &products,
         &workspace_installers, &records, &installers, default.as_ref())?;
     automatic_install::project_from(m, &mut installer_setups, busy, &records)?;
@@ -864,47 +1043,73 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
                 reason:Some(NO_NATIVE_CONNECTION.into())});
         }
     }
-    let environment_installers = environment_install::projection(m,&products,busy,|operation| {
-        let live = installer_is_live(operation)?;
-        installer_live.insert(operation.to_owned(),live);Ok(live)
-    })?;
     let mut vendor_applications = vendor_projections(m,busy)?;
     let environments=environment_projection_from(m,&sw,&managed_bindings,&db,busy)?;
     environment_refresh::project(m,&mut installer_setups,&environments,&products,busy)?;
-    plugin_setup::project(m,&mut products,&mut installer_setups,busy)?;
-    let deleted_setups = {
-        let system = system_from_capacity(cap.as_ref(),pending,0);
-        setup_removal::project(m,&mut installer_setups,&records,&db,&managed_bindings,
-            &|class| class_inactive_reason(&system,&owners,retired,class), &mut |operation| {
-                if let Some(live) = installer_live.get(operation) { return Ok(*live); }
-                let live = installer_is_live(operation)?;
-                installer_live.insert(operation.to_owned(),live);Ok(live)
-            })?
-    };
     if let Some(app)=renderer_projection(m,busy,vendor.then_some(true),Some(&mut installer_setups))? {
         vendor_applications.push(app);
     }
     automatic_install::settle_busy_offers(&mut installer_setups);
+    // Removal waits for a setup's running journey, so it follows the steps
+    // that start one on a card.
+    let deleted_setups = setup_removal::project(m,&mut installer_setups,&records,&db,&managed_bindings,
+        &class_scope, &mut |operation| {
+            if let Some(live) = installer_live.get(operation) { return Ok(*live); }
+            let live = installer_is_live(operation)?;
+            installer_live.insert(operation.to_owned(),live);Ok(live)
+        })?;
     let workspace_at = Instant::now(); phases.push(("workspace_and_cards",workspace_at.duration_since(joined_at).as_millis()));
     let uninstallers=uninstall::project(m,&installer_setups,&records,&db,&managed_bindings,busy)?;
     phases.push(("uninstallers",workspace_at.elapsed().as_millis()));
+    // A plug-in whose setup window is open takes over its setup's card.
+    plugin_setup::project(m,&mut products,&mut installer_setups,busy)?;
+    let environment_installers = environment_install::projection(m,&products,busy,|operation| {
+        let live = installer_is_live(operation)?;
+        installer_live.insert(operation.to_owned(),live);Ok(live)
+    })?;
     #[cfg(feature = "pb0-c0-audit")]
     eprintln!("PB0_PHASE {}", serde_json::to_string(&phases)?);
     #[cfg(not(feature = "pb0-c0-audit"))]
     let _ = phases;
+    let mut incidents = Vec::new();
+    if diagnostics {
+        let mut paths = crash_capture::incidents(m)?;
+        paths.sort_by_key(|p| fs::metadata(p.join("status.json")).and_then(|m| m.modified()).ok());
+        for path in paths {
+            let id = path.file_name().and_then(|s| s.to_str()).ok_or("incident_identity")?.to_owned();
+            let status = optional(&path.join("status.json"))?;
+            let share = optional(&path.join("share.json"))?;
+            incidents.push(ui::Incident {id: id.clone(), state: text(&status, "state"),
+                export: if share.is_null() { None } else {
+                    Some(action("Export sanitized report", ui::Action::IncidentExport { incident: id }, None)) },
+                summary: share});
+        }
+    }
+    let (state_token, active_sessions) = if let Depth::Diagnostics(d) = &mut depth {
+        let recheck = acquire_readback(m, ui::OperatorLock::Registry, d.operation, d.timeout, d.waits)?;
+        // Derived afresh, never from what this composition derived for `before`.
+        let after = token(&m.composing())?;
+        require(before == after && owners == capacity::owners(m)?
+            && current_generation == pulse_generation(m)? && pending == pending_transactions(m)?,
+            "operator_state_changed_refresh")?;
+        drop(recheck);
+        (after, session_projection(cap.as_ref(), capacity::terminal_summaries(m)?))
+    } else { (before, vec![]) };
     let system = system_from_capacity(cap.as_ref(),pending,stale_transports(cap.as_ref())?);
     let runtime_reason=linux_vst_bridge::runtime_delivery::installation_disabled_reason(m)?;
-    let operation=automatic_install::project_current_operation(m,automatic_install::current_operation(m)?,
+    let operation=automatic_install::project_current_operation(m,live_operation,
         &installer_setups,&records)?;
-    let snapshot = ui::Snapshot {schema:ui::OPERATOR_SCHEMA,state_token:before,system,
+    let mut actions = vec![action(&linux_vst_bridge::runtime_delivery::installation_label(),ui::Action::RuntimeInstall {},
+        runtime_reason.as_deref().or(busy)),
+        action("Send a problem report",ui::Action::SupportExport {},None)];
+    if diagnostics { actions.push(action("Disarm crash capture", ui::Action::CaptureDisarm {}, None)); }
+    actions.push(action("Reconcile interrupted transaction",ui::Action::TransactionReconcile {},
+        inactive_reason(cap.as_ref(),retired,pending,true)));
+    let snapshot = ui::Snapshot {schema:ui::OPERATOR_SCHEMA,state_token,system,
         managed_runtime_records:linux_vst_bridge::runtime_delivery::readback_records(m)?,
         onboarding,installer_setups,environment_installers,environments,vendor_applications,products,
-        workspaces,active_sessions:vec![],capture:Value::Null,recent_incidents:vec![],
-        actions:vec![action(&linux_vst_bridge::runtime_delivery::installation_label(),ui::Action::RuntimeInstall {},
-            runtime_reason.as_deref().or(busy)),
-            action("Send a problem report",ui::Action::SupportExport {},None),
-            action("Reconcile interrupted transaction",ui::Action::TransactionReconcile {},
-                inactive_reason(cap.as_ref(),retired,pending,true))],
+        workspaces,active_sessions,capture:if diagnostics { capture_state(m)? } else { Value::Null },
+        recent_incidents:incidents,actions,
         operation,deleted_setups,uninstallers,
         bridge:crate::package_authority::bridge_build(m,&sw)};
     Ok(CurrentOverviewContext {snapshot,busy,profiles,revisions,owners,watched,current_generation,
@@ -1331,7 +1536,7 @@ pub(super) mod tests {
         assert!(bindings.is_empty());
         let mut products=vec![];
         let environments=discovery_environments(&bindings,&[record]).unwrap();
-        append_discovered(m,&sw,&environments,&bindings,&db,&mut products,None).unwrap();
+        append_discovered(m,&sw,&environments,&bindings,&db,&mut products,false).unwrap();
         assert_eq!(products.len(),1);
         assert_eq!(products[0].actions[0].disabled_reason.as_deref(),
             Some("No completed setup is recorded for this plug-in. Choose its installer in Setup."));

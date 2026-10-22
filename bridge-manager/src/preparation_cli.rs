@@ -59,6 +59,7 @@ struct Inactivity<'a> {
     class: Option<&'a str>,
 }
 
+#[cfg(test)]
 pub(super) fn project_scoped(
     m: &Manager, sw: &Software, products: &mut [ui::Product], busy: Option<&str>,
     operation: Option<&str>, scope: &ClassInactivity<'_>,
@@ -72,6 +73,7 @@ pub(super) fn project_scoped_records(
     project_records(m, sw, products, busy, operation, Some(scope), records)
 }
 
+#[cfg(test)]
 fn project_with_excluded_operation(
     m: &Manager,
     sw: &Software,
