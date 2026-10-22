@@ -1,8 +1,13 @@
 //! The wire contract between the bridge service and its clients: the operator
 //! model they exchange, and the typed service contract that carries it, with
-//! its bounds, refusals, the `LVV1` status-read frame and the transports that
-//! reach the service. Nothing product-specific: the service, the command line
-//! and every window depend on this crate, and it depends on none of them.
+//! its bounds, refusals and the `LVV1` status-read frame. It also holds the
+//! client transports, which start the installed manager command or connect to
+//! the service socket but never write records. The service, the command line
+//! and every window depend on this crate; it depends on none of them.
+//!
+//! The command transport (`Subprocess`, `Subprocess::installed` and the
+//! `Installed` fallback) goes away when the window's command fallback is
+//! removed (#504 B3); `Service::installed` names the socket the window keeps.
 pub mod contract;
 pub mod operator_model;
 

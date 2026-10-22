@@ -592,6 +592,7 @@ impl Transport for Subprocess {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // The window's preview fixture; it moves with the window crate.
     fn snapshot() -> ui::Snapshot {
         serde_json::from_str(include_str!("../../../manager-ui/examples/library-preview.json")).unwrap()
     }
