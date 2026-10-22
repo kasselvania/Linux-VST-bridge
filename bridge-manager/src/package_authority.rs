@@ -950,8 +950,7 @@ fn require_selected_frontend(m: &Manager, executable: &Path,
     require(current.path.file_name() == Some(std::ffi::OsStr::new(NAMES[1]))
         && current.sha256 == selected_record.manifest.files[1].sha256,
         "package_generation_artifact_binding")?;
-    require(frontend.sha256 == current.sha256,
-        "operator_frontend_superseded: Bridge updated. This previous manager window is paused. Open the current manager to continue; unfinished inputs and accepted operations are retained")
+    require(frontend.sha256 == current.sha256, linux_vst_bridge::service::contract::FRONTEND_SUPERSEDED)
 }
 
 pub(super) fn require_current_frontend_caller(_m: &Manager) -> Result<()> {

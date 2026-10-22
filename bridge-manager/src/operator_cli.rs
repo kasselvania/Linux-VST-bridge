@@ -3,6 +3,7 @@ use super::*;
 use linux_vst_bridge::operator_model as ui;
 use linux_vst_bridge::operator_lock::timing::{self, Stage};
 use linux_vst_bridge::renderer_application as renderer;
+use linux_vst_bridge::service::contract;
 use serde_json::{json, Value};
 mod current;
 mod plugin_setup;
@@ -4433,39 +4434,28 @@ fn worker_with_capacity_observed(
 fn operator_wait<T>(run: impl FnOnce() -> T) -> T {
     linux_vst_bridge::operator_lock::with_operator_registry_wait(OPERATOR_WAIT, run)
 }
+/// The `operator` commands that are not client exchanges: each operation's
+/// worker and its unit cleanup. Reads and requests arrive through `answer`.
 pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
     match args {
-        [a] if a == "current-overview" => {
-            println!("{}",serde_json::to_string(&current_overview(m)?)?);
-        }
-        [a] if a == "overview" => {
-            let current = overview(m)?;
-            let serialization_at = Instant::now();
-            let encoded = serde_json::to_string(&current)?;
-            #[cfg(feature = "pb0-c0-audit")]
-            eprintln!("PB0_PHASE {}",json!({"serialization_ms":serialization_at.elapsed().as_millis(),
-                "products":current.current.products.len(),"setups":current.current.installer_setups.len()}));
-            #[cfg(not(feature = "pb0-c0-audit"))]
-            let _ = serialization_at;
-            println!("{encoded}");
-        }
-        [a, environment, module, class] if a == "product" => {
-            println!("{}",serde_json::to_string(&product_detail(m,environment,module,class)?)?);
-        }
         #[cfg(feature = "pb0-c0-audit")]
         [a] if a == "support-export-preview" => {
             let current = overview(m)?;
             println!("{}", serde_json::to_string(&readiness::audit_export(m, &current)?)?);
         }
-        [a] if a == "snapshot" => println!("{}", serde_json::to_string(&snapshot(m)?)?),
-        [a] if a == "activity" => println!("{}", serde_json::to_string(&activity(m)?)?),
-        [a] if a == "pulse" => println!("{}", serde_json::to_string(&pulse(m)?)?),
-        [a] if a == "request" => {
-            let mut bytes = Vec::new();
-            std::io::stdin().take(16385).read_to_end(&mut bytes)?;
-            require(bytes.len() <= 16384, "operator_request_bound")?;
-            let req = serde_json::from_slice(&bytes)?;
-            let receipt = match operator_wait(|| dispatch(m, req)) {
+        [a, id] if a == "worker" => operator_wait(|| worker(m, id))?,
+        [a, id] if a == "finish" => operator_wait(|| finish_operation(m, id))?,
+        _ => return Err("operator snapshot | request".into()),
+    }
+    Ok(())
+}
+/// Answer a window read or action request (`service::contract`).
+pub(super) fn answer(m: &Manager, request: contract::Request) -> Result<contract::Reply> {
+    use contract::{Read, Reply};
+    let read = match request {
+        contract::Request::Read(read) => read,
+        contract::Request::Action(request) => {
+            let receipt = match operator_wait(|| dispatch(m, request)) {
                 Ok(r) => r,
                 Err(e) => ui::Receipt {
                     schema: ui::OPERATOR_SCHEMA,
@@ -4474,13 +4464,19 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
                     refusal: Some(e.to_string()),
                 },
             };
-            println!("{}", serde_json::to_string(&receipt)?);
+            return Ok(Reply::Receipt(receipt));
         }
-        [a, id] if a == "worker" => operator_wait(|| worker(m, id))?,
-        [a, id] if a == "finish" => operator_wait(|| finish_operation(m, id))?,
-        _ => return Err("operator snapshot | request".into()),
-    }
-    Ok(())
+        _ => return Err("operator_request_not_an_operator_exchange".into()),
+    };
+    Ok(match read {
+        Read::CurrentOverview => Reply::CurrentOverview(Box::new(current_overview(m)?)),
+        Read::Overview => Reply::Overview(Box::new(overview(m)?)),
+        Read::Product(key) => Reply::Product(Box::new(product_detail(m, &key.environment,
+            &key.module_sha256, &key.class_id)?)),
+        Read::Snapshot => Reply::Snapshot(Box::new(snapshot(m)?)),
+        Read::Activity => Reply::Activity(activity(m)?),
+        Read::Pulse => Reply::Pulse(pulse(m)?),
+    })
 }
 
 /// Retained per-product feedback is selected by exact request identity, never by

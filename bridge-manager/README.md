@@ -11,7 +11,10 @@ manager, `session.py`, `ownership.py`, the exact Windows host, its source manife
 and the native catalogue. Selection updates the stable command links and enables
 `linux-vst-bridge.service`.
 
-The manager binary answers only the entry points something in the product calls:
+The manager binary answers only the entry points something in the product calls.
+The window's reads, actions and installer import and the Native Access browser
+return are one typed client exchange, defined with its bounds and refusals in
+`src/service/contract.rs`:
 
 - `serve` — the long-running user service started by `linux-vst-bridge.service`;
 - `operator overview | current-overview | product | snapshot | activity | pulse | request`

@@ -31,7 +31,7 @@
 //! retired before the service stops. A bridge service the same user already
 //! runs shares that root; do not run these tests during its package update.
 use crate::test_fixture::{self, Fixture};
-use linux_vst_bridge::{catalogue::Software, *};
+use linux_vst_bridge::{catalogue::Software, service::contract, *};
 use serde_json::{json, Value};
 use std::{
     fs,
@@ -63,6 +63,13 @@ pub struct Plugin {
     pub engine: PathBuf,
     pub engine_sha256: String,
     pub descriptor_sha256: String,
+}
+impl Plugin {
+    /// Its plug-in page, as the window names it.
+    pub fn key(&self) -> contract::ProductKey {
+        contract::ProductKey { environment: self.environment.clone(),
+            module_sha256: self.module_sha256.clone(), class_id: self.class_id.clone() }
+    }
 }
 
 /// The preparation fixture's candidate, built by the current reusable kit,
@@ -213,22 +220,24 @@ impl RealService {
             std::thread::sleep(Duration::from_millis(20));
         }
     }
-    /// One `operator` command, as the window runs it.
-    pub fn operator(&self, args: &[&str], input: Option<&Value>) -> Value {
-        let mut child = command(&self.published, &self.published.manager)
-            .arg("operator").args(args)
-            .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped())
-            .spawn().unwrap();
-        let mut stdin = child.stdin.take().unwrap();
-        if let Some(input) = input {
-            stdin.write_all(&serde_json::to_vec(input).unwrap()).unwrap();
-        }
-        drop(stdin);
-        let output = child.wait_with_output().unwrap();
-        assert!(output.status.success(), "operator {args:?}: {}\n{}", output.status,
-            String::from_utf8_lossy(&output.stderr));
-        serde_json::from_slice(&output.stdout).unwrap_or_else(|error| panic!(
-            "operator {args:?} output: {error}: {}", String::from_utf8_lossy(&output.stdout)))
+    /// The installed manager command as the window runs it, in this fixture.
+    pub fn manager_command(&self, program: Option<&Path>) -> contract::Subprocess {
+        contract::Subprocess::new(program.unwrap_or(&self.published.manager))
+            .with_environment(environment(&self.published))
+    }
+    /// One window exchange through the client contract. Its reply passed the
+    /// contract's checks; it is returned as the document the window decoded.
+    pub fn call(&self, request: &contract::Request) -> Value {
+        let reply = contract::Client::new(self.manager_command(None)).call(request, None)
+            .unwrap_or_else(|failure| panic!("{request:?}: {failure:?}"));
+        serde_json::from_str(&reply.encode().unwrap().expect("a reply document")).unwrap()
+    }
+    pub fn read(&self, read: contract::Read) -> Value {
+        self.call(&contract::Request::Read(read))
+    }
+    /// An action request; `request` is the window's request document.
+    pub fn request(&self, request: &Value) -> Value {
+        self.call(&contract::Request::Action(serde_json::from_value(request.clone()).unwrap()))
     }
     /// The first published plug-in.
     pub fn plugin(&self) -> &Plugin {
@@ -242,17 +251,16 @@ impl RealService {
         assert_eq!(matching.len(), 1, "one product row for the published class: {products:#?}");
         matching[0]
     }
-    /// The plug-in page: `operator product ENVIRONMENT MODULE CLASS`.
+    /// The first published plug-in's page.
     pub fn product_detail(&self) -> Value {
-        let p = self.plugin();
-        self.operator(&["product", &p.environment, &p.module_sha256, &p.class_id], None)
+        self.read(contract::Read::Product(self.plugin().key()))
     }
     /// The window's activity read until the operation is final, then the end
     /// of its worker unit (including ExecStopPost).
     pub fn finished_operation(&self, operation: &str) -> Value {
         let deadline = Instant::now() + OPERATION;
         let result = loop {
-            let activity = self.operator(&["activity"], None);
+            let activity = self.read(contract::Read::Activity);
             let current = &activity["operation"];
             if current["operation"] == operation
                 && matches!(current["state"].as_str(), Some("completed" | "refused")) {
@@ -363,13 +371,15 @@ impl Drop for RealService {
 }
 
 /// The product's own launch environment, reduced to what the service reads.
+fn environment(p: &Published) -> [(&'static str, std::ffi::OsString); 4] {
+    [("HOME", p.fixture.outer.clone().into()),
+        ("PATH", format!("{}:/usr/local/bin:/usr/bin:/bin", p.stubs.display()).into()),
+        ("LANG", "C.UTF-8".into()),
+        ("RUST_BACKTRACE", "1".into())]
+}
 fn command(p: &Published, program: &Path) -> Command {
     let mut command = Command::new(program);
-    command.env_clear()
-        .env("HOME", &p.fixture.outer)
-        .env("PATH", format!("{}:/usr/local/bin:/usr/bin:/bin", p.stubs.display()))
-        .env("LANG", "C.UTF-8")
-        .env("RUST_BACKTRACE", "1");
+    command.env_clear().envs(environment(p));
     command
 }
 
