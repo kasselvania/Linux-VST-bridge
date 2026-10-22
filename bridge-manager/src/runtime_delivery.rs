@@ -715,14 +715,17 @@ pub fn install(m: &Manager) -> Result<Runner> {
         "managed_runtime_requires_x86_64_linux")?;
     let _lock = m.lock("runtime-delivery.lock")?;
     if let Some(runner) = installed(m)? { return Ok(runner); }
-    let revision = recommended();
+    acquire(m, &recommended(), fetch)?;
+    installed(m)?.ok_or_else(|| "managed_runtime_install_missing".into())
+}
+fn acquire(m: &Manager, revision: &Revision, fetch: impl Fn(&Download, &Path) -> Result<()>) -> Result<()> {
     let base = m.root.join("runners");
     private_dir(&base)?;
     let dest = base.join(revision.id);
     require(!dest.try_exists()?, "managed_runtime_incomplete_requires_attention")?;
     let stage = base.join(format!(".stage-{}", random_id()?));
     private_dir(&stage)?;
-    let result = (|| -> Result<Runner> {
+    let result = (|| -> Result<()> {
         let mut rows = Vec::new();
         for (n, spec) in revision.downloads.iter().enumerate() {
             let archive = stage.join(format!("download-{n}"));
@@ -730,13 +733,45 @@ pub fn install(m: &Manager) -> Result<Runner> {
             rows.extend(unpack(&archive, spec, &stage)?);
             fs::remove_file(archive)?;
         }
-        seal_stage(&stage,&dest,&revision,rows)?;
+        seal_stage(&stage,&dest,revision,rows)?;
         fs::rename(&stage, &dest)?;
         File::open(&base)?.sync_all()?;
-        installed(m)?.ok_or_else(|| "managed_runtime_install_missing".into())
+        Ok(())
     })();
     if stage.exists() { fs::remove_dir_all(&stage)?; }
     result
+}
+/// Test fixture only (`tests/native_access_signin`): acquire any declared
+/// revision, retained or recommended, through the same download check,
+/// unpacking, sealing and tree verification as `install`. An archive kept
+/// in `archives` under its SHA-256 stands in for the network fetch, and a
+/// fetched one is kept there; `unpack` verifies either before use.
+#[cfg(feature = "runtime-revision-fixture")]
+pub fn install_revision(m: &Manager, id: &str, archives: &Path) -> Result<Runner> {
+    require(cfg!(all(target_os="linux", target_arch="x86_64")),
+        "managed_runtime_requires_x86_64_linux")?;
+    let revision = revisions().into_iter().find(|revision| revision.id == id)
+        .ok_or("managed_runtime_revision_unknown")?;
+    let _lock = m.lock("runtime-delivery.lock")?;
+    if identity_record(m, &revision)?.is_none() {
+        acquire(m, &revision, |spec, path| {
+            let kept = archives.join(&spec.sha256);
+            if !kept.is_file() || file(&kept)?.metadata()?.len() != spec.size || digest(&kept)? != spec.sha256 {
+                let partial = archives.join(format!(".{}-{}", spec.sha256, random_id()?));
+                let fetched = fetch(spec, &partial);
+                if fetched.is_ok() {
+                    fs::set_permissions(&partial, fs::Permissions::from_mode(0o644))?;
+                    fs::rename(&partial, &kept)?;
+                } else if partial.exists() { fs::remove_file(&partial)?; }
+                fetched?;
+            }
+            fs::copy(&kept, path)?;
+            Ok(())
+        })?;
+    }
+    let runner = identity_record(m, &revision)?.ok_or("managed_runtime_install_missing")?;
+    runner.verify()?;
+    Ok(runner)
 }
 
 #[cfg(test)]
