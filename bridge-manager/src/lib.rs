@@ -12,7 +12,8 @@ pub mod deleted_setup;
 #[cfg(test)]
 mod managed_tests;
 pub mod observation;
-pub mod operator_model;
+pub use lvb_model::operator_model;
+use operator_lock::LockFile as _;
 pub mod installer_policy;
 pub mod graphics;
 pub mod operator_lock;

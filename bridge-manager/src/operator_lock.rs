@@ -94,8 +94,13 @@ impl std::fmt::Display for AcquisitionFailure {
     }
 }
 impl std::error::Error for AcquisitionFailure {}
-impl OperatorLock {
-    pub fn filename(self) -> &'static str {
+/// The file each operator lock is held on. The locks are named in the wire
+/// model (`operator_model`); their files are the manager's.
+pub trait LockFile {
+    fn filename(self) -> &'static str;
+}
+impl LockFile for OperatorLock {
+    fn filename(self) -> &'static str {
         match self {
             Self::Registry => "registry.lock",
             Self::Canonical => "operator-canonical.lock",

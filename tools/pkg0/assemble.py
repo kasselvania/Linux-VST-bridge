@@ -153,9 +153,17 @@ def parse_operator_schema(source):
     return int(matches[0])
 
 
+# Where a source tree declares its operator model. Trees from before the model
+# crate (crates/model) declare it in the manager.
+OPERATOR_MODEL_SOURCES = ("crates/model/src/operator_model.rs",
+                          "bridge-manager/src/operator_model.rs")
+
+
 def declared_operator_schema(source_root=None):
     root = Path(source_root) if source_root is not None else Path(__file__).resolve().parents[2]
-    return parse_operator_schema((root / "bridge-manager/src/operator_model.rs").read_text())
+    model = next((root / name for name in OPERATOR_MODEL_SOURCES if (root / name).is_file()),
+                 root / OPERATOR_MODEL_SOURCES[0])
+    return parse_operator_schema(model.read_text())
 
 
 def canonical(value):

@@ -10,8 +10,12 @@ pub const OBSERVATION: &[u8] = include_bytes!("../../evidence/naui1/observation.
 pub const SEAL: &str = "539bcf48c961e18b93ce6bc54c4aed20ab7a82822e7563e34b8025b6836b4be9";
 
 pub use crate::operator_model::{RendererPolicy, Presentation};
-impl RendererPolicy {
-    pub fn arguments(self) -> &'static [&'static str] {
+/// The renderer's launch arguments under each policy the wire model names.
+pub trait LaunchArguments {
+    fn arguments(self) -> &'static [&'static str];
+}
+impl LaunchArguments for RendererPolicy {
+    fn arguments(self) -> &'static [&'static str] {
         match self { Self::Inherited => &[], Self::SoftwareRendering => &["--disable-gpu"] }
     }
 }
