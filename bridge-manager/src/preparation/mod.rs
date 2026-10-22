@@ -1305,7 +1305,7 @@ pub fn selected_publication_candidate_record(m: &Manager, c: &Candidate) -> Resu
         "candidate_registration_changed")?;
     m.verify_completed_publication(&revision, reference)?;
     m.performance(&c.selection.class.id)?;
-    let records = RecordReadback::capture(m)?;
+    let records = RecordReadback::capture_unwatched(m)?;
     let Some(selected) = records.publication_candidate_record(
         m, &revision.profile, &revision.registration)? else {
         return Ok(false);
@@ -1401,7 +1401,7 @@ fn census(m: &Manager) -> Result<std::sync::Arc<Vec<Candidate>>> {
     m.derive_once("retained_candidates", || retained_candidates(m).map(std::sync::Arc::new))
 }
 fn for_profile(m: &Manager, p: &Profile) -> Result<Option<Candidate>> {
-    let records = RecordReadback::capture(m)?;
+    let records = RecordReadback::capture_unwatched(m)?;
     Ok(records.for_profile(m, p)?.cloned())
 }
 /// One census of bounded immutable metadata for a control projection.
@@ -1411,32 +1411,45 @@ pub struct RecordReadback {
     watched: Option<std::sync::Mutex<RecordWatch>>,
 }
 /// The files a rechecked view composed from retained preparations, by
-/// product. Each product's history is watched apart: one too long to watch is
-/// that product's history left out, never the view refused.
+/// product. Each product's history is watched apart: one too long to watch,
+/// or past what one view watches in all, is that product's history left
+/// out, never the view refused.
 struct RecordWatch {
     candidates: PathBuf,
     bound: usize,
+    view_bound: usize,
+    /// Files watched for every product's history so far.
+    total: usize,
     products: std::collections::BTreeMap<(String, String, String),
         Option<std::collections::BTreeSet<PathBuf>>>,
 }
 /// At most this many files watched for one product's history: twelve or
 /// fewer per preparation, so over 340 preparations of one plug-in.
 const PRODUCT_WATCH_BOUND: usize = 4096;
+/// At most this many for all of one view's products, so its recheck stats a
+/// bounded number of files under registry.lock.
+const VIEW_WATCH_BOUND: usize = 65536;
 impl RecordReadback {
     /// The census for a projection that is not rechecked against the stamps
-    /// of the files it read (the Diagnostics snapshot rechecks its state token).
-    pub fn capture(m: &Manager) -> Result<Self> {
+    /// of the files it read. The Diagnostics snapshot rechecks its state
+    /// token instead, which every write of a preparation record changes, and
+    /// its change generation, which an inventory write changes.
+    pub fn capture_unwatched(m: &Manager) -> Result<Self> {
         Ok(Self { candidates: census(m)?, watched: None })
     }
     /// The census for a view that stamps every file it composes from and
     /// rechecks them ([`watched_paths`](Self::watched_paths)).
     pub fn capture_watched(m: &Manager) -> Result<Self> {
-        Self::capture_watched_within(m, PRODUCT_WATCH_BOUND)
+        Self::capture_watched_within(m, PRODUCT_WATCH_BOUND, VIEW_WATCH_BOUND)
     }
     #[doc(hidden)]
-    pub fn capture_watched_within(m: &Manager, bound: usize) -> Result<Self> {
+    pub fn capture_watched_within(m: &Manager, bound: usize, view_bound: usize) -> Result<Self> {
         Ok(Self { candidates: census(m)?, watched: Some(std::sync::Mutex::new(RecordWatch {
-            candidates: root(m).join("candidates"), bound, products: Default::default() })) })
+            candidates: root(m).join("candidates"), bound, view_bound, total: 0, products: Default::default() })) })
+    }
+    /// Whether this census stamps what a projection reads from it.
+    pub fn watching(&self) -> bool {
+        self.watched.is_some()
     }
     fn for_profile<'a>(&'a self, m: &Manager, p: &Profile) -> Result<Option<&'a Candidate>> {
         let mut found = None;
@@ -1499,11 +1512,12 @@ impl RecordReadback {
     fn watch(&self, m: &Manager, c: &Candidate) -> Result<bool> {
         let Some(watched) = &self.watched else { return Ok(true) };
         let mut watched = watched.lock().map_err(|_| "preparation_record_watch_poisoned")?;
-        let bound = watched.bound;
+        let (bound, view_bound, total) = (watched.bound, watched.view_bound, watched.total);
         let s = &c.selection;
         let product = (s.environment.id.clone(), s.module.sha256.clone(), s.class.id.clone());
         let Some(paths) = watched.products.entry(product.clone()).or_insert_with(|| Some(Default::default()))
             else { return Ok(false) };
+        let before = paths.len();
         let id = c.id()?;
         paths.insert(object(m, "candidates", &id)?.join("candidate.json"));
         paths.insert(object(m, "lineage", &id)?.join("record.json"));
@@ -1522,11 +1536,14 @@ impl RecordReadback {
             paths.insert(m.root.join("onboarding").join(&c.selection.environment.id).join("record.json"));
             paths.insert(m.root.join("inventory").join(format!("{}.json", c.selection.environment.id)));
         }
-        if paths.len() > bound {
+        let (watching, added) = (paths.len(), paths.len() - before);
+        if watching > bound || total + added > view_bound {
             // Its files are no longer stamped, so nothing may be shown from them.
             watched.products.insert(product, None);
+            watched.total = total + added - watching;
             return Ok(false);
         }
+        watched.total = total + added;
         Ok(true)
     }
     pub fn incomplete_history(&self, m: &Manager, s: &Selection) -> Result<Vec<RetainedHistoryRecovery>> {
@@ -1584,7 +1601,7 @@ pub fn registry_requires_loaded_engine_refresh_record(m: &Manager) -> Result<boo
 #[doc(hidden)]
 pub fn registry_requires_loaded_engine_refresh_record_with_registry(m: &Manager,
     acquire_registry: impl FnOnce() -> Result<Lock>) -> Result<bool> {
-    let records = RecordReadback::capture(m)?;
+    let records = RecordReadback::capture_unwatched(m)?;
     let snapshot = m.package_publication_record_snapshot_locked(&acquire_registry()?)?;
     for state in snapshot {
         if state.entry.publication != Publication::Published {
@@ -1967,7 +1984,7 @@ fn refresh_source_with(m:&Manager,predecessor:&Revision,historical:bool)->Result
         )?;
         history::lineage_record(m, &candidate)?;
         let candidate=if historical {
-            let records=RecordReadback::capture(m)?;
+            let records=RecordReadback::capture_unwatched(m)?;
             let selected=records.publication_candidate_record(m,&predecessor.profile,&predecessor.registration)?
                 .ok_or("bridge_refresh_predecessor_binding")?.clone();
             selected.host.verify()?;selected.source_manifest.verify()?;selected.native.artifact.verify()?;
@@ -2270,7 +2287,7 @@ fn verify_superseded_revision(m: &Manager, r: &Revision) -> Result<()> {
 /// Readback retains exact managed ownership even when publication needs
 /// reconciliation. It does not authorize setup, mutation or execution.
 pub(crate) fn catalogue_free_registry_readback(m: &Manager, registry: &Registry) -> Result<bool> {
-    RecordReadback::capture(m)?.catalogue_free_registry(m, registry)
+    RecordReadback::capture_unwatched(m)?.catalogue_free_registry(m, registry)
 }
 /// Managed preparation owns its exact generated publication independently of
 /// the static catalogue shipped for previously qualified fixtures. A completed

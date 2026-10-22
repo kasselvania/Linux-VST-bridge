@@ -176,9 +176,10 @@ fn session_projection(
     })));
     rows
 }
+/// A module the scanner could not resolve. The composer adds the reason
+/// other work holds back its retry.
 fn quarantined_product(scan: &inventory::Scan, module_index: usize,
-    module: inventory::Module, stale: Option<&str>, busy: Option<&str>,
-    retry_disabled: Option<&str>)
+    module: inventory::Module, stale: Option<&str>, retry_disabled: Option<&str>)
     -> Result<ui::Product> {
     let reason=module.quarantine_reason.as_deref()
         .ok_or("operator_quarantine_reason_absent")?;
@@ -190,7 +191,7 @@ fn quarantined_product(scan: &inventory::Scan, module_index: usize,
     let actions=vec![action("Retry this exact module scan",
         ui::Action::QuarantinedModuleRetry {environment:scan.environment.id.clone(),
             scan:scan.id.clone(),module_index,module_sha256:module.artifact.sha256.clone(),
-            report_sha256:module.report.sha256.clone()},busy.or(stale).or(retry_disabled))];
+            report_sha256:module.report.sha256.clone()},stale.or(retry_disabled))];
     Ok(ui::Product {class_id:String::new(),name:module.artifact.path.file_name()
         .unwrap_or_default().to_string_lossy().into_owned(),vendor:"Unresolved factory".into(),
         role:"unknown".into(),version:String::new(),
@@ -1099,7 +1100,7 @@ fn operator_catalogue(m: &Manager, sw: &Software, registry: &Registry)
 }
 fn operator_catalogue_readback(m: &Manager, sw: &Software, registry: &Registry)
     -> Result<Option<linux_vst_bridge::catalogue::Catalogue>> {
-    operator_catalogue_records(m, sw, registry, &preparation::RecordReadback::capture(m)?)
+    operator_catalogue_records(m, sw, registry, &preparation::RecordReadback::capture_unwatched(m)?)
 }
 fn operator_catalogue_records(m: &Manager, sw: &Software, registry: &Registry,
     records: &preparation::RecordReadback) -> Result<Option<linux_vst_bridge::catalogue::Catalogue>> {
@@ -4476,7 +4477,7 @@ pub(crate) mod tests {
     fn quarantine_projection_retains_scanner_cause_and_exact_retry_identity() {
         let f=test_fixture::Fixture::new();
         let scan=quarantined_scan(&f);
-        let product=quarantined_product(&scan,0,scan.modules[0].clone(),None,None,None).unwrap();
+        let product=quarantined_product(&scan,0,scan.modules[0].clone(),None,None).unwrap();
         assert_eq!(product.limitations[0],
             "Scanner reported: TimeoutError: Windows call deadline: load_library");
         assert_eq!(product.limitations[1],"inventory_factory_absent_or_duplicate");
@@ -4617,6 +4618,58 @@ pub(crate) mod tests {
         assert_eq!(fs::read(&inventory).unwrap(),before);
         assert!(!f.m.registry().unwrap().classes.values()
             .any(|entry|entry.registration.environment.id==environment.id));
+    }
+    #[test]
+    fn an_open_plugin_setup_window_keeps_its_card_to_its_own_controls_in_both_views() {
+        // Review fixture for #515 difference 3: a plug-in's setup window is
+        // open (as visible_session records it). Home and Diagnostics show the
+        // card with that window's Show/Stop controls only.
+        let (f,environment,scan,_)=onboarding_retry_fixture();let m=&f.m;
+        let directory=onboarding::directory(m,&environment.id).unwrap();
+        let path=directory.join("record.json");
+        let mut record:onboarding::Record=read_json(&path).unwrap();
+        let installer=random_id().unwrap();record.installation_operation=Some(installer.clone());
+        atomic_json(&path,&record).unwrap();
+        atomic_json(&directory.join(format!("{installer}-result.json")),&json!({
+            "schema":2,"operation":installer,"state":"completed","raw_exit":0,
+            "cleanup_confirmed":true,"owned_live":0})).unwrap();
+        let removal=|card:&ui::InstallerSetup| card.secondary.iter().filter(|offer|matches!(offer.action,
+            ui::Action::SetupDelete {..} | ui::Action::SetupRemoveFromDaw {..})).count();
+        readiness::with_unit_state_fixture(&[onboarding::unit(&installer).unwrap()],"inactive",|| {
+            let card=|s:&ui::Snapshot| s.installer_setups.iter()
+                .find(|card|card.environment.as_deref()==Some(environment.id.as_str())).cloned().unwrap();
+            let before=card(&snapshot_idle_test(m).unwrap());
+            let offer=before.primary.clone().unwrap().action;
+            assert!(matches!(offer,ui::Action::PluginFinishSetup {..}),"{before:#?}");
+            assert_eq!(removal(&before),1,"{before:#?}");
+            assert_eq!(removal(current::capture(m).unwrap().snapshot.installer_setups.iter()
+                .find(|card|card.environment.as_deref()==Some(environment.id.as_str())).unwrap()),1);
+            let operation=random_id().unwrap();let job=job_dir(m,&operation).unwrap();private_dir(&job).unwrap();
+            atomic_json(&job.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,
+                state_token:"fixture".into(),action:offer}).unwrap();
+            let sw=software(m).unwrap();
+            let (mut session,spec_path)=spec(m,HostBinding {metadata:ClassSelection {class_id:String::new()},
+                environment:environment.clone(),module:scan.modules[0].artifact.clone(),host:sw.host.clone(),
+                host_source_sha256:sw.source_sha256.clone(),compatibility:Compatibility::default()},
+                true,true,false).unwrap();
+            session.finish_setup=true;atomic_json(&spec_path,&session).unwrap();
+            atomic_json(&job.join("setup-session.json"),&session).unwrap();
+            atomic_json(&job.join("result.json"),&json!({"schema":2,"operation":operation,
+                "state":"vendor_running","environment":environment.id,"plugin_setup":true})).unwrap();
+            private_dir(&m.root.join("operator")).unwrap();
+            atomic_json(&m.root.join("operator/resume.json"),&json!({"schema":2,
+                "owner_operation":operation,"resume":false,"software":"ab".repeat(32)})).unwrap();
+            for (view,snapshot) in [("home",current::capture(m).unwrap().snapshot),
+                ("diagnostics",snapshot_idle_test(m).unwrap())] {
+                let open=card(&snapshot);
+                assert_eq!(open.primary.as_ref().map(|offer|&offer.action),
+                    Some(&ui::Action::PluginSetupFocus {operation:operation.clone()}),"{view}: {open:#?}");
+                assert_eq!(open.secondary.iter().map(|offer|&offer.action).collect::<Vec<_>>(),
+                    vec![&ui::Action::PluginSetupStop {operation:operation.clone()}],"{view}: {open:#?}");
+                assert_eq!(removal(&open),0,"{view}");
+                assert!(open.status.starts_with("Finish setup in the plug-in's window"),"{view}: {}",open.status);
+            }
+        });
     }
     #[test]
     fn retired_initial_installation_offers_and_executes_exact_retry_without_publication() {
@@ -5323,6 +5376,11 @@ pub(crate) mod tests {
     }
     pub(super) fn overview_service_reply_with_counts(m: &Manager, value: Value, expected: (usize, usize))
         -> std::thread::JoinHandle<()> {
+        overview_service_reply_within(m, value, expected, OPERATOR_WAIT)
+    }
+    /// As `overview_service_reply_with_counts`, for a page slower to compose.
+    pub(super) fn overview_service_reply_within(m: &Manager, value: Value, expected: (usize, usize),
+        wait: Duration) -> std::thread::JoinHandle<()> {
         private_dir(&m.root.join("runtime")).unwrap();
         let socket=m.root.join("runtime/owner.sock");
         if socket.exists() {fs::remove_file(&socket).unwrap();}
@@ -5333,7 +5391,7 @@ pub(crate) mod tests {
             // final recheck samples cleanup on both sides of registry.lock.
             let mut capacity = 0;
             let mut pulses = 0;
-            let deadline = Instant::now() + OPERATOR_WAIT;
+            let deadline = Instant::now() + wait;
             while capacity + pulses < expected.0 + expected.1 {
                 assert!(Instant::now() < deadline,
                     "service stub timed out: observed {:?}, expected {:?}", (capacity, pulses), expected);
@@ -6740,6 +6798,37 @@ pub(crate) mod tests {
             validate_current_request(&f.m, &request).unwrap();
             server.join().unwrap();
         });
+    }
+    #[test]
+    fn diagnostics_and_the_problem_report_complete_with_more_history_than_one_watch_held() {
+        // Three plug-ins, each prepared 350 times before its current
+        // candidate: over 4,096 files in all, each plug-in within its own
+        // bound. Both views refused this before (#503).
+        let (f, candidates) = test_fixture::projection_candidates_in(test_fixture::Fixture::new(), false, 3);
+        test_fixture::preparation_history(&f, &candidates, 350);
+        for candidate in &candidates {
+            linux_vst_bridge::preparation::enable(&f.m, candidate, false).unwrap();
+        }
+        let every_history_shown = |products: &[ui::Product]| {
+            for candidate in &candidates {
+                let product = products.iter().find(|p| p.class_id == candidate.selection.class.id).unwrap();
+                let preparation = &product.details["preparation"];
+                assert_ne!(preparation["preparation"], "history_unavailable", "{}", product.class_id);
+                assert_eq!(preparation["candidates"].as_array().map(Vec::len), Some(351), "{}", product.class_id);
+            }
+        };
+        let snapshot = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![],
+            &|| capacity_fixture(&f.m)).unwrap();
+        every_history_shown(&snapshot.products);
+        let server = overview_service_reply(&f.m, capacity_json(false, 0, 0));
+        let token = current_overview(&f.m).unwrap().current.state_token;
+        server.join().unwrap();
+        // It projects every history, which takes longer than a page.
+        let server = overview_service_reply_within(&f.m, capacity_json(false, 0, 0), (1, 3),
+            Duration::from_secs(300));
+        let report = problem_report_snapshot(&f.m, &token).unwrap();
+        server.join().unwrap();
+        every_history_shown(&report.products);
     }
     /// A Deck-shaped installation (#503): 27 published plug-ins on one
     /// runtime of 20,000 files, each prepared `earlier` times before its

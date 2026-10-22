@@ -52,6 +52,9 @@ pub(super) fn project_required_recovery(m:&Manager,products:&mut [ui::Product],
 }
 
 type ClassInactivity<'a> = dyn Fn(&str) -> Option<&'static str> + 'a;
+/// Shown for a plug-in whose retained preparations are too many for one
+/// rechecked view to watch.
+const HISTORY_UNAVAILABLE: &str = "This plug-in has too many saved preparations to check here, so preparing or testing another configuration is unavailable on this page.";
 
 #[derive(Clone, Copy)]
 struct Inactivity<'a> {
@@ -82,7 +85,7 @@ fn project_with_excluded_operation(
     exclude_operation: Option<&str>,
     scope: Option<&ClassInactivity<'_>>,
 ) -> Result<()> {
-    let records = prep::RecordReadback::capture(m)?;
+    let records = prep::RecordReadback::capture_unwatched(m)?;
     project_records(m, sw, products, busy, exclude_operation, scope, &records)
 }
 fn project_records(m: &Manager, sw: &Software, products: &mut [ui::Product], busy: Option<&str>,
@@ -102,12 +105,13 @@ fn project_records(m: &Manager, sw: &Software, products: &mut [ui::Product], bus
         };
         let class_busy = match scope { Some(scope) => scope(&s.class.id), None => busy };
         if !records.history_watched(m, &s)? {
+            // Its offers come from that history, so none is made; say so.
             p.details["preparation"] = json!({"selection":s.id()?,
                 "verification_scope":"control_records",
                 "execution_verification":"deferred_to_worker_or_launch",
                 "preparation":"history_unavailable",
-                "history_unavailable":{"code":"preparation_record_watch_bound",
-                    "reason":"This plug-in's preparation history is too long to show here. Diagnostics shows all of it."}});
+                "history_unavailable":{"code":"preparation_record_watch_bound"},
+                "recovery":HISTORY_UNAVAILABLE});
             continue;
         }
         let incomplete = records.incomplete_history(m, &s)?;
@@ -2102,17 +2106,17 @@ pub(crate) mod tests {
             project_scoped_records(&f.m, &sw, &mut products, None, None, &|_| None, records).unwrap();
             products
         };
-        let watched = project(&prep::RecordReadback::capture_watched_within(&f.m, 16).unwrap());
+        let watched = project(&prep::RecordReadback::capture_watched_within(&f.m, 16, 65536).unwrap());
         let unavailable = &watched[0].details["preparation"];
         assert_eq!(unavailable["preparation"], "history_unavailable", "{unavailable:#}");
         assert_eq!(unavailable["history_unavailable"]["code"], "preparation_record_watch_bound");
-        assert!(unavailable["history_unavailable"]["reason"].is_string());
+        assert_eq!(unavailable["recovery"], HISTORY_UNAVAILABLE);
         assert!(unavailable["candidates"].is_null());
         assert!(watched[0].actions.is_empty() && watched[0].compatibility.is_none());
         assert_eq!(watched[1].details["preparation"]["candidates"].as_array().unwrap().len(), 1);
         // A projection that is not rechecked against file stamps (the
-        // Diagnostics snapshot) watches nothing and shows all of it.
-        let unwatched = project(&prep::RecordReadback::capture(&f.m).unwrap());
+        // Diagnostics snapshot) watches nothing and composes all of it.
+        let unwatched = project(&prep::RecordReadback::capture_unwatched(&f.m).unwrap());
         assert_eq!(unwatched[0].details["preparation"]["candidates"].as_array().unwrap().len(), 4);
         assert_eq!(unwatched[1].details["preparation"], watched[1].details["preparation"]);
         assert_eq!(serde_json::to_value(&unwatched[1].actions).unwrap(),

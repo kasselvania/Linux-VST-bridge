@@ -30,7 +30,7 @@ fn changed_environment_keeps_history_readable_and_requires_fresh_preparation() {
         assert_eq!(validate_current_candidate_record(&f.m,&historical,&old.selection.scanner,
             &old.selection.scanner_source).unwrap_err().to_string(),"preparation_environment_changed");
     }
-    assert!(RecordReadback::capture(&f.m).unwrap().catalogue_free_registry(&f.m,
+    assert!(RecordReadback::capture_unwatched(&f.m).unwrap().catalogue_free_registry(&f.m,
         &f.m.registry().unwrap()).unwrap());
     assert_eq!(publication_state_record(&f.m,&old).unwrap(),"environment_changed");
     assert!(!selected_publication_candidate_record(&f.m,&old).unwrap());
@@ -56,7 +56,7 @@ fn changed_environment_keeps_history_readable_and_requires_fresh_preparation() {
     assert_eq!(publication_state_record(&f.m,&next).unwrap(),"experimental");
     fs::remove_file(&next.selection.module.path).unwrap();
     assert!(validate_candidate_record(&f.m,&old).is_ok());
-    assert!(RecordReadback::capture(&f.m).unwrap().catalogue_free_registry(&f.m,
+    assert!(RecordReadback::capture_unwatched(&f.m).unwrap().catalogue_free_registry(&f.m,
         &f.m.registry().unwrap()).unwrap());
     assert!(verify_candidate(&f.m,&next,&next.selection.scanner,&next.selection.scanner_source).is_err());
 }
@@ -526,11 +526,11 @@ fn record_readback_bounds_each_product_history_apart() {
         .filter(|c| same_product(&c.selection, &current.selection)).cloned().collect::<Vec<_>>();
     // A projection that is not rechecked against file stamps (the snapshot)
     // watches nothing, so no history is too long for it.
-    let unwatched = RecordReadback::capture(&f.m).unwrap();
+    let unwatched = RecordReadback::capture_unwatched(&f.m).unwrap();
     assert!(unwatched.history_watched(&f.m, &current.selection).unwrap());
     assert!(unwatched.watched_paths().unwrap().is_empty());
     // Past its bound, only that product's history is unavailable.
-    let records = RecordReadback::capture_watched_within(&f.m, 16).unwrap();
+    let records = RecordReadback::capture_watched_within(&f.m, 16, 65536).unwrap();
     assert_eq!(history(&records).len(), 4);
     assert!(!records.history_watched(&f.m, &current.selection).unwrap());
     assert!(records.history_watched(&f.m, &other.selection).unwrap());
@@ -539,6 +539,15 @@ fn record_readback_bounds_each_product_history_apart() {
     let watches = records.watched_paths().unwrap();
     assert!(watches.contains(&other.native.artifact.path));
     assert!(history(&records).iter().all(|c| !watches.contains(&c.native.artifact.path)));
+    // Within each product's bound, a view watches at most so many in all:
+    // the product past that is left out, not the one watched before it.
+    let records = RecordReadback::capture_watched_within(&f.m, 4096, 25).unwrap();
+    assert!(records.history_watched(&f.m, &current.selection).unwrap());
+    assert!(!records.history_watched(&f.m, &other.selection).unwrap());
+    assert!(records.history_watched(&f.m, &current.selection).unwrap());
+    let watches = records.watched_paths().unwrap();
+    assert!(history(&records).iter().all(|c| watches.contains(&c.native.artifact.path)));
+    assert!(!watches.contains(&other.native.artifact.path));
     // Within it, every file of every preparation is watched.
     let records = RecordReadback::capture_watched(&f.m).unwrap();
     assert!(records.history_watched(&f.m, &current.selection).unwrap());
@@ -2321,7 +2330,7 @@ fn reusable_engine_actual_preparation_retains_and_publishes_descriptor() {
     let runner_file = prepared.selection.environment.runner.files[0].path.clone();
     let runner_bytes = fs::read(&runner_file).unwrap();
     fs::write(&runner_file, vec![b'X'; runner_bytes.len()]).unwrap();
-    let records = RecordReadback::capture(&f.m).unwrap();
+    let records = RecordReadback::capture_unwatched(&f.m).unwrap();
     let projected = records.publication_candidate_record(
         &f.m, &prepared.profile, &registration).unwrap().unwrap();
     assert!(build::supports_loaded_engine_admission_record(&f.m, projected).unwrap());

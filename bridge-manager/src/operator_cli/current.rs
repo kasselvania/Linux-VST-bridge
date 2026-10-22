@@ -232,8 +232,10 @@ pub(super) struct CurrentOverviewContext {
 }
 impl CurrentOverviewContext {
     /// Stamp the preparation records a projection read. The view's own files
-    /// are bounded at capture, and each product's history by the readback.
+    /// are bounded at capture; each product's history, and all of them
+    /// together, by the readback, which leaves out what it cannot watch.
     pub(super) fn capture_preparation_watches(&mut self) -> Result<()> {
+        require(self.preparation.watching(), "preparation_record_watch_absent")?;
         for path in self.preparation.watched_paths()? {
             if !self.watched.contains_key(&path) { self.watched.insert(path.clone(), stamp(&path)?); }
         }
@@ -702,8 +704,7 @@ fn append_discovered(m: &Manager, sw: &Software, environments: &[Environment],
             if module.quarantine_reason.is_some() {
                 let retry_disabled = quarantined_retry_disabled(m, bindings, db,
                     environment)?;
-                products.push(quarantined_product(&scan,index,module,stale,None,
-                    retry_disabled)?);
+                products.push(quarantined_product(&scan,index,module,stale,retry_disabled)?);
                 continue;
             }
             let problem = if stale.is_none() { inventory::problem(&module) } else { None };
@@ -901,7 +902,7 @@ fn compose_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->Result<boo
     let sw = if diagnostics { software(m)? } else { software_record(m)? };
     // Diagnostics is composed for every read and rechecks its token; only a
     // current view is rechecked against the stamps of what it read.
-    let preparation = if diagnostics { preparation::RecordReadback::capture(m)? }
+    let preparation = if diagnostics { preparation::RecordReadback::capture_unwatched(m)? }
         else { preparation::RecordReadback::capture_watched(m)? };
     let mut watched = if diagnostics { BTreeMap::new() } else { watch_paths(m, &sw, &db)? };
     let catalogue = operator_catalogue_records(m, &sw, &db, &preparation)?;
@@ -1064,6 +1065,7 @@ fn compose_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->Result<boo
     // A plug-in whose setup window is open takes over its setup's card.
     plugin_setup::project(m,&mut products,&mut installer_setups,busy)?;
     let environment_installers = environment_install::projection(m,&products,busy,|operation| {
+        if let Some(live) = installer_live.get(operation) { return Ok(*live); }
         let live = installer_is_live(operation)?;
         installer_live.insert(operation.to_owned(),live);Ok(live)
     })?;
@@ -1606,7 +1608,7 @@ pub(super) mod tests {
                 bridge:Default::default()},
             busy:None,profiles:vec![],revisions:BTreeMap::new(),
             current_generation:pulse_generation(m).unwrap(),
-            software,registry:m.registry().unwrap(),preparation:preparation::RecordReadback::capture(m).unwrap(),
+            software,registry:m.registry().unwrap(),preparation:preparation::RecordReadback::capture_watched(m).unwrap(),
             bindings:vec![],
             owners:capacity::owners(m).unwrap(),watched,installer_live:BTreeMap::new(),
             vendor_progress:None,
@@ -2246,12 +2248,15 @@ pub(super) mod tests {
             .iter().map(|operation| onboarding::unit(operation).unwrap()).collect();
         (f, candidates, units)
     }
-    const PAGES: [&str; 2] = ["current overview", "plug-in page"];
-    /// The current overview, or the first plug-in's page, as written.
+    const PAGES: [&str; 3] = ["current overview", "plug-in page", "snapshot"];
+    /// The current overview, the first plug-in's page, or the snapshot, as written.
     fn page(m: &Manager, candidates: &[linux_vst_bridge::preparation::Candidate], name: &str) -> Result<Vec<u8>> {
         let s = &candidates[0].selection;
-        Ok(if name == PAGES[0] { serde_json::to_vec(&current_overview(m)?)? } else {
-            serde_json::to_vec(&product_detail(m, &s.environment.id, &s.module.sha256, &s.class.id)?)?
+        Ok(match name {
+            "current overview" => serde_json::to_vec(&current_overview(m)?)?,
+            "plug-in page" => serde_json::to_vec(&product_detail(m, &s.environment.id, &s.module.sha256, &s.class.id)?)?,
+            _ => serde_json::to_vec(&snapshot_for_operation(m, None, OPERATOR_WAIT, &mut vec![],
+                &|| crate::operator_cli::tests::capacity_fixture(m))?)?,
         })
     }
     #[test]
@@ -2262,9 +2267,10 @@ pub(super) mod tests {
         let (f, candidates, units) = retained_history();
         readiness::with_unit_state_fixture(&units, "inactive", || {
             for name in PAGES {
-                let server = overview_service_reply(&f.m, capacity_json(false,0,0));
+                // The snapshot is given the service's census directly.
+                let server = (name != "snapshot").then(|| overview_service_reply(&f.m, capacity_json(false,0,0)));
                 let (composed, opened) = linux_vst_bridge::with_opened_counts(|| page(&f.m, &candidates, name));
-                server.join().unwrap();
+                if let Some(server) = server { server.join().unwrap(); }
                 composed.unwrap();
                 let opened = opened.unwrap();
                 let records: Vec<_> = opened.iter().filter(|(path, _)|
@@ -2275,6 +2281,11 @@ pub(super) mod tests {
                 // opens it at least as often as there are setups.
                 let (path, most) = records.iter().max_by_key(|(_, opens)| **opens).unwrap();
                 assert!((**most as usize) < SETUPS, "{name} opened {path:?} {most} times");
+                // The snapshot read the registry once for every retained
+                // preparation it showed (#503). Each setup's card still reads
+                // it twice; nothing else reads it once per record.
+                let registry = opened.get(&f.m.root.join("registry.json")).copied().unwrap_or(0);
+                assert!((registry as usize) < 5 * (SETUPS + 1), "{name} opened the registry {registry} times");
             }
         });
     }

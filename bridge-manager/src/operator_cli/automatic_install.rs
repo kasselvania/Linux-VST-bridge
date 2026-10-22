@@ -2055,7 +2055,7 @@ fn connect_class(
     if let Some(entry) = m.registry()?.classes.get(&selection.class.id) {
         if let Some(reference) = &entry.managed_revision {
             let revision = m.load_revision_record(&selection.class.id, reference)?;
-            let records = prep::RecordReadback::capture(m)?;
+            let records = prep::RecordReadback::capture_unwatched(m)?;
             if let Some(candidate) = records.publication_candidate_record(
                 m, &revision.profile, &entry.registration,
             )? {
@@ -5648,7 +5648,7 @@ finally:
             }),
             details: json!({}),
         };
-        let records = prep::RecordReadback::capture(&f.m).unwrap();
+        let records = prep::RecordReadback::capture_unwatched(&f.m).unwrap();
         let before = test_fixture::snapshot(&f.m.root);
         preparation_cli::project_required_recovery(
             &f.m,
