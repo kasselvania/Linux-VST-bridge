@@ -1,0 +1,196 @@
+name: Distribution build and test
+# The manager, window, supervisor and packaging built and tested inside each
+# beta distribution's own container, with that distribution's Python and
+# system tools, as an ordinary user (testing/distro/run.sh). Rawhide is an
+# early warning for the next Fedora and may fail without failing the run.
+# A separate informational job reports whether the runner can use KVM, for a
+# later fresh-install VM job.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/distro-matrix.yml'
+      - 'testing/distro/**'
+      - 'bridge-manager/**'
+      - 'manager-ui/**'
+      - 'native-audio-client/**'
+      - 'plugin-descriptor/**'
+      - 'compatibility/**'
+      # Read by problem.rs's explanation-completeness test.
+      - 'windows-factory-probe/source/inspect_module.cpp'
+      - 'windows-factory-probe/source/ap8_state.h'
+      - 'windows-factory-probe/source/stereo_negotiation.h'
+      # Rebuilt offline by the packaging tests.
+      - 'native-vst3-proxy/backend/**'
+      - 'tools/pkg0/**'
+      - 'tools/portable/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/distro-matrix.yml'
+      - 'testing/distro/**'
+      - 'bridge-manager/**'
+      - 'manager-ui/**'
+      - 'native-audio-client/**'
+      - 'plugin-descriptor/**'
+      - 'compatibility/**'
+      - 'windows-factory-probe/source/inspect_module.cpp'
+      - 'windows-factory-probe/source/ap8_state.h'
+      - 'windows-factory-probe/source/stereo_negotiation.h'
+      - 'native-vst3-proxy/backend/**'
+      - 'tools/pkg0/**'
+      - 'tools/portable/**'
+permissions:
+  contents: read
+concurrency:
+  group: distro-matrix-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+jobs:
+  distro:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: ${{ matrix.early_warning }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The official CachyOS image (x86-64 only, rebuilt from the rolling
+          # repositories); the run upgrades it to the current packages.
+          - id: cachyos
+            name: CachyOS
+            image: cachyos/cachyos:latest
+            early_warning: false
+          - id: fedora-44
+            name: Fedora 44
+            image: fedora:44
+            early_warning: false
+          - id: fedora-rawhide
+            name: Fedora rawhide (early warning, allowed to fail)
+            image: fedora:rawhide
+            early_warning: true
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Pull ${{ matrix.image }}
+        id: image
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          docker pull --quiet "$IMAGE"
+          echo "id=$(docker image inspect --format '{{.Id}}' "$IMAGE" | cut -d: -f2 | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      # Saved even when a check fails, so a failing distribution still
+      # rebuilds incrementally.
+      - name: Restore the Cargo registry and build output
+        id: cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ runner.temp }}/lvb-distro/cargo/registry/index
+            ${{ runner.temp }}/lvb-distro/cargo/registry/cache
+            ${{ runner.temp }}/lvb-distro/cargo/git/db
+            ${{ runner.temp }}/lvb-distro/target
+          key: distro-${{ matrix.id }}-${{ steps.image.outputs.id }}-${{ hashFiles('bridge-manager/Cargo.lock', 'manager-ui/Cargo.lock', 'native-vst3-proxy/backend/Cargo.lock') }}
+          restore-keys: |
+            distro-${{ matrix.id }}-${{ steps.image.outputs.id }}-
+            distro-${{ matrix.id }}-
+      - name: Build and test on ${{ matrix.name }}
+        env:
+          IMAGE: ${{ matrix.image }}
+          NAME: ${{ matrix.name }}
+        run: |
+          cache="$RUNNER_TEMP/lvb-distro"
+          mkdir -p "$cache/cargo" "$cache/target" "$cache/report"
+          uid=$(id -u)
+          # --init reaps the detached workers the real-service tests start, as
+          # systemd does on a desktop; /run/user/UID is a private tmpfs as a
+          # login provides it.
+          docker run --rm --init --shm-size 1g \
+            --tmpfs "/run/user/$uid:exec,nosuid,nodev,size=1g,mode=0700,uid=$uid,gid=$uid" \
+            -v "$GITHUB_WORKSPACE:/src" -w /src -v "$cache:/cache" \
+            -e CI=true -e LVB_DISTRO_NAME="$NAME" -e LVB_DISTRO_SUMMARY=/cache/report/summary.md \
+            "$IMAGE" bash testing/distro/run.sh
+      - name: Report versions and check times
+        if: ${{ !cancelled() }}
+        run: cat "$RUNNER_TEMP/lvb-distro/report/summary.md" >> "$GITHUB_STEP_SUMMARY" || true
+      # The project's own crates are rebuilt on every change; keep only
+      # third-party output so the cache stays small.
+      - name: Drop the project's own build output
+        if: ${{ !cancelled() }}
+        run: |
+          target="$RUNNER_TEMP/lvb-distro/target"
+          for profile in "$target/debug" "$target/release"; do
+            [ -d "$profile" ] || continue
+            find "$profile" -maxdepth 1 -type f -delete
+            find "$profile/deps" "$profile/.fingerprint" "$profile/build" -mindepth 1 -maxdepth 1 \
+              \( -name 'linux*vst*bridge*' -o -name 'linux*audio*compatibility*manager*' \
+                 -o -name 'ap1*native*client*' -o -name 'lvb*plugin*descriptor*' \
+                 -o -name 'uio1*' -o -name 'real_service*' \) -exec rm -rf {} +
+          done
+          du -sh "$target" "$RUNNER_TEMP/lvb-distro/cargo" || true
+      - name: Save the Cargo registry and build output
+        if: ${{ !cancelled() && steps.cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ runner.temp }}/lvb-distro/cargo/registry/index
+            ${{ runner.temp }}/lvb-distro/cargo/registry/cache
+            ${{ runner.temp }}/lvb-distro/cargo/git/db
+            ${{ runner.temp }}/lvb-distro/target
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+
+  kvm:
+    name: KVM on the runner (informational)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - name: Open /dev/kvm to the runner user
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install QEMU and kvm-ok
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends qemu-system-x86 cpu-checker >/dev/null
+      # Starts a guest under KVM and reads its firmware's debug console: the
+      # guest ran on the accelerator if SeaBIOS printed and QEMU reports KVM.
+      - name: Probe KVM with a throwaway guest
+        run: |
+          bios=$(mktemp); monitor=$(mktemp)
+          started=$(date +%s.%N)
+          status=0
+          { echo 'info kvm'; sleep 5; echo quit; } |
+            timeout 30 qemu-system-x86_64 -accel kvm -cpu host -machine q35 -m 256 \
+              -nodefaults -display none -no-reboot -monitor stdio \
+              -chardev file,id=bios,path="$bios" -device isa-debugcon,iobase=0x402,chardev=bios \
+              >"$monitor" 2>&1 || status=$?
+          took=$(echo "$(date +%s.%N) - $started" | bc)
+          kvm_ok=$(kvm-ok 2>&1 | tr '\n' ' ' || true)
+          if [ "$status" = 0 ] && grep -q 'kvm support: enabled' "$monitor" && grep -q SeaBIOS "$bios"; then
+            result="usable: a q35 guest started under KVM and its firmware ran"
+          else
+            result="not usable (QEMU exit $status)"
+          fi
+          {
+            echo "### KVM on the GitHub Linux runner"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Result | **KVM $result** |"
+            echo "| Runner | $(. /etc/os-release; echo "$PRETTY_NAME"), kernel $(uname -r) |"
+            echo "| CPU | $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | xargs), $(nproc) vCPU, $(free -g | awk '/Mem:/{print $2}') GiB |"
+            echo "| Virtualisation flag | $(grep -m1 -wo -e vmx -e svm /proc/cpuinfo || echo none) |"
+            echo "| /dev/kvm | $(ls -l /dev/kvm 2>&1) |"
+            echo "| kvm-ok | $kvm_ok |"
+            echo "| QEMU | $(qemu-system-x86_64 --version | head -n 1) |"
+            echo "| Guest run | ${took}s including a 5 s hold |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
+          echo "--- QEMU monitor"; cat "$monitor"
+          echo "--- SeaBIOS debug console"; head -n 20 "$bios"
+          case "$result" in
+            usable*) echo "::notice title=KVM::KVM is $result" ;;
+            *) echo "::warning title=KVM::KVM is $result"; exit 1 ;;
+          esac
