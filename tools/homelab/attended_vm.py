@@ -14,6 +14,11 @@ BASE = Path("/mnt/Storage2/LinuxPluginBridge")
 VM = "lvb430-test205-cachyos"
 QMP = BASE / "runtime-430/fresh-cachyos/qmp.sock"
 GIB = 1024**3
+# Guest memory and the container ceiling around it (QEMU overhead included).
+# With the 4 GiB reserve the host needs 11 GiB available to start the fixture.
+GUEST_MIB = 6144
+CEILING = 7 * GIB
+assert CEILING == GUEST_MIB * 1024**2 + GIB, "keep 1 GiB of QEMU headroom"
 LEASE_SECONDS = 25 * 60
 
 
@@ -45,12 +50,31 @@ def pressure():
 def require_capacity(config, available):
     if config["NanoCpus"] != 2_000_000_000:
         raise RuntimeError("fixture must be limited to two CPUs")
-    if config["Memory"] != 5 * GIB or config["MemorySwap"] != 5 * GIB:
-        raise RuntimeError("fixture must have a 5 GiB ceiling with no extra swap")
+    if config["Memory"] != CEILING or config["MemorySwap"] != CEILING:
+        raise RuntimeError("fixture must have a 7 GiB ceiling with no extra swap")
     if config["RestartPolicy"]["Name"] != "no":
         raise RuntimeError("automatic fixture restart is forbidden")
     if available < config["Memory"] + 4 * GIB:
         raise RuntimeError("insufficient host memory reserve; leave fixture stopped")
+
+
+def require_arguments(args):
+    if args[args.index("-m") + 1] != str(GUEST_MIB):
+        raise RuntimeError("fixture guest memory must be 6 GiB")
+    pairs = list(zip(args, args[1:]))
+    if ("-drive", "file=/vm/test224-data.qcow2,if=none,format=qcow2,id=lvb-test224-blank") not in pairs or (
+        "-device", "usb-storage,drive=lvb-test224-blank,id=lvbtest224disk,serial=LVB-TEST224-BLANK,bus=xhci.0"
+    ) not in pairs:
+        raise RuntimeError("retained test-account disk is not attached")
+
+
+def stopped_notice(state):
+    """A VM the kernel killed did not shut down; never report it as one."""
+    if state.get("OOMKilled"):
+        return "VM was killed at its memory ceiling, not shut down; both workload locks can be released."
+    if state.get("ExitCode", 0) != 0:
+        return f"VM ended with exit code {state['ExitCode']}, not a clean shutdown; both workload locks can be released."
+    return "VM stopped; both workload locks can be released."
 
 
 def require_idle():
@@ -128,8 +152,9 @@ def retire():
     last_notice = 0
     while True:
         try:
-            if not inspect()["State"]["Running"]:
-                emit("VM stopped; both workload locks can be released.")
+            state = inspect()["State"]
+            if not state["Running"]:
+                emit(stopped_notice(state))
                 return
             if not requested:
                 if failed:
@@ -163,14 +188,7 @@ def main():
         vm = inspect()
         if vm["State"]["Running"]:
             raise RuntimeError("fixture is already running")
-        args = vm["Config"]["Cmd"]
-        if args[args.index("-m") + 1] != "4096":
-            raise RuntimeError("fixture guest memory must be 4 GiB")
-        pairs = list(zip(args, args[1:]))
-        if ("-drive", "file=/vm/test224-data.qcow2,if=none,format=qcow2,id=lvb-test224-blank") not in pairs or (
-            "-device", "usb-storage,drive=lvb-test224-blank,id=lvbtest224disk,serial=LVB-TEST224-BLANK,bus=xhci.0"
-        ) not in pairs:
-            raise RuntimeError("retained test-account disk is not attached")
+        require_arguments(vm["Config"]["Cmd"])
         available = memory_available()
         require_capacity(vm["HostConfig"], available)
         emit(json.dumps({"guard_pid": os.getpid(), "available_bytes": available,
