@@ -17,6 +17,7 @@
 //! service then composes every read until it covers everything again.
 use std::{
     collections::{BTreeSet, HashMap},
+    ffi::OsString,
     path::{Path, PathBuf},
     sync::Mutex,
     time::{Duration, Instant},
@@ -86,7 +87,14 @@ enum Place {
     /// A directory watched for the files a view was read from.
     Directory,
     /// The nearest existing ancestor of a missing tree root or directory.
+    /// Only the creation of the missing child matters there.
     Ancestor,
+}
+impl Place {
+    /// A directory watched in two places keeps the one that covers more.
+    fn covers(self) -> u8 {
+        match self { Self::Ancestor => 0, Self::Directory => 1, Self::Tree { .. } => 2 }
+    }
 }
 struct Watched {
     path: PathBuf,
@@ -98,14 +106,16 @@ struct State {
     trees: Vec<Tree>,
     directories: BTreeSet<PathBuf>,
     watches: HashMap<i32, Watched>,
+    /// Missing children each watch awaits, whose creation means a rebuild.
+    awaited: HashMap<i32, BTreeSet<OsString>>,
     uncovered: bool,
     attempted: Instant,
 }
 impl State {
     fn new(trees: Vec<Tree>) -> crate::Result<Self> {
         Ok(Self { inotify: inotify::Instance::new()?, generation: 0, trees,
-            directories: BTreeSet::new(), watches: HashMap::new(), uncovered: false,
-            attempted: Instant::now() })
+            directories: BTreeSet::new(), watches: HashMap::new(), awaited: HashMap::new(),
+            uncovered: false, attempted: Instant::now() })
     }
     /// Watch everything afresh in a new instance. Anything may have changed
     /// while it was not watched, so this is a change too.
@@ -113,6 +123,7 @@ impl State {
         self.attempted = Instant::now();
         self.generation += 1;
         self.watches.clear();
+        self.awaited.clear();
         self.uncovered = false;
         match inotify::Instance::new() {
             Ok(instance) => self.inotify = instance,
@@ -130,7 +141,7 @@ impl State {
         }
     }
     fn add_tree(&mut self, tree: usize, directory: &Path, depth: usize) {
-        if !self.add(directory, Place::Tree { tree, depth })
+        if self.add(directory, Place::Tree { tree, depth }).is_none()
             || self.trees[tree].depth.is_some_and(|levels| depth >= levels) {
             return;
         }
@@ -156,47 +167,53 @@ impl State {
         }
     }
     fn add_ancestor(&mut self, missing: &Path) {
-        if let Some(ancestor) = missing.ancestors().skip(1).find(|path| path.is_dir()) {
-            self.add(ancestor, Place::Ancestor);
+        let Some(ancestor) = missing.ancestors().skip(1).find(|path| path.is_dir()) else { return };
+        let Some(child) = missing.strip_prefix(ancestor).ok().and_then(|rest| rest.iter().next()) else { return };
+        if let Some(descriptor) = self.add(ancestor, Place::Ancestor) {
+            self.awaited.entry(descriptor).or_default().insert(child.to_owned());
         }
     }
-    /// Whether `directory` is watched. One watched before keeps its place.
-    fn add(&mut self, directory: &Path, place: Place) -> bool {
+    /// The watch descriptor, once `directory` is watched.
+    fn add(&mut self, directory: &Path, place: Place) -> Option<i32> {
         if self.watches.len() >= WATCH_LIMIT {
             self.uncovered = true;
-            return false;
+            return None;
         }
         match self.inotify.watch(directory) {
             Ok(descriptor) => {
-                self.watches.entry(descriptor)
+                let watched = self.watches.entry(descriptor)
                     .or_insert_with(|| Watched { path: directory.to_owned(), place });
-                true
+                if place.covers() > watched.place.covers() { watched.place = place; }
+                Some(descriptor)
             }
             // Removed or replaced meanwhile: its parent reported that.
-            Err(error) if matches!(error.raw_os_error(), Some(libc::ENOENT | libc::ENOTDIR)) => false,
+            Err(error) if matches!(error.raw_os_error(), Some(libc::ENOENT | libc::ENOTDIR)) => None,
             Err(_) => {
                 self.uncovered = true;
-                false
+                None
             }
         }
     }
     /// Take every report so far.
     fn drain(&mut self) -> std::io::Result<()> {
-        let mut rebuild = false;
-        let mut created = Vec::new();
-        let changed = self.inotify.drain(|event| {
-            if event.mask & libc::IN_Q_OVERFLOW != 0 || event.mask & libc::IN_MOVE_SELF != 0 {
-                rebuild = true;
-            }
+        let (mut changed, mut rebuild, mut created) = (false, false, Vec::new());
+        self.inotify.drain(|event| {
+            let created_entry = event.mask & (libc::IN_CREATE | libc::IN_MOVED_TO) != 0;
+            let awaited = self.awaited.get(&event.descriptor).is_some_and(|names| names.contains(event.name));
+            let place = self.watches.get(&event.descriptor).map(|watched| watched.place);
+            // An ancestor stands in for a missing directory; the rest of it is not watched.
+            changed |= place != Some(Place::Ancestor) || awaited;
+            // Overflow lost reports, a moved directory changed every path below
+            // it, and a missing child appeared or a named directory went away.
+            rebuild |= event.mask & (libc::IN_Q_OVERFLOW | libc::IN_MOVE_SELF) != 0
+                || (awaited && created_entry)
+                || (event.mask & libc::IN_IGNORED != 0 && matches!(place, Some(Place::Directory | Place::Ancestor)));
             if event.mask & libc::IN_IGNORED != 0 {
                 self.watches.remove(&event.descriptor);
             }
-            if event.mask & libc::IN_ISDIR != 0 && event.mask & (libc::IN_CREATE | libc::IN_MOVED_TO) != 0 {
-                match self.watches.get(&event.descriptor) {
-                    Some(Watched { path, place: Place::Tree { tree, depth } }) =>
-                        created.push((*tree, path.join(event.name), depth + 1)),
-                    Some(Watched { place: Place::Ancestor, .. }) => rebuild = true,
-                    _ => {}
+            if let (Some(Place::Tree { tree, depth }), true) = (place, created_entry && event.mask & libc::IN_ISDIR != 0) {
+                if let Some(watched) = self.watches.get(&event.descriptor) {
+                    created.push((tree, watched.path.join(event.name), depth + 1));
                 }
             }
         })?;
@@ -243,23 +260,22 @@ mod inotify {
             let descriptor = unsafe { libc::inotify_add_watch(self.0.as_raw_fd(), path.as_ptr(), CHANGES) };
             if descriptor < 0 { Err(std::io::Error::last_os_error()) } else { Ok(descriptor) }
         }
-        /// Hand every queued report to `each`; whether there was any.
-        pub fn drain(&self, mut each: impl FnMut(Event<'_>)) -> std::io::Result<bool> {
+        /// Hand every queued report to `each`.
+        pub fn drain(&self, mut each: impl FnMut(Event<'_>)) -> std::io::Result<()> {
             const HEADER: usize = std::mem::size_of::<libc::inotify_event>();
             let mut buffer = vec![0u8; 64 * 1024];
-            let mut any = false;
             loop {
                 let read = unsafe { libc::read(self.0.as_raw_fd(), buffer.as_mut_ptr().cast(), buffer.len()) };
                 if read < 0 {
                     let error = std::io::Error::last_os_error();
                     match error.raw_os_error() {
-                        Some(libc::EAGAIN) => return Ok(any),
+                        Some(libc::EAGAIN) => return Ok(()),
                         Some(libc::EINTR) => continue,
                         _ => return Err(error),
                     }
                 }
                 let read = read as usize;
-                if read == 0 { return Ok(any); }
+                if read == 0 { return Ok(()); }
                 let mut offset = 0;
                 while offset + HEADER <= read {
                     let event: libc::inotify_event = unsafe {
@@ -268,7 +284,6 @@ mod inotify {
                     let name = &buffer[offset + HEADER..name_end];
                     let name = &name[..name.iter().position(|byte| *byte == 0).unwrap_or(name.len())];
                     each(Event { descriptor: event.wd, mask: event.mask, name: OsStr::from_bytes(name) });
-                    any = true;
                     offset = name_end;
                 }
             }
@@ -291,7 +306,7 @@ mod inotify {
         pub fn watch(&self, _: &Path) -> std::io::Result<i32> {
             Err(std::io::Error::from(std::io::ErrorKind::Unsupported))
         }
-        pub fn drain(&self, _: impl FnMut(Event<'_>)) -> std::io::Result<bool> {
+        pub fn drain(&self, _: impl FnMut(Event<'_>)) -> std::io::Result<()> {
             Err(std::io::Error::from(std::io::ErrorKind::Unsupported))
         }
     }
@@ -354,13 +369,30 @@ mod tests {
         let generation = changes.generation().unwrap();
         fs::write(prefix.join("Plugin.vst3"), b"replaced module").unwrap();
         assert_ne!(changes.generation(), Some(generation));
-        // A missing tree root is watched once it appears.
+        // A missing tree root is watched once it appears. Until then the rest
+        // of its parent, here the home directory, is not watched.
         let generation = changes.generation().unwrap();
+        fs::write(root.join(".xsession-errors"), b"unrelated churn").unwrap();
+        fs::create_dir(root.join("unrelated")).unwrap();
+        assert_eq!(changes.generation(), Some(generation));
         fs::create_dir(root.join("published")).unwrap();
         let created = changes.generation().unwrap();
         assert_ne!(created, generation);
         fs::write(root.join("published/LVB_plugin.vst3"), b"link").unwrap();
         assert_ne!(changes.generation(), Some(created));
+        // A named directory that goes away and comes back is watched again,
+        // and one first watched as an ancestor counts every change once named.
+        let plugins = prefix.parent().unwrap().to_owned();
+        assert!(changes.watch_directories([plugins.join("Vendor/Plugin.vst3")]));
+        fs::remove_dir_all(&prefix).unwrap();
+        fs::create_dir(&prefix).unwrap();
+        let generation = changes.generation().unwrap();
+        fs::write(prefix.join("Plugin.vst3"), b"reinstalled module").unwrap();
+        assert_ne!(changes.generation(), Some(generation));
+        assert!(changes.watch_directories([plugins.clone()]));
+        let generation = changes.generation().unwrap();
+        fs::write(plugins.join("settings.ini"), b"changed").unwrap();
+        assert_ne!(changes.generation(), Some(generation));
         fs::remove_dir_all(root).unwrap();
     }
 }
