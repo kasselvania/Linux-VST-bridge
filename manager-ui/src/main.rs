@@ -3,8 +3,8 @@ use eframe::egui;
 mod bootstrap;
 mod client;
 mod library;
-#[path = "../../bridge-manager/src/operator_model.rs"]
-mod model;
+// The window and the manager share one wire model and one client contract.
+use linux_vst_bridge::operator_model as model;
 mod operator;
 mod presentation;
 #[cfg(test)]

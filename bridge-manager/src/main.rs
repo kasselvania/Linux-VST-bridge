@@ -1938,6 +1938,34 @@ fn inspection_failure_context(m:&Manager,job:&SessionSpec,result:&serde_json::Va
     };
     Ok(format!("inspection failed for {name} during {phase}. Retry this operation; the failed check is retained."))
 }
+/// Answer one client exchange (`service::contract`): a window read or
+/// request, its installer import, or the Native Access browser return.
+fn answer_client(m: &Manager, request: service::contract::Request) -> Result<()> {
+    use service::contract::{Reply, Request};
+    let reply = match request {
+        Request::ImportInstaller { name } => {
+            let source = fs::File::from(std::io::stdin().as_fd().try_clone_to_owned()?);
+            Reply::Imported(installer_import::import_named(m, source, &name)?)
+        }
+        Request::BrowserReturn(url) => {
+            native_access_callback::deliver(m, &url)
+                .map_err(|_| service::contract::BROWSER_RETURN_UNDELIVERED)?;
+            Reply::Delivered
+        }
+        request => operator_cli::answer(m, request)?,
+    };
+    let serialization_at = Instant::now();
+    let encoded = reply.encode()?;
+    #[cfg(feature = "pb0-c0-audit")]
+    if let Reply::Overview(current) = &reply {
+        eprintln!("PB0_PHASE {}",serde_json::json!({"serialization_ms":serialization_at.elapsed().as_millis(),
+            "products":current.current.products.len(),"setups":current.current.installer_setups.len()}));
+    }
+    #[cfg(not(feature = "pb0-c0-audit"))]
+    let _ = serialization_at;
+    if let Some(encoded) = encoded { println!("{encoded}"); }
+    Ok(())
+}
 fn main() -> Result<()> {
     unsafe {
         libc::umask(0o077);
@@ -1955,6 +1983,9 @@ fn main() -> Result<()> {
     let m = Manager::installed()?;
     if matches!(args.first().map(String::as_str), Some("operator" | "import-installer")) {
         package_authority::require_current_frontend_caller(&m)?;
+    }
+    if let Some(request) = service::contract::Request::from_command(&args, std::io::stdin()) {
+        return answer_client(&m, request?);
     }
     match args.first().map(String::as_str){
   Some("package-adopt") if args.len()==1=>package_authority::adopt(&m),
@@ -1974,9 +2005,7 @@ fn main() -> Result<()> {
     Ok(())
   },
   Some("operator")=>operator_cli::run(&m,&args[1..]),
-  Some("native-access-callback") if args.len()==2=>native_access_callback::deliver(&m,&args[1]).map_err(|_|"Native Access login return could not be delivered. Open Native Access through the manager and start a fresh sign-in.".into()),
   Some("import-installer") if args.len()==1=>{let source=fs::File::from(std::io::stdin().as_fd().try_clone_to_owned()?);println!("{}",serde_json::to_string(&installer_import::import(&m,source)?)?);Ok(())},
-  Some("import-installer") if args.len()==2=>{let source=fs::File::from(std::io::stdin().as_fd().try_clone_to_owned()?);println!("{}",serde_json::to_string(&installer_import::import_named(&m,source,&args[1])?)?);Ok(())},
   Some("workspace")=>daw_workspace::run(&m,&args[1..]),
   Some("serve") if args.len()==1=>serve(m),
   Some("capacity") if args.len()==1=>capacity_read(&m),

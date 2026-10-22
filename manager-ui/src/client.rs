@@ -1,11 +1,11 @@
 //! Fixed manager entry point; explicit program choices use structured requests.
+//! Every exchange goes through the manager's client contract.
 use crate::model::{Activity, CurrentOverview, CurrentProductDetail, InstallerImportResult, InteractiveOverview, Pulse, Receipt, Request, Snapshot};
 use crate::screen_model::ProductKey;
+use linux_vst_bridge::service::contract;
 use std::{
-    io::{Read, Write},
-    process::{Command, Stdio},
+    io::Write,
     sync::{mpsc::Sender, Arc, OnceLock},
-    time::{Duration, Instant},
 };
 #[derive(Clone, Debug)]
 pub struct SupportReport {
@@ -76,6 +76,46 @@ fn frontend_selected(home: &std::path::Path, frontend: &linux_vst_bridge::Artifa
     }
     Ok(current.sha256 == frontend.sha256)
 }
+impl From<contract::Reply> for Reply {
+    fn from(reply: contract::Reply) -> Self {
+        match reply {
+            contract::Reply::Overview(overview) => Self::Overview(overview),
+            contract::Reply::CurrentOverview(overview) => Self::CurrentOverview(overview),
+            contract::Reply::Product(detail) => Self::Product(detail),
+            contract::Reply::Snapshot(snapshot) => Self::Snapshot(snapshot),
+            contract::Reply::Activity(activity) => Self::Activity(activity),
+            contract::Reply::Pulse(pulse) => Self::Pulse(pulse),
+            contract::Reply::Receipt(receipt) => Self::Receipt(receipt),
+            contract::Reply::Imported(imported) => Self::Imported(imported),
+            contract::Reply::Delivered => Self::Error("Unexpected manager reply".into()),
+        }
+    }
+}
+/// The manager's request for a query that leaves this window.
+fn request(query: Query, installer: Option<&str>) -> contract::Request {
+    use contract::Read;
+    match query {
+        Query::Overview => contract::Request::Read(Read::Overview),
+        Query::CurrentOverview => contract::Request::Read(Read::CurrentOverview),
+        Query::Product(key) => contract::Request::Read(Read::Product(contract::ProductKey {
+            environment: key.environment, module_sha256: key.module_sha256, class_id: key.class_id })),
+        Query::Snapshot => contract::Request::Read(Read::Snapshot),
+        Query::Activity => contract::Request::Read(Read::Activity),
+        Query::Pulse => contract::Request::Read(Read::Pulse),
+        Query::Action(request) => contract::Request::Action(request),
+        Query::PickInstaller => contract::Request::ImportInstaller { name: installer.unwrap_or_default().into() },
+        Query::SaveSupportReport(_) => unreachable!("problem reports are saved locally"),
+    }
+}
+/// One exchange with the manager through `transport`, as this window shows it.
+fn exchange(transport: impl contract::Transport, request: &contract::Request,
+    input: Option<std::fs::File>) -> Result<Reply, String> {
+    match contract::Client::new(transport).call(request, input) {
+        Ok(reply) => Ok(reply.into()),
+        Err(contract::Failure::FrontendSuperseded) => Ok(Reply::FrontendSuperseded),
+        Err(contract::Failure::Error(error)) => Err(error),
+    }
+}
 fn call(mut query: Query) -> Result<Reply, String> {
     let home = std::env::var_os("HOME").ok_or("Home directory unavailable")?;
     let home = std::path::PathBuf::from(home);
@@ -94,7 +134,6 @@ fn call(mut query: Query) -> Result<Reply, String> {
         save_support_report(&path, &value)?;
         return Ok(Reply::ReportSaved(path));
     }
-    let executable = home.join(".local/bin/linux-vst-bridge");
     if let Query::Action(request) = &mut query {
         if let crate::model::Action::ProgramChoose {executable:program,..} = &mut request.action {
             if program.path.as_os_str().is_empty() {
@@ -123,189 +162,18 @@ fn call(mut query: Query) -> Result<Reply, String> {
         };
         let basename = path.file_name().and_then(|part| part.to_str())
             .ok_or("Selected installer name is unavailable")?.to_owned();
-        Some((open_selected(&path)?, basename))
-    } else {
-        None
-    };
-    let verb = match &query {
-        Query::SaveSupportReport(_) => unreachable!(),
-        Query::PickInstaller => "import-installer",
-        Query::Overview => "overview",
-        Query::CurrentOverview => "current-overview",
-        Query::Product(_) => "product",
-        Query::Snapshot => "snapshot",
-        Query::Activity => "activity",
-        Query::Pulse => "pulse",
-        Query::Action(_) => "request",
-    };
-    let mut command = Command::new(executable);
-    if matches!(query, Query::PickInstaller) {
-        command.arg(verb).arg(selected.as_ref().ok_or("Installer selection unavailable")?.1.as_str());
-    } else {
-        command.args(["operator", verb]);
-        if let Query::Product(key) = &query {
-            command.args([&key.environment, &key.module_sha256, &key.class_id]);
-        }
-    }
-    // A file picker can outlive a package update or restoration. No import
-    // has started yet: recheck selection after the dialog, before dispatch.
-    if matches!(query, Query::PickInstaller) {
+        let source = open_selected(&path)?;
+        // A file picker can outlive a package update or restoration. No import
+        // has started yet: recheck selection after the dialog, before dispatch.
         if let Some(frontend) = identity {
             if !frontend_selected(&home, frontend)? { return Ok(Reply::FrontendSuperseded); }
         }
-    }
-    let mut child = command
-        .stdin(selected.map(|(file, _)| Stdio::from(file)).unwrap_or_else(Stdio::piped))
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|_| "Installed manager is unavailable")?;
-    if let Query::Action(request) = &query {
-        child
-            .stdin
-            .as_mut()
-            .ok_or("Manager input unavailable")?
-            .write_all(&serde_json::to_vec(request).map_err(|_| "Request encoding failed")?)
-            .map_err(|_| "Request delivery failed")?;
-    }
-    drop(child.stdin.take());
-    let collect = |mut pipe: Box<dyn Read + Send>, limit: u64| {
-        std::thread::spawn(move || {
-            let mut data = Vec::new();
-            let result = pipe.by_ref().take(limit + 1).read_to_end(&mut data);
-            let overflow = data.len() > limit as usize;
-            let _ = std::io::copy(&mut pipe, &mut std::io::sink());
-            (data, overflow, result.is_ok())
-        })
+        Some((source, basename))
+    } else {
+        None
     };
-    let out = collect(
-        Box::new(child.stdout.take().ok_or("Manager output unavailable")?),
-        8 * 1024 * 1024,
-    );
-    let err = collect(
-        Box::new(child.stderr.take().ok_or("Manager error unavailable")?),
-        4096,
-    );
-    let deadline = Instant::now()
-        + Duration::from_secs(if matches!(query, Query::PickInstaller) {
-            300
-        } else {
-            45
-        });
-    let status = loop {
-        if let Some(s) = child.try_wait().map_err(|_| "Manager wait failed")? {
-            break s;
-        }
-        if Instant::now() >= deadline {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(
-                "Manager readback timed out. Refresh to inspect any accepted operation.".into(),
-            );
-        }
-        std::thread::sleep(Duration::from_millis(20));
-    };
-    let (data, overflow, read) = out.join().map_err(|_| "Manager reader failed")?;
-    let (error, _, _) = err.join().map_err(|_| "Manager error reader failed")?;
-    if !status.success() {
-        let error = String::from_utf8_lossy(&error);
-        let refusal = error.trim().strip_prefix("Error: ").unwrap_or(error.trim())
-            .trim_matches('"');
-        if refusal.starts_with("operator_frontend_superseded: ") {
-            return Ok(Reply::FrontendSuperseded);
-        }
-        return Err(error.chars().take(512).collect());
-    }
-    if overflow || !read {
-        return Err("Manager response exceeded its bound".into());
-    }
-    if matches!(query, Query::PickInstaller) {
-        return decode_import(&data);
-    }
-    decode_reply(query, &data)
-}
-fn decode_import(data: &[u8]) -> Result<Reply, String> {
-    let envelope: serde_json::Value =
-        serde_json::from_slice(data).map_err(|_| "Invalid import receipt")?;
-    if envelope["schema"] != 2 {
-        return Err("Update the frontend and manager together: installer import result 2 required".into());
-    }
-    let value: InstallerImportResult = serde_json::from_value(envelope)
-        .map_err(|_| "Incompatible installer import result")?;
-    if value.installer_sha256.len() != 64
-        || !value.installer_sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
-        || value.display_label.is_empty() || value.display_label.len() > 96
-        || value.display_label.chars().any(char::is_control)
-        || !matches!(value.format.as_str(), "pe_executable" | "msi_compound") {
-        return Err("Installer import refused".into());
-    }
-    Ok(Reply::Imported(value))
-}
-
-fn decode_reply(query: Query, data: &[u8]) -> Result<Reply, String> {
-    let envelope: serde_json::Value =
-        serde_json::from_slice(data).map_err(|_| "Invalid manager response")?;
-    if matches!(query, Query::CurrentOverview) {
-        if envelope["schema"] != 1 || envelope["operator_schema"] != crate::model::OPERATOR_SCHEMA {
-            return Err(format!("Update the frontend and manager together: operator model {} required",
-                crate::model::OPERATOR_SCHEMA));
-        }
-        let overview: CurrentOverview = serde_json::from_slice(data)
-            .map_err(|_| "Incompatible manager current overview; update the frontend and manager together")?;
-        if overview.scope != "current_only" || overview.current.schema != crate::model::OPERATOR_SCHEMA {
-            return Err("Inconsistent manager current overview; refresh before acting".into());
-        }
-        return Ok(Reply::CurrentOverview(Box::new(overview)));
-    }
-    if matches!(query, Query::Overview) {
-        if envelope["schema"] != 1 || envelope["operator_schema"] != crate::model::OPERATOR_SCHEMA {
-            return Err(format!("Update the frontend and manager together: operator model {} required",
-                crate::model::OPERATOR_SCHEMA));
-        }
-        let overview: InteractiveOverview = serde_json::from_slice(data)
-            .map_err(|_| "Incompatible manager overview; update the frontend and manager together")?;
-        if overview.scope != "current_only" || overview.current.schema != crate::model::OPERATOR_SCHEMA
-            || overview.readiness.schema != 1
-            || overview.current.state_token != overview.readiness.state_token
-            || overview.current.system != overview.readiness.system {
-            return Err("Inconsistent manager overview; refresh before acting".into());
-        }
-        return Ok(Reply::Overview(Box::new(overview)));
-    }
-    if let Query::Product(key) = &query {
-        if envelope["schema"] != 1 || envelope["operator_schema"] != crate::model::OPERATOR_SCHEMA {
-            return Err(format!("Update the frontend and manager together: operator model {} required",
-                crate::model::OPERATOR_SCHEMA));
-        }
-        let detail: CurrentProductDetail = serde_json::from_slice(data)
-            .map_err(|_| "Incompatible manager product readback; update the frontend and manager together")?;
-        if detail.state_token.is_empty() || detail.current_generation.is_empty()
-            || ProductKey::from(&detail.product) != *key
-            || detail.environments.iter().any(|environment| environment.id != key.environment)
-            || detail.vendor_applications.iter().any(|application|
-                application.details["environment"].as_str() != Some(key.environment.as_str())) {
-            return Err("Inconsistent manager product readback; refresh before acting".into());
-        }
-        return Ok(Reply::Product(Box::new(detail)));
-    }
-    if envelope["schema"] != crate::model::OPERATOR_SCHEMA {
-        return Err(format!("Update the frontend and manager together: operator model {} required",
-            crate::model::OPERATOR_SCHEMA));
-    }
-    match query {
-        Query::SaveSupportReport(_) => unreachable!(),
-        Query::PickInstaller => unreachable!(),
-        Query::Overview => unreachable!(),
-        Query::CurrentOverview => unreachable!(),
-        Query::Product(_) => unreachable!(),
-        Query::Snapshot => {
-            serde_json::from_slice::<Snapshot>(data).map(|s| Reply::Snapshot(Box::new(s)))
-        }
-        Query::Activity => serde_json::from_slice::<Activity>(data).map(Reply::Activity),
-        Query::Pulse => serde_json::from_slice::<Pulse>(data).map(Reply::Pulse),
-        Query::Action(_) => serde_json::from_slice::<Receipt>(data).map(Reply::Receipt),
-    }
-    .map_err(|_| "Incompatible manager response; update the frontend and manager together".into())
+    let request = request(query, selected.as_ref().map(|(_, name)| name.as_str()));
+    exchange(contract::Subprocess::installed(&home), &request, selected.map(|(file, _)| file))
 }
 // Read only the manager-created, bounded export named by the exact completion.
 // A stale/replaced report, symlink or caller-selected source is never shared.
@@ -491,154 +359,35 @@ mod tests {
         std::fs::remove_dir_all(home).unwrap();
     }
 
-    #[test]
-    fn current_overview_is_paired_record_readback_without_readiness() {
-        let snapshot: Snapshot = serde_json::from_str(
-            include_str!("../examples/library-preview.json")).unwrap();
-        let mut value = serde_json::to_value(CurrentOverview {
-            schema:1,operator_schema:crate::model::OPERATOR_SCHEMA,
-            scope:"current_only".into(),current_generation:"exact-generation".into(),
-            current:snapshot,
-        }).unwrap();
-        assert!(matches!(decode_reply(Query::CurrentOverview, &serde_json::to_vec(&value).unwrap()),
-            Ok(Reply::CurrentOverview(_))));
-        assert!(decode_reply(Query::Overview, &serde_json::to_vec(&value).unwrap()).is_err());
-        value["readiness"] = serde_json::json!({"observed_at":1});
-        assert!(decode_reply(Query::CurrentOverview, &serde_json::to_vec(&value).unwrap()).is_err());
-        value.as_object_mut().unwrap().remove("readiness");
-        value["operator_schema"] = (crate::model::OPERATOR_SCHEMA - 1).into();
-        assert!(decode_reply(Query::CurrentOverview, &serde_json::to_vec(&value).unwrap()).is_err());
-        value["operator_schema"] = crate::model::OPERATOR_SCHEMA.into();
-        value["scope"] = "history".into();
-        assert!(decode_reply(Query::CurrentOverview, &serde_json::to_vec(&value).unwrap()).is_err());
+    /// Answers every exchange with one fixed result, as a manager would.
+    struct Answering(Result<Vec<u8>, contract::Failure>);
+    impl contract::Transport for Answering {
+        fn exchange(&self, _: &contract::Request, _: Option<std::fs::File>)
+            -> Result<Vec<u8>, contract::Failure> { self.0.clone() }
     }
     #[test]
-    fn selected_product_readback_requires_exact_paired_identity() {
+    fn window_queries_reach_the_manager_through_the_contract() {
         let snapshot: Snapshot = serde_json::from_str(
             include_str!("../examples/library-preview.json")).unwrap();
-        let product = snapshot.products[0].clone();
-        let key = ProductKey::from(&product);
-        let mut value = serde_json::to_value(CurrentProductDetail {
-            schema: 1, operator_schema: crate::model::OPERATOR_SCHEMA,
-            state_token: snapshot.state_token, current_generation: "exact-generation".into(),
-            system: snapshot.system,
-            product, environments: vec![], vendor_applications: vec![],
-        }).unwrap();
-        assert!(matches!(decode_reply(Query::Product(key.clone()),
-            &serde_json::to_vec(&value).unwrap()), Ok(Reply::Product(_))));
-        value["product"]["class_id"] = "different".into();
-        assert!(decode_reply(Query::Product(key.clone()),
-            &serde_json::to_vec(&value).unwrap()).is_err());
-        value["operator_schema"] = 11.into();
-        assert!(decode_reply(Query::Product(key),
-            &serde_json::to_vec(&value).unwrap()).is_err());
-    }
-    #[test]
-    fn current_frontend_accepts_paired_and_refuses_old_manager() {
-        let query = || {
-            Query::Action(Request {
-                schema: crate::model::OPERATOR_SCHEMA,
-                state_token: "exact-state".into(),
-                action: crate::model::Action::DependencyPrepare {},
-            })
-        };
-        let mut receipt = serde_json::json!({
-            "schema": crate::model::OPERATOR_SCHEMA, "accepted": true, "operation": "exact-operation", "refusal": null
-        });
-        match decode_reply(query(), &serde_json::to_vec(&receipt).unwrap()).unwrap() {
-            Reply::Receipt(value) => {
-                assert_eq!(value.schema, crate::model::OPERATOR_SCHEMA);
-                assert!(value.accepted);
-                assert_eq!(value.operation.as_deref(), Some("exact-operation"));
-            }
-            _ => panic!("expected dependency request receipt"),
-        }
-        let system = serde_json::json!({
-            "service": "active", "keepers": 2, "dsp": 0, "maintenance": 0,
-            "ceiling": 512, "pending_transactions": 0, "stale_transports": 0,
-            "cleanup_unconfirmed": false
-        });
-        let activity = serde_json::json!({
-            "schema": crate::model::OPERATOR_SCHEMA, "system": system, "capture": null, "operation": null
-        });
-        assert!(matches!(
-            decode_reply(Query::Activity, &serde_json::to_vec(&activity).unwrap()),
-            Ok(Reply::Activity(_))
-        ));
-        let pulse = serde_json::json!({"schema":crate::model::OPERATOR_SCHEMA,
+        let key = ProductKey::from(&snapshot.products[0]);
+        assert_eq!(request(Query::Product(key.clone()), None).command(),
+            ["operator", "product", &key.environment, &key.module_sha256, &key.class_id]);
+        assert_eq!(request(Query::PickInstaller, Some("Setup.exe")).command(), ["import-installer", "Setup.exe"]);
+        let pulse = request(Query::Pulse, None);
+        let reply = serde_json::to_vec(&serde_json::json!({"schema":crate::model::OPERATOR_SCHEMA,
             "service_state":"active","dsp":0,"keepers":2,"maintenance":0,
             "pending_transactions":0,"cleanup_unconfirmed":false,"current_generation":"exact-generation",
-            "operation":null,"operation_live":false});
-        assert!(matches!(decode_reply(Query::Pulse, &serde_json::to_vec(&pulse).unwrap()),
-            Ok(Reply::Pulse(_))));
-        let snapshot = serde_json::json!({
-            "schema": crate::model::OPERATOR_SCHEMA, "state_token": "exact-state", "system": system,
-            "capture": null, "operation": null, "onboarding": [], "environments": [],
-            "vendor_applications": [], "products": [], "active_sessions": [],
-            "recent_incidents": [], "actions": []
-        });
-        assert!(matches!(
-            decode_reply(Query::Snapshot, &serde_json::to_vec(&snapshot).unwrap()),
-            Ok(Reply::Snapshot(_))
-        ));
-        let Reply::Snapshot(decoded)=decode_reply(Query::Snapshot,&serde_json::to_vec(&snapshot).unwrap()).unwrap()
-            else {panic!("expected snapshot")};
-        assert!(decoded.managed_runtime_records.is_empty());
-        let mut with_runtime=snapshot.clone();
-        with_runtime["managed_runtime_records"]=serde_json::json!([{
-            "id":"retained-runtime","record_path":"/managed/runners/retained/runtime.json",
-            "runner":null,"failure":"managed_runtime_binding"}]);
-        let Reply::Snapshot(decoded)=decode_reply(Query::Snapshot,&serde_json::to_vec(&with_runtime).unwrap()).unwrap()
-            else {panic!("expected snapshot")};
-        assert_eq!(decoded.managed_runtime_records[0]["failure"],"managed_runtime_binding");
-        with_runtime["schema"]=20.into();
-        assert!(decode_reply(Query::Snapshot,&serde_json::to_vec(&with_runtime).unwrap()).err().unwrap()
-            .contains(&format!("operator model {} required",crate::model::OPERATOR_SCHEMA)));
-        for schema in [
-            serde_json::json!(6),
-            serde_json::json!(7),
-            serde_json::json!(8),
-            serde_json::json!(9),
-            serde_json::json!(10),
-            serde_json::json!(11),
-            serde_json::json!(12),
-            serde_json::json!(14),
-            serde_json::json!(20),
-            serde_json::json!("9"),
-            serde_json::Value::Null,
-        ] {
-            receipt["schema"] = schema;
-            for request in [query(), Query::Snapshot, Query::Activity, Query::Pulse] {
-                assert!(
-                    decode_reply(request, &serde_json::to_vec(&receipt).unwrap())
-                        .err()
-                        .unwrap()
-                        .contains(&format!("operator model {} required", crate::model::OPERATOR_SCHEMA))
-                );
-            }
-        }
-        receipt["schema"] = serde_json::json!(crate::model::OPERATOR_SCHEMA);
-        receipt["arbitrary"] = serde_json::json!(true);
-        assert!(decode_reply(query(), &serde_json::to_vec(&receipt).unwrap()).is_err());
+            "operation":null,"operation_live":false})).unwrap();
+        assert!(matches!(exchange(Answering(Ok(reply)), &pulse, None), Ok(Reply::Pulse(_))));
+        assert!(matches!(exchange(Answering(Err(contract::Failure::FrontendSuperseded)), &pulse, None),
+            Ok(Reply::FrontendSuperseded)));
+        let refused = "Error: \"operator_state_changed_refresh\"\n";
+        assert_eq!(exchange(Answering(Err(contract::Failure::Error(refused.into()))), &pulse, None)
+            .err().unwrap(), refused);
+        // A reply of another operator model never reaches the window.
+        assert!(exchange(Answering(Ok(br#"{"schema":28}"#.to_vec())), &pulse, None).err().unwrap()
+            .contains(&format!("operator model {} required", crate::model::OPERATOR_SCHEMA)));
     }
-    #[test]
-    fn paired_import_result_preserves_identity_and_refuses_old_manager() {
-        let exact = serde_json::json!({"schema":2,"installer_sha256":"ab".repeat(32),
-            "byte_size":2048,"format":"pe_executable","newly_imported":false,
-            "display_label":"Lunacy Audio","created_at":42});
-        match decode_import(&serde_json::to_vec(&exact).unwrap()).unwrap() {
-            Reply::Imported(value) => {
-                assert!(!value.newly_imported);
-                assert_eq!(value.installer_sha256, "ab".repeat(32));
-            }
-            _ => panic!("expected typed import"),
-        }
-        let mut old = exact;
-        old["schema"] = 1.into();
-        assert!(decode_import(&serde_json::to_vec(&old).unwrap()).err().unwrap()
-            .contains("Update the frontend and manager together"));
-    }
-
     #[test]
     fn selected_descriptor_refuses_links_and_directories() {
         let root = std::env::temp_dir().join(format!("mf2-picker-{}", std::process::id()));

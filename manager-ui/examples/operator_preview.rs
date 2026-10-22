@@ -9,9 +9,7 @@ mod bootstrap;
 mod client;
 #[path = "../src/library.rs"]
 mod library;
-#[allow(dead_code)]
-#[path = "../../bridge-manager/src/operator_model.rs"]
-mod model;
+use linux_vst_bridge::operator_model as model;
 #[path = "../src/operator.rs"]
 #[allow(dead_code)]
 mod operator;
