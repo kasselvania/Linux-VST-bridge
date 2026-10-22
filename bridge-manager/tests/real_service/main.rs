@@ -3,14 +3,14 @@
 //! Each test builds a fixture state root from the shared manager fixtures,
 //! starts the real `linux-vst-bridge serve` binary on it as a child process,
 //! and observes it only through the entry points a real client uses: the
-//! `operator` command line the window runs, and the service socket the
-//! native proxy and status readers use. These behaviours must stay identical
+//! window's exchanges through the client contract (`service::contract`), and
+//! the service socket the native proxy and status readers use. These behaviours must stay identical
 //! while the manager is restructured around one long-running service (#489).
 //!
 //! How the service runs without systemd is documented in `service.rs`.
 #![cfg(target_os = "linux")]
 
-use linux_vst_bridge::*;
+use linux_vst_bridge::{service::contract, *};
 // The shared fixture resolves these through `crate::*`, as in the manager binary.
 #[allow(unused_imports)]
 use std::{
@@ -35,7 +35,7 @@ use service::{Admitted, RealService};
 fn overview_reports_schema_products_ceiling_and_offers() {
     let service = RealService::start(service::published());
     let p = service.plugin();
-    let overview = service.operator(&["overview"], None);
+    let overview = service.read(contract::Read::Overview);
     assert_eq!(overview["schema"], 1, "{overview:#}");
     assert_eq!(overview["operator_schema"], operator_model::OPERATOR_SCHEMA);
     assert_eq!(operator_model::OPERATOR_SCHEMA, 29, "a wire change must be deliberate");
@@ -89,7 +89,7 @@ fn offered_buffering_change_round_trips_through_request_worker_and_result() {
     let detail = service.product_detail();
     let action = json!({"kind":"buffering_set","class_id":class,"added_frames":256});
     let request = json!({"schema":29,"state_token":detail["state_token"],"action":action});
-    let receipt = service.operator(&["request"], Some(&request));
+    let receipt = service.request(&request);
     assert_eq!(receipt["schema"], 29, "{receipt:#}");
     assert_eq!(receipt["accepted"], true, "{receipt:#}");
     assert!(receipt["refusal"].is_null());
@@ -100,7 +100,7 @@ fn offered_buffering_change_round_trips_through_request_worker_and_result() {
         "applies_to":"next_activation","compatibility_qualified":false}));
 
     // The offer has moved: replaying it is refused, and 512 is offered back.
-    let replay = service.operator(&["request"], Some(&request));
+    let replay = service.request(&request);
     assert_eq!(replay["accepted"], false, "{replay:#}");
     assert_eq!(replay["refusal"], "operator_action_not_available");
     let after = service.product_detail();
@@ -204,6 +204,67 @@ fn native_admission_counts_releases_and_refuses_at_the_limit() {
     assert_eq!(restarted["cleanup_unconfirmed"], false);
     assert_eq!(service.pulse(), 0, "nothing blocks new admissions");
     service.stop();
+}
+
+/// The exchanges themselves are unchanged. With `LVB_REFERENCE_MANAGER`
+/// naming a manager built from an earlier revision, each window read, a
+/// refused request and a refused browser return give the same bytes from
+/// both managers on one state.
+#[test]
+#[ignore = "compares with the manager named by LVB_REFERENCE_MANAGER"]
+fn exchanges_match_the_reference_manager() {
+    use contract::Transport;
+    let reference = PathBuf::from(std::env::var_os("LVB_REFERENCE_MANAGER").expect("LVB_REFERENCE_MANAGER"));
+    let service = RealService::start(service::published());
+    let p = service.plugin();
+    let stale = contract::Request::Action(operator_model::Request { schema: operator_model::OPERATOR_SCHEMA,
+        state_token: "stale".into(),
+        action: operator_model::Action::BufferingSet { class_id: p.class_id.clone(), added_frames: 256 } });
+    let requests = [
+        contract::Request::Read(contract::Read::CurrentOverview),
+        contract::Request::Read(contract::Read::Overview),
+        contract::Request::Read(contract::Read::Product(p.key())),
+        contract::Request::Read(contract::Read::Snapshot),
+        contract::Request::Read(contract::Read::Activity),
+        contract::Request::Read(contract::Read::Pulse),
+        stale,
+        contract::Request::BrowserReturn("native-access://auth?code=fixture".into()),
+    ];
+    for request in &requests {
+        let exchange = |program: Option<&Path>| normalized(request,
+            service.manager_command(program).exchange(request, None));
+        // A first read may settle retained records; compare the reads after it.
+        let _ = exchange(None);
+        assert_eq!(exchange(Some(&reference)), exchange(None), "{request:?}");
+    }
+    service.stop();
+}
+/// The reply as text. An overview's platform assessment records when it was
+/// observed, and every request receipt names its own new operation; both
+/// differ between any two exchanges.
+fn normalized(request: &contract::Request, reply: std::result::Result<Vec<u8>, contract::Failure>)
+    -> std::result::Result<String, contract::Failure> {
+    fn without_times(value: &mut Value) {
+        match value {
+            Value::Object(fields) => {
+                fields.remove("observed_at");
+                fields.values_mut().for_each(without_times);
+            }
+            Value::Array(items) => items.iter_mut().for_each(without_times),
+            _ => {}
+        }
+    }
+    let bytes = reply?;
+    let mut value: Value = match request {
+        contract::Request::Read(contract::Read::Overview) | contract::Request::Action(_) =>
+            serde_json::from_slice(&bytes).unwrap(),
+        _ => return Ok(String::from_utf8(bytes).unwrap()),
+    };
+    without_times(&mut value);
+    if value["operation"].is_string() {
+        value["operation"] = "operation".into();
+    }
+    Ok(value.to_string())
 }
 
 /// Not an oracle: the harness re-executes this test binary as the native

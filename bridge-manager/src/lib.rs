@@ -24,6 +24,7 @@ pub mod pigments;
 pub mod publication;
 pub mod qualification;
 pub mod readback;
+pub mod service;
 #[cfg(test)]
 mod test_fixture;
 pub mod vendor_application;
