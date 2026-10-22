@@ -14,7 +14,8 @@ and the native catalogue. Selection updates the stable command links and enables
 The manager binary answers only the entry points something in the product calls.
 The window's reads, actions and installer import and the Native Access browser
 return are one typed client exchange, defined with its bounds and refusals in
-`src/service/contract.rs`. The window's status reads go to the running `serve`
+the model crate's `contract.rs` (`crates/model`, with the operator model; the
+manager re-exports both at their old paths). The window's status reads go to the running `serve`
 on its socket (greeting `LVV1`). It answers the current overview and plug-in
 pages from the views it holds while nothing they were read from has changed
 (`src/service/view.rs`); its change watch (`src/service/changes.rs`) sees every

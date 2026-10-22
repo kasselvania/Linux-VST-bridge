@@ -15,7 +15,7 @@ import py_compile
 import subprocess
 import sys
 import tarfile
-from assemble import parse_operator_schema
+from assemble import OPERATOR_MODEL_SOURCES, parse_operator_schema
 
 NAMES = ("linux-vst-bridge", "linux-audio-compatibility-manager",
          "session.pyc", "ownership.pyc", "host.exe",
@@ -51,9 +51,11 @@ def run(repo: Path, pair: Path, host: Path, host_source: Path,
         ["git", "-C", str(repo), "rev-parse", f"{head}^{{tree}}"], text=True).strip()
     if actual_tree != tree:
         raise ValueError("paired build source tree changed")
+    model = next((name for name in OPERATOR_MODEL_SOURCES if subprocess.run(
+        ["git", "-C", str(repo), "cat-file", "-e", f"{head}:{name}"],
+        stderr=subprocess.DEVNULL).returncode == 0), OPERATOR_MODEL_SOURCES[0])
     operator_schema = parse_operator_schema(subprocess.check_output(
-        ["git", "-C", str(repo), "show", f"{head}:bridge-manager/src/operator_model.rs"],
-        text=True))
+        ["git", "-C", str(repo), "show", f"{head}:{model}"], text=True))
     if not version or not version[0].isdigit() or not version.replace(".", "").isalnum():
         raise ValueError("fixture package version")
     external_bytes = checked(external)

@@ -244,6 +244,7 @@ dependencies = [
  "ed25519-dalek",
  "flate2",
  "libc",
+ "lvb-model",
  "lvb-plugin-descriptor",
  "serde",
  "serde_json",
@@ -251,6 +252,15 @@ dependencies = [
  "sha2",
  "tar",
  "xz2",
+]
+
+[[package]]
+name = "lvb-model"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

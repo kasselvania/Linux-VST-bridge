@@ -67,3 +67,5 @@ core.*
 /manager-ui/target/
 
 /plugin-descriptor/target/
+
+/crates/model/target/

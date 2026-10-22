@@ -30,7 +30,7 @@ class CandidateInputs(unittest.TestCase):
                 'manager-ui/target/x86_64-unknown-linux-gnu/release/linux-audio-compatibility-manager': b'\x7fELFfrontend',
                 'bridge-manager/runtime/session.py': b'# fixture supervisor\n',
                 'bridge-manager/runtime/ownership.py': b'# fixture ownership\n',
-                'bridge-manager/src/operator_model.rs': b'pub const OPERATOR_SCHEMA: u32 = 16;\n',
+                'crates/model/src/operator_model.rs': b'pub const OPERATOR_SCHEMA: u32 = 16;\n',
                 'compatibility/arturia-pure-lofi.json': b'{}',
                 'COPYRIGHT.md': b'First-party fixture',
             }

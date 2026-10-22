@@ -8,6 +8,7 @@ on:
   pull_request:
     paths:
       - 'bridge-manager/**'
+      - 'crates/model/**'
       - 'tools/is2/**'
       - 'tools/naui2/package.py'
       - 'windows-fixtures/browser-return/**'
@@ -18,6 +19,7 @@ on:
     branches: [main]
     paths:
       - 'bridge-manager/**'
+      - 'crates/model/**'
       - 'tools/is2/**'
       - 'tools/naui2/package.py'
       - 'windows-fixtures/browser-return/**'
