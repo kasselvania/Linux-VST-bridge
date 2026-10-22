@@ -331,12 +331,15 @@ impl State {
                 let Some(watched) = watches.remove(&event.descriptor) else { return };
                 awaited.remove(&event.descriptor);
                 tree_paths.remove(&watched.path);
-                // A root is awaited again at once; a directory a view named is
-                // forgotten, and the next view that needs it names it again.
+                // A root is awaited again at once; a directory a view named,
+                // or the parent standing in for it, is forgotten, and the next
+                // view that needs it names it again. Either is a change: a view
+                // read from it is not answered after.
                 if matches!(watched.place, Place::Tree { depth: 0, .. })
                     || roots.iter().any(|root| root.starts_with(&watched.path)) {
                     rebuild = true;
                 } else if matches!(watched.place, Place::Directory | Place::Ancestor) {
+                    changed = true;
                     forgotten.push(watched.path);
                 }
             }
@@ -553,6 +556,17 @@ mod tests {
         steps.unchanged("its return before a view names it", || fs::create_dir(&plugins).unwrap());
         steps.changed("a view naming it again", || changes.watch_directories([plugins.clone()]));
         steps.changed("a write in it", || fs::write(plugins.join("Plugin.vst3"), b"again").unwrap());
+        // A view saw a named directory missing; its nearest existing parent
+        // stands in for it. That parent going away is a change too: nothing
+        // watches either path afterwards, until a view names the directory again.
+        let vendor = setup.join("compatdata/pfx/drive_c/Vendor");
+        fs::create_dir(&vendor).unwrap();
+        let missing = vendor.join("Plugin.vst3");
+        steps.changed("naming a missing directory", || changes.watch_directories([missing.clone()]));
+        steps.changed("its standing-in parent removed", || fs::remove_dir_all(&vendor).unwrap());
+        steps.changed("a view naming it again", || changes.watch_directories([missing.clone()]));
+        steps.changed("it and its parent returning", || fs::create_dir_all(&missing).unwrap());
+        steps.changed("a write in it", || fs::write(missing.join("module"), b"reinstalled").unwrap());
         fs::remove_dir_all(root).unwrap();
     }
     #[test]
