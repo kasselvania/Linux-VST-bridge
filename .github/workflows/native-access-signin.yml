@@ -45,9 +45,22 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Windows cross compilers
+        timeout-minutes: 15
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq gcc-mingw-w64-x86-64 xvfb dbus-user-session >/dev/null
+          # A package step once held a main run for 30 minutes (2026-10-22).
+          # Skip the man-db trigger, bound each attempt and try again rather
+          # than lose the whole job to one slow mirror.
+          sudo rm -f /var/lib/man-db/auto-update
+          apt="sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30"
+          for attempt in 1 2 3; do
+            if timeout 240 $apt update -qq &&
+               timeout 240 $apt install -y -qq gcc-mingw-w64-x86-64 xvfb dbus-user-session >/dev/null; then
+              exit 0
+            fi
+            echo "Package install attempt $attempt did not finish; trying again."
+            sleep 10
+          done
+          exit 1
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
