@@ -627,6 +627,7 @@ fn stage_runtime_with_kit(m: &Manager, kit: Artifact) -> Result<Runtime> {
     immutable(&stage.join("runtime.json"), &r)?;
     crate::publication::rename_link(&stage, &dir, false)?;
     File::open(dir.parent().ok_or("runtime_parent")?)?.sync_all()?;
+    super::changed(m)?;
     existing_runtime(m, &r.kit.sha256)
 }
 
@@ -677,6 +678,7 @@ pub fn cleanup_work(m: &Manager, operation: &str) -> Result<()> {
                     &dest.join(format!("{name}.json")),
                     &String::from_utf8_lossy(&bytes),
                 )?;
+                super::changed(m)?;
             }
         }
         fs::remove_dir_all(dir)?;

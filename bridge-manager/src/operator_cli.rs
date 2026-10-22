@@ -1099,7 +1099,7 @@ fn operator_catalogue(m: &Manager, sw: &Software, registry: &Registry)
 }
 fn operator_catalogue_readback(m: &Manager, sw: &Software, registry: &Registry)
     -> Result<Option<linux_vst_bridge::catalogue::Catalogue>> {
-    operator_catalogue_records(m, sw, registry, &preparation::RecordReadback::capture(m)?)
+    operator_catalogue_records(m, sw, registry, &preparation::RecordReadback::capture_unwatched(m)?)
 }
 fn operator_catalogue_records(m: &Manager, sw: &Software, registry: &Registry,
     records: &preparation::RecordReadback) -> Result<Option<linux_vst_bridge::catalogue::Catalogue>> {
@@ -5611,6 +5611,11 @@ pub(crate) mod tests {
     }
     pub(super) fn overview_service_reply_with_counts(m: &Manager, value: Value, expected: (usize, usize))
         -> std::thread::JoinHandle<()> {
+        overview_service_reply_within(m, value, expected, OPERATOR_WAIT)
+    }
+    /// As `overview_service_reply_with_counts`, for a page slower to compose.
+    pub(super) fn overview_service_reply_within(m: &Manager, value: Value, expected: (usize, usize),
+        wait: Duration) -> std::thread::JoinHandle<()> {
         private_dir(&m.root.join("runtime")).unwrap();
         let socket=m.root.join("runtime/owner.sock");
         if socket.exists() {fs::remove_file(&socket).unwrap();}
@@ -5621,7 +5626,7 @@ pub(crate) mod tests {
             // final recheck samples cleanup on both sides of registry.lock.
             let mut capacity = 0;
             let mut pulses = 0;
-            let deadline = Instant::now() + OPERATOR_WAIT;
+            let deadline = Instant::now() + wait;
             while capacity + pulses < expected.0 + expected.1 {
                 assert!(Instant::now() < deadline,
                     "service stub timed out: observed {:?}, expected {:?}", (capacity, pulses), expected);
@@ -6995,6 +7000,37 @@ pub(crate) mod tests {
         warm.sort_unstable();
         eprintln!("snapshot_readback_us cold={cold} p50={} p95={} max={}",
             warm[12], warm[23], warm[24]);
+    }
+    #[test]
+    fn diagnostics_and_the_problem_report_complete_with_more_history_than_one_watch_held() {
+        // Three plug-ins, each prepared 350 times before its current
+        // candidate: over 4,096 files in all, each plug-in within its own
+        // bound. Both views refused this before (#503).
+        let (f, candidates) = test_fixture::projection_candidates_in(test_fixture::Fixture::new(), false, 3);
+        test_fixture::preparation_history(&f, &candidates, 350);
+        for candidate in &candidates {
+            linux_vst_bridge::preparation::enable(&f.m, candidate, false).unwrap();
+        }
+        let every_history_shown = |products: &[ui::Product]| {
+            for candidate in &candidates {
+                let product = products.iter().find(|p| p.class_id == candidate.selection.class.id).unwrap();
+                let preparation = &product.details["preparation"];
+                assert_ne!(preparation["preparation"], "history_unavailable", "{}", product.class_id);
+                assert_eq!(preparation["candidates"].as_array().map(Vec::len), Some(351), "{}", product.class_id);
+            }
+        };
+        let snapshot = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![],
+            &|| capacity_fixture(&f.m)).unwrap();
+        every_history_shown(&snapshot.products);
+        let server = overview_service_reply(&f.m, capacity_json(false, 0, 0));
+        let token = current_overview(&f.m).unwrap().current.state_token;
+        server.join().unwrap();
+        // It projects every history, which takes longer than a page.
+        let server = overview_service_reply_within(&f.m, capacity_json(false, 0, 0), (1, 3),
+            Duration::from_secs(300));
+        let report = problem_report_snapshot(&f.m, &token).unwrap();
+        server.join().unwrap();
+        every_history_shown(&report.products);
     }
     /// A Deck-shaped installation (#503): 27 published plug-ins on one
     /// runtime of 20,000 files, each prepared `earlier` times before its
