@@ -306,7 +306,8 @@ fn search_for_codes(setup: &Setup, inputs: &Inputs, secrets: &Secrets, report: &
     let search = privacy::search(secrets, &roots, &skip, &setup.m.root);
     for control in &controls { std::fs::remove_file(control).unwrap(); }
     report.note(format!("Searched {when}: {} files ({} MB) and the user and system journals; {} unreadable \
-        outside the bridge's files.", search.files, search.bytes / 1_000_000, search.unreadable));
+        outside the bridge's files, {} gone before they were read.", search.files, search.bytes / 1_000_000,
+        search.unreadable, search.vanished));
     for control in &controls {
         assert!(search.controls.contains(&control.display().to_string()), "the search missed its control in {}", control.display());
     }

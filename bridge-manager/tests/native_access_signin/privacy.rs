@@ -74,6 +74,9 @@ pub struct Search {
     pub files: usize,
     pub bytes: u64,
     pub unreadable: usize,
+    /// Listed, then gone before it was read: a live session's atomic record
+    /// writes rename their temporary file into place.
+    pub vanished: usize,
     pub found: Vec<String>,
     pub controls: Vec<String>,
     /// Anything that could not be read inside `strict`: there, nothing may be.
@@ -83,32 +86,36 @@ pub struct Search {
 /// Search every regular file under `roots`, except below `skip`, and the
 /// account's and the system's journals.
 pub fn search(secrets: &Secrets, roots: &[PathBuf], skip: &[PathBuf], strict: &Path) -> Search {
-    let mut search = Search { files: 0, bytes: 0, unreadable: 0, found: vec![], controls: vec![],
+    let mut search = Search { files: 0, bytes: 0, unreadable: 0, vanished: 0, found: vec![], controls: vec![],
         unreadable_strict: vec![] };
     let longest = 2 * RANDOM.max(MARKER.len());
-    let unreadable = |search: &mut Search, path: &Path| {
+    let unreadable = |search: &mut Search, path: &Path, error: std::io::Error| {
+        if error.kind() == std::io::ErrorKind::NotFound { search.vanished += 1; return; }
         search.unreadable += 1;
         if path.starts_with(strict) { search.unreadable_strict.push(path.display().to_string()); }
     };
     let mut pending: Vec<PathBuf> = roots.iter().filter(|root| root.exists()).cloned().collect();
     while let Some(path) = pending.pop() {
         if skip.iter().any(|skipped| path.starts_with(skipped)) { continue; }
-        let Ok(metadata) = fs::symlink_metadata(&path) else { unreadable(&mut search, &path); continue };
+        let metadata = match fs::symlink_metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(error) => { unreadable(&mut search, &path, error); continue }
+        };
         let kind = metadata.file_type();
         if kind.is_dir() {
             match fs::read_dir(&path) {
                 Ok(entries) => pending.extend(entries.flatten().map(|entry| entry.path())),
-                Err(_) => unreadable(&mut search, &path),
+                Err(error) => unreadable(&mut search, &path, error),
             }
         } else if kind.is_file() && !kind.is_fifo() {
             match file_contains(&path, secrets, longest) {
-                Some(((found, control), bytes)) => {
+                Ok(((found, control), bytes)) => {
                     search.files += 1;
                     search.bytes += bytes;
                     if found { search.found.push(path.display().to_string()); }
                     if control { search.controls.push(path.display().to_string()); }
                 }
-                None => unreadable(&mut search, &path),
+                Err(error) => unreadable(&mut search, &path, error),
             }
         }
     }
@@ -128,19 +135,19 @@ pub fn search(secrets: &Secrets, roots: &[PathBuf], skip: &[PathBuf], strict: &P
     search
 }
 
-fn file_contains(path: &Path, secrets: &Secrets, longest: usize) -> Option<((bool, bool), u64)> {
-    let mut file = fs::File::open(path).ok()?;
+fn file_contains(path: &Path, secrets: &Secrets, longest: usize) -> std::io::Result<((bool, bool), u64)> {
+    let mut file = fs::File::open(path)?;
     let mut carried: Vec<u8> = vec![];
     let mut buffer = vec![0; 8 * 1024 * 1024];
     let (mut total, mut seen) = (0, (false, false));
     loop {
-        let n = file.read(&mut buffer).ok()?;
-        if n == 0 { return Some((seen, total)); }
+        let n = file.read(&mut buffer)?;
+        if n == 0 { return Ok((seen, total)); }
         total += n as u64;
         carried.extend_from_slice(&buffer[..n]);
         let (code, control) = secrets.matches(&carried);
         seen = (seen.0 || code, seen.1 || control);
-        if seen == (true, true) { return Some((seen, total)); }
+        if seen == (true, true) { return Ok((seen, total)); }
         let keep = carried.len().saturating_sub(longest);
         carried.drain(..keep);
     }
