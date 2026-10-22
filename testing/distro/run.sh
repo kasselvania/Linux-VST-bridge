@@ -10,18 +10,22 @@
 # .github/workflows/distro-matrix.yml runs it in CI.
 #
 # The per-user runtime directory must already be a tmpfs owned by the
-# checkout's owner, as a login session provides it. With Docker on Linux:
+# checkout's owner, as a login session provides it. With rootful Docker on
+# Linux, from the checkout:
 #
 #   uid=$(stat -c %u .)
 #   docker run --rm --init -v "$PWD:/src" -w /src \
 #     --tmpfs "/run/user/$uid:exec,mode=0700,uid=$uid,gid=$uid" \
 #     fedora:44 bash testing/distro/run.sh [check ...]
 #
-# A root-owned checkout is taken to be a disposable copy and handed to uid
-# 1000. Name checks to run only those (see CHECKS below). Cargo's home and
-# target directory live under LVB_DISTRO_CACHE (default /cache) so CI can
-# keep them between runs. Versions and check times are appended as Markdown
-# to LVB_DISTRO_SUMMARY when it is set.
+# A checkout that is root-owned inside the container, as rootless Docker or
+# Podman shows your own files, is refused: its ownership would have to change.
+# Copy the checkout into the container instead, or set
+# LVB_DISTRO_DISPOSABLE_CHECKOUT=1 when it is a throwaway copy; it is then
+# handed to uid 1000 (use --tmpfs /run/user/1000:...). Name checks to run only
+# those (see CHECKS below). Cargo's home and target directory live under
+# LVB_DISTRO_CACHE (default /cache) so CI can keep them between runs. Versions
+# and check times are appended as Markdown to LVB_DISTRO_SUMMARY when it is set.
 set -euo pipefail
 
 RUST_TOOLCHAIN=1.95.0 # as ap12-manager.yml and tools/pkg0 (KIT_RUST_TOOLCHAIN)
@@ -37,7 +41,7 @@ install_distribution_packages() {
     cachyos | arch)
         # Arch supports only whole upgrades; this is the system a user has.
         pacman -Syu --noconfirm --needed base-devel git python gnupg libarchive \
-            file binutils zstd openssl curl iproute2 procps-ng which util-linux
+            file binutils zstd openssl curl iproute2 procps-ng which util-linux rustup
         ;;
     fedora)
         # systemd and curl are on every Fedora desktop and in the product's
@@ -47,7 +51,7 @@ install_distribution_packages() {
             --setopt=timeout=20 install gcc make \
             pkgconf-pkg-config git-core python3 gnupg2 bsdtar file binutils \
             zstd openssl sudo curl iproute procps-ng which util-linux \
-            shadow-utils findutils tar xz diffutils systemd
+            shadow-utils findutils tar xz diffutils systemd rustup
         ;;
     *)
         echo "::error title=$DISTRO::No package recipe for distribution '$ID'"
@@ -64,6 +68,10 @@ as_root() {
     local uid
     uid=$(stat -c %u .)
     if [[ $uid == 0 ]]; then
+        if [[ ${LVB_DISTRO_DISPOSABLE_CHECKOUT:-} != 1 ]]; then
+            echo "::error title=$DISTRO::The checkout is root-owned here, as rootless Docker or Podman shows a bind-mounted checkout. Copy it into the container, or set LVB_DISTRO_DISPOSABLE_CHECKOUT=1 if it is a throwaway copy that may be handed to uid 1000."
+            exit 2
+        fi
         uid=1000
         chown -R "$uid:$uid" .
     fi
@@ -95,10 +103,11 @@ as_root() {
         bash "$0" --as-user "$@"
 }
 
+# rustup is the distribution's: Arch packages rustup itself, and Fedora
+# packages rustup-init, which installs it into this user's CARGO_HOME.
 check_toolchain() {
-    if [[ ! -x $CARGO_HOME/bin/rustup ]]; then
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |
-            sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
+    if ! command -v rustup >/dev/null; then
+        rustup-init -y --no-modify-path --profile minimal --default-toolchain none
     fi
     rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
     rustup default "$RUST_TOOLCHAIN"
@@ -107,16 +116,22 @@ check_toolchain() {
 # The product's own admission probe (bridge-manager/src/supervisor.rs,
 # verify_host_python): the embedded bootstrap run by /usr/bin/python3.
 check_python() {
-    local range version probe
+    local range version probe errors status=0
     range=$(sed -n 's/^pub const SOURCE_PYTHON_RANGE: &str = "\(.*\)";$/\1/p' bridge-manager/src/supervisor.rs)
     version=$(/usr/bin/python3 -c 'import platform; print(platform.python_implementation(), platform.python_version())')
-    if probe=$(/usr/bin/python3 -I -S -B -c "$(cat bridge-manager/runtime/bootstrap.py)" --probe 2>&1) &&
-        [[ $probe == cpython-source-v1 ]]; then
+    errors=$(mktemp)
+    probe=$(/usr/bin/python3 -I -S -B -c "$(cat bridge-manager/runtime/bootstrap.py)" --probe 2>"$errors") || status=$?
+    if [[ $status == 0 && $probe == cpython-source-v1 ]]; then
         echo "$version at /usr/bin/python3 is inside the supervisor's declared range, $range."
-    else
-        echo "::error title=$DISTRO ships an unsupported host Python::$DISTRO ships $version at /usr/bin/python3, outside the supervisor's declared range ($range). The product refuses to start plug-in hosts on it: $probe"
-        return 1
+        rm -f "$errors"
+        return 0
     fi
+    local reason
+    reason=$(head -c 400 "$errors" | tr '\n' ' ')
+    rm -f "$errors"
+    [[ -n $reason ]] || reason="it printed \"$probe\""
+    echo "::error title=$DISTRO ships an unsupported host Python::$DISTRO ships $version at /usr/bin/python3, outside the supervisor's declared range ($range). The product refuses to start plug-in hosts on it (probe exit $status): $reason"
+    return 1
 }
 
 check_build() {
