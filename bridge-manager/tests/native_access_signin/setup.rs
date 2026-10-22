@@ -153,11 +153,11 @@ impl Setup {
         if released { fs::write(marker, b"").unwrap() } else { let _ = fs::remove_file(marker); }
     }
 
-    /// Point the prefix's C: drive at a mirror of drive_c that differs only
-    /// in the app's executable, which is another build. Every Linux path the
-    /// handler and supervisor check is unchanged; a Windows open of the app's
-    /// path now finds the other file. Undone on drop.
-    pub fn other_build_at_app_path(&self) -> DriveRedirect {
+    /// Point the prefix's C: drive at a mirror of drive_c in which every entry
+    /// links to the original, except the app's executable: another build, or
+    /// (as a control) a link to the very same file. Every Linux path the
+    /// handler and supervisor check is unchanged. Undone on drop.
+    pub fn app_path_through_mirror(&self, other_build: bool) -> DriveRedirect {
         let drive = self.drive();
         let mirror = self.prefix.join("drive_c-other-build");
         let (mut original, mut copy) = (drive.clone(), mirror.clone());
@@ -172,9 +172,13 @@ impl Setup {
             copy.push(component);
             if original.is_dir() { private_dir(&copy).unwrap(); }
         }
-        let mut other = self.stand_in_bytes.clone();
-        other.extend_from_slice(b"another build of the app");
-        fs::write(&copy, other).unwrap();
+        if other_build {
+            let mut other = self.stand_in_bytes.clone();
+            other.extend_from_slice(b"another build of the app");
+            fs::write(&copy, other).unwrap();
+        } else {
+            symlink(self.app_executable(), &copy).unwrap();
+        }
         let link = self.prefix.join("dosdevices/c:");
         let target = fs::read_link(&link).unwrap();
         replace_link(&link, Path::new("../drive_c-other-build"));

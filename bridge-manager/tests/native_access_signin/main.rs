@@ -232,23 +232,30 @@ fn browser_return_reaches_the_running_app_and_nothing_else() {
     report_return(&setup, &mut report, "second copy crashes", "adapter_refused", &crashed);
 
     // 9. The adapter starts the second copy only from the very file the first
-    //    copy runs from. Here the app's Windows path is pointed at another
-    //    build while every Linux path stays the same, so the handler and the
-    //    supervisor pass the return on and only the adapter can refuse it.
-    let redirect = setup.other_build_at_app_path();
+    //    copy runs from. The app's Windows path is pointed through a mirrored
+    //    C: drive while every Linux path stays the same, so the handler and
+    //    the supervisor pass the return on and only the adapter can refuse.
+    //    Control: through the mirror, the same file still delivers.
+    let mirror = setup.app_path_through_mirror(false);
     setup.stand_in_mode("deliver");
     let url = secrets.url(sign_in);
+    let mirrored = deliver(&session, &secrets, "the same file through a mirrored drive", &url, 3);
+    session.wait_browser_return(2, 1, &["dispatched"]);
+    drop(mirror);
+    report_return(&setup, &mut report, "same app file through a mirrored C: drive", "dispatched", &mirrored);
+    let redirect = setup.app_path_through_mirror(true);
+    let url = secrets.url(sign_in);
     let since = unix_ms();
-    let redirected = undelivered(&session, &secrets, "another build at the app's path", &url, 2);
+    let redirected = undelivered(&session, &secrets, "another build at the app's path", &url, 3);
     assert!(redirected.connected_ms.is_some(), "the return did not reach the supervisor");
-    session.wait_browser_return(2, 0, &["adapter_refused"]);
+    session.wait_browser_return(3, 1, &["adapter_refused"]);
     assert!(setup.secondary_events(since).is_empty(), "the other build ran");
     drop(redirect);
     report_return(&setup, &mut report, "another build at the app's Windows path", "adapter_refused", &redirected);
     // The session is unharmed: the next return is delivered.
     let url = secrets.url(sign_in);
-    deliver(&session, &secrets, "deliver after the refused build", &url, 3);
-    session.wait_browser_return(3, 1, &["dispatched"]);
+    deliver(&session, &secrets, "deliver after the refused build", &url, 4);
+    session.wait_browser_return(ATTEMPTS, 2, &["dispatched"]);
 
     // 10. A replaced app file: the handler refuses without contacting the
     //     session, which ends itself, and the replacement never starts.
@@ -264,7 +271,7 @@ fn browser_return_reaches_the_running_app_and_nothing_else() {
     assert!(replaced.connected_ms.is_none(), "a return for a replaced app file reached the supervisor");
     report_return(&setup, &mut report, "app file replaced", "refused by the handler", &replaced);
     assert!(setup.secondary_events(since).is_empty(), "the replaced file was started");
-    assert_eq!(setup.received().len(), 3);
+    assert_eq!(setup.received().len(), 4);
     let ended = session.wait_ended();
     report.note(format!("After the app file was replaced the session ended by itself: state {}, {}.",
         ended["state"], ended["error_code"]));
