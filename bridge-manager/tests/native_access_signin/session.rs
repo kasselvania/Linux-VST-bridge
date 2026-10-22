@@ -1,13 +1,13 @@
 //! A managed Native Access session and browser returns sent to it.
 //!
-//! `Session::open` submits the session exactly as the window's Open does
+//! `Session::open` submits the session as the window's Open does
 //! (`vendor_cli::run_selected`): it verifies the selection, observes the
-//! profile capabilities, writes the same launch records and starts the same
-//! `systemd-run` unit running the signed-source supervisor. Everything after
+//! profile capabilities, writes the same launch records and starts the unit
+//! from the same `vendor_application::session_command`. Everything after
 //! that is the product. Returns go through the real URL handler.
 use crate::setup::Setup;
 use linux_vst_bridge::{
-    vendor_application::{Application, LaunchMode, Operation, OperationResult},
+    vendor_application::{self, Application, LaunchMode, Operation, OperationResult},
     *,
 };
 use serde_json::{json, Value};
@@ -169,15 +169,7 @@ impl<'a> Session<'a> {
         if prior {
             let _ = Command::new("systemctl").args(["--user", "reset-failed", &unit]).stderr(Stdio::null()).status();
         }
-        let status = Command::new("systemd-run")
-            .args(["--user", "--collect", "--slice=app.slice", "--property=UMask=0077",
-                "--property=KillMode=mixed", "--property=TimeoutStopSec=90",
-                "--property=StandardOutput=null", "--property=StandardError=null"])
-            .arg(format!("--unit={unit}"))
-            .arg("/usr/bin/python3")
-            .args(supervisor::arguments(&software.supervisor, &software.ownership).unwrap())
-            .arg("--vendor-application").arg(&job)
-            .status().unwrap();
+        let status = vendor_application::session_command(&unit, true, &software, &job).unwrap().status().unwrap();
         assert!(status.success(), "systemd-run refused the session unit: {status}");
         Self { setup, operation, unit, stopped: false }
     }

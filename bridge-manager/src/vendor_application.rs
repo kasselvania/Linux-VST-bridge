@@ -435,6 +435,30 @@ impl Application {
     }
 }
 
+/// The transient user unit that owns one application session, as the window's
+/// Open submits it (the browser-return test opens its sessions the same way).
+/// A supervised dependency service gets a mixed kill and time to retire.
+pub fn session_command(unit: &str, supervised_service: bool, software: &crate::catalogue::Software,
+    job: &Path) -> Result<std::process::Command> {
+    let mut command = std::process::Command::new("systemd-run");
+    command.args([
+            "--user",
+            "--collect",
+            "--slice=app.slice",
+            "--property=UMask=0077",
+            if supervised_service {"--property=KillMode=mixed"} else {"--property=KillMode=control-group"},
+            if supervised_service {"--property=TimeoutStopSec=90"} else {"--property=TimeoutStopSec=30"},
+            "--property=StandardOutput=null",
+            "--property=StandardError=null",
+        ])
+        .arg(format!("--unit={unit}"))
+        .arg("/usr/bin/python3")
+        .args(crate::supervisor::arguments(&software.supervisor, &software.ownership)?)
+        .arg("--vendor-application")
+        .arg(job);
+    Ok(command)
+}
+
 /// Resolve installer custody through its original owner. Both paths bind the
 /// supplied content receipt; neither asserts who published or created an app.
 pub fn installer_origin_operation(root: &Path, environment: &Environment,
