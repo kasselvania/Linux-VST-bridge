@@ -29,7 +29,7 @@ enum Flight {
     Pulse,
     Operation(String),
     Action { binding: Binding, offer: Box<Action>, context: Box<State>, ui: Box<LocalUi> },
-    Save,
+    Save(vm::request::SupportReport),
 }
 
 pub struct Live {
@@ -55,6 +55,8 @@ pub struct Live {
     queued: Option<(Query, Flight)>,
     in_flight: Option<Flight>,
     support: Option<Support>,
+    report_preview: Option<vm::request::SupportReport>,
+    report_reading: Option<vm::request::SupportReport>,
     message: String,
     reveal: bool,
     epoch: u64,
@@ -85,7 +87,7 @@ impl Live {
         let mut live = Self { state: State::default(), built: Built::default(), ui: LocalUi::default(),
             overview: None, readiness: None, pending_import: None, product: None, details: None, pending_details: None, details_notice: None, details_retried: false, fresh: false, current_read_error: None, superseded: false,
             product_attempted: false, details_attempted: false, need_current: true, need_interactive: false, need_details: false,
-            queued: None, in_flight: None, support: None, message: String::new(), reveal,
+            queued: None, in_flight: None, support: None, report_preview: None, report_reading: None, message: String::new(), reveal,
             epoch: 0, shown_binding: None, form_origin: None, form_generation: 0, last_current: Cx::monotonic_now(), operation_live: None, drawn: BTreeMap::new(), offers: BTreeMap::new(), log: vec![], clipboard: None,
             next_poll: Cx::monotonic_now() + 3.0, render_revision: 0, bootstrap_panel: None, bootstrap_step: None, bootstrap_waiting: false, update_panel: None, update_headline: None, update_step: None, update_waiting: false, update_available: false, close_requested: false, health_observed: None };
         live.drive();
@@ -95,10 +97,11 @@ impl Live {
     fn binding(&self) -> Option<Binding> {
         self.overview.as_ref().map(|o| Binding { token: o.current.state_token.clone(), generation: o.current_generation.clone() })
     }
-    fn busy(&self) -> bool { self.queued.is_some() || self.in_flight.is_some() }
+    fn busy(&self) -> bool { self.queued.is_some() || self.in_flight.is_some() || self.report_preview.is_some() || self.report_reading.is_some() }
     fn foreground_busy(&self) -> bool {
-        self.queued.as_ref().map(|(_, flight)| flight).into_iter().chain(self.in_flight.as_ref())
-            .any(|flight| matches!(flight, Flight::Action { .. } | Flight::Save | Flight::Import | Flight::OpenCurrent))
+        self.report_preview.is_some() || self.report_reading.is_some() ||
+            self.queued.as_ref().map(|(_, flight)| flight).into_iter().chain(self.in_flight.as_ref())
+            .any(|flight| matches!(flight, Flight::Action { .. } | Flight::Save(_) | Flight::Import | Flight::OpenCurrent))
     }
     /// Background transport work alone does not replace native nodes or focus.
     pub fn render_revision(&self) -> u64 { self.render_revision }
@@ -174,6 +177,7 @@ impl Live {
     fn submit(&mut self, action: Action, binding: Binding, offer: Action) {
         if !self.fresh || self.binding().as_ref() != Some(&binding) || self.foreground_busy() || self.support_waiting() { return; }
         let context = Box::new(self.state.clone());
+        if matches!(action, Action::SupportExport {}) { self.ui.report = None; self.state.page = Page::Diagnostics; }
         self.support = Some(Support::captured(action.clone()));
         self.state.sent(&action);
         self.form_origin = None;
@@ -182,7 +186,7 @@ impl Live {
     }
     /// The worker takes one request. Until its reply, no other query is returned.
     pub fn take_query(&mut self) -> Option<Query> {
-        if self.in_flight.is_some() { return None; }
+        if self.in_flight.is_some() || self.report_preview.is_some() || self.report_reading.is_some() { return None; }
         let (query, flight) = self.queued.take()?;
         if let Flight::Action { binding, offer: original, context, ui } = &flight {
             // A click may wait behind a read, but it cannot borrow that read's
@@ -221,6 +225,10 @@ impl Live {
         self.rebuild();
     }
     pub fn worker_stopped(&mut self, error: String) {
+        if self.report_reading.is_some() { self.receive_report_preview(Err(error.clone())); }
+        if self.report_preview.take().is_some() {
+            if let Some(view) = &mut self.ui.report { view.notice = Some(error.clone()); }
+        }
         if let Some(panel) = &mut self.bootstrap_panel {
             panel.progress = None; panel.controls.clear(); panel.result = Some(error);
             panel.detail = "Reopen Setup to check the retained change.";
@@ -376,8 +384,18 @@ impl Live {
                     support.text = "No program selected. The request was not submitted.".into();
                 }
             }
-            (Flight::Save, Reply::ReportSaved(path)) => { self.message = format!("Problem report saved to {}.", path.display()); if let Some(s) = &mut self.support { s.text = self.message.clone(); } }
-            (Flight::Save, Reply::Cancelled) => { self.message = "Saving cancelled; the report remains ready to save.".into(); if let Some(s) = &mut self.support { s.text = self.message.clone(); } }
+            (Flight::Save(report), Reply::ReportSaved(path)) => {
+                self.message = format!("Problem report saved to {}.", path.display());
+                if let Some(s) = self.support.as_mut().filter(|s| s.report.as_ref() == Some(&report)) { s.text = self.message.clone(); }
+                if let Some(view) = self.ui.report.as_mut().filter(|v| v.identity == report) {
+                    view.saved = Some(path); view.notice = None; view.inspecting = false;
+                }
+            }
+            (Flight::Save(report), Reply::Cancelled) => {
+                self.message = "Saving cancelled; the report remains ready to save.".into();
+                if let Some(s) = &mut self.support { s.text = self.message.clone(); }
+                if let Some(view) = self.ui.report.as_mut().filter(|v| v.identity == report) { view.notice = Some(self.message.clone()); }
+            }
             (flight, Reply::Error(error)) => self.failed(flight, error),
             (flight, _) => self.failed(flight, "The manager returned an unexpected reply. Refresh current status.".into()),
         }
@@ -409,7 +427,12 @@ impl Live {
                     s.text = format!("The request's retained result could not be read. {} No request was repeated.", self.message);
                 }
             }
-            Flight::Save => if let Some(s) = &mut self.support { s.text = self.message.clone(); },
+            Flight::Save(report) => {
+                if let Some(s) = &mut self.support { s.text = self.message.clone(); }
+                if let Some(view) = self.ui.report.as_mut().filter(|v| v.identity == report) {
+                    view.notice = Some(self.message.chars().take(1024).collect());
+                }
+            },
             Flight::Current | Flight::Overview | Flight::Pulse => {
                 self.fresh = false;
                 if self.pending_details.take().is_some() {
@@ -462,7 +485,13 @@ impl Live {
         let records = Records { current, details: self.details.as_ref(), product: self.product.as_ref(), actions,
             readiness: self.readiness.as_ref().filter(|(value, requested)| binding.as_ref() == Some(requested) && current.is_some_and(|current| value.system == current.system)).map(|(value, _)| value),
             health: self.current_read_error.is_none().then(|| current.map(|s| &s.system)).flatten() };
+        if let Some(report) = self.support.as_ref().and_then(|s| s.report.as_ref()) {
+            if self.ui.report.as_ref().is_none_or(|view| &view.identity != report) {
+                self.ui.report = Some(presentation::support::Report::new(report.clone()));
+            }
+        }
         let foreground = self.foreground_busy();
+        if let Some(view) = &mut self.ui.report { view.busy = foreground; }
         let blocked = foreground || self.support_waiting();
         let details_pending = self.need_details || self.pending_details.is_some()
             || self.queued.as_ref().map(|(_, flight)| flight).into_iter().chain(self.in_flight.as_ref())
@@ -533,6 +562,7 @@ impl Live {
                     self.state.focus.replacement = None;
                 }
             }
+            Target::Report { report, step } => self.report_step(report, step),
             Target::Form(step) => self.form_step(step),
             Target::Daw(choice) => self.state.forms.daw = Some(choice),
             Target::Bootstrap(step) => {
@@ -590,6 +620,50 @@ impl Live {
             self.details_notice = Some(DETAILS_CHANGED.into());
         }
     }
+    pub fn take_report_preview(&mut self) -> Option<vm::request::SupportReport> {
+        if self.in_flight.is_some() || self.report_reading.is_some() { return None; }
+        let report = self.report_preview.take()?;
+        self.report_reading = Some(report.clone());
+        Some(report)
+    }
+    pub fn receive_report_preview(&mut self, result: Result<lvb_client::report::Contents, String>) {
+        let Some(expected) = self.report_reading.take() else { return };
+        if let Some(view) = self.ui.report.as_mut().filter(|view| view.identity == expected) {
+            match result {
+                Ok(contents) if contents.report == expected => view.contents(&contents.json),
+                Ok(_) => view.notice = Some("A different report was returned. Read this report again.".into()),
+                Err(error) => view.notice = Some(error.chars().take(1024).collect()),
+            }
+        }
+        self.drive(); self.rebuild();
+    }
+    fn save_report(&mut self, report: vm::request::SupportReport) {
+        if self.foreground_busy() || self.superseded { return; }
+        if let Some(view) = self.ui.report.as_mut().filter(|v| v.identity == report) { view.notice = None; }
+        self.queue_foreground(Query::SaveSupportReport(report.clone()), Flight::Save(report));
+    }
+    fn report_step(&mut self, identity: vm::request::SupportReport, step: presentation::support::Step) {
+        use presentation::support::Step;
+        if self.foreground_busy() || self.superseded { return; }
+        let Some(view) = self.ui.report.as_mut().filter(|view| view.identity == identity) else { return };
+        match step {
+            Step::Read => {
+                view.notice = None;
+                // Always revalidate the retained file; cached text is not a
+                // fresh successful read if the file was removed or replaced.
+                self.report_preview = Some(identity);
+            }
+            Step::Back => view.inspecting = false,
+            Step::Previous => view.page = view.page.saturating_sub(1),
+            Step::Next => if view.pages.as_ref().is_some_and(|pages| view.page + 1 < pages.len()) { view.page += 1; },
+            Step::Save => self.save_report(identity),
+            Step::Done => {
+                self.ui.report = None;
+                if self.support.as_ref().is_some_and(|s| s.report.as_ref() == Some(&identity)) { self.support = None; }
+                self.message.clear();
+            }
+        }
+    }
     fn effect(&mut self, effect: Effect) {
         match effect {
             Effect::Refresh => {
@@ -606,7 +680,7 @@ impl Live {
                 } else { self.details_notice = None; self.details_retried = false; self.need_details = true; }
             }
             Effect::SaveReport => if !self.foreground_busy() && !self.superseded {
-                if let Some(report) = self.support.as_ref().and_then(|s| s.report.clone()) { self.queue_foreground(Query::SaveSupportReport(report), Flight::Save); }
+                if let Some(report) = self.support.as_ref().and_then(|s| s.report.clone()) { self.save_report(report); }
             },
             Effect::ChooseInstaller => if !self.foreground_busy() && !self.support_waiting() && !self.superseded {
                 self.queue_foreground(Query::PickInstaller, Flight::Import);
@@ -1033,7 +1107,7 @@ mod tests {
         assert!(matches!(live.take_query(), Some(Query::Operation(id)) if id == "exact-operation"));
         live.receive(readback("exact-operation", completed("exact-operation")));
         current_if_queued(&mut live, Some(completed("someone-else")));
-        let save = target(&live, |t| matches!(t, Target::Control(c) if c.does == Local::SaveReport));
+        let save = target(&live, |t| matches!(t, Target::Control(c) if c.does == Local::SaveReport) || matches!(t, Target::Report { step: presentation::support::Step::Save, .. }));
         assert_eq!(press(&mut live, &save), Outcome::Changed);
         let Some(Query::SaveSupportReport(report)) = live.take_query() else { panic!("save verified report identity") };
         assert_eq!(report.id, "ab".repeat(16)); assert_eq!(report.sha256, "cd".repeat(32));
@@ -1063,6 +1137,71 @@ mod tests {
             })
         }
         contains(&live.built.page, words)
+    }
+    fn report_button(live: &Live, step: presentation::support::Step) -> String {
+        target(live, |t| matches!(t, Target::Report { step: actual, .. } if *actual == step))
+    }
+    #[test]
+    fn report_journey_reads_exact_contents_once_and_retains_cancelled_or_failed_save() {
+        use presentation::support::Step;
+        let mut live = report_ready_while_details_load();
+        let read = report_button(&live, Step::Read);
+        assert_eq!(press(&mut live, &read), Outcome::Changed);
+        assert_eq!(press(&mut live, &read), Outcome::Refused);
+        assert!(live.take_report_preview().is_none(), "wait for the existing worker read");
+        let current = live.overview.as_ref().unwrap().current.clone();
+        live.receive(Reply::Snapshot(Box::new(current)));
+        let report = live.take_report_preview().unwrap();
+        assert_eq!(report, live.support.as_ref().unwrap().report.clone().unwrap());
+        assert!(live.take_report_preview().is_none());
+        assert!(live.take_query().is_none(), "preview must not submit an owner command");
+        let json = format!("{{\"schema\":2,\"example\":\"{}\"}}", "Écho 🎹".repeat(1500));
+        live.receive_report_preview(Ok(lvb_client::report::Contents { report: report.clone(), json: json.clone() }));
+        assert_eq!(live.ui.report.as_ref().unwrap().pages.as_ref().unwrap().concat(), json);
+        let next = report_button(&live, Step::Next); press(&mut live, &next);
+        assert_eq!(live.ui.report.as_ref().unwrap().page, 1);
+        let back = report_button(&live, Step::Back); press(&mut live, &back);
+        let save = report_button(&live, Step::Save); press(&mut live, &save);
+        assert!(matches!(live.take_query(), Some(Query::SaveSupportReport(exact)) if exact == report));
+        live.receive(Reply::Cancelled);
+        assert!(page_says(&live, "Saving cancelled"));
+        assert_eq!(live.ui.report.as_ref().unwrap().identity, report);
+        let save = report_button(&live, Step::Save); press(&mut live, &save); live.take_query().unwrap();
+        live.receive(Reply::Error("Choose a writable filename".into()));
+        assert!(page_says(&live, "Choose a writable filename"));
+        let save = report_button(&live, Step::Save); press(&mut live, &save); live.take_query().unwrap();
+        live.receive(Reply::ReportSaved("/Example Downloads/report.json".into()));
+        assert_eq!(live.ui.report.as_ref().unwrap().saved.as_deref(), Some(std::path::Path::new("/Example Downloads/report.json")));
+        assert_eq!(press(&mut live, &save), Outcome::Refused, "a retired Save control cannot write again");
+        let done = report_button(&live, Step::Done); press(&mut live, &done);
+        assert!(live.ui.report.is_none() && live.support.is_none());
+        assert_eq!(press(&mut live, &read), Outcome::Refused);
+        assert!(live.take_query().is_none());
+    }
+    #[test]
+    fn report_preview_refuses_other_identity_keeps_errors_visible_and_pauses_on_supersession() {
+        use presentation::support::Step;
+        let mut live = report_ready_while_details_load();
+        live.receive(Reply::Snapshot(Box::new(live.overview.as_ref().unwrap().current.clone())));
+        let read = report_button(&live, Step::Read); press(&mut live, &read);
+        let report = live.take_report_preview().unwrap();
+        let other = vm::request::SupportReport { id: "ef".repeat(16), ..report.clone() };
+        live.receive_report_preview(Ok(lvb_client::report::Contents { report: other, json: "secret-wrong-report".into() }));
+        assert!(!page_says(&live, "secret-wrong-report"));
+        assert!(page_says(&live, "different report"));
+        let read = report_button(&live, Step::Read); press(&mut live, &read); live.take_report_preview().unwrap();
+        live.receive_report_preview(Err(format!("Report changed: {}", "x".repeat(2048))));
+        assert!(page_says(&live, "Report changed"));
+        assert!(!page_says(&live, &"x".repeat(1025)));
+        live.need_current = true; live.drive(); live.take_query().unwrap();
+        live.receive(Reply::Error("Current status unavailable".into()));
+        assert!(page_says(&live, "Report changed"), "background failure does not overwrite report error");
+        let read = report_button(&live, Step::Read); press(&mut live, &read); live.take_report_preview().unwrap();
+        live.pause_superseded();
+        live.receive_report_preview(Ok(lvb_client::report::Contents { report, json: "{}".into() }));
+        let back = report_button(&live, Step::Back);
+        assert_eq!(press(&mut live, &back), Outcome::Refused);
+        assert!(live.take_query().is_none());
     }
     #[test]
     fn superseded_support_snapshot_retries_once_without_replaying_the_report() {
@@ -1098,7 +1237,7 @@ mod tests {
             live.receive(Reply::Snapshot(Box::new(current)));
             assert!(live.details.is_some());
             assert!(live.take_query().is_none());
-            let save = target(&live, |t| matches!(t, Target::Control(c) if c.does == Local::SaveReport));
+            let save = target(&live, |t| matches!(t, Target::Control(c) if c.does == Local::SaveReport) || matches!(t, Target::Report { step: presentation::support::Step::Save, .. }));
             assert_eq!(press(&mut live, &save), Outcome::Changed);
             assert!(matches!(live.take_query(), Some(Query::SaveSupportReport(report))
                 if report.id == "ab".repeat(16) && report.sha256 == "cd".repeat(32)));
@@ -1134,7 +1273,7 @@ mod tests {
         live.receive(Reply::Error(format!("Full records read timed out: {}", "x".repeat(2048))));
         assert!(page_says(&live, "Full records read timed out"));
         assert!(!page_says(&live, &"x".repeat(1025)), "the displayed reason must be bounded");
-        let save = target(&live, |t| matches!(t, Target::Control(c) if c.does == Local::SaveReport));
+        let save = target(&live, |t| matches!(t, Target::Control(c) if c.does == Local::SaveReport) || matches!(t, Target::Report { step: presentation::support::Step::Save, .. }));
         assert_eq!(press(&mut live, &save), Outcome::Changed);
         assert!(matches!(live.take_query(), Some(Query::SaveSupportReport(_))));
         live.receive(Reply::Cancelled);
@@ -1274,7 +1413,7 @@ mod tests {
         assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
         live.receive(Reply::Error("current status still unavailable".into()));
         assert!(!live.fresh);
-        let save = target(&live, |t| matches!(t, Target::Control(c) if c.does == Local::SaveReport));
+        let save = target(&live, |t| matches!(t, Target::Control(c) if c.does == Local::SaveReport) || matches!(t, Target::Report { step: presentation::support::Step::Save, .. }));
         assert_eq!(press(&mut live, &save), Outcome::Changed);
         assert!(matches!(live.take_query(), Some(Query::SaveSupportReport(report)) if report.id == "ab".repeat(16)));
     }

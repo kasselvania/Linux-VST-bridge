@@ -38,7 +38,9 @@ impl Builder<'_> {
             top.push(self.one(view));
         }
         if let Some(bar) = request {
-            top.push(self.request(bar));
+            if !(page == Page::Diagnostics && self.ui.report.is_some() && bar.report.is_some()) {
+                top.push(self.request(bar));
+            }
         }
         (header, top)
     }

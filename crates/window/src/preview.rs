@@ -91,6 +91,12 @@ pub struct Preview {
 }
 
 impl Preview {
+    /// Sample-only report data for rendered interaction checks; never writes a file.
+    pub fn report_fixture(&mut self) {
+        self.state.page = Page::Diagnostics;
+        self.ui.report = Some(presentation::support::Report::new(vm_report()));
+        self.rebuild();
+    }
     /// Synthetic display stress case for hidden native layout checks. This
     /// module is sample-only; neither its words nor its actions enter live UI.
     pub fn long_row_fixture(&mut self) {
@@ -298,6 +304,24 @@ impl Preview {
                     Tab::Support => { self.state.apply(Local::Go(Destination::Diagnostics)); }
                 }
                 self.say(format!("Tab {} via {via:?}", tab.label()));
+                Outcome::Changed
+            }
+            Target::Report { report, step } => {
+                use presentation::support::Step;
+                let Some(view) = self.ui.report.as_mut().filter(|view| view.identity == report) else { return Outcome::Refused };
+                match step {
+                    Step::Read => view.contents(&serde_json::to_string_pretty(&serde_json::json!({
+                        "schema":2,"package_version":"Example build","setups":[],
+                        "module_sha256":"ab".repeat(32), "a_long_token_fixture":format!("{}END-OF-LONG-TOKEN", "0123456789abcdef".repeat(32)),
+                        "bridge_records":(0..90).map(|n|serde_json::json!({"fixture_record":n,"category":"example"})).collect::<Vec<_>>()
+                    })).unwrap()),
+                    Step::Back => view.inspecting = false,
+                    Step::Previous => view.page = view.page.saturating_sub(1),
+                    Step::Next => if view.pages.as_ref().is_some_and(|pages| view.page+1 < pages.len()) { view.page += 1; },
+                    Step::Save => { view.saved = Some("/Example Downloads/bridge-report.json".into()); view.inspecting = false; },
+                    Step::Done => self.ui.report = None,
+                }
+                self.say("Sample report interaction; no file was read or saved.".into());
                 Outcome::Changed
             }
             Target::Form(step) => {
@@ -575,3 +599,7 @@ fn first_control(nodes: &[Node]) -> Option<String> {
 
 #[cfg(test)]
 mod tests;
+
+fn vm_report() -> lvb_view_model::request::SupportReport {
+    lvb_view_model::request::SupportReport { id: "ab".repeat(16), sha256: "cd".repeat(32) }
+}

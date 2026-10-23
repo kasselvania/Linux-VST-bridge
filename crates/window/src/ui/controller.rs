@@ -30,6 +30,7 @@ impl Controller {
             model.reveal = reveal;
             model.rebuild();
             if args.iter().any(|arg| arg == "--long-row-fixture") { model.long_row_fixture(); }
+            if args.iter().any(|arg| arg == "--support-report-fixture") { model.report_fixture(); }
             Self::Sample(Box::new(model))
         }
         #[cfg(not(feature = "samples"))]
@@ -141,10 +142,14 @@ impl Controller {
                         WorkerReply::Stopped(error) => model.worker_stopped(error),
                         WorkerReply::Bootstrap { panel, close } => model.bootstrap(panel, close),
                         WorkerReply::Client(reply) => model.receive(reply),
+                        WorkerReply::ReportPreview(reply) => model.receive_report_preview(reply),
                         WorkerReply::Update { panel, headline, close, available } => model.update(panel, headline, close, available),
                         WorkerReply::UpdateError(error) => model.updater_failed(error),
                         WorkerReply::Superseded => model.pause_superseded(),
                     }
+                }
+                if let Some(report) = model.take_report_preview() {
+                    if let Err(error) = worker.preview_report(report) { model.receive_report_preview(Err(error)); }
                 }
                 if let Some(query) = model.take_query() {
                     if let Err(error) = worker.send(query) { model.receive(lvb_client::Reply::Error(error)); }
@@ -166,6 +171,7 @@ impl Controller {
 enum WorkerRequest {
     Bootstrap(lvb_client::bootstrap::Step),
     Client(lvb_client::Query),
+    ReportPreview(lvb_client::SupportReport),
     Update(lvb_view_model::updates::Step, Option<String>),
     Reading(Option<(bool, f64)>),
 }
@@ -175,6 +181,7 @@ enum WorkerReply {
     Stopped(String),
     Bootstrap { panel: lvb_client::bootstrap::Panel, close: bool },
     Client(lvb_client::Reply),
+    ReportPreview(Result<lvb_client::report::Contents, String>),
     Update { panel: lvb_view_model::updates::Panel, headline: Option<String>, close: bool, available: bool },
     UpdateError(String),
     Superseded,
@@ -203,6 +210,9 @@ pub struct Worker {
 }
 #[cfg(feature = "live")]
 impl Worker {
+    fn preview_report(&self, report: lvb_client::SupportReport) -> Result<(), String> {
+        self.requests.try_send(WorkerRequest::ReportPreview(report)).map_err(|_| "The report worker stopped.".into())
+    }
     // This adapter is native-only; the shared Linux updater uses std's clock.
     // The portable model retains the original platform-clock observation time.
     #[allow(clippy::disallowed_types, clippy::disallowed_methods)]
@@ -309,6 +319,15 @@ impl Worker {
                     }
                 }
                 match request {
+                    Some(WorkerRequest::ReportPreview(report)) => {
+                        #[cfg(target_os = "linux")]
+                        let result = client.as_ref().map_err(Clone::clone)
+                            .and_then(|client| client.preview_support_report(&report));
+                        #[cfg(not(target_os = "linux"))]
+                        let result = { let _ = report; Err("The installed Bridge client requires Linux".into()) };
+                        if outgoing.send(WorkerReply::ReportPreview(result)).is_err() { break; }
+                        makepad_product_ui::makepad_widgets::SignalToUI::set_ui_signal();
+                    }
                     Some(WorkerRequest::Bootstrap(step)) => { let _ = step; },
                     Some(WorkerRequest::Client(_)) => unreachable!("client call already completed"),
                     Some(WorkerRequest::Update(step, draft)) => {

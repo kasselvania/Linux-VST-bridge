@@ -50,7 +50,7 @@ mod updates_page;
 #[path = "presentation/plugins.rs"]
 mod plugins_page;
 mod activity;
-mod support;
+pub mod support;
 #[path = "presentation/forms.rs"]
 mod forms_page;
 
@@ -233,6 +233,7 @@ pub enum Target {
     /// One option of a choice on the page (local selection only).
     Choose { group: String, key: String },
     List(ListStep),
+    Report { report: vm::request::SupportReport, step: support::Step },
     Preview(PreviewStep),
     /// Choose which DAW installations use (Setup's DAW picker).
     Daw(DawChoice),
@@ -281,6 +282,7 @@ pub struct LocalUi {
     pub copied: bool,
     /// What is typed in the beta link field (preview-local, never saved).
     pub link_draft: String,
+    pub report: Option<support::Report>,
 }
 
 /// Everything the window draws at one moment, and what each control means.
@@ -604,6 +606,18 @@ impl<'a> Builder<'a> {
 
     pub fn screen(&mut self, screen: &Screen, frame: &Frame, snapshot: Option<&Snapshot>, state: &State,
         update: Option<&updates::Panel>) -> Vec<Node> {
+        if state.page == Page::Diagnostics {
+            if let Some(report) = &self.ui.report {
+                let mut page = self.report_page(report);
+                if let Screen::LoadingDetails { words: notice, retry: Some(retry) } = screen {
+                    let retry = self.control(retry);
+                    page.push(Node::Panel { kind: PanelKind::Raised, children: vec![
+                        words(Role::Detail, notice), self.one(retry),
+                    ] });
+                }
+                return page;
+            }
+        }
         match screen {
             Screen::Home(home) => self.home(home),
             Screen::Setup(setup) => self.setup(setup, state, update),
