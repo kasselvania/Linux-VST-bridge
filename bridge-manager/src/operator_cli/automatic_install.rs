@@ -2351,11 +2351,16 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
                 }
             }
             .into();
-            if !matches!(
-                setup.primary.as_ref().map(|p| &p.action),
-                Some(ui::Action::InstallerFocus { .. } | ui::Action::VendorApplicationFocus { .. })
-            ) || receipt["state"] != "vendor_running"
-            {
+            // A running vendor window keeps its Focus. An installer that did not
+            // confirm closing keeps its own close check: every action waiting
+            // for it says to use that check on this card.
+            let kept = match setup.primary.as_ref().map(|p| &p.action) {
+                Some(ui::Action::InstallerCloseCheck { .. }) => true,
+                Some(ui::Action::InstallerFocus { .. } | ui::Action::VendorApplicationFocus { .. }) =>
+                    receipt["state"] == "vendor_running",
+                _ => false,
+            };
+            if !kept {
                 setup.primary = None;
             }
             if setup.journey.as_ref().unwrap().phase == ui::InstallationPhase::Available {
