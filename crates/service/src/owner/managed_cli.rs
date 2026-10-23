@@ -11,18 +11,46 @@ fn catalogue(m: &Manager, sw: &Software) -> Result<Catalogue> {
     sw.catalogue(m)
 }
 pub(super) fn modules(environment: &Environment) -> Result<Vec<Artifact>> {
+    Ok(module_discovery(environment)?.modules)
+}
+pub(super) struct ModuleDiscovery {
+    pub modules: Vec<Artifact>,
+    directories: Vec<(PathBuf, Option<crate::DigestFileIdentity>)>,
+}
+impl ModuleDiscovery {
+    pub fn recheck(&self) -> Result<()> {
+        for (path, expected) in &self.directories {
+            let actual = match fs::symlink_metadata(path) {
+                Ok(metadata) => Some(crate::DigestFileIdentity::from(&metadata)),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+                Err(error) => return Err(error.into()),
+            };
+            require(actual == *expected, "inventory_module_directory_changed")?;
+        }
+        Ok(())
+    }
+}
+/// Capture the directory identities as well as the module bytes. A later
+/// registry phase can reject additions/removals without walking or hashing
+/// modules while unrelated setup admission waits.
+pub(super) fn module_discovery(environment: &Environment) -> Result<ModuleDiscovery> {
     let root = environment
         .root
         .join("compatdata/pfx/drive_c/Program Files/Common Files/VST3");
-    if !root.try_exists()? { return Ok(vec![]); }
+    if !root.try_exists()? {
+        return Ok(ModuleDiscovery { modules: vec![], directories: vec![(root, None)] });
+    }
     require(root.canonicalize()? == root, "module_directory_symlink")?;
     let mut pending = vec![(root, 0)];
     let mut result = Vec::new();
+    let mut directories = Vec::new();
     let mut visited = 0;
     let mut total = 0u64;
     while let Some((dir, depth)) = pending.pop() {
         require(depth <= 8, "module_discovery_depth")?;
-        for item in fs::read_dir(dir)? {
+        let identity = crate::DigestFileIdentity::from(&fs::symlink_metadata(&dir)?);
+        directories.push((dir.clone(), Some(identity)));
+        for item in fs::read_dir(&dir)? {
             let path = item?.path();
             let md = fs::symlink_metadata(&path)?;
             visited += 1;
@@ -53,7 +81,9 @@ pub(super) fn modules(environment: &Environment) -> Result<Vec<Artifact>> {
         }
     }
     result.sort_by(|a, b| a.path.cmp(&b.path));
-    Ok(result)
+    let found = ModuleDiscovery { modules: result, directories };
+    found.recheck()?;
+    Ok(found)
 }
 fn inspect_through_owner(m: &Manager, r: &InspectionRequest) -> Result<Artifact> {
     let bytes = serde_json::to_vec(r)?;
