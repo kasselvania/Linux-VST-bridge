@@ -3,11 +3,11 @@ use crate::{
     model::*,
     presentation,
     screen_model::{self, forms, journey, screen::{Frame, Reading, Records, Screen},
-        setup, state::{self as window_state, Effect, State}, Destination, Local, ProductKey},
+        setup, state::{Effect, Imported, PageFocus, State}, Local, ProductKey},
     widgets,
 };
 #[cfg(test)]
-use crate::screen_model::AttemptKey;
+use crate::screen_model::{state::Forms, AttemptKey, Destination};
 use eframe::egui;
 use std::{
     sync::mpsc,
@@ -423,19 +423,7 @@ impl RequestFeedback {
     }
 
 }
-/// What Setup and Activity are narrowed to, kept in the window's state.
-type RouteFocus = window_state::Focus;
 
-fn imported_destination(snapshot: &Snapshot, installer: &str) -> Option<Page> {
-    let setups = snapshot.installer_setups.iter().filter(|setup| setup.installer == installer).count();
-    let workspaces = snapshot.workspaces.iter().filter(|workspace|
-        workspace.application_installers.iter().any(|id| id == installer)).count();
-    match (setups, workspaces) {
-        (1, 0) => Some(Page::Setup),
-        (0, 1) => Some(Page::Workspaces),
-        _ => None,
-    }
-}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum RequestOrigin {
     InitialSnapshot,
@@ -710,9 +698,9 @@ impl Operator {
     #[cfg(test)]
     pub fn preview_window(&self) -> screen_model::screen::Window {
         let readiness_visible = self.current_readiness().or_else(|| self.last_readiness()).is_some();
-        let product = self.selected_product_snapshot();
-        screen_model::screen::Window { frame: self.frame_view(product.as_ref(), readiness_visible),
-            screen: self.screen_view(product.as_ref(), readiness_visible) }
+        let (product, held) = (self.selected_product_snapshot(), self.controls_pending());
+        screen_model::screen::Window { frame: self.frame_view(product.as_ref(), readiness_visible, held),
+            screen: self.screen_view(product.as_ref(), readiness_visible, held) }
     }
     fn request(&mut self, q: Query, origin: RequestOrigin, ctx: &egui::Context) {
         if self.frontend_superseded { return; }
@@ -742,17 +730,7 @@ impl Operator {
         if self.controls_pending() {
             return false;
         }
-        for form in [&mut self.window.forms.record, &mut self.window.forms.release,
-            &mut self.window.forms.rename, &mut self.window.forms.install,
-            &mut self.window.forms.confirm] {
-            if form.as_ref() == Some(&request.action) {
-                *form = None;
-            }
-        }
-        // The confirmed request differs from its offer only by the musician's answers.
-        if self.window.forms.confirm.as_ref().is_some_and(|form| forms::offer_identity(form) == forms::offer_identity(&request.action)) {
-            self.window.forms.confirm = None;
-        }
+        self.window.sent(&request.action);
         self.feedback = Some(RequestFeedback::captured(request.action.clone()));
         self.queued_action = Some(request);
         true
@@ -800,13 +778,7 @@ impl Operator {
             self.cleanup_failure_observed = bundle.current.system.cleanup_unconfirmed;
         }
         veto_owned_pause(&mut bundle.current.operation, self.cleanup_failure_observed);
-        if self.window.forms.daw.is_none() {
-            let mut choices = bundle.current.installer_setups.iter()
-                .filter_map(|setup| setup.journey.as_ref().map(|journey| journey.daw));
-            if let Some(first) = choices.next() {
-                if choices.all(|choice| choice == first) { self.window.forms.daw = Some(first); }
-            }
-        }
+        self.window.observe(&bundle.current);
         self.readback_failures = 0;
         self.retry_after = None;
         if let Some(f) = &mut self.feedback { f.reconcile_snapshot(&bundle.current); }
@@ -930,28 +902,11 @@ impl Operator {
     }
     fn resolve_import_route(&mut self, snapshot: &Snapshot) {
         let Some((installer, newly_imported, label)) = self.pending_import_route.take() else { return };
-        match imported_destination(snapshot, &installer) {
-            Some(Page::Setup) => {
-                self.window.page = Page::Setup;
-                self.window.focus.setup = None;
-                self.window.focus.setup_installer = Some(installer);
-                self.window.focus.setup_scroll = true;
-                self.message = if newly_imported {
-                    format!("Added {label}. No native plug-in setup has started.")
-                } else {
-                    "This installer was already added. Showing its existing plug-in setup.".into()
-                };
-            }
-            Some(Page::Workspaces) => {
-                self.window.page = Page::Workspaces;
-                self.window.focus.setup = None;
-                self.window.focus.setup_installer = None;
-                self.window.focus.setup_scroll = false;
-                self.message = "This installer belongs to the managed FL Studio application. Showing Workspaces.".into();
-            }
-            _ => {
+        match self.window.imported(snapshot, &installer, newly_imported, &label) {
+            Imported::Shown(message) => self.message = message,
+            Imported::NotYet(message) => {
                 self.pending_import_route = Some((installer, newly_imported, label));
-                self.message = "The installer was added, but its setup could not be loaded. Refresh before continuing.".into();
+                self.message = message.into();
             }
         }
     }
@@ -1247,22 +1202,14 @@ fn navigation(ui: &mut egui::Ui, page: &mut Page) -> Vec<(Page, bool, egui::Rect
     bounds
 }
 
-fn navigate(
-    destination: &Destination,
-    page: &mut Page,
-    library: &mut crate::library::PluginsView,
-    focus: &mut RouteFocus,
-) {
-    window_state::go(destination, page, library, focus);
-}
-
-/// What a window-handled control does, applied as soon as it is pressed.
-fn apply_local(local: Local, page: &mut Page, library: &mut crate::library::PluginsView,
-    focus: &mut RouteFocus, refresh: &mut bool, pick: &mut bool) {
-    match window_state::apply(local, page, library, focus) {
+/// What a window-handled control on a page does, applied as soon as it is pressed.
+fn apply_local(local: Local, state: &mut State, refresh: &mut bool, pick: &mut bool) {
+    match state.apply(local) {
         Some(Effect::Refresh) => *refresh = true,
         Some(Effect::ChooseInstaller) => *pick = true,
-        None => {}
+        // The frame draws and handles these controls where they appear; no page offers them.
+        Some(Effect::RetryDetails | Effect::OpenCurrentManager | Effect::Copy(_) | Effect::SaveReport
+            | Effect::Dismiss) | None => {}
     }
 }
 
@@ -1333,7 +1280,7 @@ fn next_step(ui: &mut egui::Ui, next: &screen_model::home::Next, chosen: &mut Op
 /// One installer's setup card. Returns whether another installer was chosen
 /// for it; its draft then shows at once, in this frame.
 fn setup_card(ui: &mut egui::Ui, snapshot: &Snapshot, card: &setup::SetupCard, pending: bool,
-    chosen: &mut Option<Action>, local: &mut Option<Local>, focus: &mut RouteFocus) -> bool {
+    chosen: &mut Option<Action>, local: &mut Option<Local>, focus: &mut PageFocus) -> bool {
     let mut chose = false;
     egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
         ui.set_min_width((ui.available_width() - 1.0).max(0.0));
@@ -1353,7 +1300,7 @@ fn setup_card(ui: &mut egui::Ui, snapshot: &Snapshot, card: &setup::SetupCard, p
             ui.label(line);
             ui.add_enabled_ui(card.actionable, |ui| widgets::offer_row(ui, offers, chosen));
         }
-        let mut choose = |ui: &mut egui::Ui, control: &screen_model::Control, focus: &mut RouteFocus| {
+        let mut choose = |ui: &mut egui::Ui, control: &screen_model::Control, focus: &mut PageFocus| {
             if ui.add_enabled(control.enabled, egui::Button::new(control.label)
                 .min_size(egui::vec2(240.0, 44.0))).clicked() {
                 // The draft below and the apps after this card follow at once.
@@ -1521,14 +1468,17 @@ impl Operator {
     #[cfg(test)]
     fn fast_home(ui: &mut egui::Ui, overview: &CurrentOverview,
         assessment: Option<&ReadinessAssessment>, fresh: bool, refreshing: bool,
-        pending: bool, controls: (&mut Page, &mut crate::library::PluginsView, &mut RouteFocus,
+        pending: bool, controls: (&mut Page, &mut crate::library::PluginsView, &mut PageFocus,
             &mut bool, &mut Option<Action>)) {
+        let (page, plugins, focus, refresh, chosen) = controls;
         let home = screen_model::home::Home::build(&overview.current, assessment, fresh, refreshing, pending);
-        Self::home_page(ui, &home, controls);
+        let mut state = State { page: *page, plugins: std::mem::take(plugins), focus: std::mem::take(focus),
+            ..Default::default() };
+        Self::home_page(ui, &home, &mut state, refresh, chosen);
+        (*page, *plugins, *focus) = (state.page, state.plugins, state.focus);
     }
-    fn home_page(ui: &mut egui::Ui, home: &screen_model::home::Home,
-        controls: (&mut Page, &mut crate::library::PluginsView, &mut RouteFocus, &mut bool, &mut Option<Action>)) {
-        let (page, library, focus, refresh, chosen) = controls;
+    fn home_page(ui: &mut egui::Ui, home: &screen_model::home::Home, state: &mut State, refresh: &mut bool,
+        chosen: &mut Option<Action>) {
         let mut local = None;
         ui.horizontal_wrapped(|ui| {
             ui.heading(home.heading);
@@ -1562,7 +1512,7 @@ impl Operator {
         }
         ui.add_space(8.0);
         Self::computer_check(ui, &home.computer, chosen, &mut local);
-        if let Some(local) = local { apply_local(local, page, library, focus, refresh, &mut false); }
+        if let Some(local) = local { apply_local(local, state, refresh, &mut false); }
     }
     /// Setup, drawn from its screen model. A choice applied while drawing
     /// (adding an installer, showing all setup, choosing another installer)
@@ -1570,28 +1520,31 @@ impl Operator {
     #[cfg(test)]
     fn fast_setup(ui: &mut egui::Ui, overview: &CurrentOverview, fresh: bool,
         pending: bool, controls: (&mut bool, &mut Option<Action>, &mut bool,
-            &mut Page, &mut crate::library::PluginsView, &mut RouteFocus, &mut Option<DawChoice>)) {
-        let view = setup::Setup::build(&overview.current, fresh, pending, controls.5.setup_focus());
-        Self::setup_page(ui, &overview.current, view, fresh, pending, controls);
+            &mut Page, &mut crate::library::PluginsView, &mut PageFocus, &mut Option<DawChoice>)) {
+        let (refresh, chosen, pick, page, plugins, focus, daw) = controls;
+        let view = setup::Setup::build(&overview.current, fresh, pending, focus.setup_focus());
+        let mut state = State { page: *page, plugins: std::mem::take(plugins), focus: std::mem::take(focus),
+            forms: Forms { daw: *daw, ..Default::default() } };
+        Self::setup_page(ui, &overview.current, view, fresh, pending, (refresh, chosen, pick, &mut state));
+        (*page, *plugins, *focus, *daw) = (state.page, state.plugins, state.focus, state.forms.daw);
     }
     /// `view`: Setup as the window's screen built it from `snapshot`.
     fn setup_page(ui: &mut egui::Ui, snapshot: &Snapshot, mut view: setup::Setup, fresh: bool,
-        pending: bool, controls: (&mut bool, &mut Option<Action>, &mut bool,
-            &mut Page, &mut crate::library::PluginsView, &mut RouteFocus, &mut Option<DawChoice>)) {
-        let (refresh, chosen, pick, page, library, focus, daw) = controls;
-        let build = |focus: &RouteFocus| setup::Setup::build(snapshot, fresh, pending, focus.setup_focus());
+        pending: bool, controls: (&mut bool, &mut Option<Action>, &mut bool, &mut State)) {
+        let (refresh, chosen, pick, state) = controls;
+        let build = |focus: &PageFocus| setup::Setup::build(snapshot, fresh, pending, focus.setup_focus());
         let mut local = None;
         ui.heading(view.heading);
         let mut added = false;
         ui.horizontal_wrapped(|ui| {
             if ui.add_enabled(view.add.enabled, presentation::primary_button(view.add.label, ui)).clicked() {
-                apply_local(view.add.does.clone(), page, library, focus, refresh, pick);
+                apply_local(view.add.does.clone(), state, refresh, pick);
                 added = true;
             }
             ui.label(view.add_label);
-            daw_choice_control(ui, &view.daw, daw);
+            daw_choice_control(ui, &view.daw, &mut state.forms.daw);
         });
-        if added { view = build(focus); }
+        if added { view = build(&state.focus); }
         widgets::text(ui, &view.progress);
         if let Some(existing) = &view.existing { existing_setups(ui, existing, chosen); }
         if let Some((title, show_all)) = &view.showing_one {
@@ -1599,14 +1552,15 @@ impl Operator {
             ui.horizontal_wrapped(|ui| {
                 ui.strong(*title);
                 if ui.add_sized([180.0, 44.0], egui::Button::new(show_all.label)).clicked() {
-                    apply_local(show_all.does.clone(), page, library, focus, refresh, pick);
+                    apply_local(show_all.does.clone(), state, refresh, pick);
                     all = true;
                 }
             });
-            if all { view = build(focus); }
+            if all { view = build(&state.focus); }
         }
         let mut chose_replacement = false;
         for card in &view.cards {
+            let focus = &mut state.focus;
             if focus.setup_scroll && focus.setup_installer.as_ref() == Some(&card.installer) {
                 ui.scroll_to_cursor(Some(egui::Align::Center));
                 focus.setup_scroll = false;
@@ -1620,14 +1574,14 @@ impl Operator {
         }
         if let Some(missing) = view.missing { ui.colored_label(warning_color(ui), missing); }
         // A replacement chosen above narrows the page to its setup at once.
-        let apps = if chose_replacement { build(focus).apps } else { std::mem::take(&mut view.apps) };
+        let apps = if chose_replacement { build(&state.focus).apps } else { std::mem::take(&mut view.apps) };
         for group in &apps {
             ui.push_id(("application-setup", group.environment.as_str()), |ui| app_group(ui, group, chosen));
         }
         if let Some(deleted) = &view.deleted { deleted_setups(ui, deleted, chosen); }
         ui.small(view.footer);
         if ui.button(view.history.label).clicked() { local = Some(view.history.does.clone()); }
-        if let Some(local) = local { apply_local(local, page, library, focus, refresh, pick); }
+        if let Some(local) = local { apply_local(local, state, refresh, pick); }
     }
     #[cfg(test)]
     fn health_bar(ui: &mut egui::Ui, system: Option<&System>, owned_pause: bool, renewing: bool) {
@@ -1742,20 +1696,14 @@ impl Operator {
         }
     }
 
-    fn activity_page(
-        ui: &mut egui::Ui,
-        view: &screen_model::activity::Activity,
-        page: &mut Page,
-        library: &mut crate::library::PluginsView,
-        focus: &mut RouteFocus,
-        chosen: &mut Option<Action>,
-    ) {
+    fn activity_page(ui: &mut egui::Ui, view: &screen_model::activity::Activity, state: &mut State,
+        chosen: &mut Option<Action>) {
         let mut local = None;
         ui.heading(view.heading);
         ui.small(view.intro);
-        Self::sessions(ui, &view.live, &mut focus.activity, &mut local);
+        Self::sessions(ui, &view.live, &mut state.focus.activity, &mut local);
         ui.separator();
-        Self::sessions(ui, &view.recent, &mut focus.activity, &mut local);
+        Self::sessions(ui, &view.recent, &mut state.focus.activity, &mut local);
         ui.separator();
         ui.heading(view.attention.title);
         Self::attention_list(ui, &view.attention, &mut local);
@@ -1765,7 +1713,7 @@ impl Operator {
         for (id, incident) in &view.incidents.incidents {
             ui.push_id(id, |ui| widgets::disclosure(ui, incident, chosen));
         }
-        if let Some(local) = local { apply_local(local, page, library, focus, &mut false, &mut false); }
+        if let Some(local) = local { apply_local(local, state, &mut false, &mut false); }
     }
 
     fn version_section(ui: &mut egui::Ui, version: &screen_model::diagnostics::VersionSection) {
@@ -1811,7 +1759,7 @@ impl Operator {
         pending: bool,
         chosen: &mut Option<Action>,
         pick: &mut bool,
-        focus: &mut RouteFocus,
+        focus: &mut PageFocus,
     ) {
         ui.heading("Workspaces");
         ui.small("Managed DAWs have their own workspace and installation history. Native DAW plug-in publications remain in Plug-ins.");
@@ -1859,7 +1807,8 @@ impl Operator {
                                 .min_size(egui::vec2(240.0, 48.0)),
                         );
                         if response.clicked() {
-                            *chosen = Some(primary.action.clone());
+                            if let Some(action) = screen_model::offers::offer(primary,
+                                screen_model::offers::Importance::Primary, None, pending).pressed() { *chosen = Some(action); }
                         }
                         if let Some(reason) = primary.disabled_reason.as_deref() {
                             ui.small(reason);
@@ -1899,7 +1848,10 @@ impl Operator {
                                         .min_size(egui::vec2(240.0, 48.0)),
                                 );
                                 if response.clicked() {
-                                    *chosen = Some(primary.action.clone());
+                                    if let Some(action) = screen_model::offers::offer(primary,
+                                        screen_model::offers::Importance::Primary, None, pending).pressed() {
+                                        *chosen = Some(action);
+                                    }
                                 }
                                 if let Some(reason) = primary.disabled_reason.as_deref() {
                                     ui.small(reason.replace('_', " "));
@@ -1941,7 +1893,8 @@ impl Operator {
     }
     /// The records and reading the frame and the page are built from.
     /// `product`: the opened plug-in's records over current status.
-    fn window_inputs<'a>(&'a self, product: Option<&'a Snapshot>, readiness_visible: bool)
+    /// `controls_pending`: read once at the start of the frame.
+    fn window_inputs<'a>(&'a self, product: Option<&'a Snapshot>, readiness_visible: bool, controls_pending: bool)
         -> (Records<'a>, Reading<'a>) {
         let records = Records {
             current: self.overview.as_ref().map(|overview| &overview.current),
@@ -1958,7 +1911,7 @@ impl Operator {
             renewing: self.overview_renewing,
             health_renewing: self.health_refreshing(),
             owned_pause: self.current_owned_pause(),
-            controls_pending: self.controls_pending(),
+            controls_pending,
             in_flight: self.pending,
             working: self.queued_import || (self.pending && self.origin.is_some_and(RequestOrigin::foreground)),
             explicit_refresh: self.pending && self.origin == Some(RequestOrigin::ExplicitRefresh),
@@ -1976,12 +1929,12 @@ impl Operator {
         };
         (records, reading)
     }
-    fn frame_view(&self, product: Option<&Snapshot>, readiness_visible: bool) -> Frame {
-        let (records, reading) = self.window_inputs(product, readiness_visible);
+    fn frame_view(&self, product: Option<&Snapshot>, readiness_visible: bool, controls_pending: bool) -> Frame {
+        let (records, reading) = self.window_inputs(product, readiness_visible, controls_pending);
         Frame::build(&records, &reading, &self.window)
     }
-    fn screen_view(&self, product: Option<&Snapshot>, readiness_visible: bool) -> Screen {
-        let (records, reading) = self.window_inputs(product, readiness_visible);
+    fn screen_view(&self, product: Option<&Snapshot>, readiness_visible: bool, controls_pending: bool) -> Screen {
+        let (records, reading) = self.window_inputs(product, readiness_visible, controls_pending);
         Screen::build(&records, &reading, &self.window)
     }
     fn expire_overview(&mut self) {
@@ -2032,7 +1985,8 @@ impl eframe::App for Operator {
         let mut chosen = None;
         let mut retry_details = false;
         let selected_product_snapshot = self.selected_product_snapshot();
-        let frame_view = |operator: &Self| operator.frame_view(selected_product_snapshot.as_ref(), readiness_visible);
+        let frame_view = |operator: &Self| operator.frame_view(selected_product_snapshot.as_ref(), readiness_visible,
+            controls_pending);
         let mut frame = frame_view(self);
         egui::CentralPanel::default().frame(egui::Frame::central_panel(ui.style()).inner_margin(16.0)).show(ui, |ui| {
             let title = &frame.title;
@@ -2068,7 +2022,7 @@ impl eframe::App for Operator {
                     if ui.add(egui::Button::new(view.label).min_size(egui::vec2(0.0, 36.0))).clicked() {
                         // The page changes at once: navigation below shows it in this frame.
                         if let Local::Go(destination) = &view.does {
-                            navigate(destination, &mut self.window.page, &mut self.window.plugins, &mut self.window.focus);
+                            self.window.go(destination);
                         }
                     }
                 });
@@ -2077,7 +2031,7 @@ impl eframe::App for Operator {
             self.request_bar(ui, frame.request.take());
             ui.separator();
             // Built after navigation, so a page opened above shows in this frame.
-            let screen = self.screen_view(selected_product_snapshot.as_ref(), readiness_visible);
+            let screen = self.screen_view(selected_product_snapshot.as_ref(), readiness_visible, controls_pending);
             egui::ScrollArea::vertical().id_salt(("manager-page", self.window.page)).show(ui, |ui| {
                 if self.window.page == Page::Setup && !self.preview {
                     self.updates.show(ui);
@@ -2085,12 +2039,10 @@ impl eframe::App for Operator {
                 }
                 let current = self.overview.as_ref().map(|overview| &overview.current);
                 match screen {
-                    Screen::Home(home) => Self::home_page(ui, &home,
-                        (&mut self.window.page, &mut self.window.plugins, &mut self.window.focus, &mut refresh, &mut chosen)),
+                    Screen::Home(home) => Self::home_page(ui, &home, &mut self.window, &mut refresh, &mut chosen),
                     Screen::Setup(view) => if let Some(current) = current {
                         Self::setup_page(ui, current, *view, actions_current, controls_pending,
-                            (&mut refresh, &mut chosen, &mut pick, &mut self.window.page, &mut self.window.plugins,
-                                &mut self.window.focus, &mut self.window.forms.daw));
+                            (&mut refresh, &mut chosen, &mut pick, &mut self.window));
                     },
                     Screen::Plugins { not_current, list, single } => {
                         if let Some(notice) = &not_current { widgets::text(ui, notice); }
@@ -2109,8 +2061,7 @@ impl eframe::App for Operator {
                     Screen::Workspaces => if let Some(snapshot) = &self.snapshot {
                         Self::workspaces(ui, snapshot, action_controls_pending, &mut chosen, &mut pick, &mut self.window.focus);
                     },
-                    Screen::Activity(view) => Self::activity_page(ui, &view, &mut self.window.page,
-                        &mut self.window.plugins, &mut self.window.focus, &mut chosen),
+                    Screen::Activity(view) => Self::activity_page(ui, &view, &mut self.window, &mut chosen),
                     Screen::Diagnostics(view) => Self::diagnostics_page(ui, &view, &mut chosen),
                     Screen::Checking { heading, words } => {
                         ui.heading(heading);
@@ -2195,13 +2146,11 @@ impl eframe::App for Operator {
             let confirmation = forms::removal_confirmation(snapshot, &form);
             let mut submit = false;
             let mut cancel = false;
-            // Optional, default off: also forget the imported installer file.
-            let forget_id = egui::Id::new(("forget-installer", format!("{form:?}")));
-            let mut forget = ui.ctx().data(|d| d.get_temp::<bool>(forget_id)).unwrap_or(false);
+            let forget = &mut self.window.forms.forget_installer;
             egui::Window::new(confirmation.title).collapsible(false).resizable(false).show(ui.ctx(), |ui| {
                 for line in &confirmation.body { ui.label(line); }
                 if let Some((choice, meaning)) = confirmation.forget {
-                    ui.checkbox(&mut forget, choice);
+                    ui.checkbox(forget, choice);
                     ui.small(meaning);
                 }
                 if let Err(reason) = &confirmation.offer { ui.colored_label(warning_color(ui), reason); }
@@ -2212,18 +2161,11 @@ impl eframe::App for Operator {
                     cancel = ui.add_sized([120.0, 44.0], egui::Button::new(confirmation.cancel)).clicked();
                 });
             });
-            ui.ctx().data_mut(|d| d.insert_temp(forget_id, forget));
             if submit {
-                chosen = Some(match forms::confirmed(form) {
-                    Action::SetupDelete { installer, environment, confirmed, .. } if confirmation.forget.is_some() =>
-                        Action::SetupDelete { installer, environment, confirmed, forget_installer: forget },
-                    other => other,
-                });
+                chosen = self.window.forms.confirmed(confirmation.forget.is_some());
             }
             else if cancel {
-                // A cancelled confirmation forgets the musician's unsent choice.
-                ui.ctx().data_mut(|d| d.remove::<bool>(forget_id));
-                self.window.forms.confirm = None;
+                self.window.forms.cancel_confirm();
             }
         }
         let result_offer = self.window.forms.record.as_ref().and_then(|form| {
@@ -2592,7 +2534,7 @@ mod tests {
                     ..Default::default()},|ui| {
                     Operator::fast_home(ui,&overview,None,true,false,pending,
                         (&mut Page::Home,&mut crate::library::PluginsView::default(),
-                            &mut RouteFocus::default(),&mut false,&mut chosen));
+                            &mut PageFocus::default(),&mut false,&mut chosen));
                 });
                 if frame == 2 {
                     let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
@@ -2621,7 +2563,7 @@ mod tests {
             action:Action::RuntimeInstall {},disabled_reason:None,
         }];
         let installer = overview.current.installer_setups[0].installer.clone();
-        let (_,chosen) = wrong_installer_click(&overview,&mut RouteFocus::default(),
+        let (_,chosen) = wrong_installer_click(&overview,&mut PageFocus::default(),
             "Install and connect to your DAW",960.0,true);
         assert_eq!(installation_with_daw(&chosen.unwrap(),DawChoice::Bitwig),
             Some(Action::SoftwareInstall {installer,daw:DawChoice::Bitwig}));
@@ -2632,7 +2574,7 @@ mod tests {
                 if page == Page::Setup {
                     Operator::fast_setup(ui,&overview,true,false,(&mut false,&mut None,&mut false,
                         &mut Page::Setup,&mut crate::library::PluginsView::default(),
-                        &mut RouteFocus::default(),&mut Some(DawChoice::Bitwig)));
+                        &mut PageFocus::default(),&mut Some(DawChoice::Bitwig)));
                 } else { Operator::diagnostics(ui,&overview.current,false,&mut None); }
             });
             let mut labels = vec![];
@@ -2742,11 +2684,11 @@ mod tests {
                 if page == Page::Home {
                     Operator::fast_home(ui, &overview, None, true, false, false,
                         (&mut current_page, &mut crate::library::PluginsView::default(),
-                            &mut RouteFocus::default(), &mut false, &mut chosen));
+                            &mut PageFocus::default(), &mut false, &mut chosen));
                 } else {
                     Operator::fast_setup(ui, &overview, true, false,
                         (&mut false, &mut chosen, &mut false, &mut current_page,
-                            &mut crate::library::PluginsView::default(), &mut RouteFocus::default(),
+                            &mut crate::library::PluginsView::default(), &mut PageFocus::default(),
                             &mut Some(DawChoice::Reaper)));
                 }
             });
@@ -2790,7 +2732,7 @@ mod tests {
                     screen_model::service::owned_service_pause(overview.current.operation.as_ref()), false);
                 Operator::fast_home(ui,&overview,None,true,false,false,
                     (&mut Page::Home,&mut crate::library::PluginsView::default(),
-                        &mut RouteFocus::default(),&mut false,&mut chosen));
+                        &mut PageFocus::default(),&mut false,&mut chosen));
             });
             let mut labels = vec![];
             for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
@@ -2833,7 +2775,7 @@ mod tests {
             let mut output = ctx.run_ui(egui::RawInput {screen_rect:Some(egui::Rect::from_min_size(
                 egui::Pos2::ZERO,egui::vec2(960.0,720.0))),..Default::default()}, |ui| {
                 Operator::fast_home(ui,current,None,true,false,false,(&mut Page::Home,
-                    &mut crate::library::PluginsView::default(),&mut RouteFocus::default(),&mut false,&mut chosen));
+                    &mut crate::library::PluginsView::default(),&mut PageFocus::default(),&mut false,&mut chosen));
             });
             let mut labels = vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
             output.textures_delta.clear();
@@ -2887,7 +2829,7 @@ mod tests {
             let mut output = ctx.run_ui(egui::RawInput {screen_rect:Some(egui::Rect::from_min_size(
                 egui::Pos2::ZERO,egui::vec2(960.0,1000.0))),..Default::default()}, |ui| {
                 if home {Operator::fast_home(ui,&overview,None,true,false,true,
-                    (&mut Page::Home,&mut crate::library::PluginsView::default(),&mut RouteFocus::default(),&mut false,&mut chosen));}
+                    (&mut Page::Home,&mut crate::library::PluginsView::default(),&mut PageFocus::default(),&mut false,&mut chosen));}
                 else {crate::library::show(ui, &mut crate::library::PluginsView::default(), &overview.current, None,true,&mut chosen,|_,_|{});}
             });
             let mut labels = vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
@@ -3017,7 +2959,7 @@ mod tests {
         let ctx=result_form_context();let mut chosen=None;
         let mut output=ctx.run_ui(egui::RawInput::default(),|ui| {
             Operator::fast_setup(ui,&overview,true,false,(&mut false,&mut chosen,&mut false,
-                &mut Page::Setup,&mut crate::library::PluginsView::default(),&mut RouteFocus::default(),
+                &mut Page::Setup,&mut crate::library::PluginsView::default(),&mut PageFocus::default(),
                 &mut Some(DawChoice::Bitwig)));
         });
         let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
@@ -3088,7 +3030,7 @@ mod tests {
         let ctx=result_form_context();let mut chosen=None;
         let mut output=ctx.run_ui(egui::RawInput::default(),|ui| {
             Operator::fast_setup(ui,&overview,true,false,(&mut false,&mut chosen,&mut false,
-                &mut Page::Setup,&mut crate::library::PluginsView::default(),&mut RouteFocus::default(),
+                &mut Page::Setup,&mut crate::library::PluginsView::default(),&mut PageFocus::default(),
                 &mut Some(DawChoice::Bitwig)));
         });
         let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
@@ -3120,7 +3062,7 @@ mod tests {
         let ctx=result_form_context();let mut chosen=None;
         let mut output=ctx.run_ui(egui::RawInput::default(),|ui| {
             Operator::fast_setup(ui,&overview,true,false,(&mut false,&mut chosen,&mut false,
-                &mut Page::Setup,&mut crate::library::PluginsView::default(),&mut RouteFocus::default(),
+                &mut Page::Setup,&mut crate::library::PluginsView::default(),&mut PageFocus::default(),
                 &mut Some(DawChoice::Bitwig)));
         });
         let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
@@ -3208,7 +3150,7 @@ mod tests {
                     pressed:frame==3,modifiers:egui::Modifiers::NONE}]} else {vec![]};
             let mut output=ctx.run_ui(egui::RawInput {events,..Default::default()},|ui|
                 Operator::fast_home(ui,&overview,None,true,false,false,
-                    (&mut page,&mut library,&mut RouteFocus::default(),&mut false,&mut None)));
+                    (&mut page,&mut library,&mut PageFocus::default(),&mut false,&mut None)));
             if frame==2 {
                 let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
                 assert!(labels.iter().any(|(label,_)|label=="Available in your DAW"));
@@ -4523,7 +4465,7 @@ mod tests {
             let ctx = egui::Context::default();
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
                 Operator::fast_home(ui,&overview.clone().into(),Some(&overview.readiness),true,false,false,
-                    (&mut Page::Home,&mut crate::library::PluginsView::default(),&mut RouteFocus::default(),&mut false,&mut None));
+                    (&mut Page::Home,&mut crate::library::PluginsView::default(),&mut PageFocus::default(),&mut false,&mut None));
             });
             let mut labels = vec![];
             for clipped in &output.shapes { texts(&clipped.shape,&mut labels); }
@@ -4578,7 +4520,7 @@ mod tests {
                     ..Default::default()},|ui| {
                     Operator::fast_home(ui,&overview,None,true,false,false,
                         (&mut Page::Home,&mut crate::library::PluginsView::default(),
-                            &mut RouteFocus::default(),&mut false,&mut chosen));
+                            &mut PageFocus::default(),&mut false,&mut chosen));
                 });
                 let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
                 assert!(labels.iter().any(|(label,_)|label==expected));
@@ -4613,7 +4555,7 @@ mod tests {
             let ctx=result_form_context();
             presentation::configure_style(&ctx);
             let mut page=Page::Home;let mut library=crate::library::PluginsView::default();
-            let mut focus=RouteFocus::default();let mut chosen=None;let mut point=egui::Pos2::ZERO;
+            let mut focus=PageFocus::default();let mut chosen=None;let mut point=egui::Pos2::ZERO;
             for frame in 0..5 {
                 let events=if frame>=3 {vec![egui::Event::PointerMoved(point),
                     egui::Event::PointerButton {pos:point,button:egui::PointerButton::Primary,
@@ -4645,7 +4587,7 @@ mod tests {
             let ctx=result_form_context();
             let mut output=ctx.run_ui(egui::RawInput::default(),|ui| {
                 Operator::fast_home(ui,&overview.clone().into(),Some(&overview.readiness),true,false,false,
-                    (&mut Page::Home,&mut crate::library::PluginsView::default(),&mut RouteFocus::default(),&mut false,&mut None));
+                    (&mut Page::Home,&mut crate::library::PluginsView::default(),&mut PageFocus::default(),&mut false,&mut None));
             });
             let mut text=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut text);}
             assert!(text.iter().any(|(label,_)|label=="This native engine requires x86-64 Linux."));
@@ -4681,7 +4623,7 @@ mod tests {
             overview.current.installer_setups=vec![setup];
             let ctx=result_form_context();presentation::configure_style(&ctx);
             let mut page=Page::Home;let mut library=crate::library::PluginsView::default();
-            let mut focus=RouteFocus::default();let mut point=egui::Pos2::ZERO;
+            let mut focus=PageFocus::default();let mut point=egui::Pos2::ZERO;
             for frame in 0..5 {
                 let events=if frame>=3 {vec![egui::Event::PointerMoved(point),egui::Event::PointerButton {
                     pos:point,button:egui::PointerButton::Primary,pressed:frame==3,modifiers:egui::Modifiers::NONE}]} else {vec![]};
@@ -4738,7 +4680,7 @@ mod tests {
                 let ctx = result_form_context();
                 let mut output = ctx.run_ui(egui::RawInput::default(),|ui| {
                     Operator::fast_home(ui,&readback,None,true,false,false,(&mut Page::Home,
-                        &mut crate::library::PluginsView::default(),&mut RouteFocus::default(),&mut false,&mut None));
+                        &mut crate::library::PluginsView::default(),&mut PageFocus::default(),&mut false,&mut None));
                 });
                 let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
                 assert_eq!(labels.iter().any(|(label,_)|label.contains("Earlier setup")
@@ -4807,7 +4749,7 @@ mod tests {
             let mut output=ctx.run_ui(egui::RawInput {events,screen_rect:Some(egui::Rect::from_min_size(
                 egui::Pos2::ZERO,egui::vec2(1000.0,1600.0))),..Default::default()},|ui| {
                 Operator::fast_setup(ui,&overview,true,false,(&mut false,chosen,&mut false,&mut Page::Setup,
-                    &mut crate::library::PluginsView::default(),&mut RouteFocus::default(),&mut Some(DawChoice::Bitwig)));
+                    &mut crate::library::PluginsView::default(),&mut PageFocus::default(),&mut Some(DawChoice::Bitwig)));
             });
             let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
             output.textures_delta.clear();labels
@@ -4844,16 +4786,16 @@ mod tests {
             row("newer-app","newer-owned-environment","Same app",false),
             row("hub-choice","fresh-owned-environment","Source hub (hub)",true),
             row("helper-choice","fresh-owned-environment","Source hub (helper)",true)];
-        let groups=application_groups(&overview.current,&RouteFocus::default().setup_focus());
+        let groups=application_groups(&overview.current,&PageFocus::default().setup_focus());
         assert_eq!(groups.len(),3);assert_eq!(groups[2].applications.len(),2);
-        let focus=RouteFocus {setup:Some(AttemptKey {installer:"exact-import".into(),environment:Some("older-owned-environment".into())}),..Default::default()};
+        let focus=PageFocus {setup:Some(AttemptKey {installer:"exact-import".into(),environment:Some("older-owned-environment".into())}),..Default::default()};
         let focused=application_groups(&overview.current,&focus.setup_focus());assert_eq!(focused.len(),1);
         assert_eq!(focused[0].applications[0].id,"older-app");
         let ctx=result_form_context();let mut chosen=None;
         let mut output=ctx.run_ui(egui::RawInput {screen_rect:Some(egui::Rect::from_min_size(
             egui::Pos2::ZERO,egui::vec2(1000.0,1400.0))),..Default::default()},|ui| {
             Operator::fast_setup(ui,&overview,true,false,(&mut false,&mut chosen,&mut false,&mut Page::Setup,
-                &mut crate::library::PluginsView::default(),&mut RouteFocus::default(),&mut Some(DawChoice::Bitwig)));
+                &mut crate::library::PluginsView::default(),&mut PageFocus::default(),&mut Some(DawChoice::Bitwig)));
         });
         let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
         assert!(labels.iter().any(|(label,_)|label=="Plug-ins in this setup: Older instrument"));
@@ -4889,7 +4831,7 @@ mod tests {
                 let mut output=ctx.run_ui(egui::RawInput {events,screen_rect:Some(egui::Rect::from_min_size(
                     egui::Pos2::ZERO,egui::vec2(width,1400.0))),..Default::default()},|ui| {
                     Operator::fast_setup(ui,overview,true,false,(&mut false,chosen,&mut false,&mut Page::Setup,
-                        &mut crate::library::PluginsView::default(),&mut RouteFocus::default(),&mut Some(DawChoice::Other)));
+                        &mut crate::library::PluginsView::default(),&mut PageFocus::default(),&mut Some(DawChoice::Other)));
                 });
                 let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
                 output.textures_delta.clear();labels
@@ -4927,7 +4869,7 @@ mod tests {
             let mut output=ctx.run_ui(egui::RawInput {events,screen_rect:Some(egui::Rect::from_min_size(
                 egui::Pos2::ZERO,egui::vec2(1000.0,1000.0))),..Default::default()},|ui| {
                 Operator::fast_setup(ui,overview,true,false,(&mut false,chosen,&mut false,&mut Page::Setup,
-                    &mut crate::library::PluginsView::default(),&mut RouteFocus::default(),&mut Some(DawChoice::Bitwig)));
+                    &mut crate::library::PluginsView::default(),&mut PageFocus::default(),&mut Some(DawChoice::Bitwig)));
             });
             let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
             output.textures_delta.clear();labels
@@ -4996,7 +4938,7 @@ mod tests {
         let mut unmatched=intended.clone();unmatched.discovered[0].module_sha256="different-module".into();
         assert_eq!(setup_display_name(&unmatched,&overview.current),unmatched.name);
         let ctx=result_form_context();presentation::configure_style(&ctx);
-        let mut page=Page::Home;let mut library=crate::library::PluginsView::default();let mut focus=RouteFocus::default();
+        let mut page=Page::Home;let mut library=crate::library::PluginsView::default();let mut focus=PageFocus::default();
         let mut point=egui::Pos2::ZERO;
         for frame in 0..5 {
             let events=if frame>=3 {vec![egui::Event::PointerMoved(point),egui::Event::PointerButton {
@@ -5044,11 +4986,11 @@ mod tests {
                     ui.add_space(285.0);
                     if page == Page::Home {
                         Operator::fast_home(ui,&overview,None,true,false,pending,
-                            (&mut Page::Home,&mut crate::library::PluginsView::default(),&mut RouteFocus::default(),&mut false,&mut chosen));
+                            (&mut Page::Home,&mut crate::library::PluginsView::default(),&mut PageFocus::default(),&mut false,&mut chosen));
                     } else {
                         Operator::fast_setup(ui,&overview,true,pending,
                             (&mut false,&mut chosen,&mut false,&mut Page::Setup,
-                                &mut crate::library::PluginsView::default(),&mut RouteFocus::default(),&mut None));
+                                &mut crate::library::PluginsView::default(),&mut PageFocus::default(),&mut None));
                     }
                 });
                 if frame==2 {
@@ -5519,11 +5461,11 @@ mod tests {
             _ => None,
         }
     }
-    fn wrong_installer_click(overview: &CurrentOverview, focus: &mut RouteFocus, label: &str,
+    fn wrong_installer_click(overview: &CurrentOverview, focus: &mut PageFocus, label: &str,
         width: f32, fresh: bool) -> (bool,Option<Action>) {
         wrong_installer_click_with_pending(overview,focus,label,width,fresh,false)
     }
-    fn wrong_installer_click_with_pending(overview: &CurrentOverview, focus: &mut RouteFocus, label: &str,
+    fn wrong_installer_click_with_pending(overview: &CurrentOverview, focus: &mut PageFocus, label: &str,
         width: f32, fresh: bool, pending: bool) -> (bool,Option<Action>) {
         let ctx = egui::Context::default();
         let mut position = egui::Pos2::ZERO;let mut pick = false;let mut chosen = None;
@@ -5660,7 +5602,7 @@ mod tests {
             daw:DawChoice::Bitwig,plugins:vec![],failure:None});
         setup.primary = Some(AvailableAction {label:"Open the installed app".into(),action:open.clone(),disabled_reason:None});
         assert!(replacement_offer(&overview.current,&draft).is_ok());
-        let mut focus = RouteFocus {setup_installer:Some(draft.original),..Default::default()};
+        let mut focus = PageFocus {setup_installer:Some(draft.original),..Default::default()};
         assert_eq!(wrong_installer_click(&overview,&mut focus,"Open the installed app",960.0,true).1,Some(open));
         let (_,chosen) = wrong_installer_click(&overview,&mut focus,"Choose another installer",560.0,false);
         assert!(chosen.is_none());assert!(focus.replacement.is_none(),"Stale controls cannot start file selection");
@@ -5695,7 +5637,7 @@ mod tests {
                 let label=screen_model::offers::action_label(&offer);
                 let setup=&mut overview.current.installer_setups[0];
                 if secondary {setup.secondary=vec![offer];} else {setup.primary=Some(offer);}
-                let mut focus=RouteFocus {setup_installer:Some(setup.installer.clone()),..Default::default()};
+                let mut focus=PageFocus {setup_installer:Some(setup.installer.clone()),..Default::default()};
                 assert_eq!(wrong_installer_click(&overview,&mut focus,&label,960.0,true).1,Some(action.clone()));
             }
         }
@@ -5704,7 +5646,7 @@ mod tests {
     fn wrong_installer_picker_owner_cannot_be_cleared_while_import_is_pending() {
         let overview = wrong_installer_overview(Some("intended-environment"));
         let original = &overview.current.installer_setups[0];
-        let mut focus = RouteFocus {setup_installer:Some(original.installer.clone()),
+        let mut focus = PageFocus {setup_installer:Some(original.installer.clone()),
             replacement:replacement_context(&overview.current,original),..Default::default()};
         wrong_installer_click_with_pending(&overview,&mut focus,"Keep current installer",560.0,true,true);
         assert!(focus.replacement.is_some());
@@ -5786,7 +5728,7 @@ mod tests {
             let ctx = egui::Context::default();
             let mut page = Page::Setup;
             let mut library = crate::library::PluginsView::default();
-            let mut focus = RouteFocus {setup_installer:Some(setup.installer.clone()),
+            let mut focus = PageFocus {setup_installer:Some(setup.installer.clone()),
                 setup_scroll:true,..Default::default()};
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
                 ui.set_max_width(width-32.0);
@@ -5803,11 +5745,11 @@ mod tests {
             assert!(!focus.setup_scroll);
             // The card's own control opens exactly the plug-ins this setup found.
             let card = setup::SetupCard::build(&overview.current, &setup, true, false, None);
-            apply_local(card.discovered.expect("discovered plug-ins").does, &mut page, &mut library,
-                &mut focus, &mut false, &mut false);
-            assert_eq!(page,Page::Plugins);
+            let mut state = State { page, plugins: library, focus, ..Default::default() };
+            apply_local(card.discovered.expect("discovered plug-ins").does, &mut state, &mut false, &mut false);
+            assert_eq!(state.page,Page::Plugins);
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-                crate::library::show_current(ui, &mut library, &overview.current, None,true,false,&mut false);
+                crate::library::show_current(ui, &mut state.plugins, &overview.current, None,true,false,&mut false);
             });
             let mut text = Vec::new();
             for clipped in &output.shapes { labels(&clipped.shape,&mut text); }
@@ -5908,7 +5850,7 @@ mod tests {
         let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
             Operator::fast_setup(ui,&overview.clone().into(),true,false,
                 (&mut false,&mut None,&mut false,&mut Page::Setup,&mut crate::library::PluginsView::default(),
-                    &mut RouteFocus::default(),&mut None));
+                    &mut PageFocus::default(),&mut None));
         });
         let mut text = Vec::new();
         for clipped in &output.shapes { labels(&clipped.shape,&mut text); }
@@ -5959,7 +5901,7 @@ mod tests {
             };
             overview.current.installer_setups = vec![setup.clone()];
             let ctx = egui::Context::default();
-            let mut focus = RouteFocus {setup_installer:Some(setup.installer),..Default::default()};
+            let mut focus = PageFocus {setup_installer:Some(setup.installer),..Default::default()};
             let mut point = egui::Pos2::ZERO;
             let mut chosen = None;
             for pressed in [None, Some(true), Some(false)] {
@@ -5996,7 +5938,7 @@ mod tests {
                 action:expected.clone(),disabled_reason:None}];
             assert!(setup.environment.is_none());assert!(setup.history.is_empty());
             let ctx=egui::Context::default();let mut chosen=None;let mut time=0.0;
-            let mut focus=RouteFocus {setup_installer:Some(setup.installer.clone()),..Default::default()};
+            let mut focus=PageFocus {setup_installer:Some(setup.installer.clone()),..Default::default()};
             for label in ["Setup details and options","Install with normal PowerShell behavior"] {
                 let mut point=egui::Pos2::ZERO;
                 for pressed in [None,Some(true),Some(false)] {
@@ -6040,7 +5982,7 @@ mod tests {
             let mut overview=overview_fixture();overview.current.onboarding=vec![attempt];
             overview.current.installer_setups=vec![setup.clone()];overview.current.environment_installers.clear();
             let ctx=egui::Context::default();let mut chosen=None;let mut time=0.0;
-            let mut focus=RouteFocus {setup_installer:Some(setup.installer),..Default::default()};
+            let mut focus=PageFocus {setup_installer:Some(setup.installer),..Default::default()};
             for label in ["Setup details and options","Run installer with normal PowerShell behavior"] {
                 let mut point=egui::Pos2::ZERO;
                 for pressed in [None,Some(true),Some(false)] {
@@ -6093,7 +6035,7 @@ mod tests {
                 let mut output=ctx.run_ui(egui::RawInput {events,time:Some(time),..Default::default()},|ui| {
                     ui.set_max_width(780.0);
                     Operator::fast_setup(ui,&overview,true,false,(&mut false,&mut chosen,&mut false,
-                        &mut Page::Setup,&mut crate::library::PluginsView::default(),&mut RouteFocus::default(),&mut None));
+                        &mut Page::Setup,&mut crate::library::PluginsView::default(),&mut PageFocus::default(),&mut None));
                 });
                 if pressed.is_none() {point=output.shapes.iter().find_map(|shape|
                     wrong_installer_text_position(&shape.shape,"Retry")).expect("ordinary visible Retry after reopen");}
@@ -6137,7 +6079,7 @@ mod tests {
                 let mut output=ctx.run_ui(egui::RawInput {events,time:Some(time),..Default::default()},|ui| {
                     ui.set_max_width(780.0);
                     Operator::fast_setup(ui,&overview.clone().into(),true,false,(&mut false,&mut chosen,&mut false,
-                        &mut Page::Setup,&mut crate::library::PluginsView::default(),&mut RouteFocus::default(),&mut None));
+                        &mut Page::Setup,&mut crate::library::PluginsView::default(),&mut PageFocus::default(),&mut None));
                 });
                 if pressed.is_none() { point=output.shapes.iter().find_map(|shape|position(&shape.shape,label)).expect("visible advanced installer control"); }
                 output.textures_delta.clear();
@@ -6183,7 +6125,7 @@ mod tests {
                 let mut output=ctx.run_ui(egui::RawInput {events,..Default::default()},|ui| {
                     ui.set_max_width(width-32.0);ui.add_space(410.0);
                     Operator::fast_setup(ui,&overview.clone().into(),true,false,(&mut false,&mut chosen,&mut false,
-                        &mut Page::Setup,&mut crate::library::PluginsView::default(),&mut RouteFocus::default(),&mut None));
+                        &mut Page::Setup,&mut crate::library::PluginsView::default(),&mut PageFocus::default(),&mut None));
                 });
                 if pressed.is_none() {
                     position=output.shapes.iter().rev().find_map(|shape|text_position(&shape.shape,label)).unwrap();
@@ -6311,7 +6253,7 @@ mod tests {
             let mut pick = false;
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
                 ui.set_max_width(width - 32.0);
-                Operator::workspaces(ui, &snapshot, false, &mut chosen, &mut pick, &mut RouteFocus::default());
+                Operator::workspaces(ui, &snapshot, false, &mut chosen, &mut pick, &mut PageFocus::default());
             });
             let mut labels = Vec::new();
             for clipped in &output.shapes {
@@ -6373,7 +6315,7 @@ mod tests {
         workspace.observed_file_version = Some("26.1.6.5639".into());
         let ctx = egui::Context::default();
         let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-            Operator::workspaces(ui, &snapshot, false, &mut None, &mut false, &mut RouteFocus::default());
+            Operator::workspaces(ui, &snapshot, false, &mut None, &mut false, &mut PageFocus::default());
         });
         let mut labels = Vec::new();
         for clipped in &output.shapes {
@@ -6436,28 +6378,16 @@ mod tests {
     }
     #[test]
     fn session_attention_opens_activity_at_exact_session_identity() {
-        let mut page = Page::Home;
-        let mut library = crate::library::PluginsView::default();
-        let mut focus = RouteFocus::default();
-        navigate(
-            &Destination::Session("exact-session".into()),
-            &mut page,
-            &mut library,
-            &mut focus,
-        );
-        assert_eq!(page, Page::Activity);
-        assert_eq!(focus.activity.as_deref(), Some("exact-session"));
-        navigate(
-            &Destination::Attempt(AttemptKey {
-                installer: "exact-installer".into(),
-                environment: None,
-            }),
-            &mut page,
-            &mut library,
-            &mut focus,
-        );
-        assert_eq!(page, Page::Setup);
-        assert!(focus.setup_scroll);
+        let mut state = State::default();
+        state.go(&Destination::Session("exact-session".into()));
+        assert_eq!(state.page, Page::Activity);
+        assert_eq!(state.focus.activity.as_deref(), Some("exact-session"));
+        state.go(&Destination::Attempt(AttemptKey {
+            installer: "exact-installer".into(),
+            environment: None,
+        }));
+        assert_eq!(state.page, Page::Setup);
+        assert!(state.focus.setup_scroll);
     }
     #[test]
     fn lost_readback_marks_capacity_unavailable_without_inventing_cleanup_failure() {
@@ -7195,7 +7125,7 @@ mod tests {
             let ctx=result_form_context();let mut chosen=None;
             let mut output=ctx.run_ui(egui::RawInput::default(),|ui| {
                 Operator::fast_setup(ui,&overview,true,false,(&mut false,&mut chosen,&mut false,
-                    &mut Page::Setup,&mut crate::library::PluginsView::default(),&mut RouteFocus::default(),
+                    &mut Page::Setup,&mut crate::library::PluginsView::default(),&mut PageFocus::default(),
                     &mut Some(DawChoice::Reaper)));
             });
             let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}

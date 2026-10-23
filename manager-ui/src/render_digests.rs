@@ -171,8 +171,8 @@ fn the_window_builds_what_the_view_model_samples_build() {
     let samples = all_samples();
     assert_eq!(samples.len(), samples::cases().count() + 2 * samples::REQUESTS.len() + samples::updates().len());
     for (name, sample) in samples {
-        assert_eq!(format!("{:?}", Operator::preview_sample(&sample).preview_window()),
-            format!("{:?}", sample.window(presentation::distribution())), "{name}");
+        assert_eq!(Operator::preview_sample(&sample).preview_window(), sample.window(presentation::distribution()),
+            "{name}");
     }
 }
 

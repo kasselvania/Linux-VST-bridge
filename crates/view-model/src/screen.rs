@@ -81,7 +81,7 @@ impl Reading<'_> {
 }
 
 /// Everything around the page.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Frame {
     pub title: TitleRow,
     pub superseded: Option<Superseded>,
@@ -108,7 +108,7 @@ impl Frame {
 }
 
 /// The open page.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Screen {
     Home(Box<Home>),
     Setup(Box<Setup>),
@@ -175,7 +175,7 @@ impl Screen {
 }
 
 /// The whole window.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Window {
     pub frame: Frame,
     pub screen: Screen,

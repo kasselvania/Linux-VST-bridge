@@ -137,7 +137,7 @@ pub struct Context<'a> {
 }
 
 /// The full Plug-ins list, or one opened plug-in's detail.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PluginList {
     /// Count and rescan hint, when listing rather than showing one plug-in.
     pub summary: Vec<String>,
@@ -145,7 +145,7 @@ pub struct PluginList {
     pub groups: Vec<VendorGroup>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct VendorGroup {
     pub heading: Option<String>,
     pub cards: Vec<PluginCard>,
@@ -186,7 +186,7 @@ impl PluginList {
 }
 
 /// One plug-in with its status, guidance and every offered control.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PluginCard {
     pub key: ProductKey,
     /// Position in the manager's product list, for records drawn by the caller.
@@ -225,7 +225,7 @@ pub struct Uninstall {
 }
 
 /// The plug-in's shared setup controls, the same ones Setup shows for it.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SharedSetup {
     pub title: &'static str,
     pub start_open: bool,

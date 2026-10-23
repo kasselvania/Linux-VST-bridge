@@ -18,8 +18,10 @@
 //! A frontend keeps one `state::State` (the open page, what it is narrowed
 //! to, the open form) and builds the whole window from the manager's records
 //! with `screen::Window::build`; each part also has its own `build`. Pressed
-//! controls go through `State::apply` and pressed offers through
-//! `State::press`. The `samples` feature adds the named sample states, the
+//! offers go only through `State::press_offer`, pressed controls through
+//! `State::apply`, and new records, sent requests and added installers
+//! through `State::observe`, `sent` and `imported`, so the routing is the
+//! same in every frontend. The `samples` feature adds the named sample states, the
 //! request and window samples and the update panel's states, as one table
 //! the previews, tests and a gallery share.
 pub mod activity;
