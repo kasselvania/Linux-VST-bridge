@@ -492,6 +492,7 @@ pub struct LoadingRow {
     pub facts: Vec<Fact>,
     /// Current availability; withheld when status could not be loaded.
     pub status: Option<&'static str>,
+    pub status_class: StatusClass,
     pub notes: Vec<Text>,
     /// Opens this exact plug-in, when several are listed.
     pub manage: Option<&'static str>,
@@ -501,7 +502,7 @@ impl LoadingList {
     pub fn build(snapshot: &Snapshot, query: &Query, fresh: bool, details_attempted: bool) -> Self {
         let single = query.single();
         let (notice, retry) = if !fresh {
-            (Text::caution("Current plug-in status could not be loaded. Refresh on Home before continuing."), None)
+            (Text::caution("Current plug-in status could not be loaded. Try loading it again before continuing."), Some("Load plug-in controls again"))
         } else if details_attempted {
             (Text::caution("Plug-in controls could not be loaded. The last plug-in summary is shown below."),
                 Some("Load plug-in controls again"))
@@ -551,6 +552,9 @@ impl LoadingList {
                     ],
                     status: fresh.then(|| installation_progress(snapshot, product)
                         .unwrap_or_else(|| product::status(product).words)),
+                    status_class: if !fresh { StatusClass::Unknown }
+                        else if installation_progress(snapshot, product).is_some() { StatusClass::Working }
+                        else { product::status(product).class },
                     notes,
                     // A Setup discovery may focus several exact classes. Each
                     // row must still let the user select one current detail.
@@ -723,7 +727,7 @@ fn routine_rank(action: &Action) -> Option<u8> {
 fn emphasized_action(
     product: &Product,
     related: &[AvailableAction],
-    busy: Option<&str>,
+    _busy: Option<&str>,
 ) -> Option<AvailableAction> {
     let published = matches!(product.disposition.as_str(), "ready" | "experimental");
     product
@@ -731,8 +735,7 @@ fn emphasized_action(
         .iter()
         .chain(related)
         .filter(|offer| {
-            // Duplicate of the manager's shared-resource rule; see `offers::refusal`.
-            offer.disabled_reason.is_none() && !(busy.is_some() && offer.action.requires_global_inactive())
+            offer.disabled_reason.is_none()
         })
         .filter_map(|offer| {
             routine_rank(&offer.action).map(|rank| {
@@ -871,11 +874,13 @@ mod tests {
             disabled_reason: Some("Current manager work blocks this scan".into()),
         };
         product.actions.push(retry.clone());
-        assert!(emphasized_action(product, &related, Some("Busy")).is_none());
+        let enabled_related = emphasized_action(product, &related, Some("Busy")).unwrap();
+        assert_ne!(enabled_related.action, retry.action);
+        assert_eq!(enabled_related.disabled_reason, None);
         assert_eq!(product.actions.len(), 1);
         assert_eq!(product.actions[0].action, retry.action);
         product.actions[0].disabled_reason = None;
-        let selected = emphasized_action(product, &related, None).unwrap();
+        let selected = emphasized_action(product, &related, Some("Unrelated setup is busy")).unwrap();
         assert_eq!(selected.action, retry.action);
         assert_eq!(product.actions.len(), 1);
         assert_eq!(selected.disabled_reason, None);
@@ -1021,11 +1026,6 @@ mod tests {
                             }
                             if pending {
                                 assert!(!offer.availability.enabled(), "{state}: {} pressable while pending", offer.label);
-                            }
-                            let shared = offer.intent.requires_global_inactive()
-                                && !matches!(offer.intent, Action::CompatibilityResult { .. });
-                            if shared && snapshot.system.inactive_reason().is_some() {
-                                assert!(!offer.availability.enabled(), "{state}: shared {} ignores busy service", offer.label);
                             }
                             checked += 1;
                         }
@@ -1190,7 +1190,7 @@ mod tests {
         let snapshot = sample(Page::Plugins, "stale");
         let stale = LoadingList::build(&snapshot, &all, false, false);
         assert_eq!(stale.notice, Text::caution(
-            "Current plug-in status could not be loaded. Refresh on Home before continuing."));
+            "Current plug-in status could not be loaded. Try loading it again before continuing."));
         assert!(stale.rows.iter().all(|row| row.status.is_none()));
         let failed = LoadingList::build(&snapshot, &all, true, true);
         assert_eq!(failed.retry, Some("Load plug-in controls again"));

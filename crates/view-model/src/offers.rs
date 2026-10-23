@@ -109,23 +109,10 @@ pub struct SetupChoice {
     pub identity: Disclosure,
 }
 
-/// The manager's own refusal, or the shared-resource refusal for actions that
-/// need every bridged instance closed.
-///
-/// The shared-resource branch duplicates the manager's authority: the window
-/// applies `requires_global_inactive` to the service-wide status itself. It
-/// moved here unchanged and is retired when the service supplies that refusal
-/// on each offer (#489). The same rule filters routine steps in `plugins.rs`.
-pub fn refusal<'a>(offer: &'a AvailableAction, busy: Option<&'a str>) -> Option<&'a str> {
-    // Window policy, overriding the manager's refusal: opening the result form
-    // must remain possible to report a problem while the target is active.
-    // Submitting "Worked" still applies the exact offered refusal
-    // (`forms::compatibility_result_refusal`). Retired when the service
-    // offers separate refusals for opening the form and submitting a result.
-    if matches!(offer.action, Action::CompatibilityResult { .. }) { return None; }
-    offer.disabled_reason.as_deref().or_else(|| {
-        offer.action.requires_global_inactive().then_some(busy).flatten()
-    })
+/// Only the committing owner's offer determines product availability.
+/// Pending UI work is handled separately by `availability`.
+pub fn refusal<'a>(offer: &'a AvailableAction, _busy: Option<&str>) -> Option<&'a str> {
+    offer.disabled_reason.as_deref()
 }
 
 pub fn availability(offer: &AvailableAction, busy: Option<&str>, pending: bool) -> Availability {
@@ -163,9 +150,8 @@ pub fn row(actions: &[AvailableAction], importance: Importance, busy: Option<&st
     }
 }
 
-/// Every reason an offer is unavailable, once each: pending work, the shared
-/// resource and the manager's own refusal.
-pub fn visible_refusals(actions: &[AvailableAction], busy: Option<&str>, pending: bool) -> Vec<String> {
+/// Every owner refusal and pending UI wait, once each.
+pub fn visible_refusals(actions: &[AvailableAction], _busy: Option<&str>, pending: bool) -> Vec<String> {
     let mut reasons = Vec::new();
     let mut add = |reason: &str| {
         if !reasons.iter().any(|existing| existing == reason) {
@@ -175,11 +161,6 @@ pub fn visible_refusals(actions: &[AvailableAction], busy: Option<&str>, pending
     for offer in actions {
         if pending {
             add(WAITING);
-        }
-        if offer.action.requires_global_inactive() {
-            if let Some(reason) = busy {
-                add(reason);
-            }
         }
         if let Some(reason) = &offer.disabled_reason {
             add(reason);
@@ -321,7 +302,7 @@ mod tests {
     }
 
     #[test]
-    fn touch_refusals_keep_manager_and_global_reasons_visible() {
+    fn touch_refusals_preserve_owner_reason_without_global_reinterpretation() {
         let offers = [AvailableAction {
             label: "Rescan".into(),
             action: Action::EnvironmentRescan {
@@ -331,7 +312,7 @@ mod tests {
         }];
         assert_eq!(
             visible_refusals(&offers, Some("Close active DSP"), false),
-            ["Close active DSP", "Exact inventory is stale"]
+            ["Exact inventory is stale"]
         );
         assert_eq!(
             visible_refusals(&offers, None, true),
@@ -366,22 +347,25 @@ mod tests {
     fn availability_keeps_refusal_ahead_of_waiting_and_the_exact_intent() {
         let rescan = AvailableAction { label: "Find installed plug-ins".into(),
             action: Action::EnvironmentRescan { environment: "exact".into() }, disabled_reason: None };
-        // A shared-resource action waits for global inactivity; a refusal wins over pending work.
-        assert_eq!(availability(&rescan, Some("Close active DSP"), true),
-            Availability::Refused("Close active DSP".into()));
+        // An unrelated setup being active cannot disable an owner-enabled offer.
+        assert_eq!(availability(&rescan, Some("Close active DSP"), false), Availability::Enabled);
+        assert_eq!(availability(&rescan, Some("Close active DSP"), true), Availability::Waiting);
         assert_eq!(availability(&rescan, None, true), Availability::Waiting);
         assert_eq!(Availability::Waiting.reason(), Some(WAITING));
         let offered = offer(&rescan, Importance::Secondary, None, false);
         assert!(offered.availability.enabled());
         assert_eq!(offered.intent, rescan.action);
         assert_eq!(offered.label, "Find installed plug-ins");
-        // The result form stays openable while the class is busy.
+        // A specific owner refusal remains authoritative even for a result form.
         let report = AvailableAction { label: "Record".into(), action: Action::CompatibilityResult {
             candidate: "exact".into(), expected_current: crate::model::PublicationIdentity {
                 id: "id".into(), sha256: "sha".into() }, result: crate::model::TestResultKind::Worked,
             passed: vec![], failed_area: None, note: String::new() },
             disabled_reason: Some("Successful result needs clean retirement".into()) };
-        assert_eq!(availability(&report, Some("Busy"), false), Availability::Enabled);
+        assert_eq!(availability(&report, Some("Busy"), false),
+            Availability::Refused("Successful result needs clean retirement".into()));
+        assert_eq!(availability(&report, Some("Busy"), true),
+            Availability::Refused("Successful result needs clean retirement".into()));
         let row = row(&[report], Importance::Quiet, Some("Busy"), false);
         assert_eq!(row.notes, ["Successful result needs clean retirement"]);
     }
