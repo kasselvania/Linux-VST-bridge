@@ -66,6 +66,8 @@ pub enum Next {
 pub struct HomePlugin {
     pub key: ProductKey,
     pub name: String,
+    pub subtitle: String,
+    pub status_class: StatusClass,
     pub manage: Control,
     /// Current availability or install progress, while status is current.
     pub status: Option<&'static str>,
@@ -130,6 +132,8 @@ impl Home {
                 HomePlugin {
                     key: ProductKey::from(current),
                     name: current.name.clone(),
+                    subtitle: format!("{} · {}", product::vendor(current), product::role(current)),
+                    status_class: if fresh { product::status(current).class } else { StatusClass::Unknown },
                     manage: Control::go("Manage plug-in", Importance::Secondary,
                         Destination::Product(ProductKey::from(current))),
                     status: fresh.then(|| progress.unwrap_or_else(|| product::status(current).words)),

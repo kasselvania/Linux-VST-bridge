@@ -195,6 +195,8 @@ pub struct PluginCard {
     pub name: String,
     pub status: Status,
     pub facts: Vec<Fact>,
+    /// Distinct observed stages; DAW publication does not prove sound or recall.
+    pub readiness: Vec<ReadinessStep>,
     /// Posture, session problems and retained explanations, in reading order.
     pub notes: Vec<Text>,
     /// The one everyday next step, when there is one.
@@ -209,6 +211,46 @@ pub struct PluginCard {
     pub shared_setup: Option<SharedSetup>,
     /// Technical details; the caller adds the retained technical records.
     pub technical: Disclosure,
+}
+
+/// One stage in the Console readiness ladder, composed from owner observations.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReadinessStep {
+    pub title: String,
+    pub detail: String,
+    pub class: StatusClass,
+}
+
+pub fn readiness(product: &Product) -> Vec<ReadinessStep> {
+    let mut steps = vec![];
+    let installed = product.disposition != "uninstalled" && !product.environment.is_empty();
+    steps.push(ReadinessStep { title: "Installed".into(),
+        detail: if installed { "Retained in its managed setup" } else { "No current installation" }.into(),
+        class: if installed { StatusClass::Ready } else { StatusClass::Unknown } });
+    let (class, detail) = match &product.availability {
+        Some(a) if a.available => (StatusClass::Ready, "The native Linux plug-in connection is published".into()),
+        Some(a) => (StatusClass::NeedsYou, a.reason.clone().unwrap_or_else(|| "Not connected yet".into())),
+        None => (StatusClass::Unknown, "Connection has not been checked".into()),
+    };
+    steps.push(ReadinessStep { title: "In your DAW’s folder".into(), detail, class });
+    if let Some(workflow) = &product.compatibility {
+        for area in &workflow.established {
+            steps.push(ReadinessStep { title: product::check_area_label(area).into(),
+                detail: "Observed with this setup".into(), class: StatusClass::Ready });
+        }
+        for area in &workflow.remaining {
+            steps.push(ReadinessStep { title: product::check_area_label(area).into(),
+                detail: "Not yet checked".into(), class: StatusClass::Unknown });
+        }
+        if workflow.established.is_empty() && workflow.remaining.is_empty() {
+            steps.push(ReadinessStep { title: "Tried on this computer".into(),
+                detail: workflow.summary.clone(), class: StatusClass::Unknown });
+        }
+    } else {
+        steps.push(ReadinessStep { title: "Tried on this computer".into(),
+            detail: "No retained test result for this setup".into(), class: StatusClass::Unknown });
+    }
+    steps
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -402,10 +444,12 @@ impl PluginCard {
             name: p.name.clone(),
             status: progress.map(|words| Status { words, class: StatusClass::Working }).unwrap_or(status),
             facts: vec![
+                Fact { label: "Vendor", value: Some(product::vendor(p).into()), missing: "Vendor unavailable" },
                 Fact { label: "Type", value: Some(product::role(p).into()), missing: "Type unavailable" },
                 Fact { label: "Version", value: (!p.version.trim().is_empty()).then(|| p.version.clone()),
                     missing: "Version unavailable" },
             ],
+            readiness: readiness(p),
             notes,
             lead,
             offers: everyday,
@@ -1046,7 +1090,7 @@ mod tests {
             let card = card(&snapshot, 0, false, false);
             assert_eq!(card.status, Status { words: "Available in your DAW", class: StatusClass::Ready }, "{state}");
             assert_eq!(card.notes[0], Text::body(daw_guidance(None)), "{state}");
-            assert_eq!(crate::fact_line(&card.facts), "Instrument · 8.13.1");
+            assert_eq!(crate::fact_line(&card.facts), "Native Instruments · Instrument · 8.13.1");
         }
         let snapshot = sample(Page::Plugins, "plugin_ready");
         assert!(card(&snapshot, 0, false, false).lead.is_none());
@@ -1055,6 +1099,20 @@ mod tests {
         assert_eq!(matching(&snapshot, &available).len(), snapshot.products.len());
         let attention = Query { status: StatusFilter::NeedsAttention, ..query("") };
         assert!(matching(&snapshot, &attention).is_empty());
+    }
+
+    #[test]
+    fn publication_does_not_invent_a_passed_sound_or_recall_check() {
+        let mut snapshot = sample(Page::Plugins, "plugin_ready");
+        let product = &mut snapshot.products[0];
+        product.compatibility = None;
+        product.availability = Some(crate::model::NativeAvailability { available: true, reason: None });
+        let steps = readiness(product);
+        assert_eq!(steps[1].class, StatusClass::Ready);
+        assert_eq!(steps[2].class, StatusClass::Unknown);
+        assert!(steps[2].detail.contains("No retained test result"));
+        product.availability = None;
+        assert_eq!(readiness(product)[1].class, StatusClass::Unknown);
     }
 
     #[test]
