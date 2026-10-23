@@ -27,11 +27,15 @@ pub const REPLY_LIMIT: u64 = 8 * 1024 * 1024;
 pub const REFUSAL_LIMIT: u64 = 4096;
 /// The part of a refusal shown to the musician.
 const REFUSAL_SHOWN: usize = 512;
-/// Every exchange except an installer import, which copies the chosen file.
+/// Ordinary status and action acknowledgement exchanges.
 pub const DEADLINE: Duration = Duration::from_secs(45);
 /// A connection to the service, which is waited for only while it is busy accepting.
 pub const CONNECT_DEADLINE: Duration = Duration::from_secs(2);
 pub const IMPORT_DEADLINE: Duration = Duration::from_secs(300);
+/// Browser delivery can wait 25 s for readiness, 3 s to write the return and
+/// 70 s for the adapter result. Keep one bounded exchange, including connect,
+/// instead of abandoning a legitimate delivery at the ordinary 45 s limit.
+pub const BROWSER_RETURN_DEADLINE: Duration = Duration::from_secs(100);
 
 /// The refusal a previous frontend receives after an update or restore
 /// selected another one. Its window pauses instead of acting.
@@ -167,7 +171,11 @@ impl Request {
     }
     /// How long the exchange may take.
     pub fn deadline(&self) -> Duration {
-        if matches!(self, Self::ImportInstaller { .. }) { IMPORT_DEADLINE } else { DEADLINE }
+        match self {
+            Self::ImportInstaller { .. } => IMPORT_DEADLINE,
+            Self::BrowserReturn(_) => BROWSER_RETURN_DEADLINE,
+            _ => DEADLINE,
+        }
     }
 }
 fn read_action(input: impl io::Read) -> crate::Result<ui::Request> {
@@ -740,6 +748,18 @@ mod tests {
     }
     fn bytes(value: &serde_json::Value) -> Vec<u8> {
         serde_json::to_vec(value).unwrap()
+    }
+
+    #[test]
+    fn browser_return_covers_delivery_waits_without_extending_ordinary_commands() {
+        let callback = Request::BrowserReturn("native-access://auth?code=fake".into());
+        let delivery_waits = Duration::from_secs(25 + 3 + 70);
+        assert!(callback.deadline() >= CONNECT_DEADLINE + delivery_waits);
+        assert!(callback.deadline() <= Duration::from_secs(100), "delivery remains bounded");
+        assert_eq!(action().deadline(), Duration::from_secs(45));
+        assert_eq!(Request::Read(Read::Pulse).deadline(), Duration::from_secs(45));
+        assert_eq!(Request::ImportInstaller { name: "Setup.exe".into() }.deadline(),
+            Duration::from_secs(300));
     }
 
     #[test]

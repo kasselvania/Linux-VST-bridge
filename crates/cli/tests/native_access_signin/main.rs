@@ -1,15 +1,16 @@
 //! Native Access browser sign-in, end to end on a real Wine runtime (#489).
 //!
 //! After the user signs in, the browser opens a `native-access:` URL. The
-//! bridge's URL handler, `linux-vst-bridge native-access-callback URL`, finds
-//! the one running managed Native Access session, checks its files and passes
+//! bridge's URL handler, `linux-vst-bridge native-access-callback URL`, sends
+//! the return to the running control service. It finds the one running
+//! managed Native Access session, checks its files and passes
 //! the URL over a same-user socket to that session's supervisor. The
 //! supervisor writes it to the Windows launch adapter, which starts a second
 //! copy of the app with the URL in the first copy's prefix, Wine server and
 //! container. That copy must hand the URL to the first copy and exit.
 //!
 //! This test runs the chain with the product's own pieces: the manager binary
-//! as the handler, the shipped supervisor sources (`session.py`,
+//! as both service and handler, the shipped supervisor sources (`session.py`,
 //! `ownership.py`) under the user's systemd manager, the launch adapter built
 //! from `tools/is2` with its recorded recipe, and a runtime revision acquired
 //! by the product's delivery code. Only Native Access is replaced, by the
@@ -47,7 +48,7 @@
 //! LVB_DISPOSABLE_ACCOUNT=1 LVB_SIGNIN_RUNTIME=managed-ge-proton11-7-slr4-20260805-r7 \
 //!     LVB_SIGNIN_ARCHIVES=/var/tmp/lvb-archives LVB_SIGNIN_ADAPTER=/tmp/adapter.exe \
 //!     LVB_SIGNIN_STAND_IN=/tmp/stand-in.exe \
-//!     cargo test --release --manifest-path bridge-manager/Cargo.toml \
+//!     cargo test --release --manifest-path crates/cli/Cargo.toml \
 //!     --features runtime-revision-fixture --test native_access_signin -- --nocapture
 //! ```
 //!
@@ -58,6 +59,7 @@
 
 mod privacy;
 mod report;
+mod service;
 mod session;
 mod setup;
 
@@ -92,6 +94,7 @@ fn browser_return_reaches_the_running_app_and_nothing_else() {
     let inputs = Inputs::from_env();
     let mut report = Report::new(&inputs.revision, inputs.report.clone());
     let setup = Setup::create(&inputs, &mut report);
+    let service = service::BridgeService::start(&setup);
     let mut secrets = Secrets::default();
 
     // Without a running session there is nobody to deliver to.
@@ -283,7 +286,8 @@ fn browser_return_reaches_the_running_app_and_nothing_else() {
     assert_retired_processes(&setup, &session);
     drop(session);
 
-    search_for_codes(&setup, &inputs, &secrets, &mut report, "after both sessions ended", false);
+    service.stop();
+    search_for_codes(&setup, &inputs, &secrets, &mut report, "after both sessions and the bridge service ended", false);
 }
 
 /// Nothing the product wrote or logged holds a code. Controls planted in the
