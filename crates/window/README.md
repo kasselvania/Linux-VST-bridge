@@ -14,7 +14,8 @@ source is now this directory. No toolkit source is published here. The retained
 `manager-ui` egui frontend stays available until schema 30, all six journeys and
 installed replacement qualification are complete.
 
-Both Makepad dependencies and its three registry patches pin that exact commit.
+Both Makepad dependencies and its three registry patches pin the same toolkit
+revision recorded in `Cargo.toml` and `Cargo.lock`.
 The separate workspace/lockfile lets ordinary service, client and model builds
 run without private-repository access. The production executable keeps its
 installed name and selected-generation checks.
