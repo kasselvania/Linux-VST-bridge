@@ -175,7 +175,7 @@ impl RequestFeedback {
                 Action::RuntimeInstall {} =>
                     "Downloading and preparing the compatibility runtime. This may take several minutes.".into(),
                 Action::EnvironmentRescan { .. } =>
-                    "Checking the installed products. The bridge will resume when this finishes.".into(),
+                    "Checking this setup's installed plug-ins.".into(),
                 Action::EnvironmentRuntimeSelect { .. } =>
                     "Changing the setup's runtime and checking its installed plug-ins. Next, choose Prepare for your DAW for each plug-in.".into(),
                 Action::CompatibilityCheck { .. } | Action::CompatibilityResumeCheck { .. } =>

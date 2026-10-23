@@ -277,7 +277,7 @@ fn confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirmation {
                 body.push(format!("First, {} will be removed from your DAW. Projects that use {} will open with {} missing.",
                     u.affected.join(", "), if one { "it" } else { "them" }, if one { "it" } else { "them" }));
             }
-            body.push("Afterwards, this setup's plug-ins are checked again one at a time, and any it didn't remove go back into your DAW. The bridge is paused for all your setups until that finishes, which can take a few minutes for a large setup.".into());
+            body.push("Afterwards, this setup's plug-ins are checked again one at a time, and any it didn't remove go back into your DAW. This setup stays unavailable until the check finishes, which can take a few minutes for a large setup.".into());
             body.push("The uninstaller may also remove licences or settings it stored there. Your projects are not changed.".into());
             Confirmation { title: "Uninstall?", body, confirm: "Uninstall", cancel: "Cancel",
                 offer: current(uninstaller.map(|u| &u.action).into_iter().collect()), forget: None }
