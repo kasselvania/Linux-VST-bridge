@@ -967,7 +967,7 @@ pub const NOT_STARTED: &str = "Not started; replaced by a new setup on the curre
 /// retained scan, plus the exact class where discovery established one.
 /// Quarantined modules route only to their exact empty-class product row.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum SetupNext { Create, Start, Focus, Scan, Retry, None }
+enum SetupNext { Create, Start, Focus, Scan, Retry, CloseCheck, None }
 
 fn setup_posture(current: &ui::Onboarding, ambiguous: bool, discovered: usize)
     -> (ui::SetupPhase, String, SetupNext) {
@@ -982,8 +982,9 @@ fn setup_posture(current: &ui::Onboarding, ambiguous: bool, discovered: usize)
             "No native plug-in setup has started from this installer.".into(), SetupNext::Create);
     }
     if current.state == "cleanup_unconfirmed" {
+        // Every action that waits for it says to check that it closed here.
         return (Phase::CleanupUnconfirmed,
-            "Installer cleanup is unresolved. Further setup is paused.".into(), SetupNext::None);
+            "Installer cleanup is unresolved. Further setup is paused.".into(), SetupNext::CloseCheck);
     }
     let has_focus = current.actions.iter().any(|a| matches!(a.action, ui::Action::InstallerFocus { .. }));
     if current.state == "needs_attention" && has_focus {
@@ -1073,6 +1074,7 @@ fn setup_primary(actions: &[ui::AvailableAction], next: SetupNext) -> Option<ui:
         SetupNext::Focus => matches!(a.action, ui::Action::InstallerFocus { .. }),
         SetupNext::Scan => matches!(a.action, ui::Action::InstallerScan { .. }),
         SetupNext::Retry => matches!(a.action, ui::Action::InstallerNewAttempt { .. }),
+        SetupNext::CloseCheck => matches!(a.action, ui::Action::InstallerCloseCheck { .. }),
         SetupNext::None => false,
     }).cloned().map(|mut offer| {
         match offer.action {
@@ -1297,10 +1299,14 @@ pub(crate) mod tests {
             assert!(setup_primary(&row.actions, choice).is_none(), "no invented {state} action");
         }
         row.state = "cleanup_unconfirmed".into();
-        row.actions = vec![scan, retry];
+        let close = offered(ui::Action::InstallerCloseCheck { operation: "ab".repeat(16) });
+        row.actions = vec![scan, retry, close.clone()];
         let (phase, _, next) = setup_posture(&row, false, 0);
         assert_eq!(phase, ui::SetupPhase::CleanupUnconfirmed);
-        assert!(setup_primary(&row.actions, next).is_none());
+        // The check is how the card's wait ends, so it is the card's offer.
+        assert_eq!(setup_primary(&row.actions, next).unwrap().action, close.action);
+        row.actions.retain(|offer| offer.action != close.action);
+        assert!(setup_primary(&row.actions, next).is_none(), "no invented close check");
         row.state = "needs_attention".into();
         row.actions = vec![offered(ui::Action::InstallerFocus {
             onboarding: env.clone(), operation: "aa".repeat(16) }),
