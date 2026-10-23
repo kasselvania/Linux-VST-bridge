@@ -182,9 +182,19 @@ impl<'a> Session<'a> {
         let value: Value = read_json(&self.setup.directory.join("managed-session.json")).unwrap_or(Value::Null);
         if value["operation"] == self.operation { value } else { Value::Null }
     }
-    /// The product's result for this operation (operation-result.json).
+    /// The product's result for this operation (operation-result.json). The
+    /// supervisor replaces the file by rename while the session runs, and a
+    /// read that overlaps a replacement is refused; it is read again.
     pub fn result(&self) -> Value {
-        read_json(&self.setup.directory.join("operation-result.json")).unwrap()
+        let path = self.setup.directory.join("operation-result.json");
+        for _ in 0..20 {
+            match read_json(&path) {
+                Err(error) if error.to_string() == "control_record_changed_during_read" =>
+                    std::thread::sleep(Duration::from_millis(10)),
+                read => return read.unwrap(),
+            }
+        }
+        panic!("operation-result.json changed during every one of 20 reads");
     }
     pub fn socket_name(&self) -> String {
         format!("lvb-native-access-{}-{}", unsafe { libc::getuid() }, self.operation)
