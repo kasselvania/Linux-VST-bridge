@@ -638,7 +638,12 @@ for index, argument in enumerate(arguments):
     break
 if not unit or not command:
     sys.exit("real-service systemd-run: unit and command required")
-(units / (unit + ".started")).write_text(json.dumps(command))
+def publish(name, value):
+    # Readers poll for these records: each appears complete or not at all.
+    temporary = units / ("%s.%d.tmp" % (name, os.getpid()))
+    temporary.write_text(json.dumps(value))
+    os.replace(temporary, units / name)
+publish(unit + ".started", command)
 if os.fork():
     sys.exit(0)
 # The unit belongs to the user manager, not to its caller: a new session with
@@ -652,7 +657,7 @@ os.dup2(log, 1)
 os.dup2(log, 2)
 main = subprocess.run(command).returncode
 post = subprocess.run(stop_post).returncode if stop_post else 0
-(units / (unit + ".done")).write_text(json.dumps({"main": main, "stop_post": post}))
+publish(unit + ".done", {"main": main, "stop_post": post})
 "#;
 
 /// `systemctl --user is-active` for the stand-in units; anything else fails.
