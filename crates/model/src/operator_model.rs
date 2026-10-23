@@ -1,7 +1,7 @@
 //! Versioned operator projection and closed requests. No filesystem or launch authority.
 use serde::{Deserialize, Serialize};
-/// Manager/frontend wire generation. Durable installer, workspace and operation
-/// records keep their own owner-defined schema versions.
+/// Manager/frontend wire generation. Durable installer and operation records
+/// keep their own owner-defined schema versions.
 pub const OPERATOR_SCHEMA: u32 = 29;
 /// Explicit delivery policy, independent from the remembered buffered delay.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -294,6 +294,9 @@ pub enum Action {
     IncidentExport {
         incident: String,
     },
+    /// The FL Studio workspace's actions. The workspace is retired (#504 E3):
+    /// the manager never offers these and refuses them as `workspace_retired`.
+    /// They are deleted with the schema-30 update.
     WorkspaceSelectInstaller {
         installer: String,
         release: String,
@@ -468,6 +471,8 @@ pub struct Incident {
     pub summary: serde_json::Value,
     pub export: Option<AvailableAction>,
 }
+/// Retired with the FL Studio workspace (#504 E3); never sent. Deleted with
+/// the schema-30 update, as is `DawWorkspaceProduct`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DawWorkspace {
@@ -531,6 +536,7 @@ pub struct Snapshot {
     pub environments: Vec<Environment>,
     pub vendor_applications: Vec<VendorApplication>,
     pub products: Vec<Product>,
+    /// Always empty: the FL Studio workspace is retired (#504 E3).
     #[serde(default)]
     pub workspaces: Vec<DawWorkspace>,
     pub active_sessions: Vec<serde_json::Value>,
@@ -914,6 +920,7 @@ pub struct Activity {
     pub system: System,
     pub capture: serde_json::Value,
     pub operation: Option<serde_json::Value>,
+    /// Always false: the FL Studio workspace is retired (#504 E3).
     #[serde(default)]
     pub workspace_product_install_ready: bool,
 }

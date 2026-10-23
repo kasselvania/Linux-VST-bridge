@@ -12,7 +12,8 @@
 //! A setup's Wine prefix and its other private directories are not watched as
 //! trees: running applications rewrite them constantly, and no view reads
 //! them, except the prefix's top two levels (its registry hives), which are
-//! watched. Files a view reads elsewhere are covered one directory at a time
+//! watched. Nor is the retired FL Studio workspace, which no view reads.
+//! Files a view reads elsewhere are covered one directory at a time
 //! ([`Changes::watch_directories`]); adding one is a change too, so a view read
 //! from a directory before it was watched is never answered again, and one that
 //! disappears is forgotten until a view names it again. If the watch cannot
@@ -38,8 +39,9 @@ pub struct Tree {
 /// pressure-vessel's runtime copy and the container's host and home views.
 const SETUP_PRIVATE: [&str; 7] = ["runtime-var", "host-cache", "host-tmp", "host-data",
     "host-config", "home", "client"];
-/// The FL Studio workspace's user folders, which views compare only by path.
-const WORKSPACE_PRIVATE: [&str; 3] = ["projects", "exports", "preferences"];
+/// The retired FL Studio workspace (#504 E3) beside the bridge's records: the
+/// musician's projects and its own Windows setup, left where they are.
+const RETIRED_WORKSPACE: &str = "daw-workspaces";
 /// More directories than this, and the watch does not cover the view.
 const WATCH_LIMIT: usize = 65536;
 /// Directories watched one by one, beyond which they are started afresh.
@@ -235,8 +237,8 @@ impl State {
     }
     /// How many levels to watch below a tree directory, or `None` to leave
     /// it out: another tree's root is its own, a prefix is watched only at
-    /// its top two levels, and a setup's or workspace's private directories
-    /// not at all.
+    /// its top two levels, and a setup's private directories and the retired
+    /// workspace not at all.
     fn below(&self, tree: usize, path: &Path, levels: Option<usize>) -> Option<Option<usize>> {
         let name = path.file_name()?;
         let parent = path.parent()?;
@@ -244,7 +246,7 @@ impl State {
         if name == "compatdata" { return Some(Some(levels.map_or(1, |levels| levels.min(1)))); }
         let beside = |record: &str| parent.join(record).exists();
         if (SETUP_PRIVATE.iter().any(|private| name == *private) && beside("compatdata"))
-            || (WORKSPACE_PRIVATE.iter().any(|private| name == *private) && beside("workspace.json")) {
+            || (name == RETIRED_WORKSPACE && beside("software.json")) {
             return None;
         }
         Some(levels)
@@ -533,15 +535,16 @@ mod tests {
         let workspace = root.join("managed/daw-workspaces/fl-studio");
         fs::create_dir_all(workspace.join("projects/song")).unwrap();
         fs::write(workspace.join("workspace.json"), b"{}").unwrap();
+        fs::write(root.join("managed/software.json"), b"{}").unwrap();
         let changes = Changes::new(vec![Tree { root: root.join("managed"), depth: None }]);
         let mut steps = Steps::new(&changes);
         steps.unchanged("a prefix's contents", || fs::write(plugins.join("wine.log"), b"rewritten").unwrap());
         for private in SETUP_PRIVATE {
             steps.unchanged(private, || fs::write(setup.join(private).join("nested/file"), b"x").unwrap());
         }
-        steps.unchanged("a workspace project", || fs::write(workspace.join("projects/song/song.flp"), b"x").unwrap());
+        steps.unchanged("a retired workspace project", || fs::write(workspace.join("projects/song/song.flp"), b"x").unwrap());
+        steps.unchanged("the retired workspace record", || fs::write(workspace.join("workspace.json"), b"[]").unwrap());
         steps.changed("a registry hive", || fs::write(setup.join("compatdata/pfx/system.reg"), b"hive").unwrap());
-        steps.changed("the workspace record", || fs::write(workspace.join("workspace.json"), b"[]").unwrap());
         // A named directory inside the prefix is watched, and naming it is a change.
         steps.changed("naming a directory", || changes.watch_directories([plugins.clone()]));
         steps.unchanged("naming it again", || changes.watch_directories([plugins.clone()]));

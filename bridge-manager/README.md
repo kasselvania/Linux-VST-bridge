@@ -31,7 +31,6 @@ the `operator` command instead, until #489 step 5 removes that pause:
 - `import-installer NAME` — the window's installer import, reading the chosen file on stdin;
 - `capacity` — capacity readback;
 - `native-access-callback URI` — the Native Access sign-in return, registered as the URL handler;
-- `workspace ...` — the retained FL Studio workspace, called by its desktop launcher and import helper;
 - `owned-audio-scheduling` — the supervisor's audio-thread scheduling helper;
 - `package-adopt | update | restore | rollback | recover | activate | activation-status |
   bootstrap-status | stop-for-repair | user-inspect` — package selection and recovery.
@@ -42,6 +41,10 @@ Campaign and engineering commands that nothing in the product called (`setup`,
 `graphics-assess`, `capture`, `register`, `unpublish`, `set-delay`, `status`,
 `reconcile`, `native-access-runner`, `experimental-runner`, `pb0-r3-audit`) were
 removed under #489. Records they wrote stay readable.
+
+The FL Studio workspace and its `workspace ...` command were removed under #504
+(E3). An existing workspace's files stay where they are, unread; Check computer
+setup names the folder.
 
 Unknown fields, changed artifacts, ambiguous class roles, foreign links, active mutation conflicts, and unresolved ownership are refused.
 

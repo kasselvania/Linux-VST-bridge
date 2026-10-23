@@ -13,7 +13,6 @@ mod graphics_cli;
 mod installer_import;
 mod installer_source;
 mod onboarding;
-mod daw_workspace;
 mod preparation_cli;
 mod setup_install;
 mod package_authority;
@@ -2088,10 +2087,9 @@ fn main() -> Result<()> {
     Ok(())
   },
   Some("operator")=>operator_cli::run(&m,&args[1..]),
-  Some("workspace")=>daw_workspace::run(&m,&args[1..]),
   Some("serve") if args.len()==1=>serve(m),
   Some("capacity") if args.len()==1=>capacity_read(&m),
-  _=>Err("Usage: linux-vst-bridge serve | capacity | operator ... | import-installer NAME | workspace ... | native-access-callback URI | package-...".into())
+  _=>Err("Usage: linux-vst-bridge serve | capacity | operator ... | import-installer NAME | native-access-callback URI | package-...".into())
  }
 }
 

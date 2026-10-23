@@ -11,6 +11,11 @@ const DECK_DISTRO: &str = "steamos";
 const DECK_VERSION: &str = "3.8.16";
 const BITWIG_VERSION: &str = "6.1";
 const BITWIG_REF: &str = "app/com.bitwig.BitwigStudio/x86_64/stable";
+/// The FL Studio workspace earlier builds managed (#504 E3), in the managed
+/// root, and its FL Studio sessions' units. The bridge no longer manages or
+/// reads it, and never moves, deletes or stops any of it.
+const RETIRED_WORKSPACE: &str = "daw-workspaces";
+const RETIRED_WORKSPACE_SESSIONS: &str = "linux-vst-bridge-daw-fl-";
 const BETA_PROFILE_IDS: [&str; 3] = [
     "arturia-pure-lofi",
     "arturia-efx-fragments",
@@ -55,6 +60,37 @@ pub(super) struct PlatformReadback {
     /// Observations belong to the consuming host context. Manager-side paths
     /// and Flatpak permission declarations cannot populate these as available.
     pub hosts: Vec<HostReadback>,
+    pub retired_workspace: RetiredWorkspace,
+}
+
+/// What remains of the retired FL Studio workspace.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(super) struct RetiredWorkspace {
+    /// Its folder, while it is on disk.
+    pub folder: Option<PathBuf>,
+    /// An FL Studio session it started is still running.
+    pub running: bool,
+}
+fn retired_workspace(m: &Manager, sessions: &Probe<String>) -> RetiredWorkspace {
+    let folder = m.root.join(RETIRED_WORKSPACE);
+    RetiredWorkspace {
+        folder: fs::symlink_metadata(&folder).is_ok().then_some(folder),
+        running: sessions.observed().is_some_and(|units| units.lines()
+            .any(|line| line.trim_start().starts_with(RETIRED_WORKSPACE_SESSIONS))),
+    }
+}
+/// The one DAW fact that tells the musician about it, while anything remains.
+fn retired_workspace_notice(retired: &RetiredWorkspace) -> Option<String> {
+    let mut notice = match &retired.folder {
+        Some(folder) => format!("No longer managed by the bridge. Its files, including any FL Studio \
+            projects, are still in {}; nothing was moved or deleted.", folder.display()),
+        None if retired.running => "No longer managed by the bridge.".to_owned(),
+        None => return None,
+    };
+    if retired.running {
+        notice.push_str(" FL Studio is still running from it; the bridge leaves it running.");
+    }
+    Some(notice)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -515,8 +551,8 @@ pub(super) fn collect(m: &Manager) -> PlatformReadback {
         });
     // Independent fixed readbacks run together, so one unavailable desktop
     // helper cannot add its full timeout to every other helper's latency.
-    let (info, metadata, bitwig_ref, bitwig_runtime, bitwig_permissions, arch, jack, flatpak_list) =
-        thread::scope(|scope| {
+    let (info, metadata, bitwig_ref, bitwig_runtime, bitwig_permissions, arch, jack, flatpak_list,
+        workspace_sessions) = thread::scope(|scope| {
             let info = scope.spawn(|| bounded_command("flatpak", &["info", BITWIG]));
             let metadata = scope.spawn(|| bounded_command("pw-metadata", &["-n", "settings", "0"]));
             let reference = scope.spawn(|| bounded_command("flatpak", &["info", "--show-ref", BITWIG]));
@@ -525,6 +561,9 @@ pub(super) fn collect(m: &Manager) -> PlatformReadback {
             let arch = scope.spawn(|| bounded_command("uname", &["-m"]));
             let jack = scope.spawn(|| bounded_command("jack_lsp", &[]));
             let flatpak_list = scope.spawn(|| bounded_command("flatpak", &["list", "--app", "--columns=application"]));
+            let workspace_sessions = scope.spawn(|| bounded_command("systemctl", &["--user", "list-units",
+                "--plain", "--no-legend", "--state=active,activating,deactivating,reloading",
+                &format!("{RETIRED_WORKSPACE_SESSIONS}*")]));
             (info.join().unwrap_or(Probe::Unavailable),
                 metadata.join().unwrap_or(Probe::Unavailable),
                 reference.join().unwrap_or(Probe::Unavailable),
@@ -532,7 +571,8 @@ pub(super) fn collect(m: &Manager) -> PlatformReadback {
                 permissions.join().unwrap_or(Probe::Unavailable),
                 arch.join().unwrap_or(Probe::Unavailable),
                 jack.join().unwrap_or(Probe::Unavailable),
-                flatpak_list.join().unwrap_or(Probe::Unavailable))
+                flatpak_list.join().unwrap_or(Probe::Unavailable),
+                workspace_sessions.join().unwrap_or(Probe::Unavailable))
         });
     let runtime = PathBuf::from(format!("/run/user/{}", unsafe { libc::getuid() }));
     let runtime_dir = path_probe(&runtime, false);
@@ -602,6 +642,7 @@ pub(super) fn collect(m: &Manager) -> PlatformReadback {
         bitwig_permissions: nonempty(bitwig_permissions),
         publication_directory: path_probe(&m.publications, false),
         hosts,
+        retired_workspace: retired_workspace(m, &workspace_sessions),
     }
 }
 
@@ -1134,6 +1175,10 @@ fn resolve_with(
                     ("JACK access", &host.jack), ("route display access", &host.display)] {
                     facts.push(capability_fact(&format!("{} {name}", host.name), probe, &host.source, at));
                 }
+            }
+            if let Some(notice) = retired_workspace_notice(&p.retired_workspace) {
+                facts.push(observed("FL Studio workspace", Some(notice),
+                    "bridge state folder; systemctl --user list-units", at));
             }
             facts
         },
@@ -1778,6 +1823,7 @@ mod tests {
             ),
             publication_directory: Probe::Observed(true),
             hosts:vec![unavailable_host("Native DAW", "idle fixture", Probe::Unavailable)],
+            retired_workspace: RetiredWorkspace::default(),
         };
         (snapshot, platform)
     }
@@ -1791,6 +1837,35 @@ mod tests {
                     && product.details["profile"]["revision"] == profile.revision
             }))
         })
+    }
+    #[test]
+    fn what_remains_of_the_retired_workspace_is_one_daw_fact() {
+        let (s, mut p) = fixture();
+        let notice = |p: &PlatformReadback| {
+            let assessment = result(&s, p);
+            let facts: Vec<_> = assessment.daw.iter().filter(|fact| fact.name == "FL Studio workspace")
+                .cloned().collect();
+            assert!(facts.len() <= 1);
+            assert_eq!(assessment.overall_status, ui::ReadinessOutcome::Ready, "a notice, not a blocker");
+            facts.first().and_then(|fact| fact.value.clone())
+        };
+        assert_eq!(notice(&p), None);
+        let f = crate::test_fixture::Fixture::new();
+        let listed = Probe::Observed(format!("{RETIRED_WORKSPACE_SESSIONS}{}.service loaded active running FL\n",
+            "ab".repeat(16)));
+        assert_eq!(retired_workspace(&f.m, &Probe::Observed(String::new())), RetiredWorkspace::default());
+        let folder = f.m.root.join("daw-workspaces");
+        fs::create_dir_all(folder.join("fl-studio/projects")).unwrap();
+        p.retired_workspace = retired_workspace(&f.m, &Probe::Unavailable);
+        assert_eq!(notice(&p).unwrap(), format!("No longer managed by the bridge. Its files, including \
+            any FL Studio projects, are still in {}; nothing was moved or deleted.", folder.display()));
+        p.retired_workspace = retired_workspace(&f.m, &listed);
+        assert!(notice(&p).unwrap().ends_with("deleted. FL Studio is still running from it; \
+            the bridge leaves it running."));
+        fs::remove_dir_all(&folder).unwrap();
+        p.retired_workspace = retired_workspace(&f.m, &listed);
+        assert_eq!(notice(&p).unwrap(), "No longer managed by the bridge. FL Studio is still running \
+            from it; the bridge leaves it running.");
     }
     #[test]
     fn exact_ready_fixture_and_unobservable_audio_are_distinct() {

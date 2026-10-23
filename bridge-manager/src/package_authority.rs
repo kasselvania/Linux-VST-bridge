@@ -1196,7 +1196,6 @@ fn preflight(m: &Manager, service: &impl ServiceControl) -> Result<()> {
         "package_transaction_pending")?;
     require(onboarding::all_retired(m)?, "package_installer_owner_active")?;
     require(service.vendor_retired(m)?, "package_vendor_owner_active")?;
-    daw_workspace::package_idle(m)?;
     transport_storage::require_no_sessions()?;
     Ok(())
 }
@@ -1297,7 +1296,6 @@ fn recovery_preflight(m: &Manager,
     m.verify_package_pending_intents(&transition.receipt.transitions)?;
     require(onboarding::all_retired(m)?, "package_installer_owner_active")?;
     require(service.vendor_retired(m)?, "package_vendor_owner_active")?;
-    daw_workspace::package_idle(m)?;
     transport_storage::require_no_sessions()?;
     Ok(())
 }
@@ -2536,7 +2534,6 @@ fn stop_gate(m: &Manager, service: &impl ServiceControl,
     }
     require(onboarding::all_retired(m)?, "package_installer_owner_active")?;
     require(service.vendor_retired(m)?, "package_vendor_owner_active")?;
-    daw_workspace::package_idle(m)?;
     transport_storage::require_no_sessions()?;
     let after = service.idle(m)?;
     require(after == before, "package_owners_changed")?;

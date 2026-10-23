@@ -1169,15 +1169,6 @@ pub fn offered(actual: &ui::Action, offer: &ui::Action) -> bool {
             ui::Action::InstallerRename { installer: offered, .. },
         ) => installer == offered && crate::installer_import::valid_label(label),
         (
-            ui::Action::WorkspaceSelectInstaller { installer, release },
-            ui::Action::WorkspaceSelectInstaller { installer: offered, .. },
-        ) => installer == offered && daw_workspace::release_syntax(release),
-        (
-            ui::Action::WorkspaceSelectProductInstaller { product, installer, release },
-            ui::Action::WorkspaceSelectProductInstaller { product: offered_product, installer: offered_installer, .. },
-        ) => product == offered_product && installer == offered_installer
-            && daw_workspace::release_syntax(release),
-        (
             ui::Action::CandidateObserve {
                 candidate,
                 area,

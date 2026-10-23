@@ -113,8 +113,7 @@ impl std::error::Error for Changed {}
 
 /// The facts `action` depends on, or `None` for an action whose worker still
 /// checks its whole view again: the compatibility and preparation workflow,
-/// the problem report, the DAW workspace and the remaining engineering
-/// actions.
+/// the problem report and the remaining engineering actions.
 fn subjects(m: &Manager, action: &ui::Action) -> Result<Option<Vec<(Fact, String)>>> {
     use ui::Action as A;
     use Fact::*;

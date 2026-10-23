@@ -148,6 +148,8 @@ fn available_space(dir: &Path) -> Result<u64> {
     let s = unsafe { s.assume_init() };
     Ok((u128::from(s.f_bavail) * u128::from(s.f_frsize)).min(u128::from(u64::MAX)) as u64)
 }
+/// An import with the ordinary bounds and no name, as tests stage installers.
+#[cfg(test)]
 pub fn import(m: &Manager, source: fs::File) -> Result<Installer> {
     let dir = m.root.join("installers");
     private_dir(&dir)?;

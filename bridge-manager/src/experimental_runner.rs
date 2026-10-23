@@ -1,20 +1,10 @@
 //! Read-only interpretation of retained experimental-runner records: the BG1
-//! transition history behind its installed runner, exact runner trees, and
-//! byte-exact restoration of a replaced record.
+//! transition history behind its installed runner.
 use super::*;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::fs::{File, OpenOptions};
 use std::os::unix::fs::MetadataExt;
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct TreeIdentity {
-    pub(super) schema: u32,
-    pub(super) entries: u64,
-    pub(super) regular_bytes: u64,
-    pub(super) sha256: String,
-}
 
 // The selected BG1 V4 environment predates public ownership of its native
 // command session. These are the three completed, retained transitions that
@@ -325,96 +315,10 @@ fn verify_bg1_history_with(
     Ok(())
 }
 
-pub(super) fn verify_tree(root: &Path, expected: &TreeIdentity) -> Result<()> {
-    let root_metadata = fs::symlink_metadata(root)?;
-    require(
-        root.is_absolute()
-            && root.canonicalize()? == root
-            && root_metadata.is_dir()
-            && root_metadata.uid() == unsafe { libc::getuid() }
-            && root_metadata.mode() & 0o077 == 0,
-        "experimental_runner_tree_root",
-    )?;
-    let mut pending = vec![root.to_owned()];
-    let mut rows: Vec<(String, Value)> = Vec::new();
-    let mut regular_bytes = 0_u64;
-    while let Some(directory) = pending.pop() {
-        for item in fs::read_dir(directory)? {
-            let path = item?.path();
-            let metadata = fs::symlink_metadata(&path)?;
-            require(
-                metadata.uid() == unsafe { libc::getuid() } && rows.len() < 14_000,
-                "experimental_runner_tree_owner_or_capacity",
-            )?;
-            let relative = path
-                .strip_prefix(root)?
-                .to_str()
-                .ok_or("experimental_runner_tree_name")?
-                .replace('\\', "/");
-            let mode = metadata.mode() & 0o7777;
-            let row = if metadata.is_dir() {
-                pending.push(path);
-                json!(["d", relative, mode])
-            } else if metadata.is_file() {
-                regular_bytes = regular_bytes
-                    .checked_add(metadata.len())
-                    .ok_or("experimental_runner_tree_extent")?;
-                require(
-                    regular_bytes <= 4 * 1024 * 1024 * 1024,
-                    "experimental_runner_tree_extent",
-                )?;
-                json!(["f", relative, mode, metadata.len(), digest(&path)?])
-            } else if metadata.file_type().is_symlink() {
-                require(
-                    path.canonicalize()?.starts_with(root),
-                    "experimental_runner_tree_link",
-                )?;
-                let target = fs::read_link(&path)?
-                    .to_str()
-                    .ok_or("experimental_runner_tree_link")?
-                    .to_owned();
-                json!(["l", relative, mode, target])
-            } else {
-                return Err("experimental_runner_tree_type".into());
-            };
-            rows.push((relative, row));
-        }
-    }
-    rows.sort_by(|left, right| left.0.cmp(&right.0));
-    let mut hash = sha2::Sha256::new();
-    for (_, row) in &rows {
-        hash.update(serde_json::to_vec(row)?);
-        hash.update(b"\n");
-    }
-    require(
-        rows.len() as u64 == expected.entries
-            && regular_bytes == expected.regular_bytes
-            && hex(&hash.finalize()) == expected.sha256,
-        "experimental_runner_tree_changed",
-    )
-}
-
-pub(super) fn restore(path: &Path, bytes: &[u8]) -> Result<()> {
-    let temp = path.with_extension(format!("restore-{}", random_id()?));
-    let result = (|| -> Result<()> {
-        let mut file = fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&temp)?;
-        file.write_all(bytes)?;
-        file.sync_all()?;
-        fs::rename(&temp, path)?;
-        File::open(path.parent().ok_or("experimental_runner_parent")?)?.sync_all()?;
-        Ok(())
-    })();
-    let _ = fs::remove_file(temp);
-    result
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     fn installed_v4_transition() -> (Bg1Transition, Bg1TransitionResult) {
         let step = &BG1_STEPS[2];
@@ -791,63 +695,5 @@ mod tests {
         atomic_json(&transitions[2].0.join("transition.json"), &transitions[2].1).unwrap();
         fs::write(&component.path, b"changed component").unwrap();
         assert!(verify_bg1_history_with(&fixture.m, selected, &environment, &class, BG1_V4_RUNNER, &component.sha256, &steps).is_err());
-    }
-
-
-
-
-
-    #[test]
-    fn rollback_restore_preserves_exact_authority_bytes() {
-        let fixture = test_fixture::Fixture::new();
-        let path = fixture.outer.join("rollback.json");
-        fs::write(&path, b"{\n  \"exact\": true\n}\n").unwrap();
-        let before = fs::read(&path).unwrap();
-        fs::write(&path, b"changed").unwrap();
-        restore(&path, &before).unwrap();
-        assert_eq!(fs::read(path).unwrap(), before);
-    }
-
-
-    #[test]
-    fn sealed_tree_hash_matches_build_manifest_algorithm() {
-        use std::os::unix::fs::{symlink, PermissionsExt};
-        let fixture = test_fixture::Fixture::new();
-        let root = fixture.outer.join("sealed-tree");
-        private_dir(&root).unwrap();
-        let file = root.join("file");
-        fs::write(&file, b"x").unwrap();
-        fs::set_permissions(&file, fs::Permissions::from_mode(0o600)).unwrap();
-        symlink("file", root.join("link")).unwrap();
-        let expected = if cfg!(target_os = "macos") {
-            "14ef9d8bc823c5d4d8199a6af7e18d2a9d52aa36913be5807f0cbaff02f01bf7"
-        } else {
-            "02026e602bb7e73cad6aad4977af30593ef5b21d93cbfe6a7cb1cdb16ce11d71"
-        };
-        verify_tree(
-            &root,
-            &TreeIdentity {
-                schema: 1,
-                entries: 2,
-                regular_bytes: 1,
-                sha256: expected.into(),
-            },
-        )
-        .unwrap();
-        fs::write(file, b"y").unwrap();
-        assert_eq!(
-            verify_tree(
-                &root,
-                &TreeIdentity {
-                    schema: 1,
-                    entries: 2,
-                    regular_bytes: 1,
-                    sha256: expected.into(),
-                },
-            )
-            .unwrap_err()
-            .to_string(),
-            "experimental_runner_tree_changed"
-        );
     }
 }
