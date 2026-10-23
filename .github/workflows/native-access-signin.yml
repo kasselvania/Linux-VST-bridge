@@ -16,7 +16,7 @@ on:
       - 'plugin-descriptor/**'
       - '.github/workflows/native-access-signin.yml'
   push:
-    branches: [main]
+    branches: [main, ci/504-signin-without-mirror]
     paths:
       - 'bridge-manager/**'
       - 'crates/model/**'
@@ -36,7 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runtime: ${{ fromJSON(github.ref == 'refs/heads/main' && '["r4","r5","r7"]' || '["r7"]') }}
+        runtime: ${{ fromJSON((github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci/504-signin-without-mirror') && '["r4","r5","r7"]' || '["r7"]') }}
     env:
       ARCHIVES: /var/tmp/lvb-runtime-archives
       FIXTURE: ${{ github.workspace }}/../browser-return
