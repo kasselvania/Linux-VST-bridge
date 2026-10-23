@@ -24,6 +24,8 @@ pub fn text(ui: &mut egui::Ui, text: &Text) {
         TextRole::Hint => ui.label(egui::RichText::new(&text.words).small()
             .color(ui.visuals().weak_text_color())),
         TextRole::CautionHint => ui.label(egui::RichText::new(&text.words).small().color(warning_color(ui))),
+        TextRole::Record => ui.add(egui::Label::new(egui::RichText::new(&text.words).monospace()).wrap()),
+        TextRole::Code => ui.monospace(&text.words),
     };
 }
 
@@ -77,14 +79,15 @@ pub fn setup_choice(ui: &mut egui::Ui, choice: &SetupChoice, chosen: &mut Option
     });
 }
 
-pub fn details(ui: &mut egui::Ui, details: &[Detail], chosen: &mut Option<Action>) {
-    for detail in details {
+pub fn details(ui: &mut egui::Ui, content: &[Detail], chosen: &mut Option<Action>) {
+    for detail in content {
         match detail {
             Detail::Text(line) => text(ui, line),
             Detail::Offers(row) => offer_row(ui, row, chosen),
             Detail::Held { actionable, row } => { ui.add_enabled_ui(*actionable, |ui| offer_row(ui, row, chosen)); }
             Detail::Choice(choice) => setup_choice(ui, choice, chosen),
             Detail::Disclosure(inner) => disclosure(ui, inner, chosen),
+            Detail::Group(inner) => { ui.group(|ui| details(ui, inner, chosen)); }
             Detail::Divider => { ui.separator(); }
         }
     }

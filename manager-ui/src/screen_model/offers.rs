@@ -86,7 +86,7 @@ pub fn refusal<'a>(offer: &'a AvailableAction, busy: Option<&'a str>) -> Option<
     // Window policy, overriding the manager's refusal: opening the result form
     // must remain possible to report a problem while the target is active.
     // Submitting "Worked" still applies the exact offered refusal
-    // (`compatibility_result_refusal` in operator.rs). Retired when the service
+    // (`forms::compatibility_result_refusal`). Retired when the service
     // offers separate refusals for opening the form and submitting a result.
     if matches!(offer.action, Action::CompatibilityResult { .. }) { return None; }
     offer.disabled_reason.as_deref().or_else(|| {

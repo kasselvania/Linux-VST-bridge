@@ -18,29 +18,7 @@ fn runtime_verification_label(op: &serde_json::Value) -> Option<String> {
         "Checking compatibility files: {checked} of {total}. This can take longer after a restart."))
 }
 
-#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq)]
-pub enum Page {
-    #[default]
-    Home,
-    Plugins,
-    Workspaces,
-    Activity,
-    Setup,
-    Diagnostics,
-}
-
-impl Page {
-    fn label(self) -> &'static str {
-        match self {
-            Self::Home => "Home",
-            Self::Plugins => "Plug-ins",
-            Self::Workspaces => "Workspaces",
-            Self::Activity => "Activity",
-            Self::Setup => "Setup",
-            Self::Diagnostics => "Diagnostics",
-        }
-    }
-}
+pub use crate::screen_model::window::Page;
 
 fn workspace_state_label(state: &str) -> &str {
     match state {
@@ -71,36 +49,6 @@ fn workspace_product_state_label(state: &str) -> &str {
     }
 }
 
-fn test_areas() -> [TestArea; 9] {
-    [TestArea::DawLoad, TestArea::Midi, TestArea::Audio, TestArea::Editor,
-        TestArea::Parameters, TestArea::Automation, TestArea::StateRecall,
-        TestArea::ProcessingRestart, TestArea::Retirement]
-}
-fn test_area_label(area: TestArea) -> &'static str {
-    match area {
-        TestArea::DawLoad => "Loaded in the DAW", TestArea::Midi => "MIDI or note input",
-        TestArea::Audio => "Audio or musical processing", TestArea::Editor => "Editor rendered and was usable",
-        TestArea::Parameters => "Controls responded", TestArea::Automation => "Automation responded",
-        TestArea::StateRecall => "Save and reopen recalled state",
-        TestArea::ProcessingRestart => "Processing restarted cleanly",
-        TestArea::Retirement => "Editor and DAW closed cleanly",
-    }
-}
-fn problem_category_label(category: ProblemCategory) -> &'static str {
-    match category {
-        ProblemCategory::FailedToLoad => "Failed to load",
-        ProblemCategory::BlankEditor => "Blank or white editor",
-        ProblemCategory::EditorFroze => "Editor froze",
-        ProblemCategory::EditorDisappeared => "Editor disappeared",
-        ProblemCategory::NoAudio => "No audio",
-        ProblemCategory::IncorrectAudio => "Incorrect audio",
-        ProblemCategory::ControlsUnresponsive => "Controls did not respond",
-        ProblemCategory::HostCrashed => "Plug-in or host crashed",
-        ProblemCategory::CleanupIncomplete => "Cleanup did not complete",
-        ProblemCategory::Other => "Other problem",
-    }
-}
-
 fn workspace_primary_action(actions: &[AvailableAction]) -> Option<usize> {
     actions
         .iter()
@@ -126,8 +74,7 @@ impl RequestFeedback {
         Self {
             action,
             operation: None,
-            text: "Click received. Waiting for the current readback; no operation submitted yet."
-                .into(),
+            text: screen_model::window::CAPTURED.into(),
             terminal: false,
             blocking: true,
             release_after_snapshot: false,
@@ -804,114 +751,6 @@ impl Operator {
         }
         self
     }
-    fn preparation_details(ui: &mut egui::Ui, v: &serde_json::Value) {
-        if v["publication"] == "ordinary" {
-            ui.strong("Ordinarily published");
-        }
-        if let Some(history) = v["candidates"].as_array() {
-            egui::CollapsingHeader::new("Candidate generations and their own results").id_salt((v["selection"].as_str(),"candidate-history")).default_open(history.len()>1).show(ui,|ui|{
-                for c in history {ui.group(|ui|{ui.label(format!("Candidate {} · {} · {}",c["id"].as_str().unwrap_or("?"),c["disposition"].as_str().unwrap_or("?"),c["publication"].as_str().unwrap_or("?")));if c["publication_acceptance_sealed"]==true && c["unmet_requirements"].as_array().is_some_and(|r|!r.is_empty()){ui.colored_label(egui::Color32::YELLOW,"This publication retains its original acceptance. New evidence needs review; use Withdraw to disable it.");}Self::value(ui,c);});}
-            });
-        }
-        if let Some(reason) = v["recovery"].as_str() {
-            ui.colored_label(egui::Color32::YELLOW, reason);
-        }
-        if let Some(reason) = v["build_prerequisite"].as_str() {
-            ui.label(reason);
-        }
-        egui::CollapsingHeader::new("Inspection generations")
-            .id_salt((v["selection"].as_str(), "inspection-history"))
-            .show(ui, |ui| Self::value(ui, &v["inspections"]));
-        ui.label(format!(
-            "Inspection: {} · Preparation: {} · Publication: {}",
-            v["inspection"].as_str().unwrap_or("unknown"),
-            v["preparation"].as_str().unwrap_or("unknown"),
-            v["publication"].as_str().unwrap_or("unknown")
-        ));
-        ui.small("Preliminary inspection is not a guarantee of DAW audio, editor, automation, or state recall.");
-        if v["origin"] == "retained_sv1" {
-            ui.small("Adopted exact SV1 work; originally prepared through the engineering CLI.");
-        }
-        if let Some(reason) = v["controller"]["reason"].as_str() {
-            ui.small(reason);
-        }
-        if !v["preliminary"].is_null() {
-            egui::CollapsingHeader::new("Preliminary compatibility details")
-                .id_salt(("inspection", v["selection"].as_str()))
-                .show(ui, |ui| {
-                    let f = &v["preliminary"];
-                    ui.label(format!(
-                        "Parameters: {} · Positive inspection cleanup: {}",
-                        f["parameter_count"], f["cleanup_confirmed"]
-                    ));
-                    if f["editor_interface"].is_null() {
-                        ui.label("Editor interface: no assessment recorded");
-                    } else {
-                        ui.label(format!(
-                            "Editor created: {} · HWND interface result: {} · Not attached",
-                            f["editor_interface"]["created"], f["editor_interface"]["hwnd_result"]
-                        ));
-                    }
-                    ui.monospace(serde_json::to_string_pretty(f).unwrap_or_default());
-                });
-        }
-        if let Some(op) = v.get("operation").filter(|o| !o.is_null()) {
-            ui.label(format!(
-                "This product's operation: {}",
-                op["state"].as_str().unwrap_or("unknown")
-            ));
-            if let Some(stage) = op["preparation_failure"]["attempted_stage"].as_str() {
-                ui.label(format!("Stopped during {}", stage.replace('_', " ")));
-            }
-            if let Some(reason) = op["reason"].as_str() {
-                ui.colored_label(egui::Color32::YELLOW, reason);
-            }
-            if let Some(recovery) = op["preparation_failure"]["recovery"].as_str() {
-                ui.small(recovery);
-            }
-        }
-        egui::CollapsingHeader::new("Recorded tests and remaining qualification")
-            .id_salt(v["selection"].as_str())
-            .default_open(false)
-            .show(ui, |ui| {
-                for area in [
-                    "daw_load",
-                    "midi",
-                    "audio",
-                    "editor",
-                    "parameters",
-                    "automation",
-                    "state_recall",
-                    "processing_restart",
-                    "retirement",
-                ] {
-                    let latest = v["evidence"]
-                        .as_array()
-                        .and_then(|rows| rows.iter().rev().find(|r| r["area"] == area));
-                    ui.label(format!(
-                        "{}: {}",
-                        area.replace('_', " "),
-                        latest
-                            .and_then(|r| r["status"].as_str())
-                            .unwrap_or("not tested")
-                    ));
-                    if let Some(row) = latest {
-                        ui.small(format!(
-                            "{} · {}",
-                            row["witness"].as_str().unwrap_or("unavailable"),
-                            row["detail"].as_str().unwrap_or("")
-                        ));
-                    }
-                }
-                if let Some(rows) = v["unmet_requirements"].as_array() {
-                    for row in rows {
-                        if let Some(text) = row.as_str() {
-                            ui.small(text);
-                        }
-                    }
-                }
-            });
-    }
     fn request(&mut self, q: Query, origin: RequestOrigin, ctx: &egui::Context) {
         if self.frontend_superseded { return; }
         if matches!(q, Query::Overview | Query::CurrentOverview | Query::Snapshot) {
@@ -1420,14 +1259,7 @@ fn navigation_button(
 }
 
 fn navigation(ui: &mut egui::Ui, page: &mut Page) -> Vec<(Page, bool, egui::Rect)> {
-    let items = [
-        Page::Home,
-        Page::Plugins,
-        Page::Workspaces,
-        Page::Activity,
-        Page::Setup,
-        Page::Diagnostics,
-    ];
+    let items = Page::ALL;
     let mut bounds = Vec::new();
     if ui.available_width() < 760.0 {
         let width = ((ui.available_width() - 24.0) / 3.0).max(94.0);
@@ -1504,6 +1336,9 @@ fn apply_local(local: Local, page: &mut Page, library: &mut crate::library::Libr
             focus.setup = None;
             focus.setup_scroll = false;
         }
+        Local::Refresh => *refresh = true,
+        // The window frame handles these where it draws them.
+        Local::RetryDetails | Local::OpenCurrentManager | Local::Copy(_) | Local::SaveReport | Local::Dismiss => {}
     }
 }
 
@@ -1860,214 +1695,117 @@ impl Operator {
     }
     fn health_bar(ui: &mut egui::Ui, system: Option<&System>, owned_pause: bool,
         renewing: bool) {
-        let unobserved_refresh = renewing && system.is_none();
+        let bar = screen_model::window::HealthBar::build(system, owned_pause, renewing);
         egui::Frame::group(ui.style()).fill(ui.visuals().faint_bg_color)
             .inner_margin(10.0).show(ui, |ui| {
             ui.set_min_width((ui.available_width() - 1.0).max(0.0));
             let details_id = ui.make_persistent_id("service_details_open");
             let mut expanded = ui.data_mut(|data|data.get_temp::<bool>(details_id)).unwrap_or(false);
             ui.horizontal_wrapped(|ui| {
-                // The same row shape is retained through readback transitions.
-                let paused = owned_pause && system.is_none_or(|system|
-                    system.pending_transactions == 0 && system.stale_transports == 0
-                        && (!system.capacity_available() || !system.cleanup_unconfirmed));
-                let title = if paused {"Bridge temporarily paused for installation"}
-                    else if unobserved_refresh {"Refreshing current status"} else {
-                    system.map(screen_model::service::health).unwrap_or(screen_model::service::Health::Unavailable).title()
-                };
-                let warning = !paused && !unobserved_refresh && system.is_none_or(|system|matches!(screen_model::service::health(system),
-                    screen_model::service::Health::Unavailable | screen_model::service::Health::NeedsAttention));
-                let text = egui::RichText::new(title).size(16.0).strong();
-                ui.label(if warning {text.color(warning_color(ui))} else {text});
-                if ui.add(egui::Button::new(if expanded {"Hide service details"} else {"Service details"})
+                let text = egui::RichText::new(bar.status.words).size(16.0).strong();
+                ui.label(if bar.status.class.needs_attention() {text.color(warning_color(ui))} else {text});
+                if ui.add(egui::Button::new(if expanded {bar.hide} else {bar.show})
                     .min_size(egui::vec2(155.0, 32.0))).clicked() {expanded = !expanded;}
             });
             // Keep this row present so renewal cannot move navigation or an open chooser.
-            ui.small(if unobserved_refresh { "Waiting for current status." }
-                else if renewing { "Last observed status · refreshing…" }
-                else { "Service status updates automatically." });
+            ui.small(bar.note);
             ui.data_mut(|data|data.insert_temp(details_id,expanded));
             if expanded {
-                if let Some(system) = system {
-                    ui.horizontal_wrapped(|ui| {
-                        if system.capacity_available() {
-                            ui.small(format!("DSP {} / {}",system.dsp,system.ceiling));
-                            ui.small(format!("Install / scan {}",system.maintenance));
-                            ui.small(format!("Stale transports {}",system.stale_transports));
-                        } else { ui.small("DSP and capacity unknown"); }
-                        ui.small(format!("Pending transactions {}",system.pending_transactions));
-                        ui.small(screen_model::product::activity_certainty(system).cleanup_label());
-                    });
-                } else {ui.small("Current service capacity and cleanup are unknown.");}
-                ui.small("Plug-in availability is shown separately.");
+                match &bar.facts {
+                    Some(facts) => { ui.horizontal_wrapped(|ui| for fact in facts { ui.small(fact.labelled()); }); }
+                    None => { ui.small(bar.unknown); }
+                }
+                ui.small(bar.separate);
             }
         });
     }
 
     fn request_bar(&mut self, ui: &mut egui::Ui) {
-        let foreground_pending = self.queued_import || (self.pending && self.origin.is_some_and(RequestOrigin::foreground));
-        if self.feedback.is_none() && self.message.is_empty() && !foreground_pending {
-            return;
-        }
+        let working = self.queued_import || (self.pending && self.origin.is_some_and(RequestOrigin::foreground));
+        let request = self.feedback.as_ref().map(|feedback| screen_model::window::Request {
+            text: &feedback.text, journey: feedback.journey.as_ref(), operation: feedback.operation.as_deref(),
+            transitions: &feedback.transitions, report: feedback.report.is_some(), blocking: feedback.blocking });
+        let Some(bar) = screen_model::window::RequestBar::build(request, &self.message, working,
+            !self.pending && !self.frontend_superseded) else { return };
         egui::Frame::group(ui.style()).show(ui, |ui| {
             ui.set_min_width((ui.available_width() - 1.0).max(0.0));
             ui.spacing_mut().item_spacing.y = 3.0;
             ui.horizontal_wrapped(|ui| {
-                ui.strong("Current request");
-                if foreground_pending {
-                    ui.spinner();
-                }
-                ui.label(
-                    self.feedback
-                        .as_ref()
-                        .map_or(if foreground_pending && self.message.is_empty() { "Working…" } else { self.message.as_str() }, |feedback| {
-                            if feedback.text == "Click received. Waiting for the current readback; no operation submitted yet." {
-                                "Checking current status before starting your request…"
-                            } else {feedback.text.as_str()}
-                        }),
-                );
+                ui.strong(bar.title);
+                if bar.working { ui.spinner(); }
+                ui.label(&bar.words);
             });
-            if let Some(feedback) = &self.feedback {
-                if let Some(journey) = &feedback.journey {
-                    let available = journey.plugins.iter().filter(|plugin|
-                        plugin.stage == InstallationPluginStage::Available).count();
-                    let attention = journey.plugins.iter().filter(|plugin| matches!(plugin.stage,
-                        InstallationPluginStage::NeedsAttention | InstallationPluginStage::ReplacementRequired)).count();
-                    if !journey.plugins.is_empty() {
-                        ui.small(format!("{available} plug-ins connected · {attention} need attention"));
-                    }
-                    if let Some(failure) = &journey.failure {
-                        ui.colored_label(warning_color(ui), journey::failure_text(failure, None));
-                    }
-                    egui::CollapsingHeader::new("Installation progress").show(ui, |ui| {
-                        ui.strong(journey::phase_label(journey));
-                        widgets::journey(ui, &journey::Results::build(journey, None, None));
-                    });
-                }
-                egui::CollapsingHeader::new("Request details").show(ui, |ui| {
-                    ui.label(&feedback.text);
-                    ui.label(
-                        feedback
-                            .operation
-                            .as_deref()
-                            .unwrap_or("Operation identity not yet confirmed"),
-                    );
-                    ui.label(feedback.transitions.join(" / "));
+            if let Some(progress) = &bar.progress {
+                if let Some(counts) = &progress.counts { ui.small(counts); }
+                if let Some(problem) = &progress.problem { ui.colored_label(warning_color(ui), problem); }
+                egui::CollapsingHeader::new(progress.title).show(ui, |ui| {
+                    ui.strong(progress.headline);
+                    widgets::journey(ui, &progress.results);
                 });
             }
-            if let Some(feedback) = &mut self.feedback {
-                if feedback.report.is_some() {
-                    ui.small("Includes versions, setup history and bridge diagnostics. No licences, accounts, plug-in files or prefixes. Nothing is uploaded.");
-                    if ui.add_enabled(!self.pending && !self.frontend_superseded,
-                        egui::Button::new("Save problem report")).clicked() {
-                        feedback.report_save_started = false;
-                    }
+            if let Some(details) = &bar.details { widgets::disclosure(ui, details, &mut None); }
+            if let Some((note, save)) = &bar.report {
+                ui.small(*note);
+                if ui.add_enabled(save.enabled, egui::Button::new(save.label)).clicked() {
+                    if let Some(feedback) = &mut self.feedback { feedback.report_save_started = false; }
                 }
             }
-            if !self.feedback.as_ref().is_some_and(|f| f.blocking)
-                && ui.add_sized([100.0, 44.0], egui::Button::new("Dismiss")).clicked() {
-                self.feedback = None;
-                self.message.clear();
+            if let Some(dismiss) = &bar.dismiss {
+                if ui.add_sized([100.0, 44.0], egui::Button::new(dismiss.label)).clicked() {
+                    self.feedback = None;
+                    self.message.clear();
+                }
             }
         });
     }
 
-    fn attention_list(
-        ui: &mut egui::Ui,
-        snapshot: &Snapshot,
-        limit: usize,
-        page: &mut Page,
-        library: &mut crate::library::Library,
-        focus: &mut RouteFocus,
-    ) {
-        let items = presentation::attentions(snapshot);
-        if items.is_empty() {
-            ui.label("Nothing needs attention right now.");
+    fn attention_list(ui: &mut egui::Ui, attention: &screen_model::activity::Attentions,
+        local: &mut Option<Local>) {
+        if let Some(empty) = attention.empty {
+            ui.label(empty);
             return;
         }
-        for (index, item) in items.iter().take(limit).enumerate() {
+        for item in &attention.items {
             ui.group(|ui| {
                 ui.set_min_width((ui.available_width() - 1.0).max(0.0));
                 ui.horizontal_wrapped(|ui| {
                     ui.strong(&item.title);
-                    let button = egui::Button::new(if index == 0 {
-                        "Review this"
-                    } else {
-                        "Open item"
-                    })
-                    .min_size(egui::vec2(128.0, 44.0));
-                    if ui.add(button).clicked() {
-                        navigate(&item.destination, page, library, focus);
+                    if ui.add(egui::Button::new(item.open.label).min_size(egui::vec2(128.0, 44.0))).clicked() {
+                        *local = Some(item.open.does.clone());
                     }
                 });
                 ui.label(&item.detail);
             });
         }
-        if items.len() > limit
-            && ui
-                .add_sized([180.0, 44.0], egui::Button::new("See all attention items"))
-                .clicked()
-        {
-            *page = Page::Activity;
+        if let Some(more) = &attention.more {
+            if ui.add_sized([180.0, 44.0], egui::Button::new(more.label)).clicked() { *local = Some(more.does.clone()); }
         }
     }
 
-    fn session_row(
-        ui: &mut egui::Ui,
-        snapshot: &Snapshot,
-        row: &serde_json::Value,
-        index: usize,
-        page: &mut Page,
-        library: &mut crate::library::Library,
-        activity_focus: &mut Option<String>,
-    ) {
-        let class_id = row["class_id"].as_str().unwrap_or("");
-        let product = presentation::session_product(snapshot, class_id);
-        let frame = ui.push_id((row["recent"] == true, index), |ui| {
-            egui::Frame::group(ui.style()).show(ui, |ui| {
-                ui.set_min_width((ui.available_width() - 1.0).max(0.0));
-                ui.strong(presentation::session_display_name(snapshot, class_id));
-                let state = if row["recent"] == true {
-                    format!(
-                        "Most recent failed session · {}",
-                        screen_model::product::terminal_text(row["terminal"].as_str().unwrap_or(""))
-                    )
-                } else if row["state"] == "cleanup_unconfirmed" {
-                    "Cleanup unconfirmed · this owner is not proof of live audio".into()
-                } else if let Some(terminal) = row["terminal"].as_str() {
-                    format!(
-                        "Session unavailable · {}",
-                        screen_model::product::terminal_text(terminal)
-                    )
-                } else {
-                    "Running bridge session".into()
-                };
-                ui.label(state);
-                if row["recent"] == true {
-                    ui.small(
-                        if row["cleanup_confirmed"] == true && row["transport_retired"] == true {
-                            "Cleanup and transport retirement confirmed"
-                        } else {
-                            "Cleanup or transport retirement is unconfirmed"
-                        },
-                    );
-                }
-                if let Some(product) = product {
-                    if ui
-                        .add_sized([150.0, 44.0], egui::Button::new("View plug-in"))
-                        .clicked()
-                    {
-                        library.focus_product(ProductKey::from(product));
-                        *page = Page::Plugins;
+    fn sessions(ui: &mut egui::Ui, sessions: &screen_model::activity::Sessions,
+        activity_focus: &mut Option<String>, local: &mut Option<Local>) {
+        ui.heading(sessions.title);
+        if let Some(warning) = sessions.warning { ui.colored_label(warning_color(ui), warning); }
+        if let Some(empty) = sessions.empty { ui.label(empty); }
+        for row in &sessions.rows {
+            let frame = ui.push_id((row.recent, row.index), |ui| {
+                egui::Frame::group(ui.style()).show(ui, |ui| {
+                    ui.set_min_width((ui.available_width() - 1.0).max(0.0));
+                    ui.strong(&row.name);
+                    ui.label(&row.state);
+                    if let Some(cleanup) = row.cleanup { ui.small(cleanup); }
+                    if let Some(open) = &row.open {
+                        if ui.add_sized([150.0, 44.0], egui::Button::new(open.label)).clicked() {
+                            *local = Some(open.does.clone());
+                        }
                     }
-                }
-                egui::CollapsingHeader::new("Technical session details")
-                    .show(ui, |ui| Self::value(ui, row));
-            })
-        });
-        if activity_focus.as_deref() == row["session"].as_str() && activity_focus.is_some() {
-            ui.scroll_to_rect(frame.response.rect, Some(egui::Align::Center));
-            *activity_focus = None;
+                    widgets::disclosure(ui, &row.record, &mut None);
+                })
+            });
+            if activity_focus.as_deref() == row.session.as_deref() && activity_focus.is_some() {
+                ui.scroll_to_rect(frame.response.rect, Some(egui::Align::Center));
+                *activity_focus = None;
+            }
         }
     }
 
@@ -2080,115 +1818,38 @@ impl Operator {
         focus: &mut RouteFocus,
         chosen: &mut Option<Action>,
     ) {
-        ui.heading("Activity");
-        ui.small("Bridge sessions, manager work and retained incidents. Managed DAW workspaces will have separate application activity when the manager reports it.");
-        ui.heading("Live bridge sessions");
-        if !snapshot.system.capacity_available() {
-            ui.colored_label(warning_color(ui), "Current session status is unavailable. Rows below are the last successful snapshot, not a live confirmation.");
-        }
-        let live: Vec<_> = snapshot
-            .active_sessions
-            .iter()
-            .filter(|row| row["recent"] != true)
-            .collect();
-        if live.is_empty() {
-            ui.label(if snapshot.system.capacity_available() {
-                "No bridge sessions are reported."
-            } else {
-                "No current session list is available."
-            });
-        }
-        for (index, row) in live.into_iter().enumerate() {
-            Self::session_row(ui, snapshot, row, index, page, library, &mut focus.activity);
-        }
+        let view = screen_model::activity::Activity::build(snapshot, pending);
+        let mut local = None;
+        ui.heading(view.heading);
+        ui.small(view.intro);
+        Self::sessions(ui, &view.live, &mut focus.activity, &mut local);
         ui.separator();
-        ui.heading("Recent session failures");
-        let recent: Vec<_> = snapshot
-            .active_sessions
-            .iter()
-            .filter(|row| row["recent"] == true)
-            .collect();
-        if recent.is_empty() {
-            ui.label("No recent terminal session is retained.");
-        }
-        for (index, row) in recent.into_iter().enumerate() {
-            Self::session_row(ui, snapshot, row, index, page, library, &mut focus.activity);
-        }
+        Self::sessions(ui, &view.recent, &mut focus.activity, &mut local);
         ui.separator();
-        ui.heading("Needs attention");
-        Self::attention_list(ui, snapshot, usize::MAX, page, library, focus);
+        ui.heading(view.attention.title);
+        Self::attention_list(ui, &view.attention, &mut local);
         ui.separator();
-        ui.heading("Incidents");
-        if snapshot.recent_incidents.is_empty() {
-            ui.label("No sanitized incident is retained.");
+        ui.heading(view.incidents.title);
+        if let Some(empty) = view.incidents.empty { ui.label(empty); }
+        for (id, incident) in &view.incidents.incidents {
+            ui.push_id(id, |ui| widgets::disclosure(ui, incident, chosen));
         }
-        for incident in snapshot.recent_incidents.iter().rev() {
-            ui.push_id(&incident.id, |ui| {
-                egui::CollapsingHeader::new(format!(
-                    "{} · {}",
-                    incident.state.replace('_', " "),
-                    incident.id
-                ))
-                .show(ui, |ui| {
-                    let lines = incident_lines(&incident.summary);
-                    for line in lines.iter().take(2) {
-                        ui.label(line);
-                    }
-                    if let Some(offer) = &incident.export {
-                        Self::buttons(
-                            ui,
-                            std::slice::from_ref(offer),
-                            snapshot.system.inactive_reason(),
-                            pending,
-                            chosen,
-                        );
-                    }
-                    egui::CollapsingHeader::new("Sanitized technical report").show(ui, |ui| {
-                        for line in lines.iter().skip(2) {
-                            ui.small(line);
-                        }
-                        Self::value(ui, &incident.summary);
-                    });
-                });
-            });
-        }
+        if let Some(local) = local { apply_local(local, page, library, focus, &mut false, &mut false); }
     }
 
-    /// Small build line beside the title: "0.12.0test144 · runtime r5". Before
-    /// the manager answers, this window's own build is named instead.
-    fn version_badge(ui: &mut egui::Ui, snapshot: Option<&Snapshot>, own_version: Option<&str>) {
-        let Some(snapshot) = snapshot else {
-            if let Some(version) = own_version { ui.small(version); }
-            return;
-        };
-        let version = snapshot.bridge.installed.as_deref().unwrap_or("version unknown");
-        ui.small(match presentation::runtime_summary(snapshot) {
-            Some(runtime) => format!("{version} · runtime {runtime}"),
-            None => version.to_owned(),
-        });
-        if let Some(note) = presentation::setup_title_note(&snapshot.bridge) {
-            ui.label(egui::RichText::new(note).small().strong());
-        }
-    }
-
-    fn version_section(ui: &mut egui::Ui, snapshot: &Snapshot) {
-        ui.strong(presentation::installed_line(&snapshot.bridge));
-        if let Some(line) = presentation::setup_line(&snapshot.bridge) {
-            ui.label(line);
-            if presentation::setup_title_note(&snapshot.bridge).is_some() {
-                ui.small("Open Linux VST Bridge Setup and Updates to apply it.");
-            }
-        }
-        ui.label(format!("Compatibility runtime: {}",
-            presentation::runtime_summary(snapshot).as_deref().unwrap_or("not installed")));
+    fn version_section(ui: &mut egui::Ui, version: &screen_model::diagnostics::VersionSection) {
+        ui.strong(&version.installed);
+        if let Some(line) = &version.setup { ui.label(line); }
+        if let Some(apply) = version.apply { ui.small(apply); }
+        ui.label(&version.runtime);
         let copied_id = ui.make_persistent_id("version_details_copied");
         ui.horizontal_wrapped(|ui| {
-            if ui.add(egui::Button::new("Copy version details").min_size(egui::vec2(180.0, 44.0))).clicked() {
-                ui.ctx().copy_text(presentation::version_details(snapshot, presentation::distribution()));
+            if ui.add(egui::Button::new(version.copy.label).min_size(egui::vec2(180.0, 44.0))).clicked() {
+                if let Local::Copy(details) = &version.copy.does { ui.ctx().copy_text(details.clone()); }
                 ui.data_mut(|data| data.insert_temp(copied_id, true));
             }
             if ui.data(|data| data.get_temp::<bool>(copied_id)).unwrap_or(false) {
-                ui.small("Copied. Paste it into your bug report.");
+                ui.small(version.copied);
             }
         });
     }
@@ -2199,49 +1860,14 @@ impl Operator {
         pending: bool,
         chosen: &mut Option<Action>,
     ) {
-        ui.heading("Diagnostics");
-        Self::version_section(ui, snapshot);
-        crate::library::diagnostics(ui, snapshot, pending, chosen, true);
-        ui.heading("Manager actions");
-        for offer in &snapshot.actions {
-            if snapshot.capture["armed"] == true && matches!(offer.action, Action::CaptureDisarm {})
-            {
-                continue; // already shown next to the armed state above
-            }
-            Self::buttons(
-                ui,
-                std::slice::from_ref(offer),
-                snapshot.system.inactive_reason(),
-                pending,
-                chosen,
-            );
-        }
-        egui::CollapsingHeader::new("Vendor applications and managed setup details").show(ui, |ui| {
-            for app in &snapshot.vendor_applications {
-                ui.strong(&app.name);
-                Self::buttons(ui,&app.actions,snapshot.system.inactive_reason(),pending,chosen);
-                for value in [&app.details["dependency_operation"],&app.details] {
-                    if value["dependency"].is_object() {
-                        for line in dependency_retirement_lines(value) {ui.small(line);}
-                    }
-                }
-                Self::value(ui,&app.details);
-            }
-            for environment in &snapshot.environments {
-                ui.strong(&environment.family);
-                Self::buttons(ui,&environment.actions,snapshot.system.inactive_reason(),pending,chosen);
-                ui.small(format!("Environment: {} · revision {} · runner {}",
-                    environment.id,environment.revision,environment.runner));
-                Self::value(ui,&environment.last_scan);
-            }
-        });
-        egui::CollapsingHeader::new("Technical system details").show(ui, |ui| {
-            if let Ok(value) = serde_json::to_value(&snapshot.system) {
-                Self::value(ui, &value);
-            }
-            Self::value(ui, &snapshot.capture);
-            for runtime in &snapshot.managed_runtime_records { Self::value(ui,runtime); }
-        });
+        let view = screen_model::diagnostics::Diagnostics::build(snapshot, pending, presentation::distribution());
+        ui.heading(view.heading);
+        Self::version_section(ui, &view.version);
+        widgets::disclosure(ui, &view.system, chosen);
+        ui.heading(view.actions_title);
+        for row in &view.actions { widgets::offer_row(ui, row, chosen); }
+        widgets::disclosure(ui, &view.records, chosen);
+        widgets::disclosure(ui, &view.technical, chosen);
     }
 
     fn workspaces(
@@ -2386,26 +2012,7 @@ impl Operator {
         }
     }
     fn product_details(ui: &mut egui::Ui, product: &Product) {
-        for limit in &product.limitations { ui.label(limit.replace('_', " ")); }
-        if let Some(preparation) = product.details.get("preparation") {
-            Self::preparation_details(ui, preparation);
-        }
-        if let Some(revision) = product.active_revision {
-            ui.label(format!("Published revision: {revision} · Recommended: {}",
-                product.recommended_revision.map(|value| value.to_string())
-                    .unwrap_or_else(|| "none".into())));
-        }
-        for history in &product.history {
-            ui.label(format!("{} · {}{}", history.description, history.claim,
-                if history.active { " · active" } else { "" }));
-            if let Some(reason) = &history.rollback_unavailable { ui.label(reason); }
-        }
-        egui::CollapsingHeader::new("Technical product details").show(ui, |ui| {
-            ui.label(format!("Status: {}\nClass: {}\nModule SHA-256: {}\nEnvironment: {}\nRunner: {}",
-                product.disposition, product.class_id, product.module_sha256,
-                product.environment, product.runner));
-            Self::value(ui, &product.details);
-        });
+        widgets::details(ui, &screen_model::plugins::technical_records(product), &mut None);
     }
     fn repaint_delay(&self) -> Duration {
         if self.frontend_superseded { return Duration::from_secs(60); }
@@ -2446,38 +2053,40 @@ impl eframe::App for Operator {
         let mut retry_details = false;
         let selected_product_snapshot = self.selected_product_snapshot();
         egui::CentralPanel::default().frame(egui::Frame::central_panel(ui.style()).inner_margin(16.0)).show(ui, |ui| {
+            let title = screen_model::window::TitleRow::build(self.overview.as_ref().map(|o| &o.current)
+                .or(self.snapshot.as_ref()), presentation::own_version(), self.overview_fresh, controls_pending,
+                self.current_action_snapshot(), self.pending && self.origin == Some(RequestOrigin::ExplicitRefresh));
             ui.horizontal_wrapped(|ui| {
-                ui.heading("Linux VST Bridge");
-                Self::version_badge(ui, self.overview.as_ref().map(|o| &o.current)
-                    .or(self.snapshot.as_ref()), presentation::own_version());
-                let refresh_label = if self.overview_fresh { "Refresh" } else { "Check again" };
-                if ui.add_enabled(!controls_pending, egui::Button::new(refresh_label).min_size(egui::vec2(92.0, 44.0))).clicked() {
+                ui.heading(title.title);
+                if let Some(version) = &title.version { ui.small(version); }
+                if let Some(note) = &title.note { ui.label(egui::RichText::new(note).small().strong()); }
+                if ui.add_enabled(title.refresh.enabled, egui::Button::new(title.refresh.label)
+                    .min_size(egui::vec2(92.0, 44.0))).clicked() {
                     refresh = true;
                 }
-                if let Some(snapshot) = self.current_action_snapshot() {
-                    if let Some(offer) = snapshot.actions.iter().find(|offer| matches!(offer.action,Action::SupportExport {})) {
-                        Self::buttons(ui,std::slice::from_ref(offer),None,controls_pending,&mut chosen);
-                    }
-                }
-                if self.pending && self.origin == Some(RequestOrigin::ExplicitRefresh) {
-                    ui.small("Refreshing…");
-                }
+                if let Some(export) = &title.export { widgets::offer_row(ui, export, &mut chosen); }
+                if let Some(refreshing) = title.refreshing { ui.small(refreshing); }
             });
             if self.frontend_superseded {
-                ui.strong("Bridge updated — this window is paused");
-                ui.label("Unfinished inputs remain in this window. Continue in the current manager to see accepted operations and use the updated bridge.");
-                if ui.button("Open current manager").clicked() {
+                let paused = screen_model::window::superseded();
+                ui.strong(paused.title);
+                ui.label(paused.explanation);
+                if ui.button(paused.open.label).clicked() {
                     if let Err(error) = crate::bootstrap::launch_selected() { self.message = error; }
                 }
             }
-            if self.preview { ui.small("LOCAL DESIGN PREVIEW · sample records · actions do not execute"); }
+            if self.preview { ui.small(screen_model::window::PREVIEW); }
             Self::health_bar(ui, self.current_health_system(), self.current_owned_pause(),
                 self.health_refreshing());
-            if let Some(line) = self.updates.headline().filter(|_| self.page != Page::Setup) {
+            if let Some((line, view)) = screen_model::window::update_headline(
+                self.updates.headline().filter(|_| self.page != Page::Setup)) {
                 ui.horizontal_wrapped(|ui| {
                     ui.strong(line);
-                    if ui.add(egui::Button::new("View update").min_size(egui::vec2(0.0, 36.0))).clicked() {
-                        self.page = Page::Setup;
+                    if ui.add(egui::Button::new(view.label).min_size(egui::vec2(0.0, 36.0))).clicked() {
+                        // The page changes at once: navigation below shows it in this frame.
+                        if let Local::Go(destination) = &view.does {
+                            navigate(destination, &mut self.page, &mut self.library, &mut self.focus);
+                        }
                     }
                 });
             }
@@ -2509,9 +2118,7 @@ impl eframe::App for Operator {
                             Page::Plugins => {
                                 if let Some(selected) = &selected_product_snapshot {
                                     if !self.overview_fresh {
-                                        ui.colored_label(warning_color(ui),
-                                            if self.overview_renewing {"Last observed plug-in status · refreshing…"}
-                                            else {"Current status is unavailable. Setup actions wait for current readback."});
+                                        widgets::text(ui, &screen_model::window::plugins_not_current(self.overview_renewing));
                                     }
                                     self.library.show(ui, selected, action_controls_pending,
                                         &mut chosen, Self::product_details);
@@ -2528,21 +2135,21 @@ impl eframe::App for Operator {
                         }
                     } else if matches!(self.page, Page::Home | Page::Setup) {
                         ui.heading(self.page.label());
-                        ui.label("Checking current manager status. Readiness and actions will appear after readback.");
+                        ui.label(screen_model::window::CHECKING);
                         return;
                     }
                 }
                 let Some(snapshot) = &self.snapshot else {
-                    ui.label("Loading technical details. Home and Setup remain available.");
+                    ui.label(screen_model::window::LOADING_DETAILS);
                     if self.details_attempted && !self.pending
-                        && ui.button("Try loading details again").clicked() {
+                        && ui.button(screen_model::window::retry_details().label).clicked() {
                         self.details_attempted = false;
                     }
                     return;
                 };
                 let page = self.page;
                 match page {
-                    Page::Home | Page::Setup => {ui.label("Loading current plug-ins and setup…");},
+                    Page::Home | Page::Setup => {ui.label(screen_model::window::LOADING_CURRENT);},
                     Page::Plugins => self.library.show(ui, snapshot,
                         action_controls_pending, &mut chosen, Self::product_details),
                     Page::Workspaces => Self::workspaces(ui, snapshot, action_controls_pending, &mut chosen, &mut pick, &mut self.focus),
@@ -2682,7 +2289,7 @@ impl eframe::App for Operator {
             let snapshot = if self.current_action_snapshot().is_some() {
                 selected_product_snapshot.as_ref().or_else(|| self.current_action_snapshot())
             } else if self.preview { self.snapshot.as_ref() } else { None };
-            Some(compatibility_result_offer(snapshot, candidate, expected_current))
+            Some(forms::compatibility_result_offer(snapshot, candidate, expected_current))
         });
         if let Some(form) = self.product_form.as_mut() {
             let (submit, cancel) = show_product_form(ui.ctx(), form, result_offer.as_ref(), action_controls_pending)
@@ -2818,16 +2425,16 @@ fn show_software_install_form(ctx: &egui::Context, daw: &mut Option<DawChoice>,
 fn show_product_form(ctx: &egui::Context, form: &mut Action,
     result_offer: Option<&Result<Option<String>, &'static str>>,
     action_controls_pending: bool) -> Option<(egui::Response, egui::Response)> {
-    egui::Window::new(if matches!(form, Action::CompatibilityResult { .. }) {
-        "Record plug-in test result"
-    } else { "Exact candidate observation / review" })
+    let words = forms::result_form();
+    let expert = forms::expert_form();
+    egui::Window::new(if matches!(form, Action::CompatibilityResult { .. }) { words.title } else { expert.title })
         .collapsible(false)
         .max_height((ctx.content_rect().height() - 40.0).max(200.0))
         .max_width((ctx.content_rect().width() - 40.0).max(300.0))
         .show(ctx, |ui| {
             // Keep both actions visible; only the fields and their explanations scroll.
             let refusal_height = if matches!(form, Action::CompatibilityResult { .. }) {
-                compatibility_result_refusal(result_offer, &TestResultKind::Worked).map(|reason| {
+                forms::compatibility_result_refusal(result_offer, &TestResultKind::Worked).map(|reason| {
                     ui.painter().layout(reason.to_owned(), egui::TextStyle::Small.resolve(ui.style()),
                         ui.visuals().text_color(), ui.available_width()).size().y
                         + ui.spacing().item_spacing.y
@@ -2842,69 +2449,60 @@ fn show_product_form(ctx: &egui::Context, form: &mut Action,
                 .show(ui, |ui| {
                     match form {
                         Action::CompatibilityResult { result, passed, failed_area, note, .. } => {
-                            ui.label("Mark only what you actually observed. The result records only the checks you observed with this setup; it does not establish support for every configuration.");
+                            ui.label(words.intro);
                             ui.horizontal_wrapped(|ui| {
-                                ui.selectable_value(result, TestResultKind::Worked, "It worked");
+                                ui.selectable_value(result, TestResultKind::Worked, words.worked);
                                 ui.selectable_value(result, TestResultKind::Problem {
-                                    category: ProblemCategory::Other }, "Report a problem");
+                                    category: ProblemCategory::Other }, words.problem);
                             });
                             if let TestResultKind::Problem { category } = result {
                                 egui::ComboBox::from_id_salt("guided-problem-category")
-                                    .selected_text(problem_category_label(*category))
+                                    .selected_text(forms::problem_category_label(*category))
                                     .show_ui(ui, |ui| {
-                                        for choice in [ProblemCategory::FailedToLoad,
-                                            ProblemCategory::BlankEditor, ProblemCategory::EditorFroze,
-                                            ProblemCategory::EditorDisappeared, ProblemCategory::NoAudio,
-                                            ProblemCategory::IncorrectAudio, ProblemCategory::ControlsUnresponsive,
-                                            ProblemCategory::HostCrashed, ProblemCategory::CleanupIncomplete,
-                                            ProblemCategory::Other] {
-                                            ui.selectable_value(category, choice, problem_category_label(choice));
+                                        for choice in forms::PROBLEM_CATEGORIES {
+                                            ui.selectable_value(category, choice, forms::problem_category_label(choice));
                                         }
                                     });
                                 if *category == ProblemCategory::Other {
-                                    ui.label("Which part had the problem?");
+                                    ui.label(words.area_question);
                                     egui::ComboBox::from_id_salt("guided-problem-area")
-                                        .selected_text(failed_area.map(test_area_label).unwrap_or("Choose an area"))
+                                        .selected_text(failed_area.map(forms::test_area_label).unwrap_or(words.area_placeholder))
                                         .show_ui(ui, |ui| {
-                                            for area in test_areas() {
-                                                ui.selectable_value(failed_area, Some(area), test_area_label(area));
+                                            for area in forms::test_areas() {
+                                                ui.selectable_value(failed_area, Some(area), forms::test_area_label(area));
                                             }
                                         });
                                 } else { *failed_area = None; }
                             } else { *failed_area = None; }
-                            ui.label("Checks you confirmed");
-                            for area in test_areas() {
+                            ui.label(words.checks);
+                            for area in forms::test_areas() {
                                 let mut checked = passed.contains(&area);
-                                if ui.checkbox(&mut checked, test_area_label(area)).changed() {
+                                if ui.checkbox(&mut checked, forms::test_area_label(area)).changed() {
                                     if checked { passed.push(area); } else { passed.retain(|item| *item != area); }
                                 }
                             }
-                            ui.label("Optional detail for a successful test; describe a problem when reporting one");
+                            ui.label(words.note);
                             ui.add(egui::TextEdit::singleline(note).char_limit(512)
                                 .desired_width(360.0));
-                            let valid = match result {
-                                TestResultKind::Worked => !passed.is_empty(),
-                                TestResultKind::Problem { category } => !note.trim().is_empty()
-                                    && (*category != ProblemCategory::Other || failed_area.is_some()),
-                            };
-                            let refusal = compatibility_result_refusal(result_offer, result);
-                            if !valid { ui.small("Select an observed check, or choose a problem and describe it."); }
+                            let valid = forms::result_complete(result, passed, *failed_area, note);
+                            let refusal = forms::compatibility_result_refusal(result_offer, result);
+                            if !valid { ui.small(words.incomplete); }
                             if refusal.is_some() && matches!(result_offer, Some(Ok(_))) {
-                                ui.small("You can report a problem now. A successful result needs this plug-in's clean retirement.");
+                                ui.small(words.problem_only);
                             }
-                            (valid && refusal.is_none(), "Record this test result", refusal)
+                            (valid && refusal.is_none(), words.submit, refusal)
                         }
                         Action::CandidateObserve{area,status,note,..}=>{
-                            ui.label("This records your observation. It does not create a machine measurement or qualification decision.");
-                            egui::ComboBox::from_id_salt("area").selected_text(area.as_str()).show_ui(ui,|ui|{for a in ["daw_load","midi","audio","editor","parameters","automation","state_recall","processing_restart","retirement"]{ui.selectable_value(area,a.into(),a.replace('_'," "));}});
-                            egui::ComboBox::from_id_salt("status").selected_text(status.as_str()).show_ui(ui,|ui|{for a in ["passed","failed","not_tested","unavailable","not_applicable"]{ui.selectable_value(status,a.into(),a.replace('_'," "));}});
+                            ui.label(expert.observe_intro);
+                            egui::ComboBox::from_id_salt("area").selected_text(area.as_str()).show_ui(ui,|ui|{for a in expert.areas{ui.selectable_value(area,a.into(),a.replace('_'," "));}});
+                            egui::ComboBox::from_id_salt("status").selected_text(status.as_str()).show_ui(ui,|ui|{for a in expert.statuses{ui.selectable_value(status,a.into(),a.replace('_'," "));}});
                             ui.add(egui::TextEdit::multiline(note).char_limit(512));
-                            (!note.trim().is_empty(), "Record operator observation", None)
+                            (!note.trim().is_empty(), expert.observe_submit, None)
                         }
                         Action::CandidateReview{accept,rationale,..}=>{
-                            ui.label(if *accept{"Maintainer review: accept this exact local configuration against the retained results. This is not a project-wide support claim. Publication remains a separate action."}else{"Record why this exact configuration needs more work. Publication is unchanged."});
+                            ui.label(if *accept { expert.accept_intro } else { expert.needs_work_intro });
                             ui.add(egui::TextEdit::multiline(rationale).char_limit(512));
-                            (!rationale.trim().is_empty(), "Record explicit review decision", None)
+                            (!rationale.trim().is_empty(), expert.review_submit, None)
                         }
                         _ => (false, "Record result", None),
                     }
@@ -2912,189 +2510,11 @@ fn show_product_form(ctx: &egui::Context, form: &mut Action,
             let submit = ui.add_enabled(valid && !action_controls_pending,
                 egui::Button::new(label).min_size(egui::vec2(240.0, 44.0)));
             if let Some(reason) = refusal { ui.small(reason); }
-            let cancel = ui.add_sized([100.0, 44.0], egui::Button::new("Cancel"));
+            let cancel = ui.add_sized([100.0, 44.0], egui::Button::new(words.cancel));
             (submit, cancel)
         }).and_then(|window| window.inner)
 }
 
-fn compatibility_result_offer(snapshot: Option<&Snapshot>, candidate: &str,
-    expected_current: &PublicationIdentity) -> Result<Option<String>, &'static str> {
-    let snapshot = snapshot.ok_or("Current manager readback unavailable")?;
-    let offer = snapshot.products.iter().flat_map(|product| {
-        product.actions.iter().chain(product.compatibility.iter().flat_map(|workflow|
-            workflow.primary.iter().chain(workflow.alternatives.iter())))
-    }).find(|offer| matches!(&offer.action, Action::CompatibilityResult {
-        candidate: offered_candidate, expected_current: offered_current, ..
-    } if offered_candidate == candidate && offered_current == expected_current))
-        .ok_or("This exact test-result offer is no longer current. Refresh the plug-in's controls.")?;
-    Ok(offer.disabled_reason.clone())
-}
-
-fn compatibility_result_refusal<'a>(offer: Option<&'a Result<Option<String>, &'static str>>,
-    result: &TestResultKind) -> Option<&'a str> {
-    match offer {
-        Some(Err(reason)) => Some(*reason),
-        Some(Ok(reason)) if matches!(result, TestResultKind::Worked) => reason.as_deref(),
-        Some(Ok(_)) => None,
-        None => Some("Current test-result offer unavailable"),
-    }
-}
-
-fn dependency_retirement_lines(v: &serde_json::Value) -> Vec<String> {
-    if v.is_null() {
-        return Vec::new();
-    }
-    let r = if v["dependency_retirement"].is_object() {
-        &v["dependency_retirement"]
-    } else {
-        &v["dependency"]
-    };
-    let mut lines = vec![
-        format!(
-            "Dependency service stop: {}",
-            if r["service_retirement_confirmed"] == true {
-                "confirmed"
-            } else {
-                "not confirmed"
-            }
-        ),
-        format!(
-            "Dependency process cleanup: {}",
-            if r["process_cleanup_confirmed"] == true {
-                "confirmed"
-            } else {
-                "not confirmed"
-            }
-        ),
-        format!(
-            "Forced cleanup: {}",
-            if r["forced_cleanup_used"] == true {
-                "used; does not confirm a clean service stop"
-            } else {
-                "not reported"
-            }
-        ),
-    ];
-    lines.push(match r["dependency_cleanup_disposition"].as_str() {
-        Some("graceful_service_retirement")=>"Native Access closed with graceful dependency retirement.".into(),
-        Some("exact_owned_session_cleanup")=>"Native Access closed with exact-owned compatibility cleanup; graceful service shutdown was not confirmed.".into(),
-        Some("reverified_after_unconfirmed_cleanup")=>"The last session did not confirm it closed; the bridge later confirmed nothing from it was still running.".into(),
-        _=>"Native Access or dependency cleanup is not confirmed.".into(),
-    });
-    if let Some(error) = v["error"].as_str() {
-        let explanation=match error {
-            "dependency_running_not_ready"=>"The service did not establish exact process and listener readiness; Native Access was not opened.",
-            "dependency_recovery_registration_missing"=>"The verified daemon exists, but its service registration is missing. Recovery did not reinstall it.",
-            "dependency_recovery_payload_changed"|"dependency_generation_changed"=>"The installed daemon differs from the admitted bundle payload. No replacement was attempted.",
-            "dependency_foreign_conflict"=>"Another copy of this app's background service is already running from a different Wine setup. It was not used, adopted or stopped. Close the program using it, then try again.",
-            "dependency_listener_conflict"=>"Another program is using the connection this app's background service needs (usually another Wine setup's copy of it). It was not used or stopped. Close it, then try again.",
-            "dependency_same_prefix_unowned"=>"A conflicting or unowned daemon prevents preparation. It was not adopted or stopped.",
-            "dependency_command_timeout"=>"A service or installer command did not provide its required acknowledgment in time.",
-            "dependency_installer_nonzero"=>"The installer returned a nonzero result. Installed files and service readiness are separate facts.",
-            _=>"The dependency operation did not complete; inspect the retained step and retirement results.",
-        };
-        lines.push(format!("Dependency failure: {error}. {explanation}"));
-    }
-    if v["dependency"]["recovery"]["authority"]
-        == "qualified_bundle_payload_and_retired_installation"
-    {
-        lines.push("Recovering the verified installed dependency without reinstalling; the earlier installer failure remains recorded.".into());
-        lines.push(
-            if v["dependency"]["ready_tested"] == true {
-                "Fresh service readiness: verified."
-            } else {
-                "Fresh service readiness: not established."
-            }
-            .into(),
-        );
-    }
-    if let Some(stages) = v["dependency"]["stages"].as_array() {
-        for stage in stages.iter().filter(|s| s["action"] == "install") {
-            let result = &stage["installer_result"];
-            lines.push(match result["installer_exit"].as_u64().filter(|n| *n<=u32::MAX as u64) {
-                Some(code) if result["authority"]=="exact_windows_child_handle_exit"=>format!("Dependency installer exit: {code}. This alone does not establish readiness."),
-                _=>"Dependency installer exit: unavailable.".into(),
-            });
-            lines.push(match stage["exit"].as_i64() {
-                Some(code) => format!("Dependency runner exit: {code}."),
-                None => "Dependency runner retirement was not observed when the command returned."
-                    .into(),
-            });
-        }
-    }
-    let observation = &r["stop_observation"];
-    if observation["schema"] == 3 {
-        let explanation=match observation["classification"].as_str() {
-            Some("NAD2_STOP_CONFIRMED")=>"Exact service, process-generation, and listener retirement was confirmed.",
-            Some("NAD2_STOP_SUBMITTED_PROGRESSING")=>"A stop was submitted or already pending and bounded progress was observed; retirement was not confirmed.",
-            Some("NAD2_STOP_SUBMITTED_NO_TRANSITION")=>"The stop request was submitted, but no transition toward service retirement was observed before the bound.",
-            Some("NAD2_STOP_NOT_SUBMITTED")=>"The stop request was not submitted; the retained control error is authoritative.",
-            Some("NAD2_STOPPED_PROCESS_OR_LISTENER_REMAINS")=>"SCM reported stopped while the exact process or an owned listener remained.",
-            Some("NAD2_STOP_OBSERVATION_UNAVAILABLE")=>"The bounded stop observation was unavailable.",
-            _=>"The bounded stop classification was unavailable.",
-        };
-        lines.push(format!(
-            "Bounded stop response: {} {explanation}",
-            observation["classification"]
-                .as_str()
-                .unwrap_or("unavailable")
-        ));
-        lines.push(format!("SCM state: {} -> {}; controls masks: {} -> {}; checkpoint: {} -> {}; wait hint: {} -> {} ms.",
-            observation["initial_state"],observation["final_state"],observation["initial_controls_accepted"],
-            observation["final_controls_accepted"],observation["initial_checkpoint"],observation["checkpoint"],
-            observation["initial_wait_hint_ms"],observation["wait_hint_ms"]));
-        match observation["control_count"].as_u64() {
-            Some(0)=>lines.push(match observation["initial_state"].as_u64() {
-                Some(1)=>"No ControlService request was issued; the service was already stopped.".into(),
-                Some(3)=>"No ControlService request was issued; the service was already stopping.".into(),
-                _=>"No ControlService request was issued; the service state could not be evaluated.".into(),
-            }),
-            Some(1) if observation["control_submitted"]==true=>lines.push(format!("ControlService result: submitted in {} ms; returned state {}, controls mask {}, checkpoint {}, wait hint {} ms.",
-                observation["control_elapsed_ms"],observation["control_return"]["state"],
-                observation["control_return"]["controls_accepted"],observation["control_return"]["checkpoint"],
-                observation["control_return"]["wait_hint_ms"])),
-            Some(1)=>lines.push(format!("The ControlService request was not submitted; error {}.",observation["control_error"])),
-            _=>{},
-        }
-        lines.push(format!("Exact process wait: {} ({}); listener mask: {} -> {}; distinct transitions: {} total, {} retained, {} dropped.",
-            observation["process_wait_class"],observation["process_wait"],observation["initial_listener_mask"],
-            observation["listener_mask"],observation["transition_count_total"],observation["transition_count_retained"],
-            observation["transition_count_dropped"]));
-    }
-    lines
-}
-
-fn incident_lines(v: &serde_json::Value) -> Vec<String> {
-    let word = |key: &str| v[key].as_str().unwrap_or("unavailable").replace('_', " ");
-    let confirmed = |key: &str| match v[key].as_bool() {
-        Some(true) => "confirmed",
-        Some(false) => "not confirmed",
-        None => "unavailable",
-    };
-    vec![
-        format!("Outcome: {}", word("outcome")),
-        format!(
-            "Cleanup: {} · Transport retirement: {}",
-            confirmed("cleanup_confirmed"),
-            confirmed("transport_retired")
-        ),
-        format!(
-            "Outer runner exit (separate from Windows): {}",
-            v["outer_exit"]
-        ),
-        format!(
-            "Windows reported exit codes: {}",
-            v["windows_self_exit_codes"]
-        ),
-        format!(
-            "Retained exception observations: {}",
-            v["exceptions"]
-                .as_array()
-                .map(|items| items.len().to_string())
-                .unwrap_or_else(|| "unavailable".into())
-        ),
-    ]
-}
 /// A current overview has already verified this app-only handoff. Cheap polls
 /// still carry the unchanged historical empty-discovery result. Preserve that
 /// one projection while comparing every other field; polls grant no authority.
@@ -3291,15 +2711,10 @@ mod tests {
         overview.current.installer_setups = vec![automatic_setup(
             automatic_journey(InstallationPhase::Available), None)];
         let screen = Some(egui::Rect::from_min_size(egui::Pos2::ZERO,egui::vec2(560.0,1200.0)));
+        // The title row's build line and note, as the window draws them beside the title.
         let badge = |snapshot: Option<&Snapshot>| {
-            let ctx = result_form_context();
-            let mut output = ctx.run_ui(egui::RawInput {screen_rect:screen,..Default::default()},|ui| {
-                ui.horizontal_wrapped(|ui| Operator::version_badge(ui,snapshot,Some("0.12.0test150")));
-            });
-            let mut labels = vec![];
-            for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
-            output.textures_delta.clear();
-            labels.into_iter().map(|(label,_)|label).collect::<Vec<_>>()
+            let title = screen_model::window::TitleRow::build(snapshot, Some("0.12.0test150"), true, false, None, false);
+            title.version.into_iter().chain(title.note).collect::<Vec<_>>()
         };
         assert_eq!(badge(Some(&overview.current)), ["0.12.0test144 · runtime r5","Update ready: 0.12.0test145"]);
         // Before any readback, the window names its own build.
@@ -3334,7 +2749,7 @@ mod tests {
             output.textures_delta.clear();
         }
         let copied = copied.expect("copied version details");
-        assert_eq!(copied, presentation::version_details(&overview.current,presentation::distribution()));
+        assert_eq!(copied, screen_model::version::version_details(&overview.current,presentation::distribution()));
         assert!(copied.starts_with("Installed: Linux VST Bridge 0.12.0test144\n\
             Update ready in Setup: 0.12.0test145\nCompatibility runtime: r5\nDistribution: "));
         assert!(copied.ends_with("\nDAW chosen in Setup: Bitwig"));
@@ -4101,8 +3516,12 @@ mod tests {
     }
 
     use super::*;
-    use crate::screen_model::forms::{confirmed, installation_form_offer, installation_with_daw,
+    use crate::screen_model::forms::{compatibility_result_offer, compatibility_result_refusal, confirmed,
+        installation_form_offer, installation_with_daw,
         needs_confirmation, offer_identity, plausible_installer_label, removal_confirmation, software_install_offer};
+    use crate::screen_model::activity::incident_lines;
+    use crate::screen_model::diagnostics::dependency_retirement_lines;
+    use crate::screen_model::forms::{test_area_label, test_areas};
     use crate::screen_model::home::installation_label;
     use crate::screen_model::installer::failure_lines;
     use crate::screen_model::journey::{current_label as current_journey_label, current_plugin_state,
@@ -7100,7 +6519,7 @@ mod tests {
         assert!(!system.capacity_available());
         assert!(!system.cleanup_unconfirmed);
         assert_eq!(
-            screen_model::product::activity_certainty(system).cleanup_label(),
+            screen_model::product::activity_certainty(system).cleanup().labelled(),
             "Cleanup unknown"
         );
     }

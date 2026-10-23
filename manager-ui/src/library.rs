@@ -4,7 +4,7 @@ use crate::model::{Action, Product, Snapshot};
 use crate::screen_model::plugins::{self, LoadingList, PluginCard, PluginList, RoleFilter, StatusFilter};
 use crate::screen_model::setup::SetupControls;
 use crate::screen_model::{fact_line, ProductKey};
-use crate::widgets::{self, action_buttons, warning_color};
+use crate::widgets::{self, warning_color};
 use eframe::egui;
 
 #[derive(Default)]
@@ -201,27 +201,6 @@ fn plugin_card(ui: &mut egui::Ui, card: &PluginCard, chosen: &mut Option<Action>
     });
 }
 
-/// Shared with the local preview; controls and defaults are unchanged.
-pub fn diagnostics(
-    ui: &mut egui::Ui,
-    s: &Snapshot,
-    pending: bool,
-    chosen: &mut Option<Action>,
-    expanded: bool,
-) {
-    let busy = s.system.inactive_reason();
-    egui::CollapsingHeader::new("System status and diagnostics").default_open(expanded).show(ui, |ui| {
-                if !s.system.capacity_available() { ui.colored_label(egui::Color32::YELLOW,"Service capacity unavailable — DSP, keeper and cleanup status cannot be confirmed"); }
-                else { ui.label(format!("Service: {}  ·  Keeper: {}  ·  DSP: {} / {}  ·  Pending: {}  ·  Stale transports: {}",s.system.service,s.system.keepers,s.system.dsp,s.system.ceiling,s.system.pending_transactions,s.system.stale_transports)); }
-                if s.system.capacity_available() { ui.label(format!("Installing / scanning: {}",s.system.maintenance)); }
-                if s.system.capacity_available() && s.system.cleanup_unconfirmed { ui.colored_label(egui::Color32::YELLOW,"Previous instance cleanup is unconfirmed — retained leases are not proof of a live DSP; new admission is blocked"); }
-                ui.label("512 added frames recommended · 256 unqualified");
-                ui.label(if s.capture["armed"]==true{"Crash capture: armed for next admitted launch"}else if s.capture["active_retention"].as_u64().unwrap_or(0)>0{"Crash capture: retaining an active instance"}else{"Crash capture: off"});
-                if s.capture["armed"]==true { for action in &s.actions { if matches!(action.action,Action::CaptureDisarm{}) { action_buttons(ui,std::slice::from_ref(action),busy,pending,chosen); } } }
-                if let Some(op)=&s.operation{egui::CollapsingHeader::new("Last operation receipt").show(ui,|ui|ui.add(egui::Label::new(egui::RichText::new(serde_json::to_string_pretty(op).unwrap_or_default()).monospace()).wrap()));}
-                });
-}
-
 /// An existing setup's own controls, from the screen model. Shared by the
 /// plug-in card and Setup's "Manage an existing setup".
 pub(crate) fn setup_controls(ui: &mut egui::Ui, controls: &SetupControls, chosen: &mut Option<Action>) {
@@ -288,6 +267,7 @@ mod tests {
     use crate::model::{AvailableAction, CompatibilityWorkflow, CompatibilityPhase};
     use crate::presentation;
     use crate::screen_model::offers;
+    use crate::widgets::action_buttons;
     use crate::screen_model::offers::{refusal as primary_refusal, setup_choice_label, visible_refusals};
     use crate::screen_model::product::{self, status};
     use crate::screen_model::{settings, Status, StatusClass};

@@ -170,12 +170,13 @@ pub fn activity_certainty(system: &System) -> ActivityCertainty {
 }
 
 impl ActivityCertainty {
-    pub fn cleanup_label(self) -> &'static str {
-        match self {
-            Self::Confirmed => "Cleanup confirmed",
-            Self::CleanupUncertain => "Cleanup unconfirmed",
-            Self::Unavailable => "Cleanup unknown",
-        }
+    /// Whether earlier plug-ins and installers were cleaned up, as a fact.
+    pub fn cleanup(self) -> super::Fact {
+        super::Fact { label: "Cleanup", value: match self {
+            Self::Confirmed => Some("confirmed".into()),
+            Self::CleanupUncertain => Some("unconfirmed".into()),
+            Self::Unavailable => None,
+        }, missing: "Cleanup unknown" }
     }
 }
 

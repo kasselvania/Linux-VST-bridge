@@ -1,10 +1,11 @@
-//! The Setup forms: the DAW choice, starting an installation, naming an
-//! installer, and confirming a removal or deletion. Each form checks its
+//! The forms: the DAW choice, starting an installation, naming an installer,
+//! confirming a removal or deletion, and recording a plug-in's test result. Each form checks its
 //! exact current offer again before it can be submitted; that lookup, and the
 //! shared-resource refusal it applies, duplicate the manager's own admission
 //! and go when the service supplies a refusal on each offer (#489).
 use super::product::daw_name;
-use crate::model::{Action, AvailableAction, DawChoice, Snapshot};
+use crate::model::{Action, AvailableAction, DawChoice, ProblemCategory, PublicationIdentity, Snapshot, TestArea,
+    TestResultKind};
 
 /// The musician's DAW, chosen before an installation starts. A local draft.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -290,4 +291,139 @@ pub fn plausible_installer_label(label: &str) -> bool {
         && !matches!(label, "." | "..")
         && !label.chars().any(|c| c.is_control() || matches!(c, '/' | '\\' | ':')
             || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}'))
+}
+
+pub fn test_areas() -> [TestArea; 9] {
+    [TestArea::DawLoad, TestArea::Midi, TestArea::Audio, TestArea::Editor,
+        TestArea::Parameters, TestArea::Automation, TestArea::StateRecall,
+        TestArea::ProcessingRestart, TestArea::Retirement]
+}
+pub fn test_area_label(area: TestArea) -> &'static str {
+    match area {
+        TestArea::DawLoad => "Loaded in the DAW", TestArea::Midi => "MIDI or note input",
+        TestArea::Audio => "Audio or musical processing", TestArea::Editor => "Editor rendered and was usable",
+        TestArea::Parameters => "Controls responded", TestArea::Automation => "Automation responded",
+        TestArea::StateRecall => "Save and reopen recalled state",
+        TestArea::ProcessingRestart => "Processing restarted cleanly",
+        TestArea::Retirement => "Editor and DAW closed cleanly",
+    }
+}
+pub fn problem_category_label(category: ProblemCategory) -> &'static str {
+    match category {
+        ProblemCategory::FailedToLoad => "Failed to load",
+        ProblemCategory::BlankEditor => "Blank or white editor",
+        ProblemCategory::EditorFroze => "Editor froze",
+        ProblemCategory::EditorDisappeared => "Editor disappeared",
+        ProblemCategory::NoAudio => "No audio",
+        ProblemCategory::IncorrectAudio => "Incorrect audio",
+        ProblemCategory::ControlsUnresponsive => "Controls did not respond",
+        ProblemCategory::HostCrashed => "Plug-in or host crashed",
+        ProblemCategory::CleanupIncomplete => "Cleanup did not complete",
+        ProblemCategory::Other => "Other problem",
+    }
+}
+
+pub const PROBLEM_CATEGORIES: [ProblemCategory; 10] = [ProblemCategory::FailedToLoad,
+    ProblemCategory::BlankEditor, ProblemCategory::EditorFroze, ProblemCategory::EditorDisappeared,
+    ProblemCategory::NoAudio, ProblemCategory::IncorrectAudio, ProblemCategory::ControlsUnresponsive,
+    ProblemCategory::HostCrashed, ProblemCategory::CleanupIncomplete, ProblemCategory::Other];
+
+/// Recording what the musician observed with one exact setup.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ResultForm {
+    pub title: &'static str,
+    pub intro: &'static str,
+    pub worked: &'static str,
+    pub problem: &'static str,
+    pub area_question: &'static str,
+    pub area_placeholder: &'static str,
+    pub checks: &'static str,
+    pub note: &'static str,
+    /// Said while the form cannot be submitted as filled in.
+    pub incomplete: &'static str,
+    /// Said when only a problem can be reported now.
+    pub problem_only: &'static str,
+    pub submit: &'static str,
+    pub cancel: &'static str,
+}
+
+pub fn result_form() -> ResultForm {
+    ResultForm {
+        title: "Record plug-in test result",
+        intro: "Mark only what you actually observed. The result records only the checks you observed with this setup; it does not establish support for every configuration.",
+        worked: "It worked",
+        problem: "Report a problem",
+        area_question: "Which part had the problem?",
+        area_placeholder: "Choose an area",
+        checks: "Checks you confirmed",
+        note: "Optional detail for a successful test; describe a problem when reporting one",
+        incomplete: "Select an observed check, or choose a problem and describe it.",
+        problem_only: "You can report a problem now. A successful result needs this plug-in's clean retirement.",
+        submit: "Record this test result",
+        cancel: "Cancel",
+    }
+}
+
+/// A result can be recorded once it says what was observed: a check that
+/// worked, or a described problem with its area when the category is Other.
+pub fn result_complete(result: &TestResultKind, passed: &[TestArea], failed_area: Option<TestArea>, note: &str) -> bool {
+    match result {
+        TestResultKind::Worked => !passed.is_empty(),
+        TestResultKind::Problem { category } => !note.trim().is_empty()
+            && (*category != ProblemCategory::Other || failed_area.is_some()),
+    }
+}
+
+/// The maintainer's own observation and review forms for one candidate.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ExpertForm {
+    pub title: &'static str,
+    pub observe_intro: &'static str,
+    pub areas: [&'static str; 9],
+    pub statuses: [&'static str; 5],
+    pub observe_submit: &'static str,
+    pub accept_intro: &'static str,
+    pub needs_work_intro: &'static str,
+    pub review_submit: &'static str,
+    pub cancel: &'static str,
+}
+
+pub fn expert_form() -> ExpertForm {
+    ExpertForm {
+        title: "Exact candidate observation / review",
+        observe_intro: "This records your observation. It does not create a machine measurement or qualification decision.",
+        areas: ["daw_load","midi","audio","editor","parameters","automation","state_recall","processing_restart","retirement"],
+        statuses: ["passed","failed","not_tested","unavailable","not_applicable"],
+        observe_submit: "Record operator observation",
+        accept_intro: "Maintainer review: accept this exact local configuration against the retained results. This is not a project-wide support claim. Publication remains a separate action.",
+        needs_work_intro: "Record why this exact configuration needs more work. Publication is unchanged.",
+        review_submit: "Record explicit review decision",
+        cancel: "Cancel",
+    }
+}
+
+/// The exact current test-result offer and its refusal, looked up again
+/// before submitting: a duplicate of the manager's admission (#489).
+pub fn compatibility_result_offer(snapshot: Option<&Snapshot>, candidate: &str,
+    expected_current: &PublicationIdentity) -> Result<Option<String>, &'static str> {
+    let snapshot = snapshot.ok_or("Current manager readback unavailable")?;
+    let offer = snapshot.products.iter().flat_map(|product| {
+        product.actions.iter().chain(product.compatibility.iter().flat_map(|workflow|
+            workflow.primary.iter().chain(workflow.alternatives.iter())))
+    }).find(|offer| matches!(&offer.action, Action::CompatibilityResult {
+        candidate: offered_candidate, expected_current: offered_current, ..
+    } if offered_candidate == candidate && offered_current == expected_current))
+        .ok_or("This exact test-result offer is no longer current. Refresh the plug-in's controls.")?;
+    Ok(offer.disabled_reason.clone())
+}
+
+/// Why the result cannot be recorded now. A problem can always be reported.
+pub fn compatibility_result_refusal<'a>(offer: Option<&'a Result<Option<String>, &'static str>>,
+    result: &TestResultKind) -> Option<&'a str> {
+    match offer {
+        Some(Err(reason)) => Some(*reason),
+        Some(Ok(reason)) if matches!(result, TestResultKind::Worked) => reason.as_deref(),
+        Some(Ok(_)) => None,
+        None => Some("Current test-result offer unavailable"),
+    }
 }

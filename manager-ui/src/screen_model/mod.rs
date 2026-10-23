@@ -7,9 +7,13 @@
 //! and actions; an offer carries the manager's exact closed action and refusal
 //! unchanged, and pressing it sends only that action.
 //!
-//! Screens built here so far: Home, Setup (with install progress, required
-//! apps, existing setups and their runtime choice), the Setup forms, the
-//! plug-in list and one plug-in's detail.
+//! Screens built here: the window frame, Home, Setup (with install progress,
+//! required apps, existing setups and their runtime choice), the forms, the
+//! plug-in list and one plug-in's detail, Activity, Diagnostics and Setup's
+//! updates. Workspaces stays in the window until it is removed (#504 E3),
+//! and so does the first-run package screen.
+pub mod activity;
+pub mod diagnostics;
 pub mod forms;
 pub mod home;
 pub mod installer;
@@ -20,6 +24,9 @@ pub mod product;
 pub mod service;
 pub mod settings;
 pub mod setup;
+pub mod updates;
+pub mod version;
+pub mod window;
 #[cfg(test)]
 mod tests;
 
@@ -42,6 +49,10 @@ pub enum TextRole {
     Hint,
     /// An aside that says something is not current, printed small.
     CautionHint,
+    /// A retained technical record, printed as wrapped monospace.
+    Record,
+    /// Machine text, printed monospace.
+    Code,
 }
 
 /// One line of words with its role.
@@ -59,6 +70,13 @@ impl Text {
     pub fn alert(words: impl Into<String>) -> Self { Self { role: TextRole::Alert, words: words.into() } }
     pub fn hint(words: impl Into<String>) -> Self { Self { role: TextRole::Hint, words: words.into() } }
     pub fn caution_hint(words: impl Into<String>) -> Self { Self { role: TextRole::CautionHint, words: words.into() } }
+    pub fn record(words: impl Into<String>) -> Self { Self { role: TextRole::Record, words: words.into() } }
+    pub fn code(words: impl Into<String>) -> Self { Self { role: TextRole::Code, words: words.into() } }
+}
+
+/// A retained record, as the manager wrote it.
+pub fn record(value: &serde_json::Value) -> Detail {
+    Text::record(serde_json::to_string_pretty(value).unwrap_or_default()).into()
 }
 
 /// Visual class of a status: how it should look, not what it says.
@@ -98,6 +116,14 @@ impl Fact {
     pub fn shown(&self) -> &str {
         self.value.as_deref().unwrap_or(self.missing)
     }
+
+    /// "Label value", or the words that say it is missing.
+    pub fn labelled(&self) -> String {
+        match &self.value {
+            Some(value) => format!("{} {value}", self.label),
+            None => self.missing.into(),
+        }
+    }
 }
 
 /// Facts that read as one line.
@@ -133,6 +159,8 @@ pub enum Detail {
     Held { actionable: bool, row: offers::OfferRow },
     Choice(Box<offers::SetupChoice>),
     Disclosure(Disclosure),
+    /// Details that belong together, framed as one.
+    Group(Vec<Detail>),
     Divider,
 }
 
@@ -199,6 +227,18 @@ pub enum Local {
     KeepCurrentInstaller,
     /// Stop showing only the selected installer.
     ShowAllSetup,
+    /// Read current status again.
+    Refresh,
+    /// Read the technical records again after they failed to load.
+    RetryDetails,
+    /// Open the manager that replaced this window.
+    OpenCurrentManager,
+    /// Put these words on the clipboard.
+    Copy(String),
+    /// Choose where to save the problem report the manager created.
+    SaveReport,
+    /// Clear the request bar.
+    Dismiss,
 }
 
 /// A control the window handles itself, such as opening another page.
