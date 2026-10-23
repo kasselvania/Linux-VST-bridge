@@ -1,0 +1,101 @@
+name: Bridge native window
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'crates/window/**'
+      - 'crates/client/**'
+      - 'crates/model/**'
+      - 'crates/view-model/**'
+      - 'tools/beta/frontend_build.py'
+      - 'tools/beta/rust_notices.py'
+      - '.github/workflows/native-window.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  window:
+    # Private sources are available only to trusted same-repository branches.
+    # Public service/model/client jobs remain independent in ap12-manager.yml.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_BUILD_JOBS: '2'
+      CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: bridge
+          persist-credentials: false
+      - name: Require the read-only Makepad deploy key
+        env:
+          MAKEPAD_KEY: ${{ secrets.MAKEPAD_READONLY_DEPLOY_KEY }}
+        run: |
+          if [ -z "$MAKEPAD_KEY" ]; then
+            echo '::error::Set MAKEPAD_READONLY_DEPLOY_KEY to the private half of a read-only deploy key registered only on kasselvania/makepad. See crates/window/README.md.'
+            exit 1
+          fi
+      - name: Read the exact toolkit pin
+        id: toolkit
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import re, tomllib
+          from pathlib import Path
+          deps = tomllib.loads(Path('bridge/crates/window/Cargo.toml').read_text())['dependencies']
+          widgets, ui = (deps[name] for name in ('makepad-widgets', 'makepad-product-ui'))
+          assert widgets['git'] == ui['git'] == 'https://github.com/kasselvania/makepad.git'
+          assert widgets['rev'] == ui['rev'] and re.fullmatch('[0-9a-f]{40}', ui['rev'])
+          print('revision=' + ui['rev'])
+          PY
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: kasselvania/makepad
+          ref: ${{ steps.toolkit.outputs.revision }}
+          path: makepad
+          ssh-key: ${{ secrets.MAKEPAD_READONLY_DEPLOY_KEY }}
+          persist-credentials: false
+      - name: Native build prerequisites
+        run: bash bridge/.github/scripts/apt-install.sh libssl-dev libxcursor-dev libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev libpulse-dev libwayland-dev libxkbcommon-dev xvfb xauth libgl1-mesa-dri
+      - run: rustup toolchain install 1.95.0 --profile minimal
+      - name: Compile and test the Bridge-owned application
+        run: |
+          # The private fetch above used the deploy key. Cargo reads that exact
+          # local commit; credentials are no longer needed or persisted.
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0="url.$GITHUB_WORKSPACE/makepad.insteadOf"
+          export GIT_CONFIG_VALUE_0=https://github.com/kasselvania/makepad.git
+          cargo +1.95.0 test --manifest-path bridge/crates/window/Cargo.toml --locked --release --all-features --lib -j2
+          cargo +1.95.0 build --manifest-path bridge/crates/window/Cargo.toml --locked --release --all-features --bin bridge-window-preview -j2
+          cargo +1.95.0 build --manifest-path bridge/crates/window/Cargo.toml --locked --release --no-default-features --features live --bin linux-audio-compatibility-manager -j2
+      - name: Bootstrap progress redraw after a queued worker reply
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          python3 bridge/crates/window/tests/test_remote_ui.py
+          env -u WAYLAND_DISPLAY xvfb-run -a -s '-screen 0 1440x1000x24' \
+            python3 bridge/crates/window/tests/bootstrap_redraw.py \
+            --binary bridge/crates/window/target/release/bridge-window-preview \
+            --artifacts "${{ runner.temp }}/bootstrap-redraw"
+      - name: Retain bootstrap redraw failure logs
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: bootstrap-redraw
+          path: ${{ runner.temp }}/bootstrap-redraw
+          if-no-files-found: ignore
+      - name: Check production dependency and source declaration
+        working-directory: bridge
+        run: |
+          python3 - <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, 'tools/beta')
+          from frontend_build import describe
+          # Public fixture value for metadata validation, not a signing identity
+          # and not a package build. No package artifact is published here.
+          describe(Path.cwd(), Path('../makepad').resolve(), 'crates/window/Cargo.toml', '0' * 64, 'internal_test')
+          PY

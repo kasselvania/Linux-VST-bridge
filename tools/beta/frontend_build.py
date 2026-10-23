@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build an internal frontend from exact public Bridge and private UI sources.
+"""Build the Bridge-owned window with exact private toolkit provenance.
 
 Only public source identities, relative manifest names and hashes enter the
 record. The private checkout and Cargo cache stay on the build machine.
@@ -19,7 +19,9 @@ import urllib.parse
 
 TARGET = "x86_64-unknown-linux-gnu"
 BINARY = "linux-audio-compatibility-manager"
-BRIDGE_REPOSITORY = "https://github.com/kasselvania/Linux-VST-bridge"
+TOOLKIT_REPOSITORY = "https://github.com/kasselvania/makepad"
+WINDOW_MANIFEST = Path("crates/window/Cargo.toml")
+TOOLKIT_CRATES = {"makepad-widgets", "makepad-product-ui"}
 BRIDGE_CRATES = {"lvb-model", "lvb-view-model", "lvb-client"}
 
 
@@ -110,7 +112,14 @@ def recorded_sources(bridge, frontend):
                 shutil.copyfile(archive, target)
                 if sha(target) not in checksums:
                     target.unlink()  # Fetch a verified archive, never use changed cache bytes.
-        yield roots[0], roots[1], {**os.environ, "CARGO_HOME": str(cargo)}
+        # Fetch the exact private commit from the clean materialization. No
+        # credential or pre-existing Cargo source checkout enters this build.
+        env = {**os.environ, "CARGO_HOME": str(cargo), "CARGO_NET_GIT_FETCH_WITH_CLI": "true"}
+        index = int(env.get("GIT_CONFIG_COUNT", "0"))
+        env.update({"GIT_CONFIG_COUNT": str(index + 1),
+                    f"GIT_CONFIG_KEY_{index}": f"url.{roots[1]}.insteadOf",
+                    f"GIT_CONFIG_VALUE_{index}": TOOLKIT_REPOSITORY + ".git"})
+        yield roots[0], roots[1], env
 
 
 def release_metadata(manifest, env=None):
@@ -133,12 +142,12 @@ def release_packages(metadata):
     return [package for package in metadata["packages"] if package["id"] in seen]
 
 
-def bridge_dependency(source, head):
+def toolkit_dependency(source, head):
     if not isinstance(source, str) or not source.startswith("git+"):
         return False
     url = urllib.parse.urlsplit(source[4:])
     return (urllib.parse.urlunsplit((url.scheme, url.netloc,
-                                    url.path.removesuffix(".git"), "", "")) == BRIDGE_REPOSITORY
+                                    url.path.removesuffix(".git"), "", "")) == TOOLKIT_REPOSITORY
             and urllib.parse.parse_qs(url.query) == {"rev": [head]}
             and url.fragment == head)
 
@@ -152,13 +161,19 @@ def describe_sources(bridge, frontend, manifest_name, public_key, key_class, env
     bridge, frontend = Path(bridge).resolve(), Path(frontend).resolve()
     public, private = source_identity(bridge), source_identity(frontend)
     relative = Path(manifest_name)
-    if relative.is_absolute() or ".." in relative.parts or relative.name != "Cargo.toml":
-        raise ValueError("frontend manifest must be a relative Cargo.toml")
-    manifest = frontend / relative
+    if relative != WINDOW_MANIFEST:
+        raise ValueError("application is crates/window; private application manifests are unsupported")
+    manifest = bridge / relative
     if manifest.resolve() != manifest or not manifest.is_file():
-        raise ValueError("frontend manifest custody")
-    tracked_blob(frontend, relative)
-    tracked_blob(frontend, relative.with_name("Cargo.lock"))
+        raise ValueError("window manifest custody")
+    tracked_blob(bridge, WINDOW_MANIFEST)
+    tracked_blob(bridge, WINDOW_MANIFEST.with_name("Cargo.lock"))
+    declared = tomllib.loads(manifest.read_text())
+    for name in TOOLKIT_CRATES:
+        dependency = declared.get("dependencies", {}).get(name, {})
+        if (dependency.get("git") != TOOLKIT_REPOSITORY + ".git"
+                or dependency.get("rev") != private["head"]):
+            raise ValueError("window must pin both private toolkit crates to the recorded revision")
     if not re.fullmatch(r"[0-9a-f]{64}", public_key) or key_class != "internal_test":
         raise ValueError("qualification frontend requires an internal public trust root")
     metadata = release_metadata(manifest, env=env)
@@ -169,41 +184,46 @@ def describe_sources(bridge, frontend, manifest_name, public_key, key_class, env
     if set(nodes[root_id]["features"]) != {"live"}:
         raise ValueError("qualification frontend must contain only the live feature")
     packages = release_packages(metadata)
-    found, checked = set(), set()
+    found, toolkit, checked = set(), set(), set()
     for package in packages:
         source = package.get("source")
         if source and source.startswith("registry+"):
             continue
         package_root = Path(package["manifest_path"]).resolve().parent
         if source:
-            if not bridge_dependency(source, public["head"]):
-                raise ValueError("frontend dependency is not the exact public Bridge revision")
+            if not toolkit_dependency(source, private["head"]):
+                raise ValueError("window dependency is not the exact private toolkit revision")
             checkout = Path(git(package_root, "rev-parse", "--show-toplevel")).resolve()
             if checkout not in checked:
                 if env is not None and not checkout.is_relative_to(Path(env["CARGO_HOME"]).resolve() / "git/checkouts"):
-                    raise ValueError("resolved Bridge source escapes fresh Cargo checkouts")
-                # Cargo writes its own untracked sentinel in a new checkout.
-                # Its sources came from the commit in our fresh Cargo area;
-                # tracked edits still refuse, without an ignored-file allowlist.
-                if git_identity(checkout) != public or git(checkout, "diff", "HEAD", "--name-only"):
-                    raise ValueError("resolved Bridge source tree differs from package source")
+                    raise ValueError("resolved toolkit source escapes fresh Cargo checkouts")
+                if git_identity(checkout) != private or git(checkout, "diff", "HEAD", "--name-only"):
+                    raise ValueError("resolved toolkit source tree differs from recorded source")
                 checked.add(checkout)
+            tracked_blob(checkout, (package_root / "Cargo.toml").relative_to(checkout))
+            if package["name"] in TOOLKIT_CRATES:
+                toolkit.add(package["name"])
+        elif not package_root.is_relative_to(bridge):
+            raise ValueError("window path dependency escapes exact public source")
+        else:
+            tracked_blob(bridge, (package_root / "Cargo.toml").relative_to(bridge))
             if package["name"] in BRIDGE_CRATES:
                 found.add(package["name"])
-        elif not package_root.is_relative_to(frontend):
-            raise ValueError("frontend path dependency escapes exact private source")
-        else:
-            tracked_blob(frontend, (package_root / "Cargo.toml").relative_to(frontend))
         if package["name"] == "lvb-view-model" and "samples" in nodes[package["id"]]["features"]:
             raise ValueError("sample fixtures cannot enter the qualification frontend")
     if found != BRIDGE_CRATES:
-        raise ValueError("frontend must use exact public model, view model and client")
+        raise ValueError("window must use local public model, view model and client")
+    if toolkit != TOOLKIT_CRATES:
+        raise ValueError("window must use both exact private toolkit crates")
     root = next(package for package in packages if package["id"] == root_id)
     if not any(target["name"] == BINARY and "bin" in target["kind"] for target in root["targets"]):
         raise ValueError("frontend must declare the standard product executable")
-    private.update(manifest=relative.as_posix(), manifest_sha256=sha(manifest),
-                   cargo_lock_sha256=sha(manifest.with_name("Cargo.lock")))
-    return {"schema": 1, "bridge_source": public, "frontend_source": private,
+    # The same build declaration now names the actual public application.
+    # Its locked Git dependencies bind the private toolkit commit transitively;
+    # the loop above verifies that commit's tree against the supplied checkout.
+    application = {**public, "manifest": relative.as_posix(), "manifest_sha256": sha(manifest),
+                   "cargo_lock_sha256": sha(manifest.with_name("Cargo.lock"))}
+    return {"schema": 1, "bridge_source": public, "frontend_source": application,
             "target": TARGET, "binary": BINARY, "features": ["live"],
             "portable_public_key": public_key, "portable_key_class": key_class}
 
@@ -236,9 +256,9 @@ def build(bridge, frontend, manifest, output, target_dir, public_key, key_class)
            "LVB_FRONTEND_PACKAGE_INFO": json.dumps(metadata, sort_keys=True, separators=(",", ":"))}
         subprocess.run(["cargo", "build", "--release", "--locked", "--target", TARGET,
                     "--no-default-features", "--features", "live", "--bin", BINARY,
-                    "--manifest-path", str(private / manifest)], cwd=private, env=env, check=True)
+                    "--manifest-path", str(public / WINDOW_MANIFEST)], cwd=public, env=env, check=True)
         if (source_identity(public) != metadata["bridge_source"]
-                or source_identity(private) != {k: metadata["frontend_source"][k] for k in ("head", "tree")}):
+                or source_identity(private) != source_identity(frontend)):
             raise ValueError("frontend build changed recorded sources")
     binary = target_dir / TARGET / "release" / BINARY
     data = binary.read_bytes()
@@ -256,8 +276,10 @@ def build(bridge, frontend, manifest, output, target_dir, public_key, key_class)
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bridge-source", type=Path, required=True)
-    parser.add_argument("--frontend-source", type=Path, required=True)
-    parser.add_argument("--frontend-manifest", required=True)
+    parser.add_argument("--frontend-source", type=Path, required=True,
+                        help="Exact clean private Makepad toolkit checkout")
+    parser.add_argument("--frontend-manifest", default=WINDOW_MANIFEST.as_posix(),
+                        help="Bridge application manifest (crates/window/Cargo.toml)")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--target-dir", type=Path, required=True)
     parser.add_argument("--public-key", required=True)

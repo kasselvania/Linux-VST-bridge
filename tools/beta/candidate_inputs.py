@@ -22,7 +22,7 @@ parser.add_argument('--epoch',type=int,required=True)
 parser.add_argument('--frontend-build',type=Path,
                     help='Verified frontend-build.json produced by frontend_build.py')
 parser.add_argument('--frontend-source',type=Path,
-                    help='Exact clean private checkout used for that frontend build')
+                    help='Exact clean private Makepad toolkit checkout used for that frontend build')
 a=parser.parse_args()
 assert re.fullmatch(r'[0-9][A-Za-z0-9.]{0,79}',a.version)
 b=a.build_root.resolve();s=a.source.resolve();version=a.version

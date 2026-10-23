@@ -208,7 +208,7 @@ jobs:
           failed = False
           for crate in ('crates/model', 'crates/view-model'):
               own = entries(f'{crate}/Cargo.lock')
-              for user in ('crates/service', 'crates/cli', 'crates/client', 'manager-ui'):
+              for user in ('crates/service', 'crates/cli', 'crates/client', 'manager-ui', 'crates/window'):
                   theirs = entries(f'{user}/Cargo.lock')
                   names = {name for name, _, _ in theirs}
                   drift = sorted((e for e in own if e[0] in names and e not in theirs), key=str)

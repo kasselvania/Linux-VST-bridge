@@ -1,0 +1,38 @@
+[package]
+name = "lvb-window"
+version = "0.1.0"
+edition = "2021"
+description = "Bridge native window and product presentation"
+publish = false
+
+# Independent lockfile keeps service-only builds independent of the private toolkit.
+[workspace]
+
+[[bin]]
+name = "linux-audio-compatibility-manager"
+path = "src/main.rs"
+required-features = ["live"]
+
+[[bin]]
+name = "bridge-window-preview"
+path = "src/preview_main.rs"
+required-features = ["samples"]
+
+[features]
+default = ["live"]
+samples = ["lvb-view-model/samples"]
+live = ["dep:lvb-client", "dep:lvb-model", "lvb-client/native-dialogs"]
+
+[dependencies]
+makepad-widgets = { git = "https://github.com/kasselvania/makepad.git", rev = "a797034e70ec5545dc85a2242bcba84d361e151a" }
+makepad-product-ui = { git = "https://github.com/kasselvania/makepad.git", rev = "a797034e70ec5545dc85a2242bcba84d361e151a" }
+lvb-view-model = { path = "../view-model" }
+lvb-client = { path = "../client", optional = true }
+lvb-model = { path = "../model", optional = true }
+serde_json = "=1.0.150"
+
+# Preserve the toolkit's own patches at exactly the same private revision.
+[patch.crates-io]
+bitflags = { git = "https://github.com/kasselvania/makepad.git", rev = "a797034e70ec5545dc85a2242bcba84d361e151a" }
+smallvec = { git = "https://github.com/kasselvania/makepad.git", rev = "a797034e70ec5545dc85a2242bcba84d361e151a" }
+windows-link = { git = "https://github.com/kasselvania/makepad.git", rev = "a797034e70ec5545dc85a2242bcba84d361e151a" }

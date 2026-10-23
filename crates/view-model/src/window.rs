@@ -114,6 +114,8 @@ pub const PREVIEW: &str = "LOCAL DESIGN PREVIEW · sample records · actions do 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HealthBar {
     pub status: Status,
+    /// Status is retained from an earlier observation, rather than current readback.
+    pub last_observed: bool,
     pub show: &'static str,
     pub hide: &'static str,
     pub note: &'static str,
@@ -149,6 +151,7 @@ impl HealthBar {
         let fact = |label, value: Option<String>, missing| Fact { label, value, missing };
         Self {
             status,
+            last_observed: renewing && system.is_some(),
             show: "Service details",
             hide: "Hide service details",
             note: if unobserved { "Waiting for current status." }

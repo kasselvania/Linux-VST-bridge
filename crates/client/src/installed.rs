@@ -99,6 +99,17 @@ impl Client {
         }
     }
 
+    /// Read the exact completed export through the same custody check as Save.
+    /// This is local file I/O and belongs on the frontend's persistent worker.
+    pub fn preview_support_report(&self, report: &SupportReport) -> Result<super::report::Contents, String> {
+        if let Some(frontend) = &self.frontend {
+            if !frontend_selected(&self.home, frontend)? {
+                return Err("Open the current manager to read this report.".into());
+            }
+        }
+        super::report::Contents::validated(report, support_report(&self.home, report)?)
+    }
+
     /// Dispatch through the existing service/installed-manager contract.
     pub fn call(&self, query: Query, selection: &impl FileSelection) -> Result<Reply, String> {
         self.call_with(query, selection, contract::Installed::home(&self.home))
@@ -129,6 +140,9 @@ impl Client {
             let Some(path) = selection.save_report(report) else {
                 return Ok(Reply::Cancelled);
             };
+            if let Some(frontend) = identity {
+                if !frontend_selected(home, frontend)? { return Ok(Reply::FrontendSuperseded); }
+            }
             save_support_report(&path, &value)?;
             return Ok(Reply::ReportSaved(path));
         }
@@ -252,7 +266,8 @@ fn support_report(home: &std::path::Path, report: &SupportReport) -> Result<Vec<
     if digest != report.sha256 || value["schema"] != 2 {
         return Err("Problem report changed. Create a new report.".into());
     }
-    serde_json::to_vec(&value).map_err(|_| "Problem report could not be read.".into())
+    // Preview and Save share this exact bounded formatting of owner data.
+    super::report::encode(&value)
 }
 fn save_support_report(path: &std::path::Path, bytes: &[u8]) -> Result<(), String> {
     use std::os::unix::fs::OpenOptionsExt;
@@ -347,6 +362,8 @@ mod tests {
             sha256: linux_vst_bridge::digest(&path).unwrap(),
         };
         let bytes = support_report(&home, &report).unwrap();
+        let client = Client::new(home.clone(), home.join("development-frontend")).unwrap();
+        assert_eq!(client.preview_support_report(&report).unwrap().json.as_bytes(), bytes);
         let destination = home.join("report.json");
         save_support_report(&destination, &bytes).unwrap();
         assert_eq!(std::fs::read(&destination).unwrap(), bytes);
@@ -362,6 +379,7 @@ mod tests {
         assert_eq!(std::fs::read(&destination).unwrap(), bytes);
         std::fs::write(&path, b"{\"schema\":2,\"changed\":true}").unwrap();
         assert!(support_report(&home, &report).is_err());
+        assert!(client.preview_support_report(&report).is_err());
         report.sha256 = linux_vst_bridge::digest(&path).unwrap();
         std::fs::remove_file(&path).unwrap();
         symlink(&destination, &path).unwrap();
@@ -450,6 +468,22 @@ mod tests {
                 Ok(Reply::FrontendSuperseded)
             ));
         }
+        let reports = root.join("support-exports");
+        std::fs::create_dir(&reports).unwrap();
+        let source = reports.join(format!("{}.json", "ab".repeat(16)));
+        std::fs::write(&source, br#"{"schema":2,"setups":[]}"#).unwrap();
+        let report = SupportReport { id: "ab".repeat(16), sha256: linux_vst_bridge::digest(&source).unwrap() };
+        assert!(client.preview_support_report(&report).is_err(), "superseded window cannot preview");
+        linux_vst_bridge::atomic_json(&selection, &current).unwrap();
+        assert!(client.preview_support_report(&report).is_ok());
+        let destination = home.join("saved-report.json");
+        let picker = || {
+            linux_vst_bridge::atomic_json(&selection, &selected).unwrap();
+            Some(destination.clone())
+        };
+        assert!(matches!(client.call_with(Query::SaveSupportReport(report), &Choose(&picker), NeverTransport),
+            Ok(Reply::FrontendSuperseded)));
+        assert!(!destination.exists(), "supersession during Save cannot create a file");
         selected.operator_frontend = Some(identity.clone());
         selected.manager = identity.clone();
         linux_vst_bridge::atomic_json(&selection, &selected).unwrap();

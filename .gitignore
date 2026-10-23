@@ -76,3 +76,5 @@ core.*
 
 /crates/service/target/
 /crates/cli/target/
+
+/crates/window/target/

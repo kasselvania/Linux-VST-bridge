@@ -31,6 +31,8 @@ pub struct Records<'a> {
     pub readiness: Option<&'a ReadinessAssessment>,
     /// The service status the health row shows.
     pub health: Option<&'a System>,
+    /// Independent Support reads, when this frontend loads sections separately.
+    pub support: Option<crate::diagnostics::SupportRead<'a>>,
 }
 
 /// How current the records are and what the window is doing.
@@ -56,6 +58,8 @@ pub struct Reading<'a> {
     pub explicit_refresh: bool,
     /// The full records were asked for and did not arrive.
     pub details_attempted: bool,
+    /// Why the last full read is unavailable, separately from any request result.
+    pub details_notice: Option<&'a str>,
     /// The opened plug-in's records were asked for and did not arrive.
     pub product_attempted: bool,
     /// An updated window replaced this one.
@@ -101,12 +105,17 @@ impl Frame {
         if reading.current_unavailable && reading.request.is_none() {
             if let Some(request) = &mut request { request.dismiss = None; }
         }
+        let mut health = HealthBar::build(records.health, reading.owned_pause, reading.health_renewing);
+        if reading.superseded && records.health.is_some() {
+            health.last_observed = true;
+            health.note = "Last observed status · window paused";
+        }
         Self {
             title: TitleRow::build(records.current.or(records.details), reading.own_version, reading.fresh,
                 reading.controls_pending, records.actions, reading.explicit_refresh),
             superseded: reading.superseded.then(window::superseded),
             preview: reading.preview.then_some(window::PREVIEW),
-            health: HealthBar::build(records.health, reading.owned_pause, reading.health_renewing),
+            health,
             headline: window::update_headline(reading.update_headline.clone().filter(|_| state.page != Page::Setup)),
             request,
         }
@@ -128,7 +137,7 @@ pub enum Screen {
     /// Home or Setup before the manager's first answer.
     Checking { heading: &'static str, words: &'static str, retry: Option<Control> },
     /// A technical page before its records arrive.
-    LoadingDetails { words: &'static str, retry: Option<Control> },
+    LoadingDetails { words: String, retry: Option<Control> },
     /// Home or Setup with full records but no current status yet.
     LoadingCurrent(&'static str),
 }
@@ -157,6 +166,9 @@ impl Screen {
                         None => Self::PluginsLoading(Box::new(LoadingList::build(current, &state.plugins.query(),
                             fresh, reading.product_attempted))),
                     },
+                    Page::Diagnostics if records.support.is_some() => return Self::Diagnostics(Box::new(
+                        Diagnostics::from_current(current, records.support.unwrap(), actions_pending,
+                            reading.in_flight, reading.superseded, reading.distribution))),
                     _ => {}
                 }
             } else if matches!(state.page, Page::Home | Page::Setup) {
@@ -164,7 +176,9 @@ impl Screen {
             }
         }
         let Some(details) = records.details else {
-            return Self::LoadingDetails { words: window::LOADING_DETAILS,
+            return Self::LoadingDetails { words: if reading.details_attempted {
+                    reading.details_notice.unwrap_or("This page could not be loaded. Try again.")
+                } else { window::LOADING_DETAILS }.into(),
                 retry: (reading.details_attempted && !reading.in_flight).then(window::retry_details) };
         };
         match state.page {
@@ -317,4 +331,19 @@ mod tests {
         assert!(matches!(Screen::build(&records, &preview, &sample.state()), Screen::LoadingCurrent(_)));
         assert!(matches!(Screen::build(&records, &live, &sample.state()), Screen::Checking { heading: "Setup", .. }));
     }
+    #[test]
+    fn support_sections_do_not_turn_partial_activity_into_a_complete_activity_page() {
+        use crate::diagnostics::{Section, SupportRead};
+        let sample = Sample::new(Case::new(Page::Diagnostics, "populated"));
+        let records = Records { details: None, support: Some(SupportRead {
+            status: Section::Loading, technical: Section::NotRequested,
+        }), ..sample.records() };
+        let reading = Reading { fresh: true, ..Reading::default() };
+        let state = State { page: Page::Diagnostics, ..State::default() };
+        assert!(matches!(Screen::build(&records, &reading, &state), Screen::Diagnostics(_)));
+        let state = State { page: Page::Activity, ..State::default() };
+        assert!(matches!(Screen::build(&records, &reading, &state), Screen::LoadingDetails { .. }),
+            "Activity still needs session and incident records not present in Read::Activity");
+    }
+
 }
