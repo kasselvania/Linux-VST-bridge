@@ -75,6 +75,7 @@ jobs:
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
         run: |
+          python3 bridge/crates/window/tests/test_remote_ui.py
           env -u WAYLAND_DISPLAY xvfb-run -a -s '-screen 0 1440x1000x24' \
             python3 bridge/crates/window/tests/bootstrap_redraw.py \
             --binary bridge/crates/window/target/release/bridge-window-preview \

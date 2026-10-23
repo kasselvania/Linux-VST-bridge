@@ -3,7 +3,7 @@
 
 Uses only the app's localhost remote API. Every test owns a hidden process,
 uses its returned widget geometry, and quits and reaps that process. Logs and
-the final app-only capture remain in a temporary directory outside the repo.
+explicit app-only captures remain in a temporary directory outside the repo.
 """
 
 import argparse
@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -75,8 +76,12 @@ class App:
                        and self.find(prefix="page_scroll"),
                        "the first rendered preview controls", 30)
             return self
-        except BaseException:
-            self.close()
+        except BaseException as error:
+            try:
+                self.close()
+            except Exception as cleanup:
+                error.add_note(f"Cleanup: {cleanup}")
+            error.add_note(f"Native app log and captures: {self.directory}")
             raise
 
     def before_remote(self):
@@ -107,8 +112,9 @@ class App:
             try:
                 if self.port is None:
                     raise RuntimeError("The app never advertised a remote port")
-                capture = self.request("/gq", timeout=15)
-                (self.directory / "final-capture.json").write_text(json.dumps(capture, indent=2))
+                # Captures are explicit assertions in the test body. Teardown
+                # must not depend on another framebuffer read being available.
+                self.request("/quit")
             except Exception as error:
                 failure = error
             try:
@@ -120,7 +126,7 @@ class App:
                 except subprocess.TimeoutExpired:
                     self.process.kill()
                     self.process.wait()
-                failure = failure or RuntimeError("Owned app did not exit after /gq")
+                failure = failure or RuntimeError("Owned app did not exit after /quit")
         else:
             self.process.wait()
         if failure is not None:
@@ -208,6 +214,9 @@ class App:
 
     def capture(self, name):
         capture = self.request("/g", scale=0.5)
+        retained = self.directory / (name + ".png")
+        shutil.copyfile(capture["png"], retained)
+        capture["png"] = str(retained)
         (self.directory / (name + ".json")).write_text(json.dumps(capture, indent=2))
         return capture["png"]
 
