@@ -175,6 +175,7 @@ pub fn retained_runtime(m: &Manager) -> PathBuf {
 }
 
 /// The smallest 64-bit Windows executable the installer import accepts.
+#[cfg(feature = "service-executor-fixture")]
 pub fn windows_executable(marker: u8) -> Vec<u8> {
     let mut bytes = vec![0; 1024];
     bytes[..2].copy_from_slice(b"MZ");
@@ -406,6 +407,7 @@ impl RealService {
         assert_eq!(read_json::<Value>(&held).unwrap()["pid"], self.pid());
     }
     /// The window's installer import: `bytes` under the file name `name`.
+    #[cfg(feature = "service-executor-fixture")]
     pub fn import_installer(&self, name: &str, bytes: &[u8]) -> Value {
         let source = self.published.fixture.outer.join(format!("import-{}", random_id().unwrap()));
         fs::write(&source, bytes).unwrap();
