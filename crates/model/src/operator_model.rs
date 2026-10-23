@@ -1057,36 +1057,13 @@ impl Action {
                 | Self::ProductUninstall { .. }
         )
     }
-    /// Shared-resource operations use the global status. Class-scoped operations
-    /// use the manager's exact offered refusal and repeat that check on execution.
-    pub fn requires_global_inactive(&self) -> bool {
-        self.requires_inactive() && !matches!(self,
-            Self::VendorSoftwareInstall { .. }
-                | Self::VendorApplicationOpen { .. }
-                | Self::CandidateHistoryComplete { .. }
-                | Self::CompatibilityPublishTest { .. }
-                | Self::CompatibilityResult { .. }
-                | Self::CompatibilityFinishResult { .. }
-                | Self::ExperimentalReplace { .. }
-                | Self::CandidateWithdraw { .. }
-                | Self::ExperimentalEnable { .. }
-                | Self::ExperimentalDisable { .. }
-                | Self::CandidatePublishOrdinary { .. }
-                | Self::OrdinaryRollback { .. }
-                | Self::BufferingSet { .. }
-                | Self::DeliverySet { .. }
-                | Self::PluginRemoveFromDaw { .. }
-                | Self::PluginAddBackToDaw { .. }
-                | Self::SetupRemoveFromDaw { .. }
-                | Self::SetupDelete { .. }
-        )
-    }
+
 }
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
-    fn inactivity_scope_distinguishes_class_changes_from_shared_operations() {
+    fn mutations_name_their_affected_owners_without_a_global_frontend_gate() {
         let candidate = "candidate".to_string();
         let current = PublicationIdentity {id:"publication".into(),sha256:"digest".into()};
         for action in [
@@ -1112,7 +1089,6 @@ mod tests {
                 forget_installer:false},
         ] {
             assert!(action.requires_inactive(), "Affected owners still need inactivity: {action:?}");
-            assert!(!action.requires_global_inactive(), "Unrelated DSP must remain independent: {action:?}");
         }
         for action in [Action::RuntimeInstall {}, Action::DependencyPrepare {},
             Action::EnvironmentRescan {environment:"environment".into()},
@@ -1121,7 +1097,7 @@ mod tests {
             Action::ProductUninstall {environment:"environment".into(),registration:"key".into(),
                 command_sha256:"digest".into(),confirmed:true},
             Action::TransactionReconcile {}] {
-            assert!(action.requires_global_inactive(), "Shared operation stays global: {action:?}");
+            assert!(action.requires_inactive(), "The service resolves the exact affected owners: {action:?}");
         }
     }
     #[test]
@@ -1158,7 +1134,6 @@ mod tests {
         assert_eq!(wire["settings"]["accessibility"], "windows_default");
         assert_eq!(serde_json::from_value::<Action>(wire.clone()).unwrap(), action);
         assert!(!action.requires_inactive());
-        assert!(!action.requires_global_inactive());
         wire["settings"]["command"] = serde_json::json!("arbitrary");
         assert!(serde_json::from_value::<Action>(wire).is_err());
         for value in ["profile_default", "windows_default", "disabled_for_host"] {

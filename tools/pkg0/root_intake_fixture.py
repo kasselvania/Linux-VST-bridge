@@ -111,9 +111,9 @@ def main():
                 env = dict(os.environ, PKG0_ROOT_INPUT_FIXTURE=str(usr),
                            PKG0_ROOT_EXPECT="ok" if case in ("valid", "valid_kit", "valid_source_kit") else "reject",
                            PKG0_ROOT_EXPECT_KIT="yes" if case in ("valid_kit", "valid_source_kit") else "no")
-                run("cargo", "test", "--manifest-path", str(ROOT / "bridge-manager/Cargo.toml"),
-                    "--locked", "--bin", "linux-vst-bridge", "--",
-                    "--ignored", "--exact", "package_authority::tests::root_owned_package_intake",
+                run("cargo", "test", "--manifest-path", str(ROOT / "crates/service/Cargo.toml"),
+                    "--locked", "--lib", "--",
+                    "--ignored", "--exact", "owner::package_authority::tests::root_owned_package_intake",
                     cwd=ROOT, env=env, stdout=subprocess.DEVNULL)
                 print(f"root-owned package intake {case}: passed")
             finally:

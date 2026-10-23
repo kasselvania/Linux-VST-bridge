@@ -4,7 +4,7 @@ import hashlib,json,os,pathlib,re,stat,struct,tempfile
 SOURCES={name:'tools/is4/'+name for name in ('identity.py','package.py','campaign.py','supervise.py','run.py','comparison.py')}
 SOURCES.update({name:'bridge-manager/runtime/'+name for name in ('session.py','ownership.py')})
 SOURCES.update({name:'tools/is3/'+name for name in ('report.py','environment.py','capability.cpp')})
-SOURCES.update({'policy.rs':'bridge-manager/src/installer_policy.rs','policy-example.rs':'bridge-manager/examples/is4_policy.rs','linker.py':'tools/is4/linker.py','policy-owner':None})
+SOURCES.update({'policy.rs':'crates/service/src/installer_policy.rs','policy-example.rs':'crates/service/examples/is4_policy.rs','linker.py':'tools/is4/linker.py','policy-owner':None})
 REQUIRED=frozenset(SOURCES)|{'payload.exe'}
 MANIFEST='fixture-manifest.json'
 OWNERS=('manager','operator_frontend','supervisor','ownership','installer_launch')

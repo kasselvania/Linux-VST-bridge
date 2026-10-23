@@ -64,9 +64,9 @@ class BuildContract(unittest.TestCase):
         data,dropped=run([sys.executable,'-c','print("x"*70000)'],10)
         self.assertEqual(len(data),32768);self.assertGreater(dropped,0)
     def test_generators_are_kit_owned_and_not_manager_embedded(self):
-        p=pathlib.Path(__file__).resolve().parents[2]/'bridge-manager/src/preparation/build.rs'
-        self.assertNotIn('include_str!("../../../tools/ap8_descriptor.py")',p.read_text())
-        self.assertIn('include_str!("../../../tools/mf3/kit_entry.py")',p.read_text())
+        p=pathlib.Path(__file__).resolve().parents[2]/'crates/service/src/preparation/build.rs'
+        self.assertNotIn('include_str!("../../../../tools/ap8_descriptor.py")',p.read_text())
+        self.assertIn('include_str!("../../../../tools/mf3/kit_entry.py")',p.read_text())
     def test_mixed_kit_and_generator_fail_closed(self):
         from kit_entry import load_generators,BUILDER,GENERATOR
         with tempfile.TemporaryDirectory() as d:

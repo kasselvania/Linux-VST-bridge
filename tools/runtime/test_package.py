@@ -198,7 +198,7 @@ class WholeArchiveTests(unittest.TestCase):
         self.assertFalse((self.source / "unexpected.tar.gz").exists())
 
     def test_slr_pin_matches_the_existing_delivery_catalog(self):
-        catalog = (p.ROOT / "bridge-manager/src/runtime_delivery.rs").read_text()
+        catalog = (p.ROOT / "crates/service/src/runtime_delivery.rs").read_text()
         for value in (p.SLR["url"], p.SLR["sha256"], str(p.SLR["size"])):
             self.assertIn(value, catalog)
 

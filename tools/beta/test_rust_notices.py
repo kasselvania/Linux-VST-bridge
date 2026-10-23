@@ -18,7 +18,7 @@ class FrontendNotices(unittest.TestCase):
             root = Path(tmp)
             bridge, private, output = root / "bridge", root / "private", root / "output"
             output.mkdir()
-            for name in ("bridge-manager", "native-vst3-proxy/backend"):
+            for name in ("crates/cli", "native-vst3-proxy/backend"):
                 path = bridge / name
                 path.mkdir(parents=True)
                 (path / "Cargo.toml").write_text("fixture")
@@ -60,7 +60,7 @@ class FrontendNotices(unittest.TestCase):
                                 for name, kind in (("vendor", None), ("registry", None), ("dev", "dev"))]
             metadata = {"packages": packages, "resolve": {"root": "app", "nodes": nodes}}
             public_metadata = {"packages": [dict(id="public", name="public", source=None,
-                manifest_path=str(bridge / "bridge-manager/Cargo.toml"))],
+                manifest_path=str(bridge / "crates/cli/Cargo.toml"))],
                 "resolve": {"root": "public", "nodes": [dict(id="public", deps=[])]}}
             commit(bridge)
             commit(private)

@@ -6,9 +6,8 @@
 //! command form, the reply envelopes and schema checks, the size and time
 //! bounds, and how a refusal reaches the window. A [`Transport`] only carries
 //! the bytes: the running service over its socket ([`Service`]), or the
-//! installed manager command run once per request ([`Subprocess`]);
-//! [`Installed`] chooses between them as the window does. The operator wire
-//! model (`operator_model`) is unchanged.
+//! command transport ([`Subprocess`]). [`Installed`] uses only the service;
+//! an unavailable service never promotes a client into a local state owner.
 use crate::operator_model as ui;
 use std::{
     ffi::OsString,
@@ -335,6 +334,102 @@ impl<T: Transport> Client<T> {
 
 /// The greeting of a status read on the service socket.
 pub const VIEW_GREETING: &[u8; 5] = b"LVV1\n";
+/// Commands are sent once. Losing their acknowledgement never permits replay.
+pub const COMMAND_GREETING: &[u8; 5] = b"LVA1\n";
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(tag = "kind", deny_unknown_fields)]
+enum CommandRequest {
+    Action { request: ui::Request },
+    ImportInstaller { name: String },
+    BrowserReturn { uri: String },
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CommandEnvelope {
+    operator_schema: u32,
+    command: CommandRequest,
+}
+/// Decode one command after its greeting. Imports carry exactly one open
+/// descriptor, never a path that the service would reopen.
+pub fn read_command_request(peer: &mut UnixStream) -> crate::Result<(Request, Option<File>)> {
+    let mut length = [0; 4];
+    peer.read_exact(&mut length)?;
+    let length = u32::from_le_bytes(length) as usize;
+    crate::require(length <= REQUEST_LIMIT, "operator_request_bound")?;
+    let mut bytes = vec![0; length];
+    peer.read_exact(&mut bytes)?;
+    let envelope: CommandEnvelope = serde_json::from_slice(&bytes)?;
+    crate::require(envelope.operator_schema == ui::OPERATOR_SCHEMA, &paired_model_required())?;
+    Ok(match envelope.command {
+        CommandRequest::Action { request } => (Request::Action(request), None),
+        CommandRequest::ImportInstaller { name } =>
+            (Request::ImportInstaller { name }, Some(receive_file(peer)?)),
+        CommandRequest::BrowserReturn { uri } => (Request::BrowserReturn(uri), None),
+    })
+}
+
+fn send_file(peer: &UnixStream, file: &File) -> io::Result<()> {
+    use std::os::fd::AsRawFd;
+    let mut marker = [b'F'];
+    let mut iov = libc::iovec { iov_base: marker.as_mut_ptr().cast(), iov_len: 1 };
+    // usize storage gives cmsghdr the alignment it requires on both targets.
+    let mut control = [0usize; 8];
+    let mut message: libc::msghdr = unsafe { std::mem::zeroed() };
+    message.msg_iov = &mut iov;
+    message.msg_iovlen = 1;
+    message.msg_control = control.as_mut_ptr().cast();
+    message.msg_controllen = unsafe { libc::CMSG_SPACE(std::mem::size_of::<libc::c_int>() as _) } as _;
+    unsafe {
+        let header = libc::CMSG_FIRSTHDR(&message);
+        (*header).cmsg_level = libc::SOL_SOCKET;
+        (*header).cmsg_type = libc::SCM_RIGHTS;
+        (*header).cmsg_len = libc::CMSG_LEN(std::mem::size_of::<libc::c_int>() as _) as _;
+        libc::CMSG_DATA(header).cast::<libc::c_int>().write(file.as_raw_fd());
+        if libc::sendmsg(peer.as_raw_fd(), &message, 0) != 1 {
+            return Err(io::Error::last_os_error());
+        }
+    }
+    Ok(())
+}
+fn receive_file(peer: &UnixStream) -> io::Result<File> {
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+    let mut marker = [0];
+    let mut iov = libc::iovec { iov_base: marker.as_mut_ptr().cast(), iov_len: 1 };
+    let mut control = [0usize; 8];
+    let mut message: libc::msghdr = unsafe { std::mem::zeroed() };
+    message.msg_iov = &mut iov;
+    message.msg_iovlen = 1;
+    message.msg_control = control.as_mut_ptr().cast();
+    message.msg_controllen = std::mem::size_of_val(&control) as _;
+    let mut descriptors = Vec::new();
+    unsafe {
+        #[cfg(target_os = "linux")]
+        let flags = libc::MSG_CMSG_CLOEXEC;
+        #[cfg(not(target_os = "linux"))]
+        let flags = 0;
+        let count = libc::recvmsg(peer.as_raw_fd(), &mut message, flags);
+        if count < 0 { return Err(io::Error::last_os_error()); }
+        let mut header = libc::CMSG_FIRSTHDR(&message);
+        while !header.is_null() {
+            if (*header).cmsg_level == libc::SOL_SOCKET && (*header).cmsg_type == libc::SCM_RIGHTS {
+                let bytes = ((*header).cmsg_len as usize).saturating_sub(libc::CMSG_LEN(0) as usize);
+                for index in 0..bytes / std::mem::size_of::<libc::c_int>() {
+                    let fd = libc::CMSG_DATA(header).cast::<libc::c_int>().add(index).read();
+                    descriptors.push(OwnedFd::from_raw_fd(fd));
+                }
+            }
+            header = libc::CMSG_NXTHDR(&message, header);
+        }
+        if count != 1 || marker != [b'F'] || message.msg_flags & libc::MSG_CTRUNC != 0
+            || descriptors.len() != 1 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "installer_descriptor_extent"));
+        }
+        if libc::fcntl(descriptors[0].as_raw_fd(), libc::F_SETFD, libc::FD_CLOEXEC) < 0 {
+            return Err(io::Error::last_os_error());
+        }
+    }
+    Ok(File::from(descriptors.pop().expect("one received descriptor")))
+}
 /// A status read as it crosses the socket: the reading client's operator
 /// model and the read's command form.
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -344,10 +439,9 @@ struct ViewRequest {
     command: Vec<String>,
 }
 impl Read {
-    /// Whether the service answers this read. The overview's platform
-    /// assessment probes the desktop session, which is the window's.
+    /// Every product read is answered by the committing service.
     pub fn served(&self) -> bool {
-        !matches!(self, Self::Overview)
+        true
     }
 }
 /// The service side of a status read: the read that follows the greeting.
@@ -403,8 +497,12 @@ enum Attempt {
     Failed(Failure),
 }
 impl Transport for Service {
-    fn exchange(&self, request: &Request, _: Option<File>) -> Result<Vec<u8>, Failure> {
+    fn exchange(&self, request: &Request, input: Option<File>) -> Result<Vec<u8>, Failure> {
         let error = |text: &str| Failure::Error(text.into());
+        if !matches!(request, Request::Read(_)) {
+            return self.command(request, input);
+        }
+        if input.is_some() { return Err(error("Unexpected installer descriptor")); }
         if !matches!(request, Request::Read(read) if read.served()) {
             return Err(error("The bridge service does not answer this request"));
         }
@@ -414,9 +512,8 @@ impl Transport for Service {
         frame.extend((body.len() as u32).to_le_bytes());
         frame.extend(body);
         let deadline = Instant::now() + request.deadline();
-        // An operation can pause the service, or it can restart, between two
-        // reads: a read it dropped is asked once more, and if nothing listens
-        // by then, the window's command answers it.
+        // A service restart can interrupt a read. Retry that read once; an
+        // unavailable owner remains unavailable. Commands are never replayed.
         for attempt in 0..2 {
             let mut peer = connect(&self.socket, CONNECT_DEADLINE).map_err(|e| match e.kind() {
                 io::ErrorKind::NotFound | io::ErrorKind::ConnectionRefused => Failure::Unavailable,
@@ -436,7 +533,45 @@ impl Transport for Service {
         unreachable!("the second attempt returns")
     }
 }
+impl Service {
+    fn command(&self, request: &Request, input: Option<File>) -> Result<Vec<u8>, Failure> {
+        let error = |text: &str| Failure::Error(text.into());
+        let command = match request {
+            Request::Action(request) if input.is_none() => CommandRequest::Action { request: request.clone() },
+            Request::ImportInstaller { name } if input.is_some() => CommandRequest::ImportInstaller { name: name.clone() },
+            Request::BrowserReturn(uri) if input.is_none() => CommandRequest::BrowserReturn { uri: uri.clone() },
+            _ => return Err(error("Manager command input does not match its request")),
+        };
+        let body = serde_json::to_vec(&CommandEnvelope { operator_schema: ui::OPERATOR_SCHEMA, command })
+            .map_err(|_| error("Request encoding failed"))?;
+        if body.len() > REQUEST_LIMIT { return Err(error("Manager request exceeded its bound")); }
+        let mut frame = COMMAND_GREETING.to_vec();
+        frame.extend((body.len() as u32).to_le_bytes());
+        frame.extend(body);
+        let deadline = Instant::now() + request.deadline();
+        let mut peer = connect(&self.socket, CONNECT_DEADLINE).map_err(|e| match e.kind() {
+            io::ErrorKind::NotFound | io::ErrorKind::ConnectionRefused => Failure::Unavailable,
+            _ => error("Bridge service is unavailable; the command was not submitted"),
+        })?;
+        // Once connected, any transport failure is uncertain. Do not reconnect
+        // or start a local writer: the owner may already have accepted it.
+        let uncertain = || error("Bridge command acknowledgement was lost. Refresh to inspect the result; the command was not repeated.");
+        peer.set_write_timeout(Some(Duration::from_secs(5))).map_err(|_| uncertain())?;
+        peer.write_all(&frame).map_err(|_| uncertain())?;
+        if let Some(input) = input { send_file(&peer, &input).map_err(|_| uncertain())?; }
+        match read_reply(&mut peer, deadline) {
+            Ok(reply) => Ok(reply),
+            Err(Attempt::Failed(failure)) => Err(failure),
+            Err(Attempt::Dropped) => Err(uncertain()),
+        }
+    }
+}
 fn read_once(peer: &mut UnixStream, frame: &[u8], deadline: Instant) -> Result<Vec<u8>, Attempt> {
+    peer.set_write_timeout(Some(Duration::from_secs(1))).map_err(|_| Attempt::Dropped)?;
+    peer.write_all(frame).map_err(|_| Attempt::Dropped)?;
+    read_reply(peer, deadline)
+}
+fn read_reply(peer: &mut UnixStream, deadline: Instant) -> Result<Vec<u8>, Attempt> {
     let lost = |e: io::Error| match e.kind() {
         io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut => Attempt::Failed(Failure::Error(
             "Manager readback timed out. Refresh to inspect any accepted operation.".into())),
@@ -447,8 +582,6 @@ fn read_once(peer: &mut UnixStream, frame: &[u8], deadline: Instant) -> Result<V
             .max(Duration::from_millis(1))))?;
         peer.read_exact(buffer)
     };
-    peer.set_write_timeout(Some(Duration::from_secs(1))).map_err(lost)?;
-    peer.write_all(frame).map_err(lost)?;
     let mut header = [0; 5];
     read(peer, &mut header).map_err(lost)?;
     let length = u32::from_le_bytes(header[1..].try_into().expect("four length bytes")) as u64;
@@ -494,34 +627,22 @@ fn connect(socket: &Path, _within: Duration) -> io::Result<UnixStream> {
     UnixStream::connect(socket)
 }
 
-/// The installed manager as the window reaches it. Status reads go to the
-/// running service, and run the manager command only while no service
-/// listens: an operation paused it for exclusive maintenance, or it is
-/// restarting. Actions, imports and the overview always run the command.
-///
-/// The command fallback for status reads goes away in #489 step 5, with the
-/// whole-service stop that makes it necessary.
+/// The installed service. An unavailable service never grants a local client
+/// permission to become a substitute state owner.
 pub struct Installed {
     service: Service,
-    command: Subprocess,
 }
 impl Installed {
-    pub fn new(service: Service, command: Subprocess) -> Self {
-        Self { service, command }
+    pub fn new(service: Service) -> Self {
+        Self { service }
     }
     pub fn home(home: &Path) -> Self {
-        Self::new(Service::installed(home), Subprocess::installed(home))
+        Self::new(Service::installed(home))
     }
 }
 impl Transport for Installed {
     fn exchange(&self, request: &Request, input: Option<File>) -> Result<Vec<u8>, Failure> {
-        if matches!(request, Request::Read(read) if read.served()) {
-            match self.service.exchange(request, None) {
-                Err(Failure::Unavailable) => {}
-                answered => return answered,
-            }
-        }
-        self.command.exchange(request, input)
+        self.service.exchange(request, input)
     }
 }
 
@@ -813,21 +934,19 @@ mod tests {
         assert!(writer.wait().unwrap().success());
     }
     #[test]
-    fn service_reads_fail_clearly_across_releases_and_use_the_command_only_without_a_service() {
+    fn service_reads_fail_clearly_and_never_create_a_fallback_owner() {
         use std::os::unix::net::UnixListener;
-        let root = std::env::temp_dir().join(format!("lvb-service-{}", crate::random_id().unwrap()));
+        let root = PathBuf::from("/tmp").join(format!("lvb-service-{}", crate::random_id().unwrap()));
         std::fs::create_dir_all(&root).unwrap();
         let socket = root.join("owner.sock");
         let program = root.join("manager");
         script(&program, "#!/bin/sh\necho \"$2 from the command\"\n");
-        let installed = |socket: &Path| Installed::new(Service::new(socket), Subprocess::new(&program)
-            .with_environment([("PATH", "/usr/bin:/bin")]));
+        let installed = |socket: &Path| Installed::new(Service::new(socket));
         let pulse = Request::Read(Read::Pulse);
         // No service listens: an operation paused it, or it is restarting.
         assert_eq!(Service::new(&socket).exchange(&pulse, None).unwrap_err(), Failure::Unavailable);
-        assert_eq!(installed(&socket).exchange(&pulse, None).unwrap(), b"pulse from the command\n");
-        assert_eq!(installed(&socket).exchange(&Request::Read(Read::Overview), None).unwrap(),
-            b"overview from the command\n", "the overview is the window's own assessment");
+        assert_eq!(installed(&socket).exchange(&pulse, None).unwrap_err(), Failure::Unavailable);
+        assert_eq!(installed(&socket).exchange(&Request::Read(Read::Overview), None).unwrap_err(), Failure::Unavailable);
         let listener = UnixListener::bind(&socket).unwrap();
         let serve = |connections: usize, answer: fn(&mut UnixStream)| {
             let listener = listener.try_clone().unwrap();
@@ -893,7 +1012,7 @@ mod tests {
             std::fs::remove_file(&stopped).unwrap();
             drop(stopping_listener);
         });
-        assert_eq!(installed(&stopping).exchange(&pulse, None).unwrap(), b"pulse from the command\n");
+        assert_eq!(installed(&stopping).exchange(&pulse, None).unwrap_err(), Failure::Unavailable);
         stop.join().unwrap();
         // A service of another operator model refuses with what the window shows.
         let other = serve(1, |peer| {
@@ -913,9 +1032,75 @@ mod tests {
         assert_eq!(reply[0], 1);
         assert_eq!(refusal(&reply[5..]), Failure::Error(format!("Error: \"{}\"\n", paired_model_required())));
         other.join().unwrap();
-        // The service answers status reads only.
-        assert!(Service::new(&socket).exchange(&action(), None).is_err());
+        // A missing import descriptor is refused before connecting.
+        assert!(Service::new(&socket).exchange(&Request::ImportInstaller { name: "test.exe".into() }, None).is_err());
         std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn commands_cross_the_owner_socket_once_and_lost_receipts_are_never_replayed() {
+        use std::os::unix::net::UnixListener;
+        let root = PathBuf::from("/tmp").join(format!("lvb-command-{}", crate::random_id().unwrap()));
+        std::fs::create_dir(&root).unwrap();
+        let socket = root.join("owner.sock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        let serving = listener.try_clone().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut peer, _) = serving.accept().unwrap();
+            let mut greeting = [0; 5];
+            peer.read_exact(&mut greeting).unwrap();
+            assert_eq!(&greeting, COMMAND_GREETING);
+            let (request, input) = read_command_request(&mut peer).unwrap();
+            assert_eq!(request, action());
+            assert!(input.is_none());
+            // The owner accepted it, but the connection ends before its receipt.
+        });
+        let failure = Service::new(&socket).exchange(&action(), None).unwrap_err();
+        server.join().unwrap();
+        assert!(matches!(failure, Failure::Error(ref text) if text.contains("was not repeated")));
+        listener.set_nonblocking(true).unwrap();
+        assert_eq!(listener.accept().unwrap_err().kind(), io::ErrorKind::WouldBlock);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn installer_command_transfers_the_selected_open_file_not_its_replaced_path() {
+        use std::os::unix::{fs::MetadataExt, net::UnixListener};
+        let root = PathBuf::from("/tmp").join(format!("lvb-import-{}", crate::random_id().unwrap()));
+        std::fs::create_dir(&root).unwrap();
+        let source = root.join("source.exe");
+        std::fs::write(&source, b"selected bytes").unwrap();
+        let selected = File::open(&source).unwrap();
+        let original = selected.metadata().unwrap();
+        std::fs::remove_file(&source).unwrap();
+        std::fs::write(&source, b"replacement bytes").unwrap();
+        let socket = root.join("owner.sock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut peer, _) = listener.accept().unwrap();
+            let mut greeting = [0; 5]; peer.read_exact(&mut greeting).unwrap();
+            assert_eq!(&greeting, COMMAND_GREETING);
+            let (request, input) = read_command_request(&mut peer).unwrap();
+            assert_eq!(request, Request::ImportInstaller { name: "chosen.exe".into() });
+            let mut input = input.unwrap();
+            let received = input.metadata().unwrap();
+            assert_eq!((received.dev(), received.ino()), (original.dev(), original.ino()));
+            let mut bytes = Vec::new(); input.read_to_end(&mut bytes).unwrap();
+            assert_eq!(bytes, b"selected bytes");
+            write_view_reply(&mut peer, Ok(b"imported")).unwrap();
+        });
+        assert_eq!(Service::new(&socket).exchange(&Request::ImportInstaller { name: "chosen.exe".into() }, Some(selected)).unwrap(), b"imported");
+        server.join().unwrap();
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn command_envelope_refuses_wrong_schema_and_oversized_body_before_dispatch() {
+        for body in [serde_json::to_vec(&CommandEnvelope { operator_schema: ui::OPERATOR_SCHEMA - 1,
+            command: CommandRequest::Action { request: match action() { Request::Action(r) => r, _ => unreachable!() } } }).unwrap(),
+            vec![b' '; REQUEST_LIMIT + 1]] {
+            let (mut client, mut server) = UnixStream::pair().unwrap();
+            client.write_all(&(body.len() as u32).to_le_bytes()).unwrap();
+            if body.len() <= REQUEST_LIMIT { client.write_all(&body).unwrap(); }
+            assert!(read_command_request(&mut server).is_err());
+        }
     }
     #[test]
     fn subprocess_carries_exit_status_bounds_and_input() {

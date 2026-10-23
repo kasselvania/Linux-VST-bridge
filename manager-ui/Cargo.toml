@@ -10,10 +10,11 @@ serde_json = "=1.0.150"
 
 lvb-client = { path = "../crates/client", features = ["native-dialogs"] }
 libc = "=0.2.189"
-linux-vst-bridge = { path = "../bridge-manager" }
+linux-vst-bridge = { package = "lvb-service", path = "../crates/service" }
 lvb-view-model = { path = "../crates/view-model" }
 
 [dev-dependencies]
+lvb-client = { path = "../crates/client", features = ["samples"] }
 png = "=0.18.1"
 # Previews and the render digests draw the named sample states.
 lvb-view-model = { path = "../crates/view-model", features = ["samples"] }

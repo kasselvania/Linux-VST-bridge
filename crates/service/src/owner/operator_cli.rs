@@ -1,0 +1,9794 @@
+//! MF1: closed operator requests dispatched to existing canonical owners.
+use super::*;
+use linux_vst_bridge::operator_model as ui;
+use linux_vst_bridge::operator_lock::timing::{self, Stage};
+use linux_vst_bridge::renderer_application as renderer;
+use linux_vst_bridge::service::contract;
+use serde_json::{json, Value};
+mod current;
+mod executor;
+pub(crate) mod maintenance;
+mod plugin_setup;
+mod preconditions;
+pub(super) mod automatic_install;
+pub(super) mod vendor_maintenance;
+pub(super) mod environment_install;
+pub(super) mod environment_runtime;
+mod environment_refresh;
+mod renderer_continuation;
+mod setup_removal;
+pub(super) mod uninstall;
+const ASC: &str = "arturia-software-center";
+const SERVICE: &str = "linux-vst-bridge.service";
+#[derive(Debug)]
+struct ServiceRestorationFailure {
+    reason: String,
+    completed_action: Value,
+}
+impl std::fmt::Display for ServiceRestorationFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Service restoration after completed preparation: {}", self.reason)
+    }
+}
+impl std::error::Error for ServiceRestorationFailure {}
+fn preparation_failure(action: &ui::Action, error: &(dyn std::error::Error + 'static)) -> Option<Value> {
+    if let Some(failure) = error.downcast_ref::<ServiceRestorationFailure>() {
+        Some(json!({"schema":1,"layer":"manager_control_plane",
+            "attempted_stage":"service_restoration","result":"refused",
+            "completed_action":failure.completed_action,
+            "installation_preserved":true,"prior_publication_provenance_preserved":true,
+            "automatic_retry":false,
+            "recovery":"Resume the exact retained operation through the ordinary recovery control. Completed preparation remains retained."}))
+    } else { preparation_cli::failure(action) }
+}
+#[cfg(test)]
+thread_local! {
+    static SCAN_SPAWN_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    // Synchronize an ordinary readback in the gap between admission and the
+    // final mutation. This hook is absent from product builds.
+    static PERFORMANCE_COMMIT_BARRIER: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = const { std::cell::RefCell::new(None) };
+}
+thread_local! {
+    /// Set while a package gate finishes dead tasks; see `settle_dead_workers`.
+    static RESTORATION_DEFERRED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+fn text(v: &Value, key: &str) -> String {
+    v[key].as_str().unwrap_or("unknown").into()
+}
+pub(super) fn vendor_state_live(state: &str) -> Result<bool> {
+    match state {
+        "active" | "activating" | "deactivating" | "reloading" => Ok(true),
+        "inactive" | "failed" => Ok(false),
+        _ => Err("operator_vendor_unit_state_unavailable".into()),
+    }
+}
+fn vendor_live() -> Result<bool> {vendor_cli::live(ASC)}
+fn service(action: &str) -> Result<()> {
+    require(
+        Command::new("systemctl")
+            .args(["--user", action, SERVICE])
+            .status()?
+            .success(),
+        "operator_service_transition_failed",
+    )
+}
+fn optional(path: &Path) -> Result<Value> {
+    if path.try_exists()? {
+        require(
+            file(path)?.metadata()?.len() <= 8 * 1024 * 1024,
+            "operator_record_bound",
+        )?;
+        read_json(path)
+    } else {
+        Ok(Value::Null)
+    }
+}
+/// An operation's request, as `optional` reads it; read once per composition.
+fn operation_request(m: &Manager, operation: &Path) -> Result<Value> {
+    let path = operation.join("request.json");
+    m.derive_once(&format!("operation_request:{}", path.display()), || optional(&path))
+}
+/// Each retained operation's directory and request, or why it could not be read.
+type OperationRequests = Vec<(PathBuf, std::result::Result<Value, String>)>;
+/// Every retained operation's request, as a product's receipts are found
+/// among them: in directory order, from at most 1,025 entries. Listed once
+/// per composition.
+fn operation_requests(m: &Manager) -> Result<std::sync::Arc<OperationRequests>> {
+    m.derive_once("operation_requests", || {
+        let dir = m.root.join("operator");
+        let mut requests = vec![];
+        if dir.exists() {
+            for entry in fs::read_dir(dir)?.take(1025) {
+                let p = entry?.path();
+                let Some(id) = p.file_name().and_then(|v| v.to_str()) else { continue };
+                if !valid_hex(id, 32) || !p.is_dir() { continue; }
+                let request = operation_request(m, &p).map_err(|error| error.to_string());
+                requests.push((p, request));
+            }
+        }
+        Ok(std::sync::Arc::new(requests))
+    })
+}
+fn token(m: &Manager) -> Result<String> {
+    token_with_registry(m, &m.registry()?)
+}
+fn token_with_registry(m: &Manager, registry: &Registry) -> Result<String> {
+    let managed_runtimes = linux_vst_bridge::runtime_delivery::readback_records(m)?;
+    Ok(hex(&sha2::Sha256::digest(serde_json::to_vec(
+        &json!({"software":optional(&m.root.join("software.json"))?,"registry":registry,
+            "managed_runtimes":managed_runtimes,
+            "preparation":optional(&m.root.join("preparation/revision.json"))?,
+            // The retired FL Studio workspace's record (#504 E3) is no input;
+            // its key stays, absent, until the schema-30 update.
+            "workspace":Value::Null,
+            "terminal_summaries":capacity::terminal_summaries(m)?,
+            "installer_presentations":installer_import::presentation_token(m)?,
+            "environment_installations":environment_install::records(m)?,
+            "environment_runtime_transitions":environment_runtime::records(m)?,
+            "renderer_transitions":environment_revision::renderer_records(m)?,
+            "refresh_checkpoints":environment_refresh::authority(m)?,
+            "renderer_checkpoints":renderer_continuation::authority(m)?,
+            "onboarding_history":onboarding::history_records(m)?,
+            "vendor_checkpoints":automatic_install::vendor_checkpoint_authority(m)?,
+            "user_programs":vendor_cli::selection::authority(m)?,
+            "deleted_setups":linux_vst_bridge::deleted_setup::records(m)?,
+            "uninstall_operations":uninstall::records(m)?}),
+    )?)))
+}
+fn action(label: &str, action: ui::Action, reason: Option<&str>) -> ui::AvailableAction {
+    ui::AvailableAction {
+        label: label.into(),
+        action,
+        disabled_reason: reason.map(Into::into),
+    }
+}
+fn session_projection(
+    capacity: Option<&CapacityReadback>,
+    summaries: Vec<capacity::TerminalSummary>,
+) -> Vec<Value> {
+    let mut rows:Vec<_> = capacity
+        .into_iter().flat_map(|status|status.owners.iter())
+        .filter(|owner| owner.kind == capacity::Kind::Dsp)
+        .map(|owner| json!({
+            "session":owner.session,
+            "class_id":owner.class_id,
+            "state":if capacity.is_some_and(|status|status.cleanup_unconfirmed){
+                "cleanup_unconfirmed"
+            }else if owner.terminal.is_some(){
+                "failed"
+            }else{
+                "active"
+            },
+            "terminal":owner.terminal,
+            "recent":false,
+        }))
+        .collect();
+    rows.extend(summaries.into_iter().map(|summary|json!({
+        "session":summary.session,
+        "class_id":summary.class_id,
+        "state":"failed",
+        "terminal":summary.terminal,
+        "recent":true,
+        "cleanup_confirmed":summary.cleanup_confirmed,
+        "transport_retired":summary.transport_retired,
+        "observed_at":summary.observed_at,
+    })));
+    rows
+}
+/// A module the scanner could not resolve. The composer adds the reason
+/// other work holds back its retry.
+fn quarantined_product(scan: &inventory::Scan, module_index: usize,
+    module: inventory::Module, stale: Option<&str>, retry_disabled: Option<&str>)
+    -> Result<ui::Product> {
+    let reason=module.quarantine_reason.as_deref()
+        .ok_or("operator_quarantine_reason_absent")?;
+    let inspection_error=module.inspection_error.clone();
+    let problem=if stale.is_none() { inventory::problem(&module) } else { None };
+    let mut limitations:Vec<String>=stale.into_iter().map(str::to_owned).collect();
+    if let Some(error)=&inspection_error { limitations.push(format!("Scanner reported: {error}")); }
+    limitations.push(reason.into());
+    let actions=vec![action("Retry this exact module scan",
+        ui::Action::QuarantinedModuleRetry {environment:scan.environment.id.clone(),
+            scan:scan.id.clone(),module_index,module_sha256:module.artifact.sha256.clone(),
+            report_sha256:module.report.sha256.clone()},stale.or(retry_disabled))];
+    Ok(ui::Product {class_id:String::new(),name:module.artifact.path.file_name()
+        .unwrap_or_default().to_string_lossy().into_owned(),vendor:"Unresolved factory".into(),
+        role:"unknown".into(),version:String::new(),
+        disposition:if stale.is_some(){"needs_attention"}else{"quarantined"}.into(),
+        active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),
+        runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256,
+        limitations,history:vec![],actions,compatibility:None,
+        availability:discovered_availability(problem.as_ref()),
+        details:json!({"scan":scan.id,"scanner_host_sha256":scan.host.sha256,
+            "scanner_source_sha256":scan.host_source_sha256,"current":stale.is_none(),
+            "inspection_error":inspection_error,"quarantine_reason":reason,"problem":problem,
+            "report_sha256":module.report.sha256,"activation_permitted":false})})
+}
+pub(super) const NO_NATIVE_CONNECTION: &str = "This installed plug-in has no current native DAW connection.";
+/// A discovered plug-in whose exact retained report explains why it is not
+/// connected says so, instead of the generic availability text.
+pub(super) fn discovered_availability(problem: Option<&linux_vst_bridge::problem::Explanation>)
+    -> Option<ui::NativeAvailability> {
+    problem.map(|problem| ui::NativeAvailability {available:false,reason:Some(problem.summary())})
+}
+/// A later compatibility state supersedes a discovery-time explanation: the
+/// explanation and the availability reason taken from it are withdrawn.
+pub(super) fn retire_discovered_problem(product: &mut ui::Product,
+    found: &linux_vst_bridge::problem::Explanation) {
+    product.details["problem"] = Value::Null;
+    if product.availability.as_ref().is_some_and(|a| !a.available
+        && a.reason.as_deref() == Some(found.summary().as_str())) {
+        product.availability = Some(ui::NativeAvailability {available:false,
+            reason:Some(NO_NATIVE_CONNECTION.into())});
+    }
+}
+fn app_directory(m: &Manager) -> PathBuf {
+    m.root.join("vendor-applications").join(ASC)
+}
+fn vendor_projections(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::VendorApplication>> {
+    let selected = vendor_cli::selectors(m)?;
+    let superseded = vendor_cli::selection::superseded(m)?;
+    // An app of a deleted setup is history, not something to open.
+    let deleted = linux_vst_bridge::deleted_setup::environments(m)?;
+    let mut rows = selected
+        .iter()
+        .filter(|selector| !superseded.contains(*selector))
+        .filter(|selector| deleted.is_empty() || vendor_cli::directory(m, selector)
+            .and_then(|directory| read_json::<vendor_application::Application>(&directory.join("application.json")))
+            .map_or(true, |app| !deleted.contains(&app.environment.id)))
+        .map(|selector| vendor_projection(m, selector, busy))
+        .collect::<Result<Vec<_>>>()
+        .map(|rows| rows.into_iter().flatten().collect::<Vec<_>>())?;
+    for record in onboarding::history_records(m)? {
+        if selected.iter().any(|selector| vendor_cli::application(m, selector).is_ok_and(|app|
+            app.environment.id == record.id && app.installer_sha256.as_deref() == Some(record.installer.as_str()))) { continue; }
+        // Observation failures belong to this setup's recovery projection;
+        // unrelated registered applications retain their own valid authority.
+        let Ok(choices) = vendor_cli::selection::choices(m, &record) else { continue; };
+        for choice in choices {
+            let selector = choice.application.selector()?;
+            if let Some(row) = vendor_projection(m, &selector, busy)? { rows.push(row); }
+        }
+    }
+    Ok(rows)
+}
+fn vendor_projection(
+    m: &Manager,
+    selector: &str,
+    busy: Option<&str>,
+) -> Result<Option<ui::VendorApplication>> {
+    let directory = vendor_cli::directory(m, selector)?;
+    let choosing = !directory.join("application.json").exists();
+    let a = vendor_cli::application(m, selector)?;
+    let live = vendor_cli::live(selector)?;
+    if a.user_selection.is_some() { return program_projection(m,selector,a,live,busy).map(Some); }
+    // A missing global busy reason already carries the caller's available
+    // service observation. When global users make it busy, obtain a fresh
+    // census before replacing that reason with this setup's exact owners.
+    let unavailable=busy.is_some() && live_capacity(m).is_err();
+    let scoped_reason=(||->Result<()> {
+        require(!unavailable,"The bridge service is unavailable")?;
+        maintenance::require_publications_settled(m, &a.environment)?;
+        require(!vendor_maintenance::blocks(m,&a.environment)?,"This setup has unfinished maintenance; recover or continue its task")?;
+        capacity::require_environment_inactive(m,&a.environment)
+    })().err().map(|error|error.to_string());
+    let busy=scoped_reason.as_deref();
+    let valid = a.validate_record(&m.root).is_ok();
+    let record = onboarding::retained_environment_record(m, &a.environment.id)?;
+    let continuation = automatic_install::vendor_intent(m, selector)?;
+    let installation_intent=record.as_ref().map(|record|automatic_install::record_intent(m,record)).transpose()?.flatten();
+    let current_intent = continuation.as_ref().or(installation_intent.as_ref());
+    let restartable=current_intent
+        .filter(|i|i.vendor.as_ref().is_some_and(|v|v.application==selector))
+        .map(|i|automatic_install::restartable_vendor(m,i)).transpose()?.unwrap_or(false);
+    let handoff = current_intent.map(|i|automatic_install::empty_vendor_handoff(m,i)).transpose()?.unwrap_or(false)
+        || record.as_ref().zip(current_intent).is_some_and(|(r, i)|
+        automatic_install::empty_bootstrap_handoff_record(m, r, i, selector).unwrap_or(false));
+    let unfinished = current_intent.is_some_and(|i| i.journey.phase != ui::InstallationPhase::Available);
+    let observed = if choosing { vendor_cli::selection::observed(m, selector)? } else { None };
+    let reason = if !valid {
+        Some("The selected application or installation changed")
+    } else if let Some(reason) = observed.as_ref().and_then(|c|c.missing_capability.as_deref()) {
+        Some(reason)
+    } else {
+        busy
+    };
+    let add_reason = if live {
+        Some("This application is already running")
+    } else if unfinished && !restartable && !handoff && current_intent.is_none_or(|i|i.vendor.is_none()) {
+        Some("Resume the unfinished installation first")
+    } else if current_intent.is_some_and(|i| i.journey.failure.as_ref().is_some_and(|f|!f.retryable)) && !restartable {
+        Some("Review the unfinished application task first")
+    } else {
+        reason
+    };
+    let name = observed.as_ref().map(|c|if choosing && !a.helpers.is_empty() {
+        format!("{} ({})", c.name, c.image_name)
+    } else { c.name.clone() }).unwrap_or_else(||a.display_name());
+    let job = optional(&directory.join("operation.json"))?;
+    let report = job["operation_id"].as_str().map(|op|vendor_cli::result(m, selector, op)).transpose()?;
+    let retired = report.as_ref().is_none_or(|r|r.retired());
+    Ok(Some(ui::VendorApplication {
+        id: selector.into(),
+        name: name.clone(),
+        version: a.observed_installer_version,
+        state: if live {
+            if report.as_ref().is_some_and(|r|r.state == vendor_application::OperationState::Unknown
+                && r.owned_live.is_none()) {"starting"} else {"running"}
+        } else if retired {
+            "closed"
+        } else {
+            "cleanup_unconfirmed"
+        }
+        .into(),
+        details: json!({"environment":a.environment.id,"journey":if handoff {None}else{current_intent.map(|i|&i.journey)},"choose_application":choosing,
+            "capability_notice":job["capability_notice"],"dependency":report.as_ref().and_then(|r|r.dependency.as_ref()),
+            "browser_return":report.as_ref().and_then(|r|r.browser_return.as_ref()),
+            "error_code":report.as_ref().and_then(|r|r.error_code.as_ref()),
+            "recover_check":job["operation_id"].as_str().and_then(|op|vendor_cli::recover_check(m,selector,op))}),
+        actions: vec![
+            action(
+                &if restartable {format!("Try installation again through {name}")}
+                    else if choosing || handoff {format!("Open {name}")}
+                    else if unfinished {format!("Continue in {name}")}
+                    else {format!("Add plug-ins through {name}")},
+                ui::Action::VendorSoftwareInstall {
+                    application: selector.into(),
+                    daw: ui::DawChoice::Other,
+                },
+                add_reason,
+            ),
+            action(
+                &format!("Show {name}"),
+                ui::Action::VendorApplicationFocus {
+                    application: selector.into(),
+                },
+                if live {
+                    None
+                } else {
+                    Some("This application is not running")
+                },
+            ),
+            action(
+                if live {"Stop this application session"}else{"Recover this application session"},
+                ui::Action::VendorApplicationStop {
+                    application: selector.into(),
+                },
+                if live || !retired || holds_reservation(m,&job)? {None}
+                    else {Some("This application session is already retired")},
+            ),
+        ],
+    }))
+}
+/// A retired session whose finished owner still holds the service reservation
+/// keeps Recover, which releases that reservation. Not while the owner may
+/// still run, nor while a package transition may hold it as its handoff.
+fn holds_reservation(m: &Manager, job: &Value) -> Result<bool> {
+    holds_reservation_with(m, job, |id| worker_live(m,id))
+}
+fn holds_reservation_with(m: &Manager, job: &Value,
+    worker_live: impl FnOnce(&str) -> Result<bool>) -> Result<bool> {
+    if m.root.join("package-transition.json").try_exists()? {
+        return Ok(false);
+    }
+    let mut owners = reservation_owners(m)?.into_iter().filter(|owner|
+        owner.vendor_operation.as_deref().is_some_and(|vendor| job["operation_id"] == vendor));
+    let Some(saved) = owners.next() else { return Ok(false) };
+    require(owners.next().is_none(), "operation_reservation_conflict")?;
+    let owner = optional(&job_dir(m, &saved.owner_operation)?.join("result.json"))?;
+    Ok(owner["operation"] == saved.owner_operation.as_str()
+        && matches!(owner["state"].as_str(), Some("completed" | "refused"))
+        && matches!(worker_live(&saved.owner_operation), Ok(false)))
+}
+fn program_projection(m: &Manager, selector: &str, app: vendor_application::Application,
+    live: bool, busy: Option<&str>) -> Result<ui::VendorApplication> {
+    let directory = vendor_cli::directory(m,selector)?;
+    let job = optional(&directory.join("operation.json"))?;
+    let retired = job["operation_id"].as_str().map(|op|vendor_cli::result(m,selector,op)
+        .map(|r|r.retired())).transpose()?.unwrap_or(true);
+    let observed = vendor_cli::selection::program_artifact(&app.executable.path);
+    let changed = observed.as_ref().is_ok_and(|a|a != &app.executable);
+    let valid = app.validate_record(&m.root).is_ok();
+    let open_reason = if changed {Some("Program updated; choose Use this version before opening it")}
+        else if observed.is_err() || !valid {Some("The selected program is unavailable; choose another")}
+        else if live {Some("This program is already running")} else {busy};
+    let mut actions = vec![
+        action("Open program",ui::Action::VendorApplicationOpen {application:selector.into()},open_reason),
+        action("Show program",ui::Action::VendorApplicationFocus {application:selector.into()},
+            if live {None}else{Some("This program is not running")}),
+        action("Close program",ui::Action::VendorApplicationClose {application:selector.into()},
+            if live {None}else{Some("This program is not running")}),
+        action(if live {"Force stop program"}else{"Recover program session"},
+            ui::Action::VendorApplicationStop {application:selector.into()},
+            if live || !retired {None}else{Some("This program is already closed")}),
+        action("Choose another program",ui::Action::ProgramChoose {
+            environment:app.environment.id.clone(),expected_environment:environment_runtime::identity(&app.environment)?,
+            executable:ui::ProgramExecutable {path:PathBuf::new(),sha256:String::new()}},busy),
+    ];
+    if changed {
+        actions.push(action("Use this version",ui::Action::ProgramAdopt {
+            application:selector.into(),expected_environment:environment_runtime::identity(&app.environment)?,
+            executable:{let file=observed?;ui::ProgramExecutable {path:file.path,sha256:file.sha256}}},if live || !retired {Some("Close this program before using the changed version")}else{busy}));
+    }
+    Ok(ui::VendorApplication {id:selector.into(),name:app.display_name(),
+        version:if changed {"Program updated"}else{"Selected by you"}.into(),
+        state:if live {"running"}else if !retired {"cleanup_unconfirmed"}else if changed {"program_updated"}else{"closed"}.into(),
+        details:json!({"environment":app.environment.id,"user_selected":true,
+            "executable":app.executable,"working_directory":app.user_selection.as_ref().map(|s|&s.working_directory),
+            "program_updated":changed}),actions})
+}
+pub(super) fn vendor_retired(m: &Manager) -> Result<bool> {
+    vendor_retired_with(m, vendor_live)
+}
+pub(super) fn vendor_retired_with(m: &Manager, is_live: impl FnOnce() -> Result<bool>) -> Result<bool> {
+    if !renderer_cli::all_retired(m)? || !dependency_cli::all_retired(m)? || !vendor_cli::all_retired(m)? {
+        return Ok(false);
+    }
+    if !app_directory(m).exists() {
+        return Ok(true);
+    }
+    if is_live()? {
+        return Ok(false);
+    }
+    let p = app_directory(m).join("operation-result.json");
+    if !p.exists() {
+        return Ok(true);
+    }
+    Ok(read_json::<vendor_application::OperationResult>(&p)?.retired())
+}
+fn count_entries(path: &Path) -> Result<usize> {
+    if !path.exists() {
+        return Ok(0);
+    }
+    let n = fs::read_dir(path)?
+        .take(4097)
+        .collect::<std::io::Result<Vec<_>>>()?
+        .len();
+    require(n <= 4096, "operator_entry_bound")?;
+    Ok(n)
+}
+fn capture_state(m: &Manager) -> Result<Value> {
+    let mut collecting = 0;
+    for path in crash_capture::incidents(m)? {
+        let state = optional(&path.join("status.json"))?;
+        if matches!(state["state"].as_str(), Some("claimed" | "collecting")) {
+            collecting += 1;
+        }
+    }
+    Ok(
+        json!({"armed":m.root.join("runtime/incidents/next.json").exists(),"active_retention":collecting}),
+    )
+}
+#[derive(Deserialize)]
+struct CapacityReadback {
+    schema: u32,
+    dsp: usize,
+    maintenance: usize,
+    keepers: usize,
+    cleanup_unconfirmed: bool,
+    owners: Vec<capacity::Owner>,
+    limits: CapacityLimits,
+}
+#[derive(Deserialize)]
+struct CapacityLimits {
+    global_dsp: usize,
+}
+fn live_capacity(m: &Manager) -> Result<CapacityReadback> {
+    let reply = capacity_reply(m)?;
+    require(reply["ok"] == true, "capacity_readback_unavailable")?;
+    let value: CapacityReadback = serde_json::from_value(reply["capacity"].clone())?;
+    require(value.schema == 1, "operator_capacity_schema")?;
+    Ok(value)
+}
+pub(super) fn pending_transactions(m: &Manager) -> Result<usize> {
+    let transactions = m.root.join("transactions");
+    let mut pending = 0;
+    if transactions.exists() {
+        require(
+            count_entries(&transactions)? <= 4096,
+            "operator_transaction_bound",
+        )?;
+        for item in fs::read_dir(transactions)? {
+            if item?
+                .file_name()
+                .to_string_lossy()
+                .ends_with(".pending.json")
+            {
+                pending += 1;
+            }
+        }
+    }
+    Ok(pending)
+}
+fn activity_with_capacity(m: &Manager, cap: Option<&CapacityReadback>) -> Result<ui::Activity> {
+    let pending = pending_transactions(m)?;
+    let stale = stale_transports(cap)?;
+    Ok(ui::Activity {
+        schema: ui::OPERATOR_SCHEMA,
+        system: system_from_capacity(cap, pending, stale),
+        capture: capture_state(m)?,
+        operation: automatic_install::current_operation(m)?,
+        workspace_product_install_ready: false,
+    })
+}
+fn stale_transports(cap: Option<&CapacityReadback>) -> Result<usize> {
+    let root = transport_storage::root();
+    let mut stale = 0;
+    if let Some(cap) = cap {
+        if root.exists() {
+            require(count_entries(&root)? <= 4096, "operator_transport_bound")?;
+            for item in fs::read_dir(root)? {
+                let item = item?;
+                let name = item.file_name().to_string_lossy().into_owned();
+                if item.file_type()?.is_dir()
+                    && valid_hex(&name, 32)
+                    && !cap.owners.iter().any(|o| o.session == name)
+                {
+                    stale += 1;
+                }
+            }
+        }
+    }
+    Ok(stale)
+}
+fn system_from_capacity(cap: Option<&CapacityReadback>, pending: usize, stale: usize) -> ui::System {
+    ui::System {
+            service: if cap.is_some() {
+                "active"
+            } else {
+                "capacity unavailable"
+            }
+            .into(),
+            keepers: cap.map_or(0, |c| c.keepers),
+            dsp: cap.map_or(0, |c| c.dsp),
+            maintenance: cap.map_or(0, |c| c.maintenance),
+            ceiling: cap.map_or(0, |c| c.limits.global_dsp),
+            pending_transactions: pending,
+            stale_transports: stale,
+            cleanup_unconfirmed: cap.is_none_or(|c| c.cleanup_unconfirmed),
+    }
+}
+fn activity(m: &Manager) -> Result<ui::Activity> {
+    let cap = live_capacity(m).ok();
+    activity_with_capacity(m, cap.as_ref())
+}
+/// The retired FL Studio workspace's record (#504 E3). Nothing reads it; the
+/// generation stamps it as absent until the schema-30 update.
+const RETIRED_WORKSPACE_RECORD: &str = "daw-workspaces/fl-studio/workspace.json";
+fn pulse_generation(m: &Manager) -> Result<String> {
+    use std::os::unix::fs::MetadataExt;
+    let paths = ["software.json", "registry.json", "preparation/revision.json",
+        RETIRED_WORKSPACE_RECORD, "operator/latest.json", "operator/resume.json",
+        "installers", "onboarding", "inventory", "transactions", "performance",
+        "runtime/leases", "runtime/owner.sock"];
+    let runtime_records=linux_vst_bridge::runtime_delivery::record_paths(m);
+    let paths = paths.into_iter().map(|relative|m.root.join(relative))
+        .chain(std::iter::once(m.root.join("runners")))
+        .chain(runtime_records.iter().cloned());
+    let mut stamps = Vec::new();
+    for path in paths {
+        let relative = path.strip_prefix(&m.root)?;
+        if relative == Path::new(RETIRED_WORKSPACE_RECORD) {
+            stamps.push(json!([relative,"absent"]));
+            continue;
+        }
+        match fs::symlink_metadata(&path) {
+            Ok(meta) => stamps.push(json!([relative,meta.dev(),meta.ino(),meta.len(),
+                meta.mtime(),meta.mtime_nsec(),meta.ctime(),meta.ctime_nsec()])),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound =>
+                stamps.push(json!([relative,"absent"])),
+            Err(e) if runtime_records.contains(&path) =>
+                stamps.push(json!([relative,"unavailable",format!("{:?}",e.kind())])),
+            Err(e) => return Err(e.into()),
+        }
+    }
+    let performance = m.root.join("performance");
+    if performance.is_dir() {
+        let mut entries = fs::read_dir(performance)?.collect::<std::io::Result<Vec<_>>>()?;
+        entries.sort_by_key(std::fs::DirEntry::file_name);
+        for (n, entry) in entries.into_iter().enumerate() {
+            require(n < 4096,"operator_pulse_performance_bound")?;
+            let path = entry.path();
+            let meta = fs::symlink_metadata(&path)?;
+            stamps.push(json!([path.file_name().map(|name|name.to_string_lossy().into_owned()),meta.dev(),meta.ino(),meta.len(),
+                meta.mtime(),meta.mtime_nsec(),meta.ctime(),meta.ctime_nsec()]));
+        }
+    }
+    Ok(hex(&sha2::Sha256::digest(serde_json::to_vec(&stamps)?)))
+}
+fn pulse_cleanup(m: &Manager) -> Option<bool> {
+    if let Some(census) = SERVICE_CENSUS.get() { return Some((census.cleanup)()); }
+    let mut peer = UnixStream::connect(m.root.join("runtime/owner.sock")).ok()?;
+    peer.set_read_timeout(Some(Duration::from_millis(200))).ok()?;
+    peer.set_write_timeout(Some(Duration::from_millis(200))).ok()?;
+    peer.write_all(b"LVP1\n").ok()?;
+    let mut state = [0_u8;1];
+    peer.read_exact(&mut state).ok()?;
+    match state[0] {0=>Some(false),1=>Some(true),_=>None}
+}
+fn operation_state_live(state: &str) -> bool {
+    matches!(state, "queued" | "waiting" | "running" | "vendor_running")
+}
+fn pulse(m: &Manager) -> Result<ui::Pulse> {
+    // The selected service's full LVC1 capacity response verifies product
+    // envelopes and is deliberately reserved for a fresh overview or action.
+    // Pulse only detects changes. It never certifies cleanup or admits work.
+    let service_state = readiness::service_state();
+    let owners = acquire_readback(m, ui::OperatorLock::Registry, None,
+        Duration::from_millis(200), &mut vec![])
+        .and_then(|_guard| capacity::owners(m)).ok();
+    let pending = pending_transactions(m)?;
+    let mut operation = automatic_install::current_operation(m)?;
+    present_verification_progress(m, &mut operation);
+    let operation_live = operation.as_ref().and_then(|v|v["state"].as_str())
+        .is_some_and(operation_state_live);
+    Ok(ui::Pulse {schema:ui::OPERATOR_SCHEMA,
+        service_state:service_state.into(),
+        dsp:owners.as_ref().map(|o|o.iter().filter(|v|v.kind == capacity::Kind::Dsp).count()),
+        keepers:owners.as_ref().map(|o|o.iter().filter(|v|v.kind == capacity::Kind::Keeper).count()),
+        maintenance:owners.as_ref().map(|o|o.iter().filter(|v|matches!(v.kind,
+            capacity::Kind::Inspection | capacity::Kind::VendorAccess)).count()),
+        pending_transactions:pending,
+        cleanup_unconfirmed:pulse_cleanup(m),
+        current_generation:pulse_generation(m)?,operation,operation_live})
+}
+fn inactive_reason(
+    cap: Option<&CapacityReadback>,
+    vendor_retired: bool,
+    pending: usize,
+    reconcile: bool,
+) -> Option<&'static str> {
+    // Recovery must remain callable when custody is uncertain. Its worker
+    // reconciles exact leases before checking inactivity at the write boundary.
+    if reconcile { return None; }
+    match cap {
+        None => Some("Service capacity unavailable; actions requiring inactivity are unsafe"),
+        Some(c) if c.cleanup_unconfirmed => Some("Previous instance cleanup is unconfirmed"),
+        Some(c) if c.dsp > 0 || c.maintenance > 0 => {
+            Some("Close active bridged instances before this action")
+        }
+        _ if !vendor_retired => {
+            Some("An installer, uninstaller or app is still open, or the manager couldn't confirm that it closed. Finish it or use its Stop control; for an installer or uninstaller, Check that it closed on its setup's card confirms it.")
+        }
+        _ if pending > 0 && !reconcile => Some("Reconcile the interrupted publication first"),
+        _ => None,
+    }
+}
+/// The class-scoped refusal for a loaded plug-in. Musician-facing removal
+/// replaces it with the plug-in's own name.
+pub(super) const CLASS_LOADED: &str = "Close instances of this plug-in before changing its configuration";
+// Publication and per-class preferences do not mutate a shared environment.
+// Unknown custody and maintenance still block them; independent DSP does not.
+fn class_inactive_reason(
+    system: &ui::System, owners: &[capacity::Owner], _vendor_retired: bool, class: &str,
+) -> Option<&'static str> {
+    if !system.capacity_available() {
+        Some("Service capacity unavailable; actions requiring inactivity are unsafe")
+    } else if owners.iter().any(|owner| owner.kind == capacity::Kind::Dsp
+        && owner.class_id.eq_ignore_ascii_case(class)) {
+        Some(CLASS_LOADED)
+    } else { None }
+}
+fn require_operator_inactive_with(
+    m: &Manager,
+    a: &ui::Action,
+    _capacity_read: &dyn Fn() -> Option<CapacityReadback>,
+    operation: Option<&str>,
+    timeout: Duration,
+    waits: &mut Vec<ui::LockFacts>,
+) -> Result<()> {
+    if !a.requires_inactive() || matches!(a, ui::Action::TransactionReconcile {}) {
+        return Ok(());
+    }
+    // New immutable runtime/setup storage does not alter an existing setup.
+    if matches!(a, ui::Action::RuntimeInstall {} | ui::Action::InstallerEnvironmentCreate { .. }
+        | ui::Action::InstallerNewAttempt { .. } | ui::Action::SoftwareInstall { .. }
+        | ui::Action::SoftwareInstallWithPolicy { .. }) { return Ok(()); }
+    let owned=operation.map(|id|vendor_maintenance::owned(m,id)).transpose()?.flatten();
+    let vendor_action=matches!(a,ui::Action::VendorSoftwareInstall {..}|ui::Action::VendorApplicationOpen {..});
+    if owned.is_some() || vendor_action {
+        if let Some(environment)=vendor_maintenance::action_environment(m,a)? {
+            if let Some(bound)=&owned {require(*bound==environment,"vendor_maintenance_child_scope")?;}
+            let _admission=acquire_readback(m,ui::OperatorLock::Registry,operation,timeout,waits)?;
+            if let Some(id)=operation.filter(|_|owned.is_some()) {
+                require(vendor_maintenance::owned(m,id)?==Some(environment.clone()),"vendor_maintenance_generation_changed")?;
+            } else {require(!vendor_maintenance::blocks(m,&environment)?,"setup_maintenance_active")?;}
+            return capacity::require_environment_inactive(m,&environment);
+        }
+    }
+    if let ui::Action::SetupDelete { environment, .. } = a {
+        if deleted_setup::load(m, environment)?.is_some() { return Ok(()); }
+    }
+    let environment = maintenance::environment(m, a)?.ok_or("operator_action_scope_unresolved")?;
+    let retired = vendor_maintenance::observe_retired(m, &environment)?;
+    let _admission = acquire_readback(m, ui::OperatorLock::Registry, operation, timeout, waits)?;
+    retired.verify(m)?;
+    require(maintenance::held(m)?.iter().all(|record|
+        operation == Some(record.owner.owner_operation.as_str())
+        || (record.environment.id != environment.id && record.environment.root != environment.root)),
+        "setup_maintenance_active")?;
+    require(!vendor_maintenance::blocks(m, &environment)?, "setup_maintenance_active")?;
+    maintenance::require_publications_settled(m, &environment)?;
+    let result = match a {
+        ui::Action::BufferingSet {class_id,..} | ui::Action::DeliverySet {class_id,..}
+        | ui::Action::PluginRemoveFromDaw {class_id,..} => m.require_inactive(Some(class_id)),
+        _ => capacity::require_environment_inactive(m, &environment),
+    };
+    result.map_err(|error| setup_removal::admission_refusal(m, a, &error.to_string()).into())
+}
+
+fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
+    history_with(m, key, entry, true)
+}
+fn history_records(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
+    history_with(m, key, entry, false)
+}
+fn history_with(m: &Manager, key: &str, entry: &Entry, execution: bool) -> Result<Vec<ui::History>> {
+    // History describes retained identities. Live execution is admitted by the
+    // restore worker; changed vendor state must not erase readable history.
+    let load = Manager::load_revision_record;
+    let mut ancestors = std::collections::BTreeSet::new();
+    let mut current = entry.managed_revision.clone();
+    for _ in 0..256 {
+        let Some(r) = current else { break };
+        let revision = load(m, key, &r)?;
+        ancestors.insert(revision.id);
+        current = revision.parent;
+    }
+    let mut result = Vec::new();
+    let dir = m.root.join("publications").join(key).join("revisions");
+    if !dir.exists() {
+        return Ok(result);
+    }
+    for item in fs::read_dir(dir)?.take(257) {
+        require(result.len() < 256, "operator_history_bound")?;
+        let path = item?.path().join("revision.json");
+        if !path.exists() {
+            continue;
+        }
+        let (raw, sha256): (publication::Revision, _) = read_json_identity(&path)?;
+        let reference = publication::RevisionRef {
+            id: raw.id.clone(),
+            sha256,
+        };
+        let r = load(m, key, &reference)?;
+        let retained_user_selection =
+            (r.qualification.is_none() && r.profile.claim == profiles::Claim::VerifiedExactFixture)
+            || r.qualification == Some(publication::Qualification::ManagedExperimental);
+        let performance = m.performance(key)?;
+        let buffering = performance.added_frames;
+        let environment_current = read_json::<Environment>(
+            &r.registration.environment.root.join("environment.json"))
+            .is_ok_and(|current|current == r.registration.environment);
+        let mut rollback_unavailable = if !environment_current {
+            Some("The compatibility space changed. Bridge records are retained, but vendor changes cannot be rolled back. Prepare this version in the current setup before using it.".into())
+        } else if execution && buffering == 1024 {
+            match preparation::build::revision_maximum_bridge_frames(m, &r) {
+                Ok(Some(1024)) => None,
+                Ok(_) => Some("This version cannot retain the selected 1024-frame buffering. Select supported buffering before restoring it.".into()),
+                Err(_) => Some("The retained version's buffering capability could not be verified.".into()),
+            }
+        } else { None };
+        if execution && rollback_unavailable.is_none() && performance.delivery_mode == DeliveryMode::SameCallback {
+            rollback_unavailable = match preparation::build::revision_supports_audio_completion(m, &r) {
+                Ok(true) => None,
+                Ok(false) => Some("Select buffered delivery before restoring this older publication; it does not support same-callback delivery.".into()),
+                Err(_) => Some("The retained version's audio delivery capability could not be verified.".into()),
+            };
+        }
+        let graphics = if r.registration.compatibility.graphics.is_some() {
+            "Wine D3D11 graphics"
+        } else { "default graphics" };
+        let description = format!("{} · version {} · {} · {}-frame remembered bridge buffering{}",
+            r.profile.class.name, r.profile.class.version, graphics, buffering,
+            if performance.delivery_mode == DeliveryMode::SameCallback { " · same-callback delivery; target support checked before restoration" }
+            else if !execution && buffering == 1024 { " · target capacity checked before restoration" }
+            else if rollback_unavailable.is_none() { " retained" } else { " unavailable" });
+        result.push(ui::History {
+            revision: r.profile.revision,
+            claim: serde_json::to_value(r.profile.claim)?
+                .as_str()
+                .unwrap_or("unknown")
+                .into(),
+            publication: r.id.clone(),
+            active: entry.publication == Publication::Published
+                && entry.managed_revision.as_ref() == Some(&reference),
+            rollback_allowed: retained_user_selection && ancestors.contains(&r.id),
+            description, rollback_unavailable,
+        });
+    }
+    result.sort_by_key(|r| r.revision);
+    Ok(result)
+}
+fn managed_environment_bindings(
+    m: &Manager,
+    catalogue: Option<&linux_vst_bridge::catalogue::Catalogue>,
+    registry: &Registry,
+) -> Result<Vec<linux_vst_bridge::catalogue::EnvironmentBinding>> {
+    let mut bindings = catalogue.map_or_else(Vec::new, |c| c.environments.clone());
+    let replacements:std::collections::BTreeSet<_>=environment_install::records(m)?.into_iter()
+        .map(|record|record.environment.id).collect();
+    for retained in onboarding::history_records(m)? {
+        if !registry
+            .classes
+            .values()
+            .any(|entry| entry.registration.environment.id == retained.environment.id)
+            && !replacements.contains(&retained.environment.id)
+        {
+            continue;
+        }
+        let binding = linux_vst_bridge::catalogue::EnvironmentBinding {
+            family: linux_vst_bridge::profiles::Family::ManagedInstallerV1,
+            environment: retained.environment,
+        };
+        if let Some(existing) = bindings
+            .iter()
+            .find(|candidate| candidate.environment.id == binding.environment.id)
+        {
+            require(
+                existing.family == binding.family && environment_install::current_environment(m,&existing.environment)?
+                    == environment_install::current_environment(m,&binding.environment)?,
+                "operator_managed_environment_binding_conflict",
+            )?;
+        } else {
+            require(bindings.len() < 16, "operator_environment_bound")?;
+            bindings.push(binding);
+        }
+    }
+    if let Some(binding) = linux_vst_bridge::frg1::adopted_environment_record(m)? {
+        if let Some(existing) = bindings.iter()
+            .find(|candidate| candidate.environment.id == binding.environment.id) {
+            require(existing.family==binding.family
+                && environment_install::current_environment(m,&existing.environment)?
+                    ==environment_install::current_environment(m,&binding.environment)?,
+                "operator_managed_environment_binding_conflict")?;
+        } else {
+            require(bindings.len() < 16,"operator_environment_bound")?;
+            bindings.push(binding);
+        }
+    }
+    for binding in &mut bindings {
+        // Catalogue runner templates are not installed environment ownership.
+        if registry.classes.values().any(|entry|entry.registration.environment.id == binding.environment.id)
+            || replacements.contains(&binding.environment.id)
+            || linux_vst_bridge::frg1::adopted_environment_record(m)?.as_ref()
+                .is_some_and(|adopted|adopted.environment.id == binding.environment.id) {
+            binding.environment=environment_install::current_environment(m,&binding.environment)?;
+        }
+    }
+    Ok(bindings)
+}
+fn discovery_environments(bindings: &[catalogue::EnvironmentBinding],
+    records: &[onboarding::Record]) -> Result<Vec<Environment>> {
+    let mut environments = std::collections::BTreeMap::new();
+    for environment in bindings.iter().map(|binding| &binding.environment)
+        .chain(records.iter().map(|record| &record.environment)) {
+        if let Some(current) = environments.get(&environment.id) {
+            require(current == environment,"operator_managed_environment_binding_conflict")?;
+        } else {
+            environments.insert(environment.id.clone(),environment.clone());
+        }
+    }
+    Ok(environments.into_values().collect())
+}
+fn managed_rescan_binding_from(
+    m: &Manager,
+    bindings: &[linux_vst_bridge::catalogue::EnvironmentBinding],
+    registry: &Registry,
+    environment: &str,
+) -> Result<Option<Environment>> {
+    managed_rescan_binding_with(m, bindings, registry, environment, false)
+}
+fn managed_rescan_binding_with(m: &Manager, bindings: &[catalogue::EnvironmentBinding],
+    registry: &Registry, environment: &str, execution: bool) -> Result<Option<Environment>> {
+    let bound = &bindings
+        .iter()
+        .find(|candidate| candidate.environment.id == environment)
+        .ok_or("operator_environment_absent")?
+        .environment;
+    let owners: Vec<_> = registry
+        .classes
+        .values()
+        .filter(|entry| entry.registration.environment.id == environment)
+        .collect();
+    // Installer ownership does not change when its first plug-in is published.
+    // Projection observes custody; only execution requires proven retirement.
+    let replacement=environment_install::latest(m,environment)?;
+    let original=onboarding::retained_environment_record(m,environment)?;
+    if owners.is_empty() && replacement.is_none() {
+        let adopted = if execution { linux_vst_bridge::frg1::adopted_environment(m)? }
+            else { linux_vst_bridge::frg1::adopted_environment_record(m)? };
+        if let Some(binding)=adopted {
+            if binding.environment.id != bound.id {return Ok(None);}
+            let current=environment_install::current_environment(m,&binding.environment)?;
+            require(environment_install::resolves_to(m,bound,&current)?,"operator_managed_environment_mismatch")?;
+            return Ok(Some(current));
+        }
+        return Ok(None);
+    }
+    let env=environment_install::current_environment(m,bound)?;
+    for entry in &owners {
+        require(environment_install::resolves_to(m,&entry.registration.environment,&env)?,
+            "operator_managed_environment_mismatch")?;
+    }
+    if let Some(replacement)=replacement {
+        require(environment_install::resolves_to(m,&replacement.environment,&env)?,
+            "operator_managed_environment_mismatch")?;
+        if execution {
+            if let Some(original)=&original {
+                require(original.installation_operation.is_none()
+                    || onboarding::retired(&onboarding::result(m,original)?),
+                    "installer_initial_retirement_required")?;
+            }
+            require(onboarding::retired(&environment_install::result(m,&replacement)?),
+                "installer_retirement_required")?;
+            for operation in original.as_ref().and_then(|record|record.installation_operation.as_ref())
+                .into_iter().chain(std::iter::once(&replacement.operation)) {
+                require(!onboarding::live(operation)?,"operator_installer_active")?;
+            }
+            env.runner.verify()?;
+        }
+        return Ok(Some(env));
+    }
+    if let Some(retained) = original {
+        require(
+            retained.environment == env,
+            "operator_onboarding_environment_mismatch",
+        )?;
+        if execution {
+            require(retained.installation_operation.is_none()
+                || onboarding::retired(&onboarding::result(m,&retained)?),
+                "installer_retirement_required")?;
+            if let Some(operation)=retained.installation_operation {
+                require(!onboarding::live(&operation)?,"operator_installer_active")?;
+            }
+        }
+    }
+    if execution {env.runner.verify()?;}
+    Ok(Some(env))
+}
+fn quarantined_retry_disabled(m: &Manager,
+    bindings: &[linux_vst_bridge::catalogue::EnvironmentBinding],
+    registry: &Registry, environment: &Environment) -> Result<Option<&'static str>> {
+    match quarantined_retry_binding(m, bindings, registry, &environment.id, false)? {
+        Some(current) => {
+            require(current == *environment,
+                "operator_managed_environment_binding_conflict")?;
+            Ok(None)
+        }
+        None => Ok(Some("No completed setup is recorded for this plug-in. Choose its installer in Setup.")),
+    }
+}
+/// A failed first discovery has no publication yet. Its retired installer still
+/// owns that setup, so an exact module retry does not need a registered class.
+/// This grants no general managed-environment or publication authority.
+fn quarantined_retry_binding(m: &Manager, bindings: &[catalogue::EnvironmentBinding],
+    registry: &Registry, environment: &str, execution: bool) -> Result<Option<Environment>> {
+    if bindings.iter().any(|binding| binding.environment.id == environment) {
+        if let Some(current) = managed_rescan_binding_with(m, bindings, registry,
+            environment, execution)? { return Ok(Some(current)); }
+    }
+    let Some(record) = onboarding::retained_environment_record(m, environment)?
+        else { return Ok(None) };
+    let Some(operation) = record.installation_operation.as_deref()
+        else { return Ok(None) };
+    if !onboarding::retired(&onboarding::result(m, &record)?) {
+        require(!execution, "installer_retirement_required")?;
+        return Ok(None);
+    }
+    if execution {
+        require(!onboarding::live(operation)?, "operator_installer_active")?;
+        record.environment.runner.verify()?;
+    }
+    Ok(Some(record.environment))
+}
+fn managed_rescan_binding(
+    m: &Manager,
+    catalogue: Option<&linux_vst_bridge::catalogue::Catalogue>,
+    registry: &Registry,
+    environment: &str,
+) -> Result<Option<Environment>> {
+    managed_rescan_binding_with(
+        m,
+        &managed_environment_bindings(m, catalogue, registry)?,
+        registry,
+        environment,
+        true,
+    )
+}
+#[cfg(test)]
+pub(super) fn environment_projection(
+    m: &Manager,
+    sw: &Software,
+    catalogue: Option<&linux_vst_bridge::catalogue::Catalogue>,
+    registry: &Registry,
+    busy: Option<&str>,
+) -> Result<Vec<ui::Environment>> {
+    let bindings = managed_environment_bindings(m, catalogue, registry)?;
+    environment_projection_from(m, sw, &bindings, registry, busy)
+}
+fn environment_projection_from(
+    m: &Manager,
+    _sw: &Software,
+    bindings: &[linux_vst_bridge::catalogue::EnvironmentBinding],
+    registry: &Registry,
+    busy: Option<&str>,
+) -> Result<Vec<ui::Environment>> {
+    // Current evidence covers known modules; vendor applications can add others
+    // without changing the managed environment or its existing publications.
+    bindings
+        .iter()
+        .map(|entry| {
+            let scan = optional(
+                &m.root
+                    .join("inventory")
+                    .join(format!("{}.json", entry.environment.id)),
+            )?;
+            let actions = if let Some(environment) = managed_rescan_binding_from(
+                m,
+                bindings,
+                registry,
+                &entry.environment.id,
+            )?
+            {
+                vec![action(
+                    "Find installed plug-ins",
+                    ui::Action::EnvironmentRescan {
+                        environment: environment.id,
+                    },
+                    busy,
+                )]
+            } else {
+                vec![]
+            };
+            Ok(ui::Environment {
+                id: entry.environment.id.clone(),
+                family: format!("{:?}", entry.family),
+                runner: entry.environment.runner.id.clone(),
+                revision: entry.environment.revision,
+                authorization: "Managed by the vendor and user; account state is not inspected"
+                    .into(),
+                last_scan: json!({"id":scan["id"],"completed_at":scan["completed_at"],
+                    "module_count":scan["modules"].as_array().map(Vec::len),"changes":scan["changes"]}),
+                actions,
+            })
+        })
+        .collect()
+}
+// A fresh product install has no native catalogue until a managed native
+// publication exists. An empty registry can bootstrap the first inventory;
+// Exact managed preparation owns new publications without a static catalogue;
+// the separate sealed FRG1 fixture retains its historical authority.
+fn operator_catalogue(m: &Manager, sw: &Software, registry: &Registry)
+    -> Result<Option<linux_vst_bridge::catalogue::Catalogue>> {
+    if sw.native_catalogue.is_none() {
+        require(linux_vst_bridge::catalogue::catalogue_free_registry(m, registry)?,
+            "native_catalogue_absent_run_product_setup")?;
+        Ok(None)
+    } else {
+        Ok(Some(sw.catalogue(m)?))
+    }
+}
+fn operator_catalogue_readback(m: &Manager, sw: &Software, registry: &Registry)
+    -> Result<Option<linux_vst_bridge::catalogue::Catalogue>> {
+    operator_catalogue_records(m, sw, registry, &preparation::RecordReadback::capture_unwatched(m)?)
+}
+fn operator_catalogue_records(m: &Manager, sw: &Software, registry: &Registry,
+    records: &preparation::RecordReadback) -> Result<Option<linux_vst_bridge::catalogue::Catalogue>> {
+    if sw.native_catalogue.is_none() {
+        require(records.catalogue_free_registry(m, registry)?
+            || linux_vst_bridge::frg1::catalogue_free_registry_readback(m, registry)?,
+            "native_catalogue_absent_run_product_setup")?;
+        Ok(None)
+    } else {
+        Ok(Some(sw.catalogue_record(m)?))
+    }
+}
+pub(super) const OPERATOR_WAIT: Duration = Duration::from_secs(10);
+#[cfg(test)]
+fn canonical_lock(m: &Manager) -> Result<Lock> {
+    Ok(m.lock_bounded(
+        ui::OperatorLock::Canonical,
+        ui::LockPurpose::ActionSerialization,
+        None,
+        OPERATOR_WAIT,
+    )?
+    .0)
+}
+fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
+    snapshot_for_operation(m, None, OPERATOR_WAIT, &mut vec![], &|| {
+        live_capacity(m).ok()
+    })
+}
+/// Explicit report collection asks the same owner as plug-in Details for
+/// retained check diagnoses. Passive overviews deliberately omit these reads.
+pub(super) fn problem_report_snapshot(m: &Manager, expected_token: &str) -> Result<ui::Snapshot> {
+    let m = &m.composing();
+    let mut captured = current::capture(m)?;
+    require(captured.snapshot.state_token == expected_token, "operator_stale_request_refresh")?;
+    let mut products = std::mem::take(&mut captured.snapshot.products);
+    preparation_cli::project_scoped_records(m, &captured.software, &mut products,
+        captured.busy, None, &|class| captured.class_busy(class), &captured.preparation)?;
+    captured.snapshot.products = products;
+    captured.capture_preparation_watches()?;
+    captured.recheck(m)?;
+    Ok(captured.snapshot)
+}
+fn overview(m: &Manager) -> Result<ui::InteractiveOverview> {
+    overview_for_session(m, None)
+}
+pub(super) fn overview_for_session(m: &Manager, graphical: Option<&readiness::DesktopContext>) -> Result<ui::InteractiveOverview> {
+    let m = &m.composing();
+    linux_vst_bridge::with_readback_digests(|| {
+        std::thread::scope(|scope| {
+        let probe = scope.spawn(|| {
+            let started = Instant::now();
+            (readiness::collect_for_session(m, graphical), started.elapsed().as_millis())
+        });
+        let captured = current::capture(m)?;
+        let (platform, probe_ms) = probe.join().map_err(|_| "platform_probe_failed")?;
+        #[cfg(feature = "pb0-c0-audit")]
+        eprintln!("PB0_PHASE {}",json!({"platform_probes_ms":probe_ms}));
+        #[cfg(not(feature = "pb0-c0-audit"))]
+        let _ = probe_ms;
+        let resolve_at = Instant::now();
+        let readiness = readiness::resolve_captured(&captured.snapshot, &platform,
+            &captured.profiles, &captured.revisions, observation::now()?);
+        #[cfg(feature = "pb0-c0-audit")]
+        eprintln!("PB0_PHASE {}",json!({"readiness_resolution_ms":resolve_at.elapsed().as_millis()}));
+        #[cfg(not(feature = "pb0-c0-audit"))]
+        let _ = resolve_at;
+        captured.recheck(m)?;
+        let generation = captured.current_generation.clone();
+        let current = captured.snapshot;
+        Ok(ui::InteractiveOverview {schema: 1, operator_schema: ui::OPERATOR_SCHEMA,
+            scope: "current_only".into(),current_generation:generation,
+            current, readiness})
+        })
+    })
+}
+fn current_overview(m: &Manager) -> Result<ui::CurrentOverview> {
+    current_overview_with_reuse(m).map(|(overview, _)| overview)
+}
+fn current_overview_with_reuse(m: &Manager) -> Result<(ui::CurrentOverview, current::Reuse)> {
+    let m = &m.composing();
+    linux_vst_bridge::with_readback_digests(|| {
+        let captured = current::capture(m)?;
+        captured.recheck(m)?;
+        let reuse = captured.reuse();
+        Ok((ui::CurrentOverview {schema:1,operator_schema:ui::OPERATOR_SCHEMA,
+            scope:"current_only".into(),current_generation:captured.current_generation,
+            current:captured.snapshot}, reuse))
+    })
+}
+fn product_detail(m: &Manager, environment: &str, module: &str,
+    class: &str) -> Result<ui::CurrentProductDetail> {
+    product_detail_with_reuse(m, environment, module, class).map(|(detail, _)| detail)
+}
+fn product_detail_with_reuse(m: &Manager, environment: &str, module: &str,
+    class: &str) -> Result<(ui::CurrentProductDetail, current::Reuse)> {
+    // The entire product projection is readback, including scoped environment
+    // and preparation context after capture. Launch/worker verification remains
+    // outside this scope and hashes every runtime byte.
+    let m = &m.composing();
+    linux_vst_bridge::with_readback_digests(||
+        product_detail_projected(m, environment, module, class))
+}
+#[cfg(test)]
+fn product_detail_readonly(m: &Manager, environment: &str, module: &str,
+    class: &str) -> Result<ui::CurrentProductDetail> {
+    product_detail_projected(m, environment, module, class).map(|(detail, _)| detail)
+}
+fn product_detail_projected(m: &Manager, environment: &str, module: &str,
+    class: &str) -> Result<(ui::CurrentProductDetail, current::Reuse)> {
+    require(valid_product_environment(environment) && valid_hex(module, 64)
+        && (class.is_empty() || valid_hex(class, 32)), "operator_product_identity")?;
+    let mut captured = current::capture(m)?;
+    let sw = &captured.software;
+    let db = &captured.registry;
+    let product = project_current_product(m, &captured, sw, db, environment, module, class)?;
+    let (environments, vendor_applications) = scoped_product_context_from(m, sw, db,
+        &captured.bindings, environment, captured.busy)?;
+    captured.capture_preparation_watches()?;
+    captured.recheck(m)?;
+    let reuse = captured.reuse();
+    Ok((ui::CurrentProductDetail {schema:1,operator_schema:ui::OPERATOR_SCHEMA,
+        state_token:captured.snapshot.state_token,
+        current_generation:captured.current_generation,system:captured.snapshot.system,
+        product,environments,
+        vendor_applications}, reuse))
+}
+fn valid_product_environment(id: &str) -> bool {
+    environment_revision::valid_environment_id(id)
+}
+fn recommended_restore_unavailable(m: &Manager, sw: &Software, registration: &Registration)
+    -> Result<Option<&'static str>> {
+    let current=read_json::<Environment>(&registration.environment.root.join("environment.json"))
+        .is_ok_and(|environment|environment == registration.environment);
+    let bound=if sw.native_catalogue.is_some() {
+        sw.catalogue_record(m)?.environments.iter().any(|binding|
+            binding.environment == registration.environment)
+    } else {false};
+    Ok((!current || !bound).then_some(
+        "The recommended revision's retained environment changed. Fresh preparation in the current setup is required before restoring this build."))
+}
+fn project_current_product(m: &Manager, captured: &current::CurrentOverviewContext,
+    sw: &Software, db: &Registry,
+    environment: &str, module: &str, class: &str) -> Result<ui::Product> {
+    let mut matching = captured.snapshot.products.iter().filter(|product|
+        product.environment == environment && product.module_sha256 == module
+            && product.class_id == class);
+    let mut product = matching.next().ok_or("operator_product_not_current")?.clone();
+    let class_busy = captured.class_busy(class);
+    require(matching.next().is_none(), "operator_product_ambiguous")?;
+    if let Some(entry) = db.classes.get(class).filter(|entry|
+        entry.registration.environment.id == environment
+            && entry.registration.module.sha256 == module) {
+        product.history = history_records(m, class, entry)?;
+        for prior in &product.history {
+            if prior.rollback_allowed && !prior.active {
+                product.actions.push(action(&format!("Restore {}",prior.description),
+                    ui::Action::OrdinaryRollback {class_id:class.into(),
+                        publication:prior.publication.clone()}, class_busy.or(prior.rollback_unavailable.as_deref())));
+            }
+        }
+        if captured.profiles.iter().any(|profile|
+            profile.class.class_id == class && Some(profile.revision) != product.active_revision) {
+            product.actions.push(action("Restore recommended revision",
+                ui::Action::OrdinaryRestoreRecommended {class_id:class.into()}, captured.busy
+                    .or(recommended_restore_unavailable(m,sw,&entry.registration)?)));
+        }
+        product.actions.push(action("Arm crash capture for next launch",
+            ui::Action::CaptureArm {class_id:class.into()},
+            if product.details["publication_valid"] != true
+                || product.details["publication_selected"] != true
+                || !product.details["qualification"].is_null() {
+                Some("An exact ordinary publication is required")
+            } else { None }));
+        buffering_record_actions(m, &entry.registration, &mut product.actions, class_busy);
+        product.actions.extend(setup_removal::plugin_offers(m, class, entry, class_busy, captured.busy));
+    }
+    preparation_cli::project_scoped_records(m, sw,
+        std::slice::from_mut(&mut product), captured.busy, None, &|_| class_busy,
+        &captured.preparation)?;
+    if let Some(entry) = db.classes.get(class).filter(|entry|
+        entry.registration.environment.id == environment
+            && entry.registration.module.sha256 == module) {
+        setup_removal::present_removed(m, &mut product, entry);
+    }
+    maintenance::apply_product(m, &mut product)?;
+    Ok(product)
+}
+fn buffering_actions(m: &Manager, registration: &Registration,
+    actions: &mut Vec<ui::AvailableAction>, busy: Option<&str>) {
+    performance_actions(m, registration, actions, busy, true);
+}
+fn buffering_record_actions(m: &Manager, registration: &Registration,
+    actions: &mut Vec<ui::AvailableAction>, busy: Option<&str>) {
+    performance_actions(m, registration, actions, busy, false);
+}
+fn performance_actions(m: &Manager, registration: &Registration,
+    actions: &mut Vec<ui::AvailableAction>, busy: Option<&str>, verify_bytes: bool) {
+    let Ok(current) = m.performance(&registration.metadata.class_id) else { return; };
+    for frames in [256, 512, 1024] {
+        if current.added_frames == frames { continue; }
+        let reason = if verify_bytes && frames == 1024 {
+            match preparation::build::maximum_bridge_frames(m, registration) {
+                Ok(Some(1024)) => busy,
+                Ok(_) => continue,
+                Err(_) => Some("Installed buffering capability could not be verified. Check compatibility first."),
+            }
+        } else { busy };
+        let mut label = if current.delivery_mode == DeliveryMode::SameCallback {
+            format!("Remember {frames} frames for buffered delivery")
+        } else { format!("Use {frames}-frame bridge buffering") };
+        if !verify_bytes && frames == 1024 { label.push_str(" · capacity checked before changing"); }
+        actions.push(action(&label, ui::Action::BufferingSet {
+            class_id:registration.metadata.class_id.clone(), added_frames:frames}, reason));
+    }
+    let (mode, label) = if current.delivery_mode == DeliveryMode::Buffered {
+        (DeliveryMode::SameCallback, "Try same-callback delivery · capability checked before changing")
+    } else { (DeliveryMode::Buffered, "Restore buffered delivery with remembered buffering") };
+    let reason = if verify_bytes && mode == DeliveryMode::SameCallback {
+        match preparation::build::supports_audio_completion(m, registration) {
+            Ok(true) => busy,
+            Ok(false) => Some("Prepare this plug-in with the current package before selecting same-callback delivery."),
+            Err(_) => Some("Installed audio completion capability could not be verified."),
+        }
+    } else { busy };
+    actions.push(action(label, ui::Action::DeliverySet {
+        class_id:registration.metadata.class_id.clone(), mode}, reason));
+}
+fn renderer_projection(m:&Manager,busy:Option<&str>,retired:Option<bool>,
+    setups:Option<&mut [ui::InstallerSetup]>)->Result<Option<ui::VendorApplication>> {
+    let Some(mut app)=renderer_cli::project_with_retired(m,busy,retired)? else {return Ok(None)};
+    renderer_continuation::project(m,&mut app,setups,busy)?;
+    dependency_cli::project(m,&mut app,busy)?;Ok(Some(app))
+}
+fn scoped_product_context_from(m: &Manager, sw: &Software, db: &Registry,
+    bindings: &[catalogue::EnvironmentBinding], environment: &str, busy: Option<&str>,
+)
+    -> Result<(Vec<ui::Environment>,Vec<ui::VendorApplication>)> {
+    let exact = bindings.iter().filter(|binding|
+        binding.environment.id == environment).cloned().collect::<Vec<_>>();
+    let mut environments = environment_projection_from(m, sw, &exact, db, busy)?;
+    let mut vendor_applications = vendor_projections(m, busy)?.into_iter()
+        .filter(|a| a.details["environment"] == environment).collect::<Vec<_>>();
+    if environment == renderer::ENVIRONMENT {
+        if let Some(app) = renderer_projection(m,busy,None,None)? {
+            vendor_applications.push(app);
+        }
+    }
+    for offer in environments.iter_mut().flat_map(|row| &mut row.actions)
+        .chain(vendor_applications.iter_mut().flat_map(|row| &mut row.actions)) {
+        maintenance::apply_offer(m, offer)?;
+    }
+    Ok((environments,vendor_applications))
+}
+#[cfg(test)]
+pub(super) fn snapshot_idle_test(m: &Manager) -> Result<ui::Snapshot> {
+    snapshot_for_operation(m, None, OPERATOR_WAIT, &mut vec![], &idle_capacity_test)
+}
+#[cfg(test)]
+fn idle_capacity_test() -> Option<CapacityReadback> {
+    serde_json::from_value(json!({
+        "schema": 1, "dsp": 0, "maintenance": 0, "keepers": 0,
+        "cleanup_unconfirmed": false, "owners": [], "limits": {"global_dsp": 6}
+    })).ok()
+}
+#[cfg(test)]
+pub(super) fn test_submit_offered(m: &Manager, action: &ui::Action) -> Result<String> {
+    let snapshot = snapshot_idle_test(m)?;
+    let request = ui::Request { schema: ui::OPERATOR_SCHEMA,
+        state_token: snapshot.state_token.clone(), action: action.clone() };
+    validate(&request, &snapshot)?;
+    launch_queued(m, &request, |_| Ok(true))?.operation.ok_or_else(||
+        "operator_test_operation_missing".into())
+}
+#[cfg(test)]
+pub(super) fn test_run_offered_worker(m: &Manager, operation: &str) -> Result<Value> {
+    worker_with_capacity(m, operation, OPERATOR_WAIT, &idle_capacity_test)?;
+    read_json(&job_dir(m, operation)?.join("result.json"))
+}
+#[cfg(test)]
+pub(super) fn test_finalize_interrupted_worker(m: &Manager, operation: &str) -> Result<Value> {
+    finish_operation(m, operation)?;
+    read_json(&job_dir(m, operation)?.join("result.json"))
+}
+fn acquire_readback(
+    m: &Manager,
+    name: ui::OperatorLock,
+    id: Option<&str>,
+    timeout: Duration,
+    waits: &mut Vec<ui::LockFacts>,
+) -> Result<Lock> {
+    let purpose = match name {
+        ui::OperatorLock::Canonical => ui::LockPurpose::ActionSerialization,
+        ui::OperatorLock::Registry if id.is_some() => ui::LockPurpose::OperatorValidationReadback,
+        ui::OperatorLock::Registry => ui::LockPurpose::OperatorReadback,
+        ui::OperatorLock::Receipt => ui::LockPurpose::OperationReceipt,
+        ui::OperatorLock::Resume => ui::LockPurpose::ServiceRecovery,
+    };
+    #[cfg(feature = "pb0-c0-audit")]
+    let acquired = timing::measure(match name {
+        ui::OperatorLock::Canonical => Stage::CanonicalLock,
+        ui::OperatorLock::Registry => Stage::RegistryLock,
+        ui::OperatorLock::Receipt => Stage::ReceiptLock,
+        ui::OperatorLock::Resume => Stage::ResumeLock,
+    }, || m.lock_bounded(name, purpose, id, timeout));
+    #[cfg(not(feature = "pb0-c0-audit"))]
+    let acquired = m.lock_bounded(name, purpose, id, timeout);
+    match acquired {
+        Ok((lock, facts)) => {
+            waits.push(facts);
+            Ok(lock)
+        }
+        Err(e) => {
+            if let Some(f) = e.downcast_ref::<linux_vst_bridge::operator_lock::AcquisitionFailure>()
+            {
+                waits.push(f.facts.clone());
+            }
+            Err(e)
+        }
+    }
+}
+fn snapshot_for_operation(
+    m: &Manager,
+    id: Option<&str>,
+    timeout: Duration,
+    waits: &mut Vec<ui::LockFacts>,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>,
+) -> Result<ui::Snapshot> {
+    let m = &m.composing();
+    linux_vst_bridge::runtime_delivery::prepare_readback(m)?;
+    linux_vst_bridge::with_readback_digests(|| current::diagnostics(m, current::Diagnostics {
+        operation: id, timeout, waits, capacity_read }))
+}
+fn project_onboarding_failure(
+    m: &Manager,
+    receipt: &Value,
+    rows: &mut [ui::Onboarding],
+) -> Result<()> {
+    if receipt["state"] != "refused" {
+        return Ok(());
+    }
+    let id = receipt["operation"]
+        .as_str()
+        .ok_or("operator_failure_identity")?;
+    // This projection concerns only initial environment admission failures.
+    // Preserve unrelated future jobs as raw history without asking the old
+    // closed action decoder to understand or execute them.
+    let raw: Value = read_json(&job_dir(m, id)?.join("request.json"))?;
+    if !matches!(raw["action"]["kind"].as_str(),
+        Some("installer_environment_create" | "installer_new_attempt")) {return Ok(());}
+    let request: ui::Request = serde_json::from_value(raw)?;
+    let failure: Option<ui::OperationFailure> = if receipt["failure"].is_null() {
+        None
+    } else {
+        Some(serde_json::from_value(receipt["failure"].clone())?)
+    };
+    let matches = |r: &&mut ui::Onboarding| match &request.action {
+        ui::Action::InstallerEnvironmentCreate { installer, .. } => {
+            r.installer == *installer && r.environment.is_none()
+        }
+        ui::Action::InstallerNewAttempt { previous, .. } => {
+            r.environment.as_ref() == Some(previous)
+        }
+        _ => false,
+    };
+    {
+        for row in rows.iter_mut().filter(matches) {
+            row.failure = failure.clone();
+            if receipt["stage"] == "operator_request_admission"
+                && receipt["worker_started"] == false
+            {
+                row.details["request_result"] = json!({"operation":id,"stage":"operator_request_admission","reason":receipt["reason"],"worker_started":false});
+            }
+        }
+    }
+    Ok(())
+}
+pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
+    snapshot
+        .actions
+        .iter()
+        .chain(snapshot.installer_setups.iter().map(|s| &s.rename))
+        .chain(snapshot.installer_setups.iter().flat_map(|s| s.primary.iter().chain(s.secondary.iter())))
+        .chain(snapshot.environment_installers.iter().flat_map(|s|s.choices.iter().chain(s.actions.iter())))
+        .chain(snapshot.environment_installers.iter().flat_map(|s|s.runtime.iter().flat_map(|r|&r.choices)))
+        .chain(snapshot.onboarding.iter().flat_map(|p| p.actions.iter()))
+        .chain(snapshot.products.iter().flat_map(|p| p.actions.iter()))
+        .chain(snapshot.products.iter().flat_map(|p| p.compatibility.iter()
+            .flat_map(|workflow| workflow.primary.iter().chain(workflow.alternatives.iter()))))
+        .chain(snapshot.environments.iter().flat_map(|p| p.actions.iter()))
+        .chain(
+            snapshot
+                .vendor_applications
+                .iter()
+                .flat_map(|p| p.actions.iter()),
+        )
+        .chain(
+            snapshot
+                .recent_incidents
+                .iter()
+                .filter_map(|p| p.export.as_ref()),
+        )
+        .chain(snapshot.deleted_setups.iter().flat_map(|d| d.actions.iter()))
+        .chain(snapshot.uninstallers.iter().map(|u| &u.action))
+        .collect()
+}
+fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
+    require(request.schema == ui::OPERATOR_SCHEMA,
+        "operator_schema_mismatch_update_manager_frontend")?;
+    // The offer is unconfirmed; only the musician's confirmation runs it.
+    require(!matches!(request.action, ui::Action::SetupDelete { confirmed: false, .. }
+        | ui::Action::ProductUninstall { confirmed: false, .. }), setup_removal::UNCONFIRMED)?;
+    require(
+        request.state_token == snapshot.state_token,
+        "operator_stale_request_refresh",
+    )?;
+    let offered = available(snapshot)
+        .into_iter()
+        .find(|a| preparation_cli::offered(&request.action, &a.action))
+        .ok_or("operator_action_not_available")?;
+    require(
+        offered.disabled_reason.is_none() || matches!(request.action,
+            ui::Action::CompatibilityResult { result: ui::TestResultKind::Problem { .. }, .. }),
+        offered
+            .disabled_reason
+            .as_deref()
+            .unwrap_or("operator_action_disabled"),
+    )
+}
+fn validate_current_request(m: &Manager, request: &ui::Request) -> Result<()> {
+    // Offer admission observes current identities; it does not execute them.
+    // The separately queued mutation owner performs full execution verification.
+    let m = &m.composing();
+    linux_vst_bridge::with_readback_digests(|| validate_current_request_readonly(m, request))
+}
+fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Result<()> {
+    require(request.schema == ui::OPERATOR_SCHEMA,
+        "operator_schema_mismatch_update_manager_frontend")?;
+    require(!workspace_action(&request.action), WORKSPACE_RETIRED)?;
+    if matches!(request.action,ui::Action::PluginSetupFocus {..}|ui::Action::PluginSetupStop {..}) {
+        return plugin_setup::validate_control(m,request);
+    }
+    if installer_control(&request.action).is_some() || matches!(request.action,
+        ui::Action::EnvironmentInstallerFocus { .. } | ui::Action::EnvironmentInstallerStop { .. }) {
+        return validate_installer_control_with(m, request, onboarding::live);
+    }
+    if current_offer_action(&request.action) {
+        let offered = overview(m)?;
+        validate(request, &offered.current)?;
+        if matches!(request.action, ui::Action::SupportExport {}) {
+            let export = &offered.readiness.support_export_action;
+            require(matches!(export.action, ui::Action::SupportExport {})
+                && export.disabled_reason.is_none(), "operator_support_export_not_offered")?;
+        }
+        return Ok(());
+    }
+    if preparation_cli::is_action(&request.action) {
+        let mut captured = current::capture(m)?;
+        let sw = &captured.software;
+        let db = &captured.registry;
+        let product = timing::measure(Stage::SelectedProjection, || {
+            let selection = preparation_cli::action_selection_record(m, sw,
+                &request.action)?.ok_or("operator_product_action_identity")?;
+            project_current_product(m, &captured, sw, db, &selection.environment.id,
+                &selection.module.sha256, &selection.class.id)
+        })?;
+        captured.capture_preparation_watches()?;
+        captured.recheck(m)?;
+        let mut offered = captured.snapshot;
+        offered.products = vec![product];
+        return validate(request, &offered);
+    }
+    if scoped_product_action(&request.action) {
+        let mut captured = current::capture(m)?;
+        let sw = &captured.software;
+        let db = &captured.registry;
+        let mut offered = captured.snapshot.clone();
+        match &request.action {
+            ui::Action::OrdinaryRollback { class_id, .. }
+            | ui::Action::OrdinaryRestoreRecommended { class_id }
+            | ui::Action::DeliverySet { class_id, .. }
+            | ui::Action::BufferingSet { class_id, .. }
+            | ui::Action::PluginRemoveFromDaw { class_id, .. }
+            | ui::Action::PluginAddBackToDaw { class_id, .. }
+            | ui::Action::CaptureArm { class_id } => {
+                let entry = db.classes.get(class_id).ok_or("operator_product_not_current")?;
+                offered.products = vec![timing::measure(Stage::SelectedProjection, ||
+                    project_current_product(m, &captured, sw, db,
+                        &entry.registration.environment.id, &entry.registration.module.sha256,
+                        class_id))?];
+            }
+            ui::Action::EnvironmentRescan { environment } => {
+                require(valid_product_environment(environment), "operator_product_identity")?;
+                offered.environments = scoped_product_context_from(m, sw, db,
+                    &captured.bindings, environment, captured.busy)?.0;
+            }
+            ui::Action::VendorSoftwareInstall {application,..}
+            | ui::Action::VendorApplicationOpen { application }
+            | ui::Action::VendorApplicationFocus { application }
+            | ui::Action::VendorApplicationClose { application }
+            | ui::Action::ProgramAdopt { application, .. }
+            | ui::Action::VendorApplicationStop { application } => {
+                offered.vendor_applications = vendor_projection(m,application,captured.busy)?.into_iter().collect();
+            }
+            ui::Action::RendererOpen { .. } | ui::Action::RendererSoftwareInstall {..} | ui::Action::RendererFocus { .. }
+            | ui::Action::RendererStop { .. } => {
+                offered.vendor_applications = scoped_product_context_from(m, sw, db,
+                    &captured.bindings, renderer::ENVIRONMENT, captured.busy)?.1;
+            }
+            _ => return Err("operator_product_action_identity".into()),
+        }
+        maintenance::apply_snapshot(m, &mut offered)?;
+        captured.capture_preparation_watches()?;
+        captured.recheck(m)?;
+        return validate(request, &offered);
+    }
+    validate(request, &snapshot(m)?)
+}
+/// The bridge no longer manages the FL Studio workspace (#504 E3). Its
+/// actions are never offered, and a request for one, or one accepted before
+/// the update, is refused with this reason. Its files stay where they are.
+const WORKSPACE_RETIRED: &str = "workspace_retired";
+fn workspace_action(action: &ui::Action) -> bool {
+    matches!(action, ui::Action::WorkspaceSelectInstaller { .. }
+        | ui::Action::WorkspaceInstall {}
+        | ui::Action::WorkspaceFinishInstall {}
+        | ui::Action::WorkspaceLaunch {}
+        | ui::Action::WorkspaceUninstall {}
+        | ui::Action::WorkspaceFinishUninstall {}
+        | ui::Action::WorkspaceFocus {}
+        | ui::Action::WorkspaceStop {}
+        | ui::Action::WorkspaceSelectProductInstaller { .. }
+        | ui::Action::WorkspaceInstallProduct { .. }
+        | ui::Action::WorkspaceFinishProductInstall { .. })
+}
+fn scoped_product_action(action: &ui::Action) -> bool {
+    matches!(action, ui::Action::OrdinaryRollback { .. }
+        | ui::Action::PluginRemoveFromDaw { .. }
+        | ui::Action::PluginAddBackToDaw { .. }
+        | ui::Action::OrdinaryRestoreRecommended { .. }
+        | ui::Action::DeliverySet { .. }
+        | ui::Action::BufferingSet { .. }
+        | ui::Action::CaptureArm { .. }
+        | ui::Action::EnvironmentRescan { .. }
+        | ui::Action::VendorApplicationOpen { .. }
+        | ui::Action::VendorSoftwareInstall { .. }
+        | ui::Action::VendorApplicationFocus { .. }
+        | ui::Action::VendorApplicationClose { .. }
+        | ui::Action::ProgramAdopt { .. }
+        | ui::Action::VendorApplicationStop { .. }
+        | ui::Action::RendererOpen { .. }
+        | ui::Action::RendererSoftwareInstall {..}
+        | ui::Action::RendererFocus { .. }
+        | ui::Action::RendererStop { .. })
+}
+fn current_offer_action(action: &ui::Action) -> bool {
+    matches!(action, ui::Action::RuntimeInstall {} | ui::Action::SupportExport {}
+        | ui::Action::TransactionReconcile {}
+        | ui::Action::SoftwareInstall { .. }
+        | ui::Action::SoftwareInstallWithPolicy {..}
+        | ui::Action::SoftwareInstallResume { .. }
+        | ui::Action::EnvironmentRefresh { .. }
+        | ui::Action::EnvironmentRefreshResume { .. }
+        | ui::Action::InstallerEnvironmentCreate { .. }
+        | ui::Action::InstallerRename { .. }
+        | ui::Action::InstallerNewAttempt { .. }
+        | ui::Action::InstallerStart { .. }
+        | ui::Action::InstallerStartWithPolicy { .. }
+        | ui::Action::InstallerFocus { .. }
+        | ui::Action::InstallerStop { .. }
+        | ui::Action::InstallerScan { .. }
+        | ui::Action::EnvironmentInstallerStart { .. }
+        | ui::Action::EnvironmentInstallerStartWithPolicy { .. }
+        | ui::Action::EnvironmentInstallerFocus { .. }
+        | ui::Action::EnvironmentInstallerStop { .. }
+        | ui::Action::EnvironmentInstallerScan { .. }
+        | ui::Action::EnvironmentRuntimeSelect { .. }
+        | ui::Action::ProgramChoose { .. }
+        | ui::Action::SetupRemoveFromDaw { .. }
+        | ui::Action::SetupDelete { .. }
+        | ui::Action::ProductUninstall { .. }
+        | ui::Action::InstallerCloseCheck { .. }
+        | ui::Action::QuarantinedModuleRetry { .. }
+        | ui::Action::PluginFinishSetup {..} | ui::Action::PluginSetupFocus {..} | ui::Action::PluginSetupStop {..})
+}
+fn installer_control(action: &ui::Action) -> Option<(&str, &str)> {
+    match action {
+        ui::Action::InstallerFocus { onboarding, operation }
+        | ui::Action::InstallerStop { onboarding, operation } => Some((onboarding, operation)),
+        _ => None,
+    }
+}
+/// A control of one exact installer or uninstaller run: that run is the live
+/// one its setup or record owns. Nothing else need be as the requesting view
+/// showed it (#382): while an installer runs, other records change, and
+/// stopping or showing that exact run stays as safe as when it was offered.
+fn validate_installer_control_with(m: &Manager, request: &ui::Request,
+    is_live: impl FnOnce(&str) -> Result<bool>) -> Result<()> {
+    require(request.schema == ui::OPERATOR_SCHEMA,
+        "operator_schema_mismatch_update_manager_frontend")?;
+    let _ownership = m.lock("onboarding.lock")?;
+    if let ui::Action::EnvironmentInstallerFocus {operation}
+        | ui::Action::EnvironmentInstallerStop {operation} = &request.action {
+        // The same controls serve an uninstaller run in the setup.
+        if uninstall::owns(m,operation)? { uninstall::control(m,operation)?; }
+        else { environment_install::control(m,operation)?; }
+        return require(is_live(operation)?,"installer_control_owner");
+    }
+    let (id, operation) = installer_control(&request.action)
+        .ok_or("installer_control_action")?;
+    let record = onboarding::control_record(m, id)?;
+    require(record.installation_operation.as_deref() == Some(operation)
+        && valid_hex(operation, 32) && is_live(operation)?, "installer_control_owner")
+}
+fn validate_current_worker(m: &Manager, request: &ui::Request, id: &str,
+    timeout: Duration, waits: &mut Vec<ui::LockFacts>,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>) -> Result<()> {
+    require(request.schema == ui::OPERATOR_SCHEMA,
+        "operator_schema_mismatch_update_manager_frontend")?;
+    let _serialization = acquire_readback(m, ui::OperatorLock::Canonical,
+        Some(id), timeout, waits)?;
+    // Recovery controls recheck this exact owned cohort. A suspended DSP
+    // service cannot grant new-work capacity, and is not needed to stop it.
+    if matches!(request.action,ui::Action::PluginSetupFocus {..}|ui::Action::PluginSetupStop {..}) {
+        return plugin_setup::validate_control(m,request);
+    }
+    if installer_control(&request.action).is_some() || matches!(request.action,
+        ui::Action::EnvironmentInstallerFocus { .. } | ui::Action::EnvironmentInstallerStop { .. }) {
+        return validate_installer_control_with(m, request, onboarding::live);
+    }
+    let deadline = Instant::now() + timeout;
+    let mut cap = capacity_read();
+    let mut registry = acquire_readback(m, ui::OperatorLock::Registry,
+        Some(id), deadline.saturating_duration_since(Instant::now()), waits)?;
+    if cap.is_none() {
+        drop(registry);
+        cap = capacity_read();
+        registry = acquire_readback(m, ui::OperatorLock::Registry,
+            Some(id), deadline.saturating_duration_since(Instant::now()), waits)?;
+    }
+    let owners = capacity::owners(m)?;
+    require(cap.as_ref().is_none_or(|read| read.owners == owners),
+        "operator_owners_changed")?;
+    require(request.state_token == token(m)?, "operator_stale_request_refresh")?;
+    drop(registry);
+    Ok(())
+}
+/// The worker of a request accepted with its facts recorded (#382). Under
+/// operator serialization (and, but for a control, registry authority with
+/// the service's owner census agreeing), the facts admission recorded must be
+/// what they were; a control's exact task must also still be the live one.
+/// The view's state token is not checked again: admission validated the
+/// offer, and a change elsewhere does not make this action unsafe.
+fn validate_accepted_worker(m: &Manager, request: &ui::Request, id: &str,
+    facts: &[preconditions::Observed], timeout: Duration, waits: &mut Vec<ui::LockFacts>,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>) -> Result<()> {
+    require(request.schema == ui::OPERATOR_SCHEMA,
+        "operator_schema_mismatch_update_manager_frontend")?;
+    let _serialization = acquire_readback(m, ui::OperatorLock::Canonical,
+        Some(id), timeout, waits)?;
+    if matches!(request.action,ui::Action::PluginSetupFocus {..}|ui::Action::PluginSetupStop {..}) {
+        preconditions::recheck(m, facts)?;
+        return plugin_setup::validate_control(m,request);
+    }
+    if installer_control(&request.action).is_some() || matches!(request.action,
+        ui::Action::EnvironmentInstallerFocus { .. } | ui::Action::EnvironmentInstallerStop { .. }) {
+        preconditions::recheck(m, facts)?;
+        return validate_installer_control_with(m, request, onboarding::live);
+    }
+    let deadline = Instant::now() + timeout;
+    let mut cap = capacity_read();
+    let mut registry = acquire_readback(m, ui::OperatorLock::Registry,
+        Some(id), deadline.saturating_duration_since(Instant::now()), waits)?;
+    if cap.is_none() {
+        drop(registry);
+        cap = capacity_read();
+        registry = acquire_readback(m, ui::OperatorLock::Registry,
+            Some(id), deadline.saturating_duration_since(Instant::now()), waits)?;
+    }
+    let owners = capacity::owners(m)?;
+    require(cap.as_ref().is_none_or(|read| read.owners == owners),
+        "operator_owners_changed")?;
+    preconditions::recheck(m, facts)?;
+    drop(registry);
+    Ok(())
+}
+pub(super) fn job_dir(m: &Manager, id: &str) -> Result<PathBuf> {
+    require(valid_hex(id, 32), "operator_operation_identity")?;
+    Ok(m.root.join("operator").join(id))
+}
+/// Read one owner-retained outcome without consulting or changing latest.
+fn operation_readback(m: &Manager, id: &str) -> Result<ui::OperationReadback> {
+    let path = job_dir(m, id)?.join("result.json");
+    let canonical = path.canonicalize().map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            "operator_operation_unavailable".to_owned()
+        } else { error.to_string() }
+    })?;
+    require(canonical == path, "operator_operation_path")?;
+    // read_json holds one owned regular file, bounds it to 8 MiB and checks
+    // that neither its bytes nor path identity changed during the read.
+    let mut record: Value = read_json(&path)?;
+    if let Some(record) = record.as_object_mut() {
+        // A saved receipt cannot certify a current service pause.
+        record.remove("owned_service_pause");
+    }
+    let reply = ui::OperationReadback { schema: 1, operator_schema: ui::OPERATOR_SCHEMA,
+        operation: id.into(), record };
+    require(reply.matches(id), "operator_operation_record_invalid")?;
+    Ok(reply)
+}
+/// A continuation never revives the original worker. Its exact request and
+/// terminal refusal remain historical authority while a fresh offered request
+/// completes only the missing preparation stages.
+pub(super) fn resumable_check_source(m: &Manager, id: &str, action: &ui::Action) -> Result<bool> {
+    require(matches!(action, ui::Action::CompatibilityCheck { .. }),
+        "guided_check_source_action")?;
+    let dir = job_dir(m, id)?;
+    let original: ui::Request = read_json(&dir.join("request.json"))?;
+    // The installed private UI2 generation used wire 11. Its retained request
+    // can identify an old check; the *new* continuation still enters through
+    // this manager's current schema and fresh offered-action validation.
+    require(matches!(original.schema, 10..=ui::OPERATOR_SCHEMA) && original.action == *action,
+        "guided_check_source_request_changed")?;
+    let result = optional(&dir.join("result.json"))?;
+    require(result["schema"] == 1 && result["operation"] == id,
+        "guided_check_source_receipt_changed")?;
+    match result["state"].as_str() {
+        Some("refused") => Ok(true),
+        Some("queued" | "waiting" | "running" | "unconfirmed") => Ok(false),
+        _ => Err("guided_check_source_not_interrupted".into()),
+    }
+}
+fn write_operation(m: &Manager, id: &str, value: &Value, make_latest: bool) -> Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let receipt_lock = timing::span(Stage::ReceiptLock);
+    let _lock = loop {
+        match m.lock("operator-receipt.lock") {
+            Ok(lock) => break lock,
+            Err(e)
+                if e.is::<linux_vst_bridge::operator_lock::LockBusy>()
+                    && Instant::now() < deadline =>
+            {
+                std::thread::sleep(Duration::from_millis(10))
+            }
+            Err(e) => return Err(e),
+        }
+    };
+    receipt_lock.end(true);
+    let dir = job_dir(m, id)?;
+    let prior = optional(&dir.join("result.json"))?;
+    if matches!(prior["state"].as_str(), Some("completed" | "refused")) {
+        let latest = m.root.join("operator/latest.json");
+        if optional(&latest)?["operation"] == id {
+            atomic_json(&latest, &prior)?;
+        }
+        return Ok(());
+    }
+    // Later vendor/cleanup owners retain the completed validation wait.
+    let mut value = value.clone();
+    if value.get("lock_waits").is_none() && prior.get("lock_waits").is_some() {
+        value["lock_waits"] = prior["lock_waits"].clone();
+    }
+    // Child owner progress must keep the same initial DAW intent visible.
+    for field in ["journey", "onboarding", "environment", "application", "renderer_owner"] {
+        if value.get(field).is_none() && prior.get(field).is_some() {value[field]=prior[field].clone();}
+    }
+    if value["state"]=="vendor_running" && value["journey"].is_object() {
+        value["journey"]["phase"]=json!("vendor_running");
+    }
+    atomic_json(&dir.join("result.json"), &value)?;
+    let latest = m.root.join("operator/latest.json");
+    if make_latest || optional(&latest)?["operation"] == id {
+        atomic_json(&latest, &value)?;
+    }
+    Ok(())
+}
+fn refuse_unfinished(m: &Manager, id: &str, reason: &str) -> Result<()> {
+    write_operation(
+        m,
+        id,
+        &json!({"schema":1,"operation":id,"state":"refused","reason":reason}),
+        false,
+    )
+}
+fn wait_renderer_retirement(mut retired: impl FnMut() -> Result<bool>, mut wait: impl FnMut()) -> Result<()> {
+    while !retired()? { wait(); }
+    Ok(())
+}
+fn native_access_restoration_value(value:&ui::Activity,resume_pending:bool)->Result<Value> {
+    let s=&value.system;
+    require(s.service=="active" && s.keepers==2 && s.dsp==0 && s.maintenance==0
+        && s.pending_transactions==0 && s.stale_transports==0 && !s.cleanup_unconfirmed
+        && !resume_pending && value.capture["armed"]==false && value.capture["active_retention"]==0,
+        "renderer_bridge_recovery_unconfirmed")?;
+    Ok(json!({"bridge":"active","keepers":s.keepers,"dsp_leases":s.dsp,
+        "maintenance_leases":s.maintenance,"pending_transactions":s.pending_transactions,
+        "stale_transports":s.stale_transports,"pending_resume_owner":false,"capture":"off"}))
+}
+fn native_access_restoration(m:&Manager)->Result<Value> {
+    native_access_restoration_value(&activity(m)?,resume_record(m)?.is_some())
+}
+fn native_access_session_summary(result:&Value,recovery:&Value)->Result<Value> {
+    let state=result["state"].as_str().ok_or("renderer_session_state")?;
+    require(matches!(state,"completed"|"cancelled"|"failed"),"renderer_session_state")?;
+    let dependency=&result["dependency"];
+    let disposition=dependency["dependency_cleanup_disposition"].as_str()
+        .ok_or("renderer_dependency_cleanup_disposition")?;
+    let cleanup_confirmed=linux_vst_bridge::native_access_dependency::session_cleanup_confirmed(result)?;
+    require(state=="failed" || cleanup_confirmed,"renderer_session_cleanup_unconfirmed")?;
+    require(recovery["bridge"]=="active" && recovery["keepers"]==2
+        && recovery["dsp_leases"]==0 && recovery["maintenance_leases"]==0
+        && recovery["pending_transactions"]==0 && recovery["stale_transports"]==0
+        && recovery["pending_resume_owner"]==false && recovery["capture"]=="off",
+        "renderer_bridge_recovery_unconfirmed")?;
+    Ok(json!({"state":state,"dependency_cleanup_disposition":disposition,
+        "fresh_session_restartable":cleanup_confirmed,"bridge_recovery":recovery}))
+}
+
+fn finish_operation(m: &Manager, id: &str) -> Result<()> {
+    let (installer_cleanup, preparation_cleanup) = finish_owned_work(m, id);
+    // A failed installer readback must not leave the generic worker queued.
+    let finalized = finish_operation_with(m, id, |saved| restore_service(m, saved));
+    installer_cleanup?;
+    preparation_cleanup?;
+    finalized?;
+    // ExecStopPost can settle only after the exact worker relinquishes its
+    // existing execution lock. A late finish cannot release a resumed owner.
+    if let Ok(_worker)=m.lock(&format!("operator-worker-{id}.lock")) {
+        vendor_maintenance::settle_executor(m,id)?;
+    }
+    Ok(())
+}
+/// Everything the worker unit's ExecStopPost records except restoring the
+/// service that the operation suspended.
+fn finish_terminated_worker(m: &Manager, id: &str) -> Result<()> {
+    let (installer_cleanup, preparation_cleanup) = finish_owned_work(m, id);
+    let finalized = refuse_unfinished(m, id, "operator_worker_terminated");
+    installer_cleanup?;
+    preparation_cleanup?;
+    finalized
+}
+/// States a worker unit writes while it owns its operation. Dispatch writes
+/// `queued` before the unit starts; `unconfirmed` precedes dispatch itself.
+const WORKER_OWNED_STATES: [&str; 5] = ["queued", "waiting", "running", "vendor_running", "submission_uncertain"];
+pub(super) fn worker_unit_live(operation: &str) -> Result<bool> {
+    require(valid_hex(operation, 32), "operator_operation_identity")?;
+    // The bounded reader admits only known unit states; anything else is an error.
+    let state = readiness::bounded_user_unit_state(&format!("linux-vst-bridge-operator-{operation}.service"))?;
+    Ok(!matches!(state.as_str(), "inactive" | "failed"))
+}
+pub(super) fn executor_live(m: &Manager, operation: &str) -> Result<Option<bool>> {
+    executor::live(m, operation)
+}
+pub(super) fn worker_live(m: &Manager, operation: &str) -> Result<bool> {
+    match executor::live(m, operation)? {
+        Some(live) => Ok(live),
+        None => worker_unit_live(operation),
+    }
+}
+/// Service startup: an operation whose worker unit ended without its
+/// ExecStopPost (machine freeze, power loss, killed user manager) is finished
+/// exactly as that step would have, including the service restoration it owns.
+/// Returns what could not be finished, for the service log.
+pub(super) fn reconcile_dead_workers(m: &Manager) -> Result<Vec<String>> {
+    let mut failures=reconcile_dead_workers_with(m,|id|worker_live(m,id),Some(|saved:&ResumeRecord|restore_service(m,saved)))?;
+    match vendor_maintenance::reconcile(m,|id|worker_live(m,id)) {
+        Ok(recovery)=>failures.extend(recovery.failures),Err(error)=>failures.push(error.to_string()),
+    }
+    Ok(failures)
+}
+/// Package gate: the same, except that no service is restored or waited on.
+/// Reservations the finished tasks (or their automatic-install checks) leave
+/// are carried by the package handoff or released by the service start,
+/// activation or Recover.
+pub(super) fn settle_dead_workers(m: &Manager, mut worker_live: impl FnMut(&str) -> Result<bool>)
+    -> Result<Vec<String>> {
+    struct Restore;
+    impl Drop for Restore {
+        fn drop(&mut self) { RESTORATION_DEFERRED.with(|deferred| deferred.set(false)); }
+    }
+    RESTORATION_DEFERRED.with(|deferred| deferred.set(true));
+    let _restore = Restore;
+    let mut failures=reconcile_dead_workers_with(m,&mut worker_live,None::<fn(&ResumeRecord)->Result<()>>)?;
+    match vendor_maintenance::reconcile(m,&mut worker_live) {
+        Ok(recovery)=>failures.extend(recovery.failures),Err(error)=>failures.push(error.to_string()),
+    }
+    Ok(failures)
+}
+fn lock_within(m: &Manager, name: &str, limit: Duration) -> Result<Lock> {
+    let deadline = Instant::now() + limit;
+    loop {
+        match m.lock(name) {
+            Err(e) if e.is::<linux_vst_bridge::operator_lock::LockBusy>() && Instant::now() < deadline =>
+                std::thread::sleep(Duration::from_millis(20)),
+            other => return other,
+        }
+    }
+}
+fn reconcile_dead_workers_with(
+    m: &Manager,
+    mut worker_live: impl FnMut(&str) -> Result<bool>,
+    mut restore: Option<impl FnMut(&ResumeRecord) -> Result<()>>,
+) -> Result<Vec<String>> {
+    let directory = m.root.join("operator");
+    if !directory.try_exists()? {
+        return Ok(vec![]);
+    }
+    let owned = |value: &Value, id: &str, queued: bool| value["operation"] == id
+        && value["state"].as_str().is_some_and(|state| WORKER_OWNED_STATES.contains(&state)
+            && (state != "queued" || queued));
+    // A queued operation's unit may not exist yet. Only while dispatch is
+    // excluded does a stopped unit prove that a queued worker ended. The scan
+    // alone holds the dispatch lock; finishing happens after its release.
+    let candidates = {
+        let dispatch = lock_within(m, "operator-dispatch.lock", Duration::from_secs(2)).ok();
+        let mut candidates = vec![];
+        for (index, entry) in fs::read_dir(&directory)?.enumerate() {
+            require(index < 2048, "operator_inventory_bound")?;
+            let entry = entry?;
+            let Some(id) = entry.file_name().to_str().map(str::to_owned) else { continue };
+            if !valid_hex(&id, 32) || !entry.file_type()?.is_dir() {
+                continue;
+            }
+            // An active, stopping or unobservable unit keeps its operation.
+            if optional(&entry.path().join("result.json")).is_ok_and(|value| owned(&value, &id, dispatch.is_some()))
+                && entry.path().join("request.json").is_file() && matches!(worker_live(&id), Ok(false)) {
+                candidates.push(id);
+            }
+        }
+        candidates
+    };
+    let (mut ended, mut failures) = (vec![], vec![]);
+    for id in candidates {
+        // A worker still running outside its unit holds this lock. Receipt
+        // and unit are read again under it before anything is finished.
+        let Ok(_worker) = m.lock(&format!("operator-worker-{id}.lock")) else { continue };
+        if !optional(&job_dir(m, &id)?.join("result.json")).is_ok_and(|value| owned(&value, &id, true))
+            || !matches!(worker_live(&id), Ok(false)) {
+            continue;
+        }
+        if let Err(error) = finish_terminated_worker(m, &id) {
+            failures.push(format!("{id}: {error}"));
+        }
+        ended.push(id);
+    }
+    // The receipt is written before the latest pointer. Republish a terminal
+    // receipt that an interruption left behind a live pointer.
+    let latest = optional(&directory.join("latest.json"))?;
+    if let Some(id) = latest["operation"].as_str().filter(|id| valid_hex(id, 32)) {
+        let current = optional(&job_dir(m, id)?.join("result.json"))?;
+        if !matches!(latest["state"].as_str(), Some("completed" | "refused"))
+            && current["operation"] == id && matches!(current["state"].as_str(), Some("completed" | "refused")) {
+            refuse_unfinished(m, id, "operator_worker_terminated")?;
+        }
+    }
+    if let Some(restore) = restore.as_mut() {
+        for id in &ended {
+            if let Err(error) = resume_owned_with(m, id, &mut *restore) {
+                failures.push(format!("{id}: {error}"));
+            }
+        }
+    }
+    failures.extend(maintenance::reconcile(m, worker_live)?);
+    Ok(failures)
+}
+/// Every operator receipt, and the latest pointer, is terminal. A request
+/// without a receipt is not.
+pub(super) fn all_operations_finished(m: &Manager) -> Result<bool> {
+    Ok(maintenance::held(m)?.is_empty() && !vendor_maintenance::any_held(m)? && all_workers_finished(m)?)
+}
+pub(super) fn all_workers_finished(m: &Manager) -> Result<bool> {
+    let directory = m.root.join("operator");
+    if !directory.try_exists()? {
+        return Ok(true);
+    }
+    let terminal = |value: &Value| matches!(value["state"].as_str(), Some("completed" | "refused"));
+    let latest = optional(&directory.join("latest.json"))?;
+    if !latest.is_null() && !terminal(&latest) {
+        return Ok(false);
+    }
+    for (index, entry) in fs::read_dir(&directory)?.enumerate() {
+        require(index < 2048, "operator_inventory_bound")?;
+        let entry = entry?;
+        let name = entry.file_name();
+        if let Some(id) = name.to_str().filter(|id| valid_hex(id, 32)) {
+            if entry.file_type()?.is_dir()
+                && (!terminal(&optional(&entry.path().join("result.json"))?)
+                    || executor::live(m, id)? == Some(true)) {
+                return Ok(false);
+            }
+        }
+    }
+    Ok(true)
+}
+/// A reservation whose owner's worker died (with the machine, or as an
+/// automatic installation's check) is released as its ExecStopPost would
+/// have: the service is restored only once everything the owner waited for,
+/// such as its app session, has retired; otherwise this refuses and the
+/// reservation stays. Never while a package transition may hold it.
+pub(super) fn restore_terminated_owner(m: &Manager,
+    worker_live: impl FnOnce(&str) -> Result<bool>) -> Result<()> {
+    let _resume = resume_lock(m)?;
+    restore_terminated_owner_locked_with(m, worker_live, |saved| restore_service(m, saved))
+}
+/// As `restore_terminated_owner`, with the service restoration supplied.
+#[cfg(test)]
+pub(super) fn restore_terminated_owner_with(m: &Manager, worker_live: impl FnOnce(&str) -> Result<bool>,
+    restore: impl FnOnce() -> Result<()>) -> Result<()> {
+    let _resume = resume_lock(m)?;
+    restore_terminated_owner_locked_with(m, worker_live, |_| restore())
+}
+/// Caller holds operator-resume.lock. A suspension whose owner's worker ended
+/// without restoring the service is restored as its ExecStopPost would have.
+pub(super) fn restore_terminated_owner_locked(m: &Manager,
+    worker_live: impl FnOnce(&str) -> Result<bool>) -> Result<()> {
+    restore_terminated_owner_locked_with(m, worker_live, |saved| restore_service(m, saved))
+}
+fn restore_terminated_owner_locked_with(m: &Manager, worker_live: impl FnOnce(&str) -> Result<bool>,
+    restore: impl FnOnce(&ResumeRecord) -> Result<()>) -> Result<()> {
+    let Some(saved) = resume_record(m)? else { return Ok(()) };
+    let result = optional(&job_dir(m, &saved.owner_operation)?.join("result.json"))?;
+    if result["operation"] != saved.owner_operation.as_str() || result["state"] != "refused"
+        || !matches!(result["reason"].as_str(),
+            Some("operator_worker_terminated" | "automatic_installation_worker_terminated"))
+        || worker_live(&saved.owner_operation)? {
+        return Ok(());
+    }
+    resume_locked(m, &saved.owner_operation, restore)
+}
+fn finish_owned_work(m: &Manager, id: &str) -> (Result<()>, Result<()>) {
+    let installer_cleanup: Result<()> = (|| {
+        let request: ui::Request = read_json(&job_dir(m, id)?.join("request.json"))?;
+        automatic_install::finish(m, id, &request.action)?;
+        if let ui::Action::InstallerStart {
+            onboarding: ref key,
+        }
+        | ui::Action::InstallerStartWithPolicy {
+            onboarding: ref key,
+            ..
+        } = request.action
+        {
+            let r = onboarding::load(m, key)?;
+            if r.installation_operation.as_deref() == Some(id) {
+                if onboarding::live(id)? {
+                    let _ = onboarding::stop(m, key, id);
+                }
+                onboarding::mark_dead(m, &r)?;
+            }
+        }
+        if request.action.environment_installer_start().is_some() {
+            environment_install::finish(m,id)?;
+        }
+        if matches!(request.action, ui::Action::ProductUninstall { .. }) {
+            uninstall::finish(m, id)?;
+        }
+        if matches!(request.action,ui::Action::EnvironmentRuntimeSelect { .. }) {
+            environment_runtime::finish(m,id)?;
+        }
+        Ok(())
+    })();
+    (installer_cleanup, cleanup_preparation_work(m, id))
+}
+fn cleanup_preparation_work(m: &Manager, id: &str) -> Result<()> {
+    let fresh = preparation::build::cleanup_work(m, id);
+    let source = (|| {
+        let request: ui::Request = read_json(&job_dir(m, id)?.join("request.json"))?;
+        if let ui::Action::CompatibilityResumeCheck { operation } = request.action {
+            require(matches!(request.schema, 10..=ui::OPERATOR_SCHEMA) && operation != id,
+                "guided_check_cleanup_request_binding")?;
+            let intent = preparation::guided_check_stage(m, &operation, "intent")?
+                .ok_or("guided_check_cleanup_intent_missing")?;
+            require(intent["schema"] == 1 && intent["operation"] == operation,
+                "guided_check_cleanup_intent_binding")?;
+            let original: ui::Action = serde_json::from_value(intent["action"].clone())?;
+            require(resumable_check_source(m, &operation, &original)?,
+                "guided_check_source_still_running")?;
+            // ExecStopPost runs after this worker cgroup retires. Construction
+            // used the original check's identity, not this fresh request's ID.
+            // Cleanup preserves exact checkpointed/retained native output and
+            // removes partial scratch before another offered continuation.
+            preparation::build::cleanup_work(m, &operation)?;
+        }
+        Ok(())
+    })();
+    fresh?;
+    source
+}
+
+fn finish_operation_with(
+    m: &Manager,
+    id: &str,
+    restore: impl FnOnce(&ResumeRecord) -> Result<()>,
+) -> Result<()> {
+    // Reporting must not prevent this operation's service/keeper recovery.
+    let finalized = refuse_unfinished(m, id, "operator_worker_terminated");
+    let recovered = if maintenance::release(m, id)? { Ok(()) }
+        else { resume_owned_with(m, id, restore) };
+    finalized?;
+    recovered
+}
+fn begin_request(m: &Manager, request: &ui::Request) -> Result<String> {
+    let id = random_id()?;
+    timing::bind_operation(&id);
+    let dir = job_dir(m, &id)?;
+    private_dir(&dir)?;
+    atomic_json(&dir.join("request.json"), request)?;
+    write_operation(
+        m,
+        &id,
+        &json!({"schema":1,"operation":id,"state":"unconfirmed","stage":"operator_request_admission","action":request.action,"worker_started":false,"reason":"Request received; dispatch completion is not confirmed"}),
+        true,
+    )?;
+    Ok(id)
+}
+#[cfg(test)]
+fn launch_queued(
+    m: &Manager,
+    request: &ui::Request,
+    launch: impl FnOnce(&str) -> Result<bool>,
+) -> Result<ui::Receipt> {
+    let id = begin_request(m, request)?;
+    launch_reserved(m, request, &id, launch)
+}
+fn launch_reserved(
+    m: &Manager,
+    request: &ui::Request,
+    id: &str,
+    launch: impl FnOnce(&str) -> Result<bool>,
+) -> Result<ui::Receipt> {
+    timing::measure(Stage::QueuedReceipt, || write_operation(
+        m,
+        id,
+        &json!({"schema":1,"operation":id,"state":"queued","action":request.action}),
+        false,
+    ))?;
+    if !timing::measure(Stage::WorkerLaunch, || launch(id)).unwrap_or(false) {
+        refuse_unfinished(m, id, "operator_worker_launch_failed")?;
+        return Err("operator_worker_launch_failed".into());
+    }
+    Ok(ui::Receipt {
+        schema: ui::OPERATOR_SCHEMA,
+        accepted: true,
+        operation: Some(id.into()),
+        refusal: None,
+    })
+}
+// Record a valid typed request before admission. Even a pre-worker refusal owns
+// a durable result; late completion cannot replace a newer request's projection.
+fn dispatch_recorded(
+    m: &Manager,
+    request: &ui::Request,
+    run: impl FnOnce(&str) -> Result<ui::Receipt>,
+) -> Result<ui::Receipt> {
+    let _observed = timing::Session::dispatch(m, &request.action);
+    let dispatch = timing::span(Stage::Dispatch);
+    let id = timing::measure(Stage::RequestCreation, || begin_request(m, request))?;
+    let result = match run(&id) {
+        Ok(r) => Ok(r),
+        Err(e) => {
+            // Another request or task held a lock past its wait; nothing started.
+            let reason: String = if linux_vst_bridge::operator_lock::is_busy(e.as_ref()) {
+                linux_vst_bridge::operator_lock::BUSY_SENTENCE.into()
+            } else { e.to_string().chars().take(512).collect() };
+            write_operation(
+                m,
+                &id,
+                &json!({"schema":1,"operation":id,"state":"refused","stage":"operator_request_admission","action":request.action,"reason":reason,"worker_started":false,"mutation_started":false}),
+                false,
+            )?;
+            Ok(ui::Receipt {
+                schema: ui::OPERATOR_SCHEMA,
+                accepted: false,
+                operation: Some(id),
+                refusal: Some(reason),
+            })
+        }
+    };
+    dispatch.end(result.is_ok());
+    result
+}
+/// Accept `request` as operation `id`: it names an action the current view
+/// offers, made from that view, and what the action acts on is recorded
+/// beside it for its worker (`preconditions`). Those facts are observed on
+/// both sides of the validation, so the offer validated is the one they
+/// describe.
+fn admit(m: &Manager, request: &ui::Request, id: &str) -> Result<Software> {
+    let before = preconditions::observe(m, &request.action);
+    timing::measure(Stage::RequestValidation, || validate_current_request(m, request))?;
+    let sw = timing::measure(Stage::SoftwareVerification, || {
+        let sw = software_record(m)?;
+        sw.manager.verify()?;
+        Ok(sw)
+    })?;
+    if let Some(before) = before? {
+        let after = preconditions::observe(m, &request.action)?.ok_or("operator_precondition_scope")?;
+        preconditions::require_same(&before, &after)?;
+        preconditions::record(m, id, request, &after)?;
+    }
+    Ok(sw)
+}
+/// As the window's request is accepted, without starting its worker unit.
+#[cfg(test)]
+pub(super) fn test_accept(m: &Manager, request: &ui::Request) -> Result<ui::Receipt> {
+    dispatch_recorded(m, request, |id| {
+        let _lock = m.lock("operator-dispatch.lock")?;
+        admit(m, request, id)?;
+        launch_reserved(m, request, id, |_| Ok(true))
+    })
+}
+fn dispatch(m: &Manager, request: ui::Request) -> Result<ui::Receipt> {
+    dispatch_recorded(m, &request, |id| {
+        let _lock = timing::measure(Stage::DispatchLock, || m.lock("operator-dispatch.lock"))?;
+        admit(m, &request, id)?;
+        launch_reserved(m, &request, id, |id| executor::launch(m, id))
+    })
+}
+
+#[cfg(test)]
+fn execute(m: &Manager, a: &ui::Action) -> Result<Value> {
+    execute_with_receipt(m, a, None)
+}
+#[cfg(test)]
+fn execute_with_receipt(m: &Manager, a: &ui::Action, operation: Option<&str>) -> Result<Value> {
+    execute_with_receipt_capacity(m, a, operation, &|| live_capacity(m).ok())
+}
+#[cfg(test)]
+fn execute_with_receipt_capacity(
+    m: &Manager,
+    a: &ui::Action,
+    operation: Option<&str>,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>,
+) -> Result<Value> {
+    execute_with_receipt_policy(m, a, operation, capacity_read, OPERATOR_WAIT, &mut vec![])
+}
+#[cfg(test)]
+pub(super) fn execute_idle_test_action(m: &Manager, a: &ui::Action) -> Result<Value> {
+    execute_with_receipt_capacity(m, a, None, &|| {
+        serde_json::from_value(json!({
+            "schema": 1,
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 0,
+            "cleanup_unconfirmed": false,
+            "owners": [],
+            "limits": {"global_dsp": 6}
+        }))
+        .ok()
+    })
+}
+fn create_environment_owned(
+    m: &Manager,
+    selection: &ui::Action,
+    owner: &str,
+    timeout: Duration,
+    waits: &mut Vec<ui::LockFacts>,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>,
+) -> Result<Value> {
+    create_environment_prepared(m, owner, timeout, waits, capacity_read, || match selection {
+        ui::Action::InstallerEnvironmentCreate { installer, runner } => {
+            onboarding::prepare_creation(m, installer, runner)
+        }
+        ui::Action::InstallerNewAttempt { previous, runner } => {
+            onboarding::prepare_attempt(m, previous, runner)
+        }
+        _ => Err("onboarding_creation_action".into()),
+    })
+}
+fn create_environment_prepared(
+    m: &Manager,
+    owner: &str,
+    timeout: Duration,
+    waits: &mut Vec<ui::LockFacts>,
+    _capacity_read: &dyn Fn() -> Option<CapacityReadback>,
+    prepare: impl FnOnce() -> Result<onboarding::PreparedCreation>,
+) -> Result<Value> {
+    let prepared = prepare()?;
+    // Exactly one registry acquisition for the mutation. No owner below this
+    // point reacquires it, hashes an installer/runner, or queries systemd.
+    let guard = match m.lock_bounded(
+        ui::OperatorLock::Registry,
+        ui::LockPurpose::EnvironmentCreationAdmission,
+        Some(owner),
+        timeout,
+    ) {
+        Ok((guard, facts)) => {
+            waits.push(facts);
+            guard
+        }
+        Err(e) => {
+            if let Some(f) = e.downcast_ref::<linux_vst_bridge::operator_lock::AcquisitionFailure>()
+            {
+                waits.push(f.facts.clone());
+            }
+            return Err(e);
+        }
+    };
+    let result = onboarding::create_prepared(m, prepared, owner, &guard);
+    drop(guard);
+    result
+}
+fn execute_with_receipt_policy(
+    m: &Manager,
+    a: &ui::Action,
+    operation: Option<&str>,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>,
+    timeout: Duration,
+    waits: &mut Vec<ui::LockFacts>,
+) -> Result<Value> {
+    execute_with_receipt_policy_progress(m,a,operation,capacity_read,timeout,waits,&mut |_|{})
+}
+fn execute_with_receipt_policy_progress(
+    m: &Manager,
+    a: &ui::Action,
+    operation: Option<&str>,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>,
+    timeout: Duration,
+    waits: &mut Vec<ui::LockFacts>,
+    progress: &mut dyn FnMut(&str),
+) -> Result<Value> {
+    require(!workspace_action(a), WORKSPACE_RETIRED)?;
+    if matches!(a,ui::Action::PluginFinishSetup {..}|ui::Action::PluginSetupFocus {..}|ui::Action::PluginSetupStop {..}) {
+        return plugin_setup::execute(m,a,operation.ok_or("operator_operation_identity")?,capacity_read,timeout,waits);
+    }
+    if matches!(a,ui::Action::RendererSoftwareInstall {..})
+        || matches!(a,ui::Action::EnvironmentRefreshResume {operation} if renderer_continuation::owns(m,operation)?) {
+        return renderer_continuation::execute(m,a,operation.ok_or("operator_operation_identity")?,
+            capacity_read,timeout,waits);
+    }
+    if matches!(a,ui::Action::EnvironmentRefresh {..} | ui::Action::EnvironmentRefreshResume {..}) {
+        return environment_refresh::execute(m,a,operation.ok_or("operator_operation_identity")?,
+            capacity_read,timeout,waits);
+    }
+    if matches!(a, ui::Action::SoftwareInstall { .. } | ui::Action::SoftwareInstallWithPolicy {..} | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. }) {
+        return automatic_install::execute(m, a, operation.ok_or("operator_operation_identity")?,
+            capacity_read, timeout, waits);
+    }
+    let mut projection = Some(acquire_readback(
+        m,
+        ui::OperatorLock::Canonical,
+        operation,
+        timeout,
+        waits,
+    )?);
+    // The worker checked what this action acts on, then released
+    // serialization; check it again now that this executor holds it.
+    if let Some(owner) = operation { preconditions::recheck_accepted(m, owner, a)?; }
+    if matches!(
+        a,
+        ui::Action::InstallerEnvironmentCreate { .. } | ui::Action::InstallerNewAttempt { .. }
+    ) {
+        return create_environment_owned(
+            m,
+            a,
+            operation.ok_or("operator_operation_identity")?,
+            timeout,
+            waits,
+            capacity_read,
+        );
+    }
+    timing::measure(Stage::WorkerAdmission, ||
+        require_operator_inactive_with(m, a, capacity_read, operation, timeout, waits))?;
+    // Service readback takes registry.lock itself, so capture it before the
+    // mutation boundary. Reconcile rechecks the exact owner set under its lock.
+    let recovery_capacity = if matches!(a, ui::Action::TransactionReconcile {}) {
+        capacity_read()
+    } else { None };
+    #[cfg(test)]
+    if matches!(a, ui::Action::BufferingSet { .. } | ui::Action::DeliverySet { .. }
+        | ui::Action::TransactionReconcile {}) {
+        PERFORMANCE_COMMIT_BARRIER.with(|barrier| {
+            if let Some(run) = barrier.borrow_mut().take() { run(); }
+        });
+    }
+
+    if let ui::Action::OrdinaryRollback { class_id, publication } = a {
+        drop(projection.take());
+        let refresh = package_authority::publication_restore_needs_refresh(
+            m, class_id, publication)?;
+        if refresh {
+            let owner = operation.ok_or("operator_operation_identity")?;
+            let _environment = maintenance::action_lock(m, a)?;
+            suspend(m, owner, None, timeout, waits)?;
+            let result = package_authority::restore_publication(
+                m, class_id, publication, owner);
+            let cleanup = resume_owned(m, owner);
+            let value = serde_json::to_value(result?)?;
+            if let Err(error) = cleanup {
+                return Err(ServiceRestorationFailure {
+                    reason:error.to_string(), completed_action:value,
+                }.into());
+            }
+            return Ok(value);
+        }
+        let restored = package_authority::restore_publication(m, class_id,
+            publication, operation.ok_or("operator_operation_identity")?)?;
+        return Ok(serde_json::to_value(restored)?);
+    }
+
+    if preparation_cli::is_action(a) {
+        let owner = operation.ok_or("operator_operation_identity")?;
+        if vendor_maintenance::owned(m,owner)?.is_some() {
+            drop(projection.take());
+            return preparation_cli::execute_with_progress(m,a,owner,||
+                acquire_readback(m,ui::OperatorLock::Registry,Some(owner),timeout,waits),progress);
+        }
+        if matches!(
+            a,
+            ui::Action::CandidateGraphicsAssess { .. }
+                | ui::Action::PluginReinspect { .. }
+                | ui::Action::PluginInspect { .. }
+                | ui::Action::CompatibilityCheck { .. }
+                | ui::Action::CompatibilityRevalidate {..}
+                | ui::Action::CompatibilityResumeCheck { .. }
+        ) {
+            let _environment = maintenance::action_lock(m, a)?;
+            suspend(m, owner, None, timeout, waits)?;
+            drop(projection.take());
+            let result = preparation_cli::execute_with_progress(m, a, owner, || {
+                acquire_readback(
+                    m,
+                    ui::OperatorLock::Registry,
+                    Some(owner),
+                    timeout,
+                    waits,
+                )
+            }, progress);
+            let cleanup = resume_owned(m, owner);
+            let value = result?;
+            if let Err(error) = cleanup {
+                return Err(ServiceRestorationFailure {
+                    reason:error.to_string(), completed_action:value,
+                }.into());
+            }
+            return Ok(value);
+        }
+        // Prebuilt construction and publication retain their own transaction
+        // and inactive checks. They do not execute Windows environment work,
+        // so they must not retire healthy keeper ownership as a side effect.
+        drop(projection.take());
+        // Publication admits, releases registry during immutable staging, then
+        // reacquires for commit. Both waits share the supplied control-plane
+        // budget; staging and verification do not hold registry authority.
+        let mut remaining_wait = timeout;
+        return preparation_cli::execute(m, a, owner, || {
+            let started = Instant::now();
+            let result = acquire_readback(
+                m,
+                ui::OperatorLock::Registry,
+                Some(owner),
+                remaining_wait,
+                waits,
+            );
+            remaining_wait = remaining_wait.saturating_sub(started.elapsed());
+            result
+        });
+    }
+    match a {
+        ui::Action::EnvironmentRefresh { .. } | ui::Action::EnvironmentRefreshResume { .. } => unreachable!(),
+        ui::Action::RendererSoftwareInstall { .. } => unreachable!(),
+        ui::Action::SoftwareInstall { .. } | ui::Action::SoftwareInstallWithPolicy {..} | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. } => unreachable!(),
+        ui::Action::RuntimeInstall {} => {
+            drop(projection.take());
+            let runner = linux_vst_bridge::runtime_delivery::install(m)?;
+            Ok(json!({"runtime":runner.id,"runner_key":catalogue::runner_key(&runner)?,
+                "installed":true,"plugin_support":"not_qualified_by_runtime_installation"}))
+        }
+        ui::Action::SupportExport {} => {
+            drop(projection.take());
+            let current = overview(m)?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            let original: ui::Request = read_json(&job_dir(m, owner)?.join("request.json"))?;
+            require(original.schema == ui::OPERATOR_SCHEMA
+                && original.action == *a
+                && original.state_token == current.current.state_token,
+                "operator_stale_request_refresh")?;
+            readiness::export(m, &current)
+        }
+        ui::Action::WorkspaceSelectInstaller { .. }
+        | ui::Action::WorkspaceInstall {}
+        | ui::Action::WorkspaceFinishInstall {}
+        | ui::Action::WorkspaceLaunch {}
+        | ui::Action::WorkspaceUninstall {}
+        | ui::Action::WorkspaceFinishUninstall {}
+        | ui::Action::WorkspaceFocus {}
+        | ui::Action::WorkspaceStop {}
+        | ui::Action::WorkspaceSelectProductInstaller { .. }
+        | ui::Action::WorkspaceInstallProduct { .. }
+        | ui::Action::WorkspaceFinishProductInstall { .. } => unreachable!(),
+        ui::Action::PluginFinishSetup {..}|ui::Action::PluginSetupFocus {..}|ui::Action::PluginSetupStop {..}
+        | ui::Action::CandidateHistoryComplete { .. }
+        | ui::Action::CandidateGraphicsAssess { .. }
+        | ui::Action::CandidateGraphicsPrepare { .. }
+        | ui::Action::CandidateSettingsPrepare { .. }
+        | ui::Action::PluginReinspect { .. }
+        | ui::Action::PluginInspect { .. }
+        | ui::Action::PluginPrepare { .. }
+        | ui::Action::CompatibilityCheck { .. }
+                | ui::Action::CompatibilityRevalidate {..}
+        | ui::Action::CompatibilityResumeCheck { .. }
+        | ui::Action::CompatibilityPublishTest { .. }
+        | ui::Action::CompatibilityResult { .. }
+        | ui::Action::CompatibilityFinishResult { .. }
+        | ui::Action::ExperimentalReplace { .. }
+        | ui::Action::CandidateWithdraw { .. }
+        | ui::Action::ExperimentalEnable { .. }
+        | ui::Action::ExperimentalDisable { .. }
+        | ui::Action::CandidateObserve { .. }
+        | ui::Action::CandidateReview { .. }
+        | ui::Action::CandidatePublishOrdinary { .. } => unreachable!(),
+        ui::Action::InstallerEnvironmentCreate { .. } | ui::Action::InstallerNewAttempt { .. } => {
+            unreachable!()
+        }
+        ui::Action::InstallerRename { installer, label } => {
+            let named = installer_import::rename(m, installer, label)?;
+            Ok(json!({"installer":installer,"display_label":named.display_label,"presentation_only":true}))
+        }
+        ui::Action::InstallerStart { onboarding: id }
+        | ui::Action::InstallerStartWithPolicy { onboarding: id, .. } => {
+            let _environment = maintenance::action_lock(m, a)?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            let prior = onboarding::load(m, id)?;
+            require(
+                prior.installation_operation.is_none(),
+                "installer_initial_transaction_already_used",
+            )?;
+            suspend(m, owner, None, timeout, waits)?;
+            let reserved = onboarding::reserve(m, id, owner);
+            let r = match reserved {
+                Ok(r) => r,
+                Err(e) => {
+                    let _ = resume_owned(m, owner);
+                    return Err(e);
+                }
+            };
+            let policy = match a {
+                ui::Action::InstallerStartWithPolicy { powershell, .. } => Some(*powershell),
+                _ => None,
+            };
+            let launched = onboarding::launch(m, &r, policy);
+            drop(projection.take());
+            if launched.is_ok() {
+                write_operation(
+                    m,
+                    owner,
+                    &json!({"schema":2,"operation":owner,"state":"vendor_running","action":a}),
+                    false,
+                )?;
+                while onboarding::live(owner)? {
+                    std::thread::sleep(Duration::from_millis(500));
+                }
+            }
+            let v = onboarding::result(m, &r)?;
+            require(onboarding::retired(&v), "installer_cleanup_unconfirmed")?;
+            resume_owned(m, owner)?;
+            launched?;
+            Ok(v)
+        }
+        ui::Action::InstallerFocus {
+            onboarding: id,
+            operation: owner,
+        } => onboarding::focus(m, id, owner),
+        ui::Action::InstallerStop {
+            onboarding: id,
+            operation: owner,
+        } => {
+            let v = onboarding::stop(m, id, owner)?;
+            resume_owned(m, owner)?;
+            Ok(v)
+        }
+        ui::Action::InstallerScan { onboarding: id } => {
+            let _environment = maintenance::action_lock(m, a)?;
+            let r = onboarding::load(m, id)?;
+            require(
+                onboarding::retired(&onboarding::result(m, &r)?),
+                "installer_retirement_required",
+            )?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            suspend(m, owner, None, timeout, waits)?;
+            let result = rescan_environment(m, r.environment);
+            let cleanup = resume_owned(m, owner);
+            let value = result?;
+            cleanup?;
+            Ok(value)
+        }
+        action @ (ui::Action::EnvironmentInstallerStart {..}
+            | ui::Action::EnvironmentInstallerStartWithPolicy {..}) => {
+            let (environment,installer,_)=action.environment_installer_start().unwrap();
+            let _environment = maintenance::action_lock(m, a)?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            suspend(m,owner,None,timeout,waits)?;
+            let r = environment_install::reserve(m,environment,installer,owner)?;
+            let launched = environment_install::launch(m,&r);
+            drop(projection.take());
+            if launched.is_ok() {
+                write_operation(m,owner,&json!({"schema":2,"operation":owner,
+                    "state":"vendor_running","action":a}),false)?;
+                while onboarding::live(owner)? {std::thread::sleep(Duration::from_millis(500));}
+            }
+            if let Err(error)=launched {
+                // A refusal before spec/unit submission can be retired by the
+                // existing owner. Unknown submission still remains uncertain,
+                // but must not hide the useful reason that stopped this launch.
+                let retirement=environment_install::finish(m,owner)
+                    .and_then(|_|environment_install::result(m,&r));
+                if retirement.as_ref().is_ok_and(onboarding::retired) {
+                    if resume_owned(m,owner).is_err() {
+                        return Err(format!("{error} This setup could not finish its maintenance cleanup. Send Setup details before retrying.").into());
+                    }
+                    return Err(error);
+                }
+                return Err(format!("{error} Closing this attempt is still unconfirmed. Send Setup details before retrying.").into());
+            }
+            let value = environment_install::result(m,&r)?;
+            require(onboarding::retired(&value),"installer_cleanup_unconfirmed")?;
+            if r.automatic_request.is_some() && value["state"]=="completed" && value["raw_exit"]==0 {
+                // Retain continuation before bridge restoration or overview can
+                // fail. A later finish can reconstruct this same owned record.
+                environment_refresh::initialize_replacement(m,owner)?;
+            }
+            resume_owned(m,owner)?;
+            drop(_environment);
+            if r.automatic_request.is_some() && value["state"]=="completed" && value["raw_exit"]==0 {
+                // The same accepted replacement owns a fresh normal connection
+                // checkpoint. Its executor discovers once; no old scan is reused.
+                environment_refresh::execute(m,a,owner,capacity_read,timeout,waits)
+            } else {Ok(value)}
+        }
+        ui::Action::InstallerCloseCheck {operation: owned} => {
+            let _environment = maintenance::action_lock(m, a)?;
+            let value = environment_install::confirm_closed(m, owned, &onboarding::live)?;
+            if !uninstall::needs_check(m, owned)? {
+                // The bridge paused for that run resumes once it is shown closed.
+                resume_owned(m, owned)?;
+                return Ok(value);
+            }
+            // An uninstaller run: its setup is scanned and its plug-ins are
+            // checked again first. This check takes over the run's pause (or
+            // pauses the bridge itself), so the bridge stays paused until it
+            // finishes, also after a restart.
+            let owner = operation.ok_or("operator_operation_identity")?;
+            drop(projection.take());
+            take_pause(m, owned, owner, timeout, waits)?;
+            let mut checking = |n: usize, total: usize| write_operation(m, owner, &json!({"schema":2,
+                "operation":owner,"state":"running","action":a,"progress":uninstall::progress(n, total)}), false);
+            let revalidate = |m: &Manager, class: &str, current: &linux_vst_bridge::publication::RevisionRef, work: &str|
+                preparation_cli::revalidate_in_place(m, class, current, work, &preparation_cli::supervised_inspection);
+            let target = uninstall::owner(m, owned)?.environment;
+            let retirement = vendor_maintenance::observe_retired(m, &target)?;
+            let result = uninstall::complete(m, owned, &mut uninstall::Hooks {
+                launch: &|_, _| Err("uninstaller_not_run_again".into()), is_live: &onboarding::live,
+                vendor_retired: &|| retirement.verify(m).map(|()| true), running: &mut || Ok(()), checking: &mut checking,
+                rescan: &rescan_environment, revalidate: &revalidate });
+            let resumed = resume_owned(m, owner);
+            let value = result?;
+            resumed?;
+            Ok(value)
+        }
+        ui::Action::EnvironmentInstallerFocus {operation} =>
+            if uninstall::owns(m,operation)? { uninstall::focus(m,operation) } else { environment_install::focus(m,operation) },
+        ui::Action::EnvironmentInstallerStop {operation} => {
+            if uninstall::owns(m,operation)? {
+                // The bridge stays paused: the setup is scanned and its
+                // plug-ins checked again first, by the uninstall's own action
+                // or, if that ended, by Finish checking on the setup's card.
+                return uninstall::stop(m,operation);
+            }
+            let value = environment_install::stop(m,operation)?;
+            resume_owned(m,operation)?;
+            Ok(value)
+        }
+        ui::Action::EnvironmentInstallerScan {environment} => {
+            let owner=operation.ok_or("operator_operation_identity")?;
+            if let Some(bound)=vendor_maintenance::owned(m,owner)? {
+                require(bound.id==*environment,"vendor_maintenance_child_scope")?;
+                drop(projection.take());
+                return rescan_environment_scoped(m,bound,owner);
+            }
+            let _environment = maintenance::action_lock(m, a)?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            let env = environment_install::target(m,environment)?;
+            vendor_maintenance::observe_retired(m, &env)?.verify(m)?;
+            suspend(m,owner,None,timeout,waits)?;
+            let scanned = rescan_environment(m,env);
+            let resumed = resume_owned(m,owner);
+            let value = scanned?;resumed?;Ok(value)
+        }
+        ui::Action::EnvironmentRuntimeSelect {environment,runner,expected_environment} => {
+            let _environment = maintenance::action_lock(m, a)?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            suspend(m,owner,None,timeout,waits)?;
+            drop(projection.take());
+            let mut remaining_wait=timeout;
+            let result = environment_runtime::change_and_scan(m,environment,runner,expected_environment,owner,|| {
+                    let started=Instant::now();
+                    let result=acquire_readback(m,ui::OperatorLock::Registry,Some(owner),remaining_wait,waits);
+                    remaining_wait=remaining_wait.saturating_sub(started.elapsed());
+                    result
+                });
+            let resumed = resume_owned(m,owner);
+            let value = result?;resumed?;Ok(value)
+        }
+        ui::Action::PluginRemoveFromDaw { class_id, expected_current } => {
+            drop(projection.take());
+            setup_removal::remove_from_daw(m, class_id, expected_current)
+        }
+        ui::Action::PluginAddBackToDaw { class_id, expected_removed } => {
+            drop(projection.take());
+            let owner = operation.ok_or("operator_operation_identity")?;
+            setup_removal::add_back(m, class_id, expected_removed, |key, removed| {
+                // The same supervised inspection as a refreshed restore.
+                let _environment = maintenance::action_lock(m, a)?;
+                suspend(m, owner, None, timeout, waits)?;
+                // A changed setup checks the same file again where it is now;
+                // a bridge update prepares it with the current bridge.
+                let result = if setup_removal::setup_changed(m, key, removed)? {
+                    preparation_cli::revalidate_in_place(m, key, removed, owner, &preparation_cli::supervised_inspection)
+                } else { package_authority::add_back_publication(m, key, removed, owner) };
+                let cleanup = resume_owned(m, owner);
+                let publication = result?;
+                if let Err(error) = cleanup {
+                    return Err(ServiceRestorationFailure {reason:error.to_string(),
+                        completed_action:serde_json::to_value(&publication)?}.into());
+                }
+                Ok(publication)
+            })
+        }
+        ui::Action::SetupRemoveFromDaw { environment } => {
+            drop(projection.take());
+            setup_removal::remove_setup_from_daw(m, environment)
+        }
+        ui::Action::SetupDelete { installer, environment, confirmed, forget_installer } => {
+            require(*confirmed, setup_removal::UNCONFIRMED)?;
+            // Serialized with rescans, installers and runtime changes; the
+            // service keeps running for plug-ins in other setups.
+            let _environment = maintenance::action_lock(m, a)?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            drop(projection.take());
+            setup_removal::delete_setup(m, installer, environment, *forget_installer, owner)
+        }
+        ui::Action::ProductUninstall { environment, registration, command_sha256, confirmed } => {
+            require(*confirmed, setup_removal::UNCONFIRMED)?;
+            let _environment = maintenance::action_lock(m, a)?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            drop(projection.take());
+            suspend(m, owner, None, timeout, waits)?;
+            let mut running = || write_operation(m, owner,
+                &json!({"schema":2,"operation":owner,"state":"vendor_running","action":a}), false);
+            // Once the uninstaller closed: what is being checked, and that every setup waits.
+            let mut checking = |n: usize, total: usize| write_operation(m, owner, &json!({"schema":2,
+                "operation":owner,"state":"running","action":a,"progress":uninstall::progress(n, total)}), false);
+            let target = environment_install::target(m, environment)?;
+            let retirement = vendor_maintenance::observe_retired(m, &target)?;
+            let vendor = || retirement.verify(m).map(|()| true);
+            let revalidate = |m: &Manager, class: &str, current: &linux_vst_bridge::publication::RevisionRef, work: &str|
+                preparation_cli::revalidate_in_place(m, class, current, work, &preparation_cli::supervised_inspection);
+            let result = uninstall::execute(m, environment, registration, command_sha256, owner, &mut uninstall::Hooks {
+                launch: &uninstall::launch, is_live: &onboarding::live, vendor_retired: &vendor,
+                running: &mut running, checking: &mut checking, rescan: &rescan_environment, revalidate: &revalidate });
+            // The bridge resumes once nothing of this uninstaller can still run;
+            // otherwise the setup's card offers Stop uninstaller.
+            let resumed = if uninstall::settled(m, owner)? { resume_owned(m, owner) } else { Ok(()) };
+            let value = result?;
+            resumed?;
+            Ok(value)
+        }
+        ui::Action::CaptureArm { class_id } => {
+            crash_capture::arm(m, Some(class_id))?;
+            Ok(json!({"capture":"armed"}))
+        }
+        ui::Action::CaptureDisarm {} => {
+            crash_capture::disarm(m)?;
+            Ok(json!({"capture":"disarmed"}))
+        }
+        ui::Action::TransactionReconcile {} => {
+            let recovery=vendor_maintenance::reconcile(m,|id|worker_live(m,id))?;
+            if recovery.settled>0 && recovery_capacity.as_ref().is_some_and(|cap|
+                cap.owners.iter().any(|owner|owner.kind==capacity::Kind::Dsp)) {
+                return Ok(json!({"reconciled_setups":recovery.settled,
+                    "remaining_setup_failures":recovery.failures,
+                    "publication_recovery":"deferred_while_playing"}));
+            }
+            require(recovery.failures.is_empty(),&recovery.failures.join("; "))?;
+            // Read the service before acquiring registry.lock. A healthy idle
+            // keeper may remain, but a missing or uncertain census cannot
+            // authorize a retained owner. Empty proven retirement needs no service.
+            let capacity = recovery_capacity;
+            let mut remaining_wait=timeout;
+            let mut registry_admission=|| {
+                let started=Instant::now();
+                let result=(|| {
+                    let registry=acquire_readback(m,ui::OperatorLock::Registry,operation,remaining_wait,waits)?;
+                    if reconcile_leases(m)? {
+                        let current = capacity::owners(m)?;
+                        require(capacity.as_ref().is_some_and(|cap|
+                            !cap.cleanup_unconfirmed && cap.owners == current),
+                            "operator_cleanup_unconfirmed")?;
+                    }
+                    require(vendor_retired(m)? && onboarding::all_retired(m)?,
+                        "operator_vendor_cleanup_unconfirmed")?;
+                    Ok(registry)
+                })();
+                remaining_wait=remaining_wait.saturating_sub(started.elapsed());
+                result
+            };
+            m.reconcile_inactive_with_registry(&mut registry_admission)?;
+            environment_runtime::reconcile(m,&mut registry_admission)?;
+            resume_interrupted(m)?;
+            Ok(json!({"reconciled":true}))
+        }
+        ui::Action::OrdinaryRollback {
+            class_id,
+            publication,
+        } => Ok(serde_json::to_value(m.rollback(
+            class_id,
+            publication,
+            None,
+        )?)?),
+        ui::Action::OrdinaryRestoreRecommended { class_id } => {
+            managed_cli::restore_recommended(m, class_id)?;
+            Ok(json!({"restored":true}))
+        }
+        ui::Action::DeliverySet { class_id, mode } => {
+            m.select_delivery_with_registry(class_id, *mode, || {
+                acquire_readback(m, ui::OperatorLock::Registry, operation, timeout, waits)
+            })?;
+            let performance = m.performance(class_id)?;
+            Ok(json!({"delivery_mode":performance.delivery_mode,
+                "added_bridge_frames":performance.effective_frames(),
+                "remembered_buffered_frames":performance.added_frames,
+                "applies_to":"next_activation","compatibility_qualified":false}))
+        }
+        ui::Action::BufferingSet { class_id, added_frames } => {
+            require(matches!(added_frames, 256 | 512 | 1024), "operator_buffering_value")?;
+            m.select_delay_with_registry(class_id, *added_frames, || {
+                acquire_readback(m, ui::OperatorLock::Registry, operation, timeout, waits)
+            })?;
+            Ok(json!({"remembered_buffered_frames":added_frames,
+                "added_bridge_frames":m.performance(class_id)?.effective_frames(),"applies_to":"next_activation",
+                "compatibility_qualified":false}))
+        }
+        ui::Action::IncidentExport { incident } => {
+            require(valid_hex(incident, 32), "operator_incident_identity")?;
+            let value = optional(
+                &m.root
+                    .join("runtime/incidents")
+                    .join(incident)
+                    .join("share.json"),
+            )?;
+            require(!value.is_null(), "operator_sanitized_incident_unavailable")?;
+            let dir = m.root.join("exports");
+            private_dir(&dir)?;
+            let path = dir.join(format!("incident-{incident}.json"));
+            atomic_json(&path, &value)?;
+            Ok(json!({"export":path,"sanitized":true}))
+        }
+        ui::Action::DependencyPrepare {} => {
+            let _environment = maintenance::action_lock(m, a)?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            linux_vst_bridge::preparation::build::launch_software(m)?;
+            suspend(m, owner, Some(owner.into()), timeout, waits)?;
+            let submission = match dependency_cli::launch(m, owner) {
+                Ok(s) => s,
+                Err(e) => {
+                    if dependency_session::current(m)?["operation"] != owner {
+                        resume_owned(m, owner)?;
+                        return Err(e);
+                    }
+                    dependency_session::reconcile(m, owner)?
+                }
+            };
+            write_operation(
+                m,
+                owner,
+                &json!({"schema":1,"operation":owner,"state":if submission==dependency_session::Submission::AcknowledgmentUncertain{"submission_uncertain"}else{"vendor_running"},"action":a}),
+                false,
+            )?;
+            drop(projection.take());
+            let deadline = Instant::now() + Duration::from_secs(650);
+            loop {
+                dependency_session::reconcile(m, owner)?;
+                if dependency_session::retired(m, owner)? {
+                    break;
+                }
+                require(
+                    Instant::now() < deadline,
+                    "dependency_retirement_unconfirmed",
+                )?;
+                std::thread::sleep(Duration::from_millis(500));
+            }
+            resume_owned(m, owner)?;
+            dependency_cli::retain(m, owner)?;
+            Ok(
+                json!({"dependency":"prepared_and_retired","live_readiness":"not_claimed","service":"resumed"}),
+            )
+        }
+        ui::Action::DependencyStop { operation: target } => {
+            stop_dependency_with(
+                m,
+                target,
+                |op| dependency_session::stop(m, op),
+                |saved| restore_service(m, saved),
+            )?;
+            Ok(json!({"dependency":"stopped","operation":target}))
+        }
+        ui::Action::RendererDiscover {} => renderer_cli::discover(m),
+        ui::Action::RendererOpen {
+            application,
+            policy,
+        } => {
+            let _environment = maintenance::action_lock(m, a)?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            linux_vst_bridge::preparation::build::launch_software(m)?;
+            suspend(m, owner, Some(owner.into()), timeout, waits)?;
+            let submission = match renderer_cli::launch(m, application, *policy, owner) {
+                Ok(state) => state,
+                Err(e) => {
+                    // Before reservation no unit can have been submitted. After
+                    // reservation every error retains exact recovery authority.
+                    if renderer_cli::current(m)?["operation"] != owner {
+                        resume_owned(m, owner)?;
+                        return Err(e);
+                    }
+                    renderer_cli::reconcile(m, owner)?
+                }
+            };
+            write_operation(
+                m,
+                owner,
+                &json!({"schema":1,"operation":owner,"state":if submission==renderer_session::Submission::AcknowledgmentUncertain{"submission_uncertain"}else{"vendor_running"},"action":a}),
+                false,
+            )?;
+            drop(projection.take());
+            // Normal application lifetime belongs to the exact operation, not a
+            // wall-clock budget. Stop and cleanup retain their separate bounds.
+            wait_renderer_retirement(
+                || { renderer_cli::reconcile(m, owner)?; renderer_session::retired(m, owner) },
+                || std::thread::sleep(Duration::from_millis(500)),
+            )?;
+            resume_owned(m, owner)?;
+            let recovery=native_access_restoration(m)?;
+            let result=renderer_cli::result(m,owner)?;
+            let session=native_access_session_summary(&result,&recovery)?;
+            Ok(
+                json!({"application":"retired","service":"resumed","recovery":recovery,"session":session,"result":result}),
+            )
+        }
+        ui::Action::RendererStop { operation: target } => {
+            stop_renderer_with(
+                m,
+                target,
+                |id| renderer_cli::stop(m, id),
+                |saved| restore_service(m, saved),
+            )?;
+            let recovery=native_access_restoration(m)?;
+            let result=renderer_cli::result(m,target)?;
+            let session=native_access_session_summary(&result,&recovery)?;
+            Ok(json!({"application":"stopped","operation":target,"recovery":recovery,"session":session,"result":result}))
+        }
+        ui::Action::RendererFocus { operation: target } => renderer_cli::focus(m, target),
+        ui::Action::RendererObserve {
+            operation: target,
+            presentation,
+        } => renderer_cli::observe(m, target, *presentation),
+        ui::Action::VendorApplicationOpen { application } => {
+            let app=vendor_cli::application(m,application)?;
+            if app.user_selection.is_some() {
+                drop(projection.take());
+                let owner = operation.ok_or("operator_operation_identity")?;
+                return open_vendor_owned(m,application,owner,owner,timeout,waits,||Ok(()));
+            }
+            let record=onboarding::retained_environment_record(m,&app.environment.id)?;
+            let current=record.as_ref().map(|record|automatic_install::record_intent(m,record)).transpose()?.flatten();
+            let daw=automatic_install::vendor_intent(m,application)?.map(|i|i.journey.daw)
+                .or_else(||current.map(|i|i.journey.daw)).unwrap_or(ui::DawChoice::Other);
+            drop(projection.take());
+            automatic_install::execute(m,&ui::Action::VendorSoftwareInstall{application:application.clone(),daw},
+                operation.ok_or("operator_operation_identity")?,capacity_read,timeout,waits)
+        }
+        ui::Action::VendorApplicationStop { application } => {
+            stop_vendor_with(
+                m,
+                application,
+                |vendor| vendor_cli::cancel_owned(m, application, vendor),
+                |saved| restore_service(m, saved),
+            )?;
+            Ok(json!({"vendor":"stopped"}))
+        }
+        ui::Action::ProgramChoose {environment,expected_environment,executable} => {
+            let file = Artifact {path:executable.path.clone(),sha256:executable.sha256.clone()};
+            let app = vendor_cli::selection::choose_program(m,environment,expected_environment,&file,None)?;
+            Ok(json!({"program":app.selector()?,"selected":true}))
+        }
+        ui::Action::ProgramAdopt {application,expected_environment,executable} => {
+            let old = vendor_cli::application(m,application)?;
+            let file = Artifact {path:executable.path.clone(),sha256:executable.sha256.clone()};
+            let app = vendor_cli::selection::choose_program(m,&old.environment.id,expected_environment,&file,Some(application))?;
+            Ok(json!({"program":app.selector()?,"adopted":true}))
+        }
+        ui::Action::VendorApplicationFocus { application }
+        | ui::Action::VendorApplicationClose { application } => {
+            vendor_application::ApplicationId::parse(application)?;
+            require(
+                vendor_cli::live(application)?,
+                "operator_vendor_not_running",
+            )?;
+            let directory = vendor_cli::directory(m, application)?;
+            let operation = optional(&directory.join("operation-result.json"))?;
+            let operation_id = operation["operation_id"]
+                .as_str()
+                .ok_or("operator_focus_owner_unsupported")?;
+            let request = random_id()?;
+            let close = matches!(a,ui::Action::VendorApplicationClose {..});
+            let field = if close {"close_result"}else{"focus_result"};
+            atomic_json(
+                &directory.join(if close {"close.json"}else{"focus.json"}),
+                &json!({"request":request,"operation_id":operation_id}),
+            )?;
+            let deadline = Instant::now() + Duration::from_secs(4);
+            loop {
+                let value = optional(&directory.join("operation-result.json"))?;
+                if value[field]["request"] == request {
+                    require(
+                        value[field]["result"] == if close {"close_requested"}else{"focused"},
+                        "operator_focus_refused",
+                    )?;
+                    return Ok(value[field].clone());
+                }
+                require(
+                    Instant::now() < deadline,
+                    "operator_focus_receipt_unavailable",
+                )?;
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        }
+        ui::Action::EnvironmentRescan { environment } => {
+            let _environment = maintenance::action_lock(m, a)?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            suspend(m, owner, None, timeout, waits)?;
+            let result = rescan(m, environment);
+            let cleanup = resume_owned(m, owner);
+            let value = result?;
+            cleanup?;
+            Ok(value)
+        }
+        ui::Action::QuarantinedModuleRetry { environment, scan, module_index,
+            module_sha256, report_sha256 } => {
+            let owner = operation.ok_or("operator_operation_identity")?;
+            if vendor_maintenance::owned(m,owner)?.is_some() {
+                return retry_quarantined_module_scoped(m,environment,scan,*module_index,
+                    module_sha256,report_sha256,owner);
+            }
+            let _environment = maintenance::action_lock(m, a)?;
+            suspend(m, owner, None, timeout, waits)?;
+            let result = retry_quarantined_module(m, environment, scan, *module_index,
+                module_sha256, report_sha256);
+            let cleanup = resume_owned(m, owner);
+            let value = result?;
+            cleanup?;
+            Ok(value)
+        }
+    }
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ResumeRecord {
+    schema: u32,
+    owner_operation: String,
+    resume: bool,
+    software: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    vendor_operation: Option<String>,
+
+}
+pub(super) fn resume_lock(m: &Manager) -> Result<Lock> {
+    let deadline = Instant::now() + Duration::from_secs(75);
+    loop {
+        match m.lock("operator-resume.lock") {
+            Ok(lock) => return Ok(lock),
+            Err(e) => {
+                if !e.is::<linux_vst_bridge::operator_lock::LockBusy>()
+                    || Instant::now() >= deadline
+                {
+                    return Err(e);
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+        }
+    }
+}
+pub(super) fn require_no_package_resume(m: &Manager) -> Result<()> {
+    require(!m.root.join("operator/resume.json").try_exists()?,
+        "package_resume_requires_coordinated_update")
+}
+
+/// Original suspension authority carried by the existing package transaction.
+/// The record bytes and failed request/result remain unchanged.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub(super) struct PackageResume {
+    record: String,
+    request: Artifact,
+    result: Artifact,
+    custody: Vec<Artifact>,
+}
+impl PackageResume {
+    fn saved(&self) -> Result<ResumeRecord> {
+        require(self.record.len() <= 4096,"package_resume_record_bound")?;
+        let saved: ResumeRecord = serde_json::from_str(&self.record)?;
+        require(saved.schema == 2 && valid_hex(&saved.owner_operation,32)
+            && valid_hex(&saved.software,64)
+            && saved.vendor_operation.as_ref().is_none_or(|id|valid_hex(id,32)),
+            "package_resume_identity")?;
+        Ok(saved)
+    }
+    pub(super) fn validate_source(&self, source: &Software) -> Result<()> {
+        require(self.saved()?.software == source.manager.sha256,"package_resume_binding")
+    }
+}
+fn retire_setup_for_vendor(m:&Manager,owner:&str)->Result<()> {
+    let mut peer=UnixStream::connect(m.root.join("runtime/owner.sock"))?;
+    peer.set_read_timeout(Some(Duration::from_secs(35)))?;
+    peer.set_write_timeout(Some(Duration::from_secs(2)))?;
+    peer.write_all(b"LVM1\n")?;peer.write_all(owner.as_bytes())?;
+    let mut receipt=[0u8;13];peer.read_exact(&mut receipt)?;
+    require(&receipt==b"LVM1 retired\n","setup_keeper_retirement_unconfirmed")
+}
+fn open_vendor_owned(
+    m: &Manager,
+    application: &str,
+    owner: &str,
+    vendor_operation: &str,
+    timeout: Duration,
+    waits: &mut Vec<ui::LockFacts>,
+    started: impl FnOnce() -> Result<()>,
+) -> Result<Value> {
+    vendor_application::ApplicationId::parse(application)?;
+    if let Some(environment)=vendor_maintenance::owned(m,owner)? {
+        let _environment=m.lock(&format!("operator-environment-{}.lock",environment.id))?;
+        retire_setup_for_vendor(m,owner)?;
+        vendor_cli::launch_owned(m,application,vendor_operation)?;
+        write_operation(m,owner,&json!({"schema":1,"operation":owner,"state":"vendor_running"}),false)?;
+        started()?;
+        while vendor_cli::live(application)? {std::thread::sleep(Duration::from_millis(500));}
+        vendor_cli::reconcile(m,application,vendor_operation)?;
+        let result=vendor_cli::result(m,application,vendor_operation)?;
+        require(result.retired(),"operator_vendor_cleanup_unconfirmed")?;
+        return Ok(json!({"vendor":"retired","service":"active","operation":vendor_operation,"result":result}));
+    }
+    let _environment = maintenance::action_lock(m, &ui::Action::VendorApplicationOpen {application:application.into()})?;
+    suspend(m, owner, Some(vendor_operation.into()), timeout, waits)?;
+    if let Err(error) = vendor_cli::launch_owned(m, application, vendor_operation) {
+        let _=vendor_cli::reconcile(m,application,vendor_operation);
+        let _ = resume_owned(m, owner);
+        return Err(error);
+    }
+    write_operation(
+        m,
+        owner,
+        &json!({"schema":1,"operation":owner,"state":"vendor_running"}),
+        false,
+    )?;
+    started()?;
+    while vendor_cli::live(application)? {
+        std::thread::sleep(Duration::from_millis(500));
+    }
+    vendor_cli::reconcile(m,application,vendor_operation)?;
+    let result = vendor_cli::result(m, application, vendor_operation)?;
+    require(result.retired(), "operator_vendor_cleanup_unconfirmed")?;
+    resume_owned(m, owner)?;
+    Ok(json!({"vendor":"retired","service":"resumed","operation":vendor_operation,"result":result}))
+}
+fn resumable_action(action: &ui::Action) -> bool {
+    matches!(action,ui::Action::InstallerStart {..} | ui::Action::InstallerStartWithPolicy {..}
+        | ui::Action::InstallerScan {..} | ui::Action::EnvironmentInstallerStart {..}
+        | ui::Action::EnvironmentInstallerStartWithPolicy {..}
+        | ui::Action::EnvironmentInstallerScan {..} | ui::Action::RendererOpen {..} | ui::Action::RendererSoftwareInstall {..}
+        | ui::Action::EnvironmentRuntimeSelect {..}
+        | ui::Action::DependencyPrepare {} | ui::Action::VendorApplicationOpen {..}
+        | ui::Action::VendorSoftwareInstall {..} | ui::Action::SoftwareInstallResume {..}
+        | ui::Action::EnvironmentRefresh {..} | ui::Action::EnvironmentRefreshResume {..}
+        | ui::Action::EnvironmentRescan {..} | ui::Action::QuarantinedModuleRetry {..}
+        | ui::Action::PluginFinishSetup {..}
+        | ui::Action::PluginReinspect {..} | ui::Action::PluginInspect {..}
+        | ui::Action::PluginPrepare {..} | ui::Action::CandidateGraphicsAssess {..}
+        | ui::Action::CompatibilityCheck {..} | ui::Action::CompatibilityResumeCheck {..}
+        // An uninstall, or the close check that took over its pause, may
+        // leave the pause behind; restoring requires everything retired.
+        | ui::Action::ProductUninstall {..} | ui::Action::InstallerCloseCheck {..})
+}
+pub(super) fn control_artifact(path: PathBuf) -> Result<Artifact> {
+    require(file(&path)?.metadata()?.len() <= 8*1024*1024,"operator_record_bound")?;
+    Ok(Artifact {sha256:digest(&path)?,path})
+}
+pub(super) fn capture_package_resume_with(m: &Manager, source: &Software,
+    mut worker_live: impl FnMut(&str)->Result<bool>) -> Result<Option<PackageResume>> {
+    let path = m.root.join("operator/resume.json");
+    if !path.try_exists()? { return Ok(None); }
+    let bytes = control_artifact(path)?.record_bytes(4096)?;
+    let record = String::from_utf8(bytes)?;
+    let saved: ResumeRecord = serde_json::from_str(&record)?;
+    let directory = job_dir(m,&saved.owner_operation)?;
+    let request = control_artifact(directory.join("request.json"))?;
+    let result = control_artifact(directory.join("result.json"))?;
+    let action = recovery_request(m,&saved)?;
+    let custody = package_resume_custody(m,&saved,&action)?;
+    let captured = PackageResume {record,request,result,custody};
+    validate_package_resume_with(m,&captured,source,false,&mut worker_live)?;
+    Ok(Some(captured))
+}
+fn package_resume_custody(m: &Manager, saved: &ResumeRecord, action: &ui::Action)
+    -> Result<Vec<Artifact>> {
+    package_resume_custody_with_renderer_probe(m,saved,action,renderer_session::inspect)
+}
+fn package_resume_custody_with_renderer_probe(m:&Manager,saved:&ResumeRecord,action:&ui::Action,
+    probe:impl Fn(&str)->Result<renderer_session::UnitState>)->Result<Vec<Artifact>> {
+    let mut custody = Vec::new();
+    if matches!(action,ui::Action::RendererSoftwareInstall {..}) && saved.vendor_operation.is_some() {
+        if let Some(custody)=renderer_continuation::never_submitted_custody_with(m,saved,
+            ||probe(&saved.owner_operation))? {return Ok(custody);}
+    }
+    if saved.vendor_operation.is_none() && (matches!(action,ui::Action::RendererSoftwareInstall {..})
+        || matches!(action,ui::Action::EnvironmentRefreshResume {operation} if renderer_continuation::owns(m,operation)?)) {
+        return renderer_continuation::scan_custody(m,saved);
+    }
+    match action {
+        ui::Action::VendorApplicationOpen {application} | ui::Action::VendorSoftwareInstall {application,..} => {
+            vendor_application::ApplicationId::parse(application)?;
+            let directory = m.root.join("vendor-applications").join(application);
+            let job: vendor_application::Operation = read_json(&directory.join("operation.json"))?;
+            let mut app: vendor_application::Application = read_json(&directory.join("application.json"))?;
+            app.environment=environment_install::current_environment(m,&app.environment)?;
+            require(saved.vendor_operation.as_deref() == Some(job.operation_id.as_str())
+                && job.application == app && job.report == directory.join("operation-result.json")
+                && app.environment.root == m.root.join("environments").join(&app.environment.id)
+                && read_json::<Environment>(&app.environment.root.join("environment.json"))? == app.environment,
+                "package_resume_vendor_binding")?;
+            let report: vendor_application::OperationResult = read_json(&job.report)?;
+            require(report.operation_id == saved.vendor_operation && report.retired(),
+                "package_resume_vendor_binding")?;
+            for path in [directory.join("operation.json"),directory.join("application.json"),
+                job.report,app.environment.root.join("environment.json")] {
+                custody.push(control_artifact(path)?);
+            }
+        }
+        ui::Action::RendererOpen {..} | ui::Action::RendererSoftwareInstall {..} | ui::Action::DependencyPrepare {} => {
+            require(saved.vendor_operation.as_deref() == Some(saved.owner_operation.as_str()),
+                "package_resume_vendor_binding")?;
+            let dependency = matches!(action,ui::Action::DependencyPrepare {});
+            let directory = if dependency {dependency_session::directory(m)}
+                else {renderer_cli::directory(m)};
+            let current = directory.join("current.json");
+            require(optional(&current)?["operation"] == saved.owner_operation,
+                "package_resume_vendor_binding")?;
+            custody.push(control_artifact(current)?);
+            let result = if dependency {dependency_session::result(m,&saved.owner_operation)?}
+                else {renderer_session::result(m,&saved.owner_operation)?};
+            require(if dependency {dependency_session::terminal(&result,&saved.owner_operation)}
+                else {renderer_session::terminal(&result,&saved.owner_operation)},
+                "package_resume_vendor_binding")?;
+            let operation = directory.join("operations").join(&saved.owner_operation);
+            for name in ["spec.json","result.json","recovery-result.json"] {
+                let path = operation.join(name);
+                if path.try_exists()? {custody.push(control_artifact(path)?);}
+            }
+        }
+        ui::Action::EnvironmentRuntimeSelect {..} => {
+            require(saved.vendor_operation.is_none(),"package_resume_vendor_binding")?;
+            let path=job_dir(m,&saved.owner_operation)?.join("runtime-transition.json");
+            if path.try_exists()? {
+                let transition=environment_runtime::load(m,&saved.owner_operation)?;
+                let current:Environment=read_json(&transition.environment.root.join("environment.json"))?;
+                require(current==if transition.state==environment_runtime::State::Cancelled {
+                    transition.before.clone()
+                } else {transition.environment.clone()},"package_resume_runtime_binding")?;
+                custody.push(control_artifact(path)?);
+                custody.push(control_artifact(current.root.join("environment.json"))?);
+            }
+        }
+        _ => require(saved.vendor_operation.is_none(),"package_resume_vendor_binding")?,
+    }
+    Ok(custody)
+}
+pub(super) fn validate_package_resume_with(m: &Manager, captured: &PackageResume,
+    source: &Software, allow_consumed: bool,
+    mut worker_live: impl FnMut(&str)->Result<bool>) -> Result<()> {
+    let saved = captured.saved()?;
+    let directory = job_dir(m,&saved.owner_operation)?;
+    require(saved.software == source.manager.sha256
+        && captured.request.path == directory.join("request.json")
+        && captured.result.path == directory.join("result.json")
+        && captured.custody.len() <= 4,"package_resume_binding")?;
+    let request: ui::Request = serde_json::from_slice(&captured.request.record_bytes(8*1024*1024)?)?;
+    let result: Value = serde_json::from_slice(&captured.result.record_bytes(8*1024*1024)?)?;
+    require(matches!(request.schema,5..=ui::OPERATOR_SCHEMA)
+        && resumable_action(&request.action)
+        && result["schema"] == 1 && result["operation"] == saved.owner_operation
+        && matches!(result["state"].as_str(),Some("completed" | "refused"))
+        && !worker_live(&saved.owner_operation)?,"package_resume_owner_not_terminal")?;
+    require(package_resume_custody(m,&saved,&request.action)? == captured.custody,
+        "package_resume_custody_changed")?;
+    for artifact in &captured.custody {artifact.record_bytes(8*1024*1024)?;}
+    let path = m.root.join("operator/resume.json");
+    if path.try_exists()? {
+        require(control_artifact(path)?.record_bytes(4096)? == captured.record.as_bytes(),
+            "package_resume_reservation_changed")
+    } else {require(allow_consumed,"package_resume_reservation_missing")}
+}
+pub(super) fn consume_package_resume(m: &Manager, captured: &PackageResume) -> Result<()> {
+    let path = m.root.join("operator/resume.json");
+    if path.try_exists()? {
+        require(control_artifact(path.clone())?.record_bytes(4096)? == captured.record.as_bytes(),
+            "package_resume_reservation_changed")?;
+        fs::remove_file(path)?;
+        fs::File::open(m.root.join("operator"))?.sync_all()?;
+    }
+    Ok(())
+}
+pub(super) fn restore_package_resume(m: &Manager, captured: &PackageResume) -> Result<()> {
+    captured.saved()?;
+    let path = m.root.join("operator/resume.json");
+    if path.try_exists()? {
+        return require(control_artifact(path)?.record_bytes(4096)? == captured.record.as_bytes(),
+            "package_resume_reservation_changed");
+    }
+    let temp = path.with_extension(format!("tmp-{}",random_id()?));
+    let mut out = fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&temp)?;
+    let restored = (|| -> Result<()> {
+        out.write_all(captured.record.as_bytes())?;
+        out.sync_all()?;
+        fs::rename(&temp,&path)?;
+        fs::File::open(path.parent().ok_or("package_resume_parent")?)?.sync_all()?;
+        Ok(())
+    })();
+    if restored.is_err() {let _ = fs::remove_file(&temp);}
+    restored
+}
+fn resume_record(m: &Manager) -> Result<Option<ResumeRecord>> {
+    let value = optional(&m.root.join("operator/resume.json"))?;
+    if value.is_null() {
+        return Ok(None);
+    }
+    let saved: ResumeRecord = serde_json::from_value(value)?;
+    require(
+        matches!(saved.schema, 1 | 2)
+            && valid_hex(&saved.owner_operation, 32)
+            && valid_hex(&saved.software, 64)
+            && saved
+                .vendor_operation
+                .as_ref()
+                .is_none_or(|id| valid_hex(id, 32)),
+        "operator_resume_identity",
+    )?;
+    Ok(Some(saved))
+}
+/// Current reservations remain local to their exact operation. The old global
+/// record is accepted only as historical recovery input.
+fn reservation_owners(m: &Manager) -> Result<Vec<ResumeRecord>> {
+    let mut owners: Vec<_> = maintenance::held(m)?.into_iter().map(|record|record.owner).collect();
+    owners.extend(resume_record(m)?);
+    Ok(owners)
+}
+fn reservation_owner(m: &Manager, operation: &str) -> Result<Option<ResumeRecord>> {
+    let mut owners = reservation_owners(m)?.into_iter().filter(|owner|owner.owner_operation == operation);
+    let found = owners.next();
+    require(owners.next().is_none(), "operation_reservation_conflict")?;
+    Ok(found)
+}
+// The reservation restores the control service, not any DSP environment.
+// Native admission alone prepares its exact runtime/keeper and acknowledges
+// processing readiness. Caller holds the fresh maintenance reservation.
+pub(super) fn authorize_service_resume(
+    m: &Manager, operation: &str, selected: &Software,
+) -> Result<()> {
+    let saved = resume_record(m)?.ok_or("operator_resume_absent")?;
+    require(saved.schema == 2 && saved.resume && saved.owner_operation == operation,
+        "operator_resume_request_identity")?;
+    let current: Software = read_json(&m.root.join("software.json"))?;
+    require(saved.software == selected.manager.sha256
+        && current.manager == selected.manager,
+        "operator_resume_software_changed")?;
+    recovery_request(m, &saved)?;
+    require(onboarding::all_retired(m)?, "operator_installer_cleanup_unconfirmed")?;
+    require(vendor_retired(m)?, "operator_vendor_cleanup_unconfirmed")
+}
+// Caller holds operator-resume.lock. An outstanding recovery is never replaced.
+#[cfg(test)]
+fn create_resume(m: &Manager, saved: &ResumeRecord) -> Result<()> {
+    require(resume_record(m)?.is_none(), "operator_resume_pending")?;
+    job_dir(m, &saved.owner_operation)?;
+    atomic_json(&m.root.join("operator/resume.json"), saved)
+}
+fn suspend(
+    m: &Manager, owner: &str, vendor_operation: Option<String>,
+    timeout: Duration, waits: &mut Vec<ui::LockFacts>,
+) -> Result<()> {
+    maintenance::acquire(m, owner, vendor_operation, timeout, waits)
+}
+/// Take over the pause an ended operation (an uninstaller run whose worker
+/// stopped) still holds, so it covers this operation's work and only this
+/// operation releases it. With no pause held, this operation pauses the
+/// bridge. After a restart the bridge may run again; it is stopped again.
+fn take_pause(m: &Manager, from: &str, to: &str, timeout: Duration, waits: &mut Vec<ui::LockFacts>) -> Result<()> {
+    if maintenance::transfer(m, from, to, timeout, waits)? { return Ok(()); }
+    // A retained pre-service operation must first be recovered by its old
+    // custody checks; never create another whole-service pause.
+    require(resume_record(m)?.is_none(), "earlier_maintenance_requires_recovery")?;
+    maintenance::acquire(m, to, None, timeout, waits)
+}
+#[cfg(test)]
+fn take_pause_with(
+    m: &Manager, from: &str, to: &str, timeout: Duration, waits: &mut Vec<ui::LockFacts>,
+    service_io: (impl FnOnce() -> bool, impl FnOnce() -> Result<()>),
+) -> Result<()> {
+    {
+        let _resume = resume_lock(m)?;
+        if let Some(mut saved) = resume_record(m)? {
+            require(saved.owner_operation == from, "operator_resume_pending")?;
+            let _lock = acquire_readback(m, ui::OperatorLock::Registry, Some(to), timeout, waits)?;
+            m.require_inactive(None)?;
+            require(vendor_retired(m)?, "operator_vendor_active")?;
+            job_dir(m, to)?;
+            let running = service_io.0();
+            saved.resume |= running;
+            saved.owner_operation = to.into();
+            atomic_json(&m.root.join("operator/resume.json"), &saved)?;
+            if running { service_io.1()?; }
+            require(!reconcile_leases(m)?, "operator_cleanup_unconfirmed")?;
+            return Ok(());
+        }
+    }
+    suspend_with(m, to, None, timeout, waits, service_io)
+}
+#[cfg(test)]
+fn suspend_with(
+    m: &Manager, owner: &str, vendor_operation: Option<String>,
+    timeout: Duration, waits: &mut Vec<ui::LockFacts>,
+    service_io: (impl FnOnce() -> bool, impl FnOnce() -> Result<()>),
+) -> Result<()> {
+    // Same lock order as recovery: resume, then registry. Hold through Stop so
+    // even the matching owner cannot consume the record before suspension.
+    let _resume = resume_lock(m)?;
+    let _lock = acquire_readback(m, ui::OperatorLock::Registry, Some(owner), timeout, waits)?;
+    m.require_inactive(None)?;
+    require(vendor_retired(m)?, "operator_vendor_active")?;
+    let was_active = service_io.0();
+    create_resume(
+        m,
+        &ResumeRecord {
+            schema: 2,
+            owner_operation: owner.into(),
+            resume: was_active,
+            software: software(m)?.manager.sha256,
+            vendor_operation,
+        },
+    )?;
+    if was_active {
+        service_io.1()?;
+    }
+    require(!reconcile_leases(m)?, "operator_cleanup_unconfirmed")?;
+    Ok(())
+}
+fn resume_owned(m: &Manager, owner: &str) -> Result<()> {
+    if maintenance::release(m, owner)? { return Ok(()); }
+    // A package gate finishing dead tasks leaves their reservations to the
+    // service start, activation or Recover instead of waiting on them here.
+    if RESTORATION_DEFERRED.with(std::cell::Cell::get) {
+        return Ok(());
+    }
+    resume_owned_with(m, owner, |saved| restore_service(m, saved))
+}
+fn resume_owned_with(
+    m: &Manager,
+    owner: &str,
+    restore: impl FnOnce(&ResumeRecord) -> Result<()>,
+) -> Result<()> {
+    let _resume = resume_lock(m)?;
+    resume_locked(m, owner, restore)
+}
+// The lock covers read, restore and removal. A newer suspension cannot slip
+// between the identity comparison and record retirement.
+fn resume_locked(
+    m: &Manager,
+    owner: &str,
+    restore: impl FnOnce(&ResumeRecord) -> Result<()>,
+) -> Result<()> {
+    job_dir(m, owner)?;
+    if maintenance::release(m, owner)? { return Ok(()); }
+    let Some(saved) = resume_record(m)? else {
+        return Ok(());
+    };
+    if saved.owner_operation != owner {
+        return Ok(());
+    }
+    // An interrupted package transition may hold this reservation as its
+    // handoff; only that transition's own recovery may consume it.
+    require(!m.root.join("package-transition.json").try_exists()?, "package_transition_needs_recovery")?;
+    restore(&saved)?;
+    fs::remove_file(m.root.join("operator/resume.json"))?;
+    Ok(())
+}
+fn recovery_request(m: &Manager, saved: &ResumeRecord) -> Result<ui::Action> {
+    let request: ui::Request =
+        read_json(&job_dir(m, &saved.owner_operation)?.join("request.json"))?;
+    // The installed private UI2 manager retained schema-11 requests. This is
+    // historical readback only; live requests require the current paired operator schema.
+    require(
+        matches!(request.schema, 5..=ui::OPERATOR_SCHEMA),
+        "operator_resume_request_schema",
+    )?;
+    Ok(request.action)
+}
+fn stop_dependency_with(
+    m: &Manager,
+    target: &str,
+    close: impl FnOnce(&str) -> Result<()>,
+    restore: impl FnOnce(&ResumeRecord) -> Result<()>,
+) -> Result<()> {
+    let _resume = resume_lock(m)?;
+    let saved = reservation_owner(m, target)?.ok_or("dependency_resume_absent")?;
+    require(
+        saved.owner_operation == target && saved.vendor_operation.as_deref() == Some(target),
+        "dependency_stop_wrong_operation",
+    )?;
+    require(
+        recovery_request(m, &saved)? == ui::Action::DependencyPrepare {},
+        "dependency_resume_action",
+    )?;
+    dependency_session::exact(m, target)?;
+    close(target)?;
+    resume_locked(m, target, restore)
+}
+fn stop_renderer_with(
+    m: &Manager,
+    target: &str,
+    close: impl FnOnce(&str) -> Result<()>,
+    restore: impl FnOnce(&ResumeRecord) -> Result<()>,
+) -> Result<()> {
+    let _resume = resume_lock(m)?;
+    let saved = reservation_owner(m, target)?.ok_or("renderer_resume_owner_absent")?;
+    require(
+        saved.owner_operation == target && saved.vendor_operation.as_deref() == Some(target),
+        "renderer_resume_owner_mismatch",
+    )?;
+    let (application,policy)=match recovery_request(m,&saved)? {
+        ui::Action::RendererOpen {application,policy}
+        | ui::Action::RendererSoftwareInstall {application,policy,..}=>(application,policy),
+        _=>return Err("renderer_resume_action_mismatch".into()),
+    };
+    require(
+        renderer_cli::current(m)?
+            == json!({"operation":target,"application":application,"policy":policy}),
+        "renderer_resume_reservation_mismatch",
+    )?;
+    close(target)?;
+    resume_locked(m, target, restore)
+}
+fn stop_vendor_with(
+    m: &Manager,
+    application: &str,
+    cancel: impl FnOnce(&str) -> Result<()>,
+    restore: impl FnOnce(&ResumeRecord) -> Result<()>,
+) -> Result<()> {
+    vendor_application::ApplicationId::parse(application)?;
+    if let Some(intent)=automatic_install::vendor_intent(m,application)? {
+        if let Some(vendor)=&intent.vendor {
+            if vendor_maintenance::for_vendor(m,&vendor.operation)?.is_some() {
+                let job:vendor_application::Operation=read_json(&vendor_cli::directory(m,application)?.join("operation.json"))?;
+                require(job.operation_id==vendor.operation,"operator_vendor_open_binding_changed")?;
+                return cancel(&vendor.operation);
+            }
+        }
+    }
+    let _resume = resume_lock(m)?;
+    let job = optional(&vendor_cli::directory(m, application)?.join("operation.json"))?;
+    let mut owners = reservation_owners(m)?.into_iter().filter(|owner|
+        owner.vendor_operation.as_deref().is_some_and(|vendor| job["operation_id"] == vendor));
+    let saved = owners.next().ok_or("operator_vendor_open_owner_absent")?;
+    require(owners.next().is_none(), "operation_reservation_conflict")?;
+    let request = recovery_request(m, &saved)?;
+    let matching = match request {
+        ui::Action::VendorApplicationOpen {
+            application: ref selected,
+        }
+        | ui::Action::VendorSoftwareInstall {
+            application: ref selected,
+            ..
+        } => selected == application,
+        ui::Action::SoftwareInstallResume { ref onboarding } => {
+            onboarding::retained_environment_record(m, onboarding)?
+                .map(|record|automatic_install::record_intent(m,&record)).transpose()?.flatten()
+                .and_then(|i| i.vendor)
+                .is_some_and(|v| v.application == application)
+        }
+        _ => false,
+    };
+    require(matching, "operator_vendor_open_owner_mismatch")?;
+    let vendor = saved
+        .vendor_operation
+        .as_deref()
+        .ok_or("operator_vendor_open_binding_absent")?;
+    let job = optional(&vendor_cli::directory(m, application)?.join("operation.json"))?;
+    require(
+        job["operation_id"] == vendor,
+        "operator_vendor_open_binding_changed",
+    )?;
+    // cancel_owned rechecks this identity under the registry lock and only
+    // queues the running launch's stop there. Retirement waits release it;
+    // an already stopped launch retains the app's writer/census recovery.
+    // Either path requires positive retirement of that same launch.
+    cancel(vendor)?;
+    resume_locked(m, &saved.owner_operation, restore)
+}
+fn resume_interrupted(m: &Manager) -> Result<()> {
+    for record in maintenance::held(m)? {
+        let owner = &record.owner.owner_operation;
+        require(!worker_live(m, owner)?, "setup_maintenance_executor_live")?;
+        let _executor = m.lock(&format!("operator-worker-{owner}.lock"))?;
+        require(!worker_live(m, owner)?, "setup_maintenance_executor_live")?;
+        finish_operation(m, owner)?;
+        maintenance::release(m, owner)?;
+    }
+    resume_interrupted_with(m, |saved| restore_service(m, saved))
+}
+fn resume_interrupted_with(
+    m: &Manager,
+    restore: impl FnOnce(&ResumeRecord) -> Result<()>,
+) -> Result<()> {
+    resume_interrupted_with_renderer_probe(m,restore,renderer_session::inspect)
+}
+fn resume_interrupted_with_renderer_probe(m:&Manager,restore:impl FnOnce(&ResumeRecord)->Result<()>,
+    probe:impl Fn(&str)->Result<renderer_session::UnitState>)->Result<()> {
+    // Only explicit reconciliation can recover a completed prior owner. It
+    // cannot steal an active Open/Rescan or adopt an ownerless legacy record.
+    let _resume = resume_lock(m)?;
+    let Some(saved) = resume_record(m)? else {
+        return Ok(());
+    };
+    let _environment = m.lock("operator-environment.lock")?;
+    if matches!(
+        recovery_request(m, &saved)?,
+        ui::Action::DependencyPrepare {}
+    ) {
+        require(
+            saved.vendor_operation.as_deref() == Some(saved.owner_operation.as_str()),
+            "dependency_resume_owner",
+        )?;
+        dependency_session::reconcile(m, &saved.owner_operation)?;
+        require(
+            dependency_session::retired(m, &saved.owner_operation)?,
+            "dependency_custody_uncertain",
+        )?;
+        return resume_locked(m, &saved.owner_operation, restore);
+    }
+    if matches!(
+        recovery_request(m, &saved)?,
+        ui::Action::RendererOpen { .. } | ui::Action::RendererSoftwareInstall {..}
+    ) && saved.vendor_operation.is_some() {
+        require(
+            saved.vendor_operation.as_deref() == Some(saved.owner_operation.as_str()),
+            "renderer_resume_owner_mismatch",
+        )?;
+        if matches!(recovery_request(m,&saved)?,ui::Action::RendererSoftwareInstall {..})
+            && renderer_continuation::never_submitted_custody_with(m,&saved,
+                ||probe(&saved.owner_operation))?.is_some() {
+            return resume_locked(m,&saved.owner_operation,restore);
+        }
+        renderer_cli::reconcile(m, &saved.owner_operation)?;
+        require(
+            renderer_session::retired(m, &saved.owner_operation)?,
+            "renderer_custody_still_uncertain",
+        )?;
+        return resume_locked(m, &saved.owner_operation, restore);
+    }
+    let action=recovery_request(m,&saved)?;
+    if matches!(action,ui::Action::RendererSoftwareInstall {..})
+        || matches!(&action,ui::Action::EnvironmentRefreshResume {operation} if renderer_continuation::owns(m,operation)?) {
+        renderer_continuation::scan_custody(m,&saved)?;
+    }
+    require(resumable_action(&action),"operator_resume_action_mismatch")?;
+    let result = optional(&job_dir(m, &saved.owner_operation)?.join("result.json"))?;
+    require(
+        result["operation"] == saved.owner_operation
+            && matches!(result["state"].as_str(), Some("completed" | "refused")),
+        "operator_resume_owner_not_terminal",
+    )?;
+    resume_locked(m, &saved.owner_operation, restore)
+}
+fn restore_service(m: &Manager, saved: &ResumeRecord) -> Result<()> {
+    require(
+        onboarding::all_retired(m)?,
+        "operator_installer_cleanup_unconfirmed",
+    )?;
+    require(vendor_retired(m)?, "operator_vendor_cleanup_unconfirmed")?;
+    require(
+        saved.software == software(m)?.manager.sha256,
+        "operator_resume_software_changed",
+    )?;
+    if saved.resume {
+        service("start")?;
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut peer = loop {
+            match UnixStream::connect(m.root.join("runtime/owner.sock")) {
+                Ok(p) => break p,
+                Err(e) => {
+                    if Instant::now() >= deadline {
+                        return Err(e.into());
+                    }
+                    std::thread::sleep(Duration::from_millis(50));
+                }
+            }
+        };
+        peer.set_read_timeout(Some(Duration::from_secs(70)))?;
+        peer.set_write_timeout(Some(Duration::from_secs(2)))?;
+        let scoped = saved.schema == 2;
+        if scoped {
+            peer.write_all(b"LVE2\n")?;
+            peer.write_all(saved.owner_operation.as_bytes())?;
+        } else {
+            peer.write_all(b"LVE1\n")?;
+        }
+        let expected: &[u8] = if scoped { b"LVE2 control ready\n" } else { b"LVE1 ready\n" };
+        let mut receipt = [0; 19];
+        peer.read_exact(&mut receipt[..expected.len()]).map_err(|error|
+            format!("operator_service_resume_readback: {error}"))?;
+        require(
+            &receipt[..expected.len()] == expected,
+            "operator_service_resume_unconfirmed",
+        )?;
+    }
+    Ok(())
+}
+pub(super) fn rescan(m: &Manager, environment: &str) -> Result<Value> {
+    let _lock = m.lock("registry.lock")?;
+    capacity::require_environment_inactive(m, &environment_install::target(m, environment)?)?;
+    maintenance::require_publications_settled(m, &environment_install::target(m, environment)?)?;
+    let sw = software(m)?;
+    let db = m.registry()?;
+    // A scan discovers current vendor state. Retained ownership identifies its
+    // space; old DSP admission cannot authorize or veto that inspection.
+    let c = operator_catalogue_readback(m, &sw, &db)?;
+    let env = managed_rescan_binding(m, c.as_ref(), &db, environment)?
+        .ok_or("operator_environment_unmanaged")?;
+    rescan_environment_locked(m, env, sw, None)
+}
+#[derive(Clone, Debug)]
+struct QuarantinedRetry {
+    scan: String,
+    module_index: usize,
+    module_sha256: String,
+    report_sha256: String,
+}
+fn retry_quarantined_module(m: &Manager, environment: &str, scan: &str,
+    module_index: usize, module_sha256: &str, report_sha256: &str) -> Result<Value> {
+    let _lock = m.lock("registry.lock")?;
+    capacity::require_environment_inactive(m, &environment_install::target(m, environment)?)?;
+    let sw = software(m)?;
+    let db = m.registry()?;
+    let catalogue = operator_catalogue(m, &sw, &db)?;
+    let bindings = managed_environment_bindings(m, catalogue.as_ref(), &db)?;
+    let env = quarantined_retry_binding(m, &bindings, &db, environment, true)?
+        .ok_or("operator_environment_unmanaged")?;
+    rescan_environment_locked(m, env, sw, Some(QuarantinedRetry {
+        scan: scan.into(), module_index, module_sha256: module_sha256.into(),
+        report_sha256: report_sha256.into(),
+    }))
+}
+fn retry_quarantined_module_scoped(m:&Manager,environment:&str,scan:&str,
+    module_index:usize,module_sha256:&str,report_sha256:&str,owner:&str)->Result<Value> {
+    let lock=m.lock("registry.lock")?;
+    let env=vendor_maintenance::owned(m,owner)?.ok_or("vendor_maintenance_owner_missing")?;
+    require(env.id==environment,"vendor_maintenance_child_scope")?;
+    vendor_maintenance::require_inactive(m,&env)?;
+    let sw=software(m)?;
+    let db=m.registry()?;
+    let catalogue=operator_catalogue(m,&sw,&db)?;
+    let bindings=managed_environment_bindings(m,catalogue.as_ref(),&db)?;
+    require(quarantined_retry_binding(m,&bindings,&db,environment,true)?==Some(env.clone()),
+        "operator_environment_unmanaged")?;
+    drop(lock);
+    rescan_environment_work(m,env,sw,Some(QuarantinedRetry {
+        scan:scan.into(),module_index,module_sha256:module_sha256.into(),
+        report_sha256:report_sha256.into(),
+    }),Some(owner))
+}
+fn rescan_environment(m: &Manager, env: Environment) -> Result<Value> {
+    let id = env.id.clone();
+    let value = rescan_environment_with_retry(m, env, None)?;
+    // Keep the overview's uninstall index current; never needed for correctness.
+    let _ = uninstall::refresh_index(m, &id);
+    Ok(value)
+}
+fn reusable_quarantine<'a>(prior: Option<&'a inventory::Scan>, env: &Environment,
+    host: &Artifact, host_source_sha256: &str, module: &Artifact)
+    -> Option<&'a inventory::Module> {
+    prior.filter(|s| s.environment == *env && s.host == *host
+        && s.host_source_sha256 == host_source_sha256)
+        .and_then(|s| s.modules.iter().find(|p|
+            p.artifact == *module && p.quarantine_reason.is_some()))
+}
+fn reusable_scan_module<'a>(prior: Option<&'a inventory::Scan>, env: &Environment,
+    host: &Artifact, host_source_sha256: &str, module: &Artifact,
+    retry_target: Option<&Artifact>) -> Result<Option<&'a inventory::Module>> {
+    if let Some(target)=retry_target {
+        if module==target { return Ok(None); }
+        return Ok(Some(prior.and_then(|scan|scan.modules.iter()
+            .find(|old|old.artifact==*module))
+            .ok_or("operator_quarantine_retry_inventory_changed")?));
+    }
+    Ok(reusable_quarantine(prior,env,host,host_source_sha256,module))
+}
+fn exact_retry_target<'a>(prior: Option<&'a inventory::Scan>, env: &Environment,
+    host: &Artifact, host_source_sha256: &str, modules: &[Artifact],
+    retry: &QuarantinedRetry) -> Result<&'a inventory::Module> {
+    require(valid_hex(&retry.scan,32) && valid_hex(&retry.module_sha256,64)
+        && valid_hex(&retry.report_sha256,64),"operator_quarantine_retry_identity")?;
+    let prior=prior.ok_or("operator_quarantine_retry_scan_absent")?;
+    require(prior.schema==1 && prior.id==retry.scan && prior.environment==*env
+        && prior.host.sha256==host.sha256
+        && prior.host_source_sha256==host_source_sha256,
+        "operator_quarantine_retry_scan_changed")?;
+    require(prior.host.verify().is_ok() && host.verify().is_ok(),
+        "operator_quarantine_retry_scan_changed")?;
+    require(prior.modules.len()==modules.len() && prior.modules.iter().zip(modules)
+        .all(|(old,current)|old.artifact==*current),
+        "operator_quarantine_retry_inventory_changed")?;
+    let selected=prior.modules.get(retry.module_index)
+        .ok_or("operator_quarantine_retry_module_absent")?;
+    require(selected.artifact.sha256==retry.module_sha256
+        && selected.report.sha256==retry.report_sha256
+        && (selected.quarantine_reason.is_some() || selected.inspection_error.is_some()),"operator_quarantine_retry_module_changed")?;
+    selected.report.verify()?;
+    Ok(selected)
+}
+fn rescan_environment_with_retry(m: &Manager, env: Environment,
+    retry: Option<QuarantinedRetry>) -> Result<Value> {
+    rescan_environment_admitted(m,env,retry,||m.lock("registry.lock"))
+}
+fn rescan_environment_admitted(m:&Manager,env:Environment,retry:Option<QuarantinedRetry>,
+    registry_admission:impl FnOnce()->Result<Lock>)->Result<Value> {
+    let _lock = registry_admission()?;
+    _lock.require_registry(m)?;
+    capacity::require_environment_inactive(m, &env)?;
+    let sw = software(m)?;
+    rescan_environment_locked(m, env, sw, retry)
+}
+fn rescan_environment_scoped(m:&Manager,env:Environment,owner:&str)->Result<Value> {
+    let sw=software(m)?;
+    rescan_environment_work(m,env,sw,None,Some(owner))
+}
+fn rescan_environment_locked(
+    m: &Manager,
+    env: Environment,
+    sw: Software,
+    retry: Option<QuarantinedRetry>,
+) -> Result<Value> {
+    rescan_environment_work(m,env,sw,retry,None)
+}
+fn rescan_environment_work(m:&Manager,env:Environment,sw:Software,
+    retry:Option<QuarantinedRetry>,owner:Option<&str>)->Result<Value> {
+    let admit=||->Result<Option<Lock>> {
+        if let Some(owner)=owner {
+            let lock=m.lock("registry.lock")?;
+            require(vendor_maintenance::owned(m,owner)?==Some(env.clone()),"vendor_maintenance_child_scope")?;
+            vendor_maintenance::require_inactive(m,&env)?;
+            Ok(Some(lock))
+        } else {Ok(None)}
+    };
+    let environment = env.id.clone();
+    let modules = managed_cli::modules(&env)?;
+    require(modules.len() <= 64, "operator_scan_module_bound")?;
+    let prior_path = m.root.join("inventory").join(format!("{environment}.json"));
+    let initial=admit()?;
+    let prior_identity=if prior_path.try_exists()? {Some(digest(&prior_path)?)} else {None};
+    let prior = if prior_path.exists() {
+        Some(read_json::<inventory::Scan>(&prior_path)?)
+    } else {
+        None
+    };
+    drop(initial);
+    let retry_target=retry.as_ref().map(|retry|exact_retry_target(prior.as_ref(),&env,
+        &sw.host,&sw.source_sha256,&modules,retry).map(|module|module.artifact.clone()))
+        .transpose()?;
+    let start = Instant::now();
+    let mut found = Vec::new();
+    for module in modules {
+        if let Some(old)=reusable_scan_module(prior.as_ref(),&env,&sw.host,
+            &sw.source_sha256,&module,retry_target.as_ref())? {
+            found.push(old.clone());
+            continue;
+        }
+        require(
+            start.elapsed() < Duration::from_secs(600),
+            "operator_scan_time_bound",
+        )?;
+        let stamp = observation::ModuleStamp::read(&module.path)?;
+        let reservation=admit()?;
+        let (job, path) = spec(
+            m,
+            HostBinding {
+                metadata: ClassSelection {
+                    class_id: String::new(),
+                },
+                environment: env.clone(),
+                module: module.clone(),
+                host: sw.host.clone(),
+                host_source_sha256: sw.source_sha256.clone(),
+                compatibility: Compatibility::default(),
+            },
+            true,
+            true,
+            false,
+        )?;
+        let pending =
+            PendingAdmission::new(job.lease.clone(), Arc::new(AdmissionCleanup::default()));
+        #[cfg(test)]
+        SCAN_SPAWN_COUNT.with(|count| count.set(count.get() + 1));
+        let child = spawn(m, &sw, &path, None)?;
+        drop(reservation);
+        if owner.is_some() {vendor_product_cli::finish_scan_with_registry(m,child,&job,&path,pending)?;}
+        else {vendor_product_cli::finish_scan(child,&job,&path,pending)?;}
+        module.verify()?;
+        require(
+            observation::ModuleStamp::read(&module.path)? == stamp,
+            "inventory_module_changed",
+        )?;
+        let report = Artifact {
+            sha256: digest(&job.report)?,
+            path: job.report,
+        };
+        let raw: Value = read_json(&report.path)?;
+        let (classes, quarantine_reason) = match inventory::classes(&raw) {
+            Ok(c) => (c, None),
+            Err(e) => (vec![], Some(e.to_string())),
+        };
+        found.push(inventory::Module {
+            artifact: module,
+            classes,
+            report,
+            quarantine_reason,
+            inspection_error: raw["error"].as_str().map(|s| s.chars().take(256).collect()),
+        });
+    }
+    let _commit=admit()?;
+    require((if prior_path.try_exists()? {Some(digest(&prior_path)?)} else {None})==prior_identity,
+        "inventory_changed_during_scan")?;
+    let scan = inventory::Scan {
+        schema: 1,
+        id: random_id()?,
+        environment: env,
+        host: sw.host,
+        host_source_sha256: sw.source_sha256,
+        completed_at: observation::now()?,
+        changes: inventory::changes(prior.as_ref().map(|p| p.modules.as_slice()), &found),
+        modules: found,
+    };
+    let dir = m.root.join("inventory");
+    private_dir(&dir)?;
+    private_dir(&dir.join("history"))?;
+    atomic_json(
+        &dir.join("history").join(format!("{}.json", scan.id)),
+        &scan,
+    )?;
+    atomic_json(&dir.join(format!("{environment}.json")), &scan)?;
+    Ok(json!({"scan":scan.id,"modules":scan.modules.len(),"activation_permitted":false,
+        "retry":retry.map(|retry|json!({"prior_scan":retry.scan,
+            "module_index":retry.module_index,"module_sha256":retry.module_sha256,
+            "prior_report_sha256":retry.report_sha256}))}))
+}
+fn verification_progress(m: &Manager, id: &str, counts: Option<(usize, usize)>) -> Result<()> {
+    require(valid_hex(id, 32), "operator_operation_identity")?;
+    // Advisory files live outside watched control records and directories.
+    // They never change an operation receipt, generation or admission token.
+    let directory = m.root.join("operator-progress");
+    let path = directory.join(format!("{id}.json"));
+    match counts {
+        Some((checked, total)) => {
+            require(checked <= total && total > 0 && total <= 40000, "runtime_progress_extent")?;
+            private_dir(&directory)?;
+            atomic_json(&path, &json!({"operation":id,"checked":checked,"total":total}))?;
+        },
+        None => match fs::remove_file(path) {
+            Ok(()) => (),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => (),
+            Err(error) => return Err(error.into()),
+        },
+    }
+    Ok(())
+}
+fn present_verification_progress(m: &Manager, operation: &mut Option<Value>) {
+    let Some(value) = operation.as_mut() else { return };
+    if !matches!(value["state"].as_str(), Some("waiting" | "running")) { return }
+    let Some(id) = value["operation"].as_str().filter(|id| valid_hex(id, 32)) else { return };
+    let read = || -> Result<Value> {
+        let path = m.root.join("operator-progress").join(format!("{id}.json"));
+        require(file(&path)?.metadata()?.len() <= 1024, "runtime_progress_extent")?;
+        let counts: Value = read_json(&path)?;
+        require(counts["operation"] == id && counts["checked"].as_u64().zip(counts["total"].as_u64())
+            .is_some_and(|(checked,total)| checked <= total && total > 0 && total <= 40000),
+            "runtime_progress_extent")?;
+        Ok(json!({"checked":counts["checked"],"total":counts["total"]}))
+    };
+    if let Ok(counts) = read() { value["runtime_verification"] = counts; }
+}
+fn worker(m: &Manager, id: &str) -> Result<()> {
+    // One operation reads each exact runtime artifact afresh, then reuses only
+    // its own byte observations while the complete file identity is unchanged.
+    // No persisted readback cache grants permission to run an installer.
+    let observer_manager = Manager::new(m.root.clone(), m.publications.clone());
+    let observer_id = id.to_owned();
+    let mut reported = false;
+    runtime_delivery::with_verification_progress(move |counts| {
+        if let Err(error) = verification_progress(&observer_manager, &observer_id, counts) {
+            if !reported { eprintln!("compatibility check progress unavailable: {error}"); reported = true; }
+        }
+    }, || linux_vst_bridge::with_launch_verification(||
+        worker_with_capacity(m, id, OPERATOR_WAIT, &|| live_capacity(m).ok())))
+}
+fn worker_with_capacity(
+    m: &Manager,
+    id: &str,
+    timeout: Duration,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>,
+) -> Result<()> {
+    let _observed = timing::Session::worker(m, id);
+    timing::measure(Stage::Worker, || worker_with_capacity_observed(m, id, timeout, capacity_read))
+}
+fn worker_with_capacity_observed(
+    m: &Manager,
+    id: &str,
+    timeout: Duration,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>,
+) -> Result<()> {
+    // Prevent a duplicate worker from executing the same operation twice.
+    let dir = job_dir(m, id)?;
+    let _owner = timing::measure(Stage::WorkerLock, || m.lock(&format!("operator-worker-{id}.lock")))?;
+    let prior = timing::measure(Stage::WorkerReceiptRead, || optional(&dir.join("result.json")))?;
+    if matches!(prior["state"].as_str(), Some("completed" | "refused")) {
+        return Ok(());
+    }
+    let request: ui::Request = timing::measure(Stage::WorkerRequestRead, || read_json(&dir.join("request.json")))?;
+    timing::select_action(&request.action);
+    write_operation(
+        m,
+        id,
+        &json!({"schema":1,"operation":id,"state":"waiting","stage":"operator_validation_readback","action":request.action}),
+        false,
+    )?;
+    let mut waits = vec![];
+    let mut accepted_with_facts = false;
+    let validation = timing::measure(Stage::WorkerValidation, || if matches!(request.action, ui::Action::SupportExport {}) {
+        validate_current_request(m, &request)
+    } else if let Some(facts) = preconditions::recorded(m, id, &request)? {
+        // Admission validated the offer once and recorded what it acts on.
+        accepted_with_facts = true;
+        validate_accepted_worker(m, &request, id, &facts, timeout, &mut waits, capacity_read)
+    } else if current_offer_action(&request.action)
+        || preparation_cli::is_action(&request.action)
+        || scoped_product_action(&request.action) {
+        // Admission already bound the exact manager offer. The action owner
+        // performs its target-specific physical check before mutation.
+        validate_current_worker(m, &request, id, timeout, &mut waits, capacity_read)
+    } else {
+        snapshot_for_operation(m, Some(id), timeout, &mut waits, capacity_read)
+            .and_then(|snapshot| validate(&request, &snapshot))
+    });
+    if let Err(e) = validation {
+        let failure = e
+            .downcast_ref::<linux_vst_bridge::operator_lock::AcquisitionFailure>()
+            .map(|f| {
+                let retryable = f.facts.outcome == ui::LockOutcome::Timeout;
+                ui::OperationFailure {
+                    layer: ui::FailureLayer::ManagerControlPlane,
+                    stage: ui::FailureStage::OperatorValidationReadback,
+                    code: if !retryable {
+                        ui::FailureCode::LockAccessError
+                    } else if f.facts.name == ui::OperatorLock::Registry {
+                        ui::FailureCode::RegistryLockTimeout
+                    } else {
+                        ui::FailureCode::SerializationLockTimeout
+                    },
+                    retryable,
+                    mutation_started: false,
+                    environment_created: false,
+                    installer_launched: false,
+                    lock: f.facts.clone(),
+                }
+            });
+        let changed = e.downcast_ref::<preconditions::Changed>().map(|changed| changed.0);
+        let reason = if failure.as_ref().is_some_and(|f| f.retryable) {
+            if matches!(
+                request.action,
+                ui::Action::InstallerEnvironmentCreate { .. }
+                    | ui::Action::InstallerNewAttempt { .. }
+            ) {
+                format!("{} No setup was created and the installer did not start.",
+                    linux_vst_bridge::operator_lock::BUSY_SENTENCE)
+            } else {
+                linux_vst_bridge::operator_lock::BUSY_SENTENCE.to_owned()
+            }
+        } else if changed.is_some() {
+            // What the action acts on changed since it was accepted.
+            e.to_string()
+        } else {
+            format!("Operator validation readback: {e}")
+                .chars()
+                .take(512)
+                .collect()
+        };
+        let mut refused = json!({"schema":1,"operation":id,"state":"refused","reason":reason,"failure":failure,"preparation_failure":preparation_cli::failure(&request.action),"lock_waits":waits});
+        if let Some(fact) = changed { refused["precondition"] = fact.name().into(); }
+        return timing::measure(Stage::FinalReceipt, || write_operation(m, id, &refused, false));
+    }
+    // Snapshot's registry authority and serialization have both been released.
+    // Action owners reacquire serialization and revalidate mutation authority.
+    // Environment creation uses one bounded registry guard; validation alone
+    // grants no mutation.
+    write_operation(
+        m,
+        id,
+        &json!({"schema":1,"operation":id,"state":"running","action":request.action,"lock_waits":waits}),
+        false,
+    )?;
+    let mut execute = || execute_with_receipt_policy(
+        m,
+        &request.action,
+        Some(id),
+        capacity_read,
+        timeout,
+        &mut waits,
+    );
+    let result = if accepted_with_facts { preconditions::with_accepted(id, execute) } else { execute() };
+    let value = match result {
+        Ok(v) => {
+            json!({"schema":1,"operation":id,"state":"completed","result":v,"lock_waits":waits})
+        }
+        Err(e) => {
+            let failure = e
+                .downcast_ref::<linux_vst_bridge::operator_lock::AcquisitionFailure>()
+                .filter(|_| {
+                    matches!(
+                        request.action,
+                        ui::Action::InstallerEnvironmentCreate { .. }
+                            | ui::Action::InstallerNewAttempt { .. }
+                    )
+                })
+                .map(|f| ui::OperationFailure {
+                    layer: ui::FailureLayer::ManagerControlPlane,
+                    stage: ui::FailureStage::EnvironmentCreationAdmission,
+                    code: if f.facts.outcome != ui::LockOutcome::Timeout {
+                        ui::FailureCode::LockAccessError
+                    } else if f.facts.name == ui::OperatorLock::Registry {
+                        ui::FailureCode::RegistryLockTimeout
+                    } else {
+                        ui::FailureCode::SerializationLockTimeout
+                    },
+                    retryable: f.facts.outcome == ui::LockOutcome::Timeout,
+                    mutation_started: false,
+                    environment_created: false,
+                    installer_launched: false,
+                    lock: f.facts.clone(),
+                });
+            let changed = e.downcast_ref::<preconditions::Changed>().map(|changed| changed.0);
+            let reason = if failure.as_ref().is_some_and(|f| f.retryable) {
+                format!("{} No setup was created and the installer did not start.",
+                    linux_vst_bridge::operator_lock::BUSY_SENTENCE)
+            } else if linux_vst_bridge::operator_lock::is_busy(e.as_ref()) {
+                linux_vst_bridge::operator_lock::BUSY_SENTENCE.to_owned()
+            } else if changed.is_some() {
+                e.to_string()
+            } else {
+                format!("Operator action: {e}").chars().take(512).collect()
+            };
+            let mut refused = json!({"schema":1,"operation":id,"state":"refused","reason":reason,"failure":failure,"preparation_failure":preparation_failure(&request.action,e.as_ref()),"lock_waits":waits});
+            if let Some(fact) = changed { refused["precondition"] = fact.name().into(); }
+            refused
+        }
+    };
+    timing::measure(Stage::FinalReceipt, || write_operation(m, id, &value, false))
+}
+/// Operator actions wait out a status read's brief registry hold (bounded by
+/// OPERATOR_WAIT) instead of refusing at once; status reads never do this.
+fn operator_wait<T>(run: impl FnOnce() -> T) -> T {
+    linux_vst_bridge::operator_lock::with_operator_registry_wait(OPERATOR_WAIT, run)
+}
+/// Answer a window status read (`service::contract`).
+pub(super) fn answer_read(m: &Manager, read: &contract::Read) -> Result<contract::Reply> {
+    use contract::{Read, Reply};
+    Ok(match read {
+        Read::CurrentOverview => Reply::CurrentOverview(Box::new(current_overview(m)?)),
+        Read::Overview => Reply::Overview(Box::new(overview(m)?)),
+        Read::Product(key) => Reply::Product(Box::new(product_detail(m, &key.environment,
+            &key.module_sha256, &key.class_id)?)),
+        Read::Snapshot => Reply::Snapshot(Box::new(snapshot(m)?)),
+        Read::Activity => Reply::Activity(activity(m)?),
+        Read::Pulse => Reply::Pulse(pulse(m)?),
+        Read::Operation(id) => Reply::Operation(operation_readback(m, id)?),
+    })
+}
+/// Answer a window action request with its receipt.
+pub(super) fn answer_action(m: &Manager, request: ui::Request) -> contract::Reply {
+    contract::Reply::Receipt(match operator_wait(|| dispatch(m, request)) {
+        Ok(r) => r,
+        Err(e) => ui::Receipt {
+            schema: ui::OPERATOR_SCHEMA,
+            accepted: false,
+            operation: None,
+            refusal: Some(e.to_string()),
+        },
+    })
+}
+
+/// A status read as the service answers it (`service::view`). The current
+/// overview and product pages are held while they find nothing live; every
+/// other read, including the snapshot, which verifies artifact and runtime
+/// bytes the change watch does not cover, is composed for every read. A held
+/// page names the directories of every file its composing thread opened; its
+/// helper threads (census, units) read only records inside the watched trees.
+pub(super) fn view(m: &Manager, read: &contract::Read) -> Result<linux_vst_bridge::service::view::Composed> {
+    use contract::{Read, Reply};
+    use linux_vst_bridge::service::view::{Composed, Hold};
+    let held = |reply: Reply, reuse: current::Reuse, opened: Option<std::collections::BTreeSet<PathBuf>>|
+        -> Result<Composed> {
+        let Some(opened) = opened else {
+            return Ok(Composed { reply: reply.written()?, hold: Hold::Never, directories: vec![] });
+        };
+        let mut directories: std::collections::BTreeSet<_> = reuse.directories.into_iter().collect();
+        directories.extend(opened.iter().filter_map(|file| file.parent().map(Path::to_path_buf)));
+        Ok(Composed { reply: reply.written()?, hold: if reuse.quiescent { Hold::Quiet } else { Hold::Live },
+            directories: directories.into_iter().collect() })
+    };
+    match read {
+        Read::CurrentOverview => {
+            let (composed, opened) = linux_vst_bridge::with_opened_files(|| current_overview_with_reuse(m));
+            let (overview, reuse) = composed?;
+            held(Reply::CurrentOverview(Box::new(overview)), reuse, opened)
+        }
+        Read::Product(key) => {
+            let (composed, opened) = linux_vst_bridge::with_opened_files(||
+                product_detail_with_reuse(m, &key.environment, &key.module_sha256, &key.class_id));
+            let (detail, reuse) = composed?;
+            held(Reply::Product(Box::new(detail)), reuse, opened)
+        }
+        read => Ok(Composed { reply: answer_read(m, read)?.written()?, hold: Hold::Never, directories: vec![] }),
+    }
+}
+
+/// Retained per-product feedback is selected by exact request identity, never by
+/// whichever global receipt happened to arrive last.
+pub(super) fn product_receipt(
+    m: &Manager,
+    selection: &str,
+    candidate: Option<&str>,
+    exclude_operation: Option<&str>,
+) -> Result<Option<Value>> {
+    let mut found = vec![];
+    for (p, request) in operation_requests(m)?.iter() {
+        if exclude_operation.is_some() && p.file_name().and_then(|v| v.to_str()) == exclude_operation {
+            continue;
+        }
+        let r = request.as_ref().map_err(|error| error.as_str())?;
+        let matched = r["action"]["selection"] == selection
+            || candidate.is_some_and(|c| r["action"]["candidate"] == c);
+        if matched {
+            let result = optional(&p.join("result.json"))?;
+            if !result.is_null() {
+                found.push((fs::metadata(p.join("request.json"))?.modified()?, result));
+            }
+        }
+    }
+    found.sort_by_key(|(time, _)| *time);
+    Ok(found.pop().map(|(_, r)| r))
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+    fn contend_preference_commit(m: &Manager, release_after: Option<Duration>)
+        -> (std::thread::JoinHandle<()>, std::sync::mpsc::Sender<()>) {
+        let reader = Manager::new(m.root.clone(), m.publications.clone());
+        let (start, started) = std::sync::mpsc::channel();
+        let (held, acquired) = std::sync::mpsc::channel();
+        let (release, released) = std::sync::mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            started.recv_timeout(Duration::from_secs(3)).unwrap();
+            // Pulse and current overview both take this guard without owning
+            // operator-canonical.lock; neither is an active mutation.
+            let _readback = reader.lock("registry.lock").unwrap();
+            capacity::owners(&reader).unwrap();
+            held.send(()).unwrap();
+            if let Some(delay) = release_after { std::thread::sleep(delay); }
+            else { released.recv_timeout(Duration::from_secs(3)).unwrap(); }
+        });
+        PERFORMANCE_COMMIT_BARRIER.with(|barrier| *barrier.borrow_mut() = Some(Box::new(move || {
+            start.send(()).unwrap();
+            acquired.recv_timeout(Duration::from_secs(3)).unwrap();
+        })));
+        (thread, release)
+    }
+    #[test]
+    fn ordinary_performance_actions_wait_for_readback_at_final_commit() {
+        for delivery in [false, true] {
+            let f = test_fixture::Fixture::new();
+            f.m.register(f.r.clone()).unwrap();
+            let class_id = f.r.key();
+            let action = if delivery { ui::Action::DeliverySet {
+                class_id:class_id.clone(), mode:DeliveryMode::Buffered,
+            }} else { ui::Action::BufferingSet {class_id:class_id.clone(),added_frames:256} };
+            let (reader, _) = contend_preference_commit(&f.m, Some(Duration::from_millis(100)));
+            let mut waits = vec![];
+            let result = execute_with_receipt_policy(&f.m, &action, Some(&"ab".repeat(16)),
+                &|| capacity_fixture(&f.m), Duration::from_secs(1), &mut waits);
+            reader.join().unwrap();
+            result.unwrap();
+            assert!(waits.iter().any(|wait| wait.name == ui::OperatorLock::Registry
+                && wait.attempts > 1 && wait.outcome == ui::LockOutcome::Acquired));
+            let preference = f.m.performance(&class_id).unwrap();
+            assert_eq!(preference.delivery_mode, DeliveryMode::Buffered);
+            assert_eq!(preference.added_frames, if delivery {512} else {256});
+            assert!(matches!(f.m.try_lock("registry.lock").unwrap(),
+                linux_vst_bridge::operator_lock::LockAttempt::Acquired(_)));
+        }
+    }
+    #[test]
+    fn ordinary_performance_readback_timeout_preserves_preferences() {
+        let f = test_fixture::Fixture::new();
+        f.m.register(f.r.clone()).unwrap();
+        let before = f.m.performance(&f.r.key()).unwrap();
+        let action = ui::Action::BufferingSet {class_id:f.r.key(),added_frames:256};
+        let (reader, release) = contend_preference_commit(&f.m, None);
+        let mut waits = vec![];
+        let result = execute_with_receipt_policy(&f.m, &action, Some(&"ab".repeat(16)),
+            &|| capacity_fixture(&f.m), Duration::from_millis(30), &mut waits);
+        release.send(()).unwrap();
+        reader.join().unwrap();
+        let error = result.unwrap_err();
+        let failure = error.downcast_ref::<linux_vst_bridge::operator_lock::AcquisitionFailure>().unwrap();
+        assert_eq!(failure.facts.name, ui::OperatorLock::Registry);
+        assert_eq!(failure.facts.outcome, ui::LockOutcome::Timeout);
+        assert!(failure.facts.attempts > 1);
+        assert_eq!(f.m.performance(&f.r.key()).unwrap(), before);
+        assert!(!f.m.root.join("performance").exists());
+    }
+    #[test]
+    fn class_controls_preserve_siblings_but_refuse_maintenance_and_unknown_custody() {
+        let target = "01".repeat(16);
+        let sibling = capacity::Owner { session:"ab".repeat(16), class_id:"02".repeat(16),
+            kind:capacity::Kind::Dsp, terminal:None };
+        let mut system = view("token", action("capture", ui::Action::CaptureDisarm {}, None)).system;
+        system.dsp = 1;
+        assert_eq!(class_inactive_reason(&system, std::slice::from_ref(&sibling), true, &target), None);
+        assert!(class_inactive_reason(&system, std::slice::from_ref(&sibling), true, &sibling.class_id)
+            .unwrap().contains("this plug-in"));
+        assert!(class_inactive_reason(&system, &[], true, &target).unwrap().contains("census"));
+        system.cleanup_unconfirmed = true;
+        assert!(class_inactive_reason(&system, std::slice::from_ref(&sibling), true, &target)
+            .unwrap().contains("cleanup"));
+        system.cleanup_unconfirmed = false;
+        system.pending_transactions = 1;
+        assert!(class_inactive_reason(&system, std::slice::from_ref(&sibling), true, &target)
+            .unwrap().contains("Reconcile"));
+        system.pending_transactions = 0;
+        assert!(class_inactive_reason(&system, std::slice::from_ref(&sibling), false, &target)
+            .unwrap().contains("vendor"));
+        for kind in [capacity::Kind::Inspection, capacity::Kind::VendorAccess] {
+            system.dsp = 0;
+            system.maintenance = 1;
+            let owner = capacity::Owner {kind, ..sibling.clone()};
+            assert!(class_inactive_reason(&system, &[owner], true, &target)
+                .unwrap().contains("maintenance"));
+        }
+    }
+    #[test]
+    fn problem_reporting_remains_available_without_authorizing_a_busy_success_result() {
+        let offered = ui::Action::CompatibilityResult {
+            candidate:"ab".repeat(32), expected_current:ui::PublicationIdentity {
+                id:"cd".repeat(16), sha256:"ef".repeat(32) },
+            result:ui::TestResultKind::Worked, passed:vec![ui::TestArea::Audio],
+            failed_area:None, note:String::new(),
+        };
+        let snapshot = view("token", action("Result", offered.clone(), Some("Close this plug-in")));
+        let mut request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"token".into(),action:offered};
+        assert!(validate(&request, &snapshot).is_err());
+        if let ui::Action::CompatibilityResult {result, note, ..} = &mut request.action {
+            *result = ui::TestResultKind::Problem {category:ui::ProblemCategory::CleanupIncomplete};
+            *note = "The instance remains active".into();
+        }
+        validate(&request, &snapshot).unwrap();
+        request.state_token = "stale".into();
+        assert!(validate(&request, &snapshot).is_err());
+    }
+    #[test]
+    fn completed_inspection_is_not_relabelled_by_service_restoration_failure() {
+        let action = ui::Action::PluginReinspect {
+            selection: "01".repeat(32), audio_layout: None,
+        };
+        let completed = json!({"selection":"exact","inspection":"complete",
+            "publication_changed":false});
+        let error = ServiceRestorationFailure {
+            reason:"owned service restoration unavailable".into(),
+            completed_action:completed.clone(),
+        };
+        let failure = preparation_failure(&action, &error).unwrap();
+        assert_eq!(failure["attempted_stage"], "service_restoration");
+        assert_eq!(failure["completed_action"], completed);
+        assert_eq!(failure["automatic_retry"], false);
+        let inspection_error:Box<dyn std::error::Error> = "inspection refused".into();
+        assert_eq!(preparation_failure(&action, inspection_error.as_ref()).unwrap()
+            ["attempted_stage"], "preliminary_inspection");
+    }
+    #[cfg(feature = "cpi2-test-contract")]
+    use linux_vst_bridge::{catalogue::EnvironmentBinding, observation::Census, profiles::{Accessibility, Claim, Editor, Family, Limitation, Role}};
+    #[test]
+    fn empty_registry_bootstraps_without_inventing_a_native_catalogue() {
+        let f = test_fixture::Fixture::new();
+        let source = f.r.host.path.with_file_name("host-source-manifest.json");
+        fs::write(&source, b"fixture source").unwrap();
+        let sw = Software {
+            installer_launch: None,
+            preparation_kit: None,
+            operator_frontend: None,
+            manager: f.r.host.clone(),
+            supervisor: f.r.host.clone(),
+            ownership: f.r.host.clone(),
+            host: f.r.host.clone(),
+            source_manifest: Artifact { path: source.clone(), sha256: digest(&source).unwrap() },
+            source_sha256: digest(&source).unwrap(),
+            native_catalogue: None,
+        };
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let empty = f.m.registry().unwrap();
+        assert!(operator_catalogue(&f.m, &sw, &empty).unwrap().is_none());
+        let snapshot = snapshot_idle_test(&f.m).unwrap();
+        assert!(snapshot.environments.is_empty());
+        assert!(snapshot.products.is_empty());
+        assert!(managed_rescan_binding(&f.m, None, &empty, &f.r.environment.id).is_err());
+        let (occupied, _, _, _) = test_fixture::prepared();
+        assert!(operator_catalogue(&f.m, &sw, &occupied.m.registry().unwrap()).is_err());
+    }
+    fn quarantined_scan(f: &test_fixture::Fixture) -> inventory::Scan {
+        inventory::Scan {schema:1,id:"aa".repeat(16),environment:f.r.environment.clone(),
+            host:f.r.host.clone(),host_source_sha256:f.r.host_source_sha256.clone(),
+            completed_at:1,changes:inventory::Changes::default(),modules:vec![inventory::Module {
+                artifact:f.r.module.clone(),classes:vec![],report:f.r.host.clone(),
+                inspection_error:Some("TimeoutError: Windows call deadline: load_library".into()),
+                quarantine_reason:Some("inventory_factory_absent_or_duplicate".into()),
+            }]}
+    }
+    #[test]
+    fn quarantine_projection_retains_scanner_cause_and_exact_retry_identity() {
+        let f=test_fixture::Fixture::new();
+        let scan=quarantined_scan(&f);
+        let product=quarantined_product(&scan,0,scan.modules[0].clone(),None,None).unwrap();
+        assert_eq!(product.limitations[0],
+            "Scanner reported: TimeoutError: Windows call deadline: load_library");
+        assert_eq!(product.limitations[1],"inventory_factory_absent_or_duplicate");
+        assert_eq!(product.details["inspection_error"],
+            "TimeoutError: Windows call deadline: load_library");
+        assert_eq!(product.actions.len(),1);
+        assert_eq!(product.actions[0].action,ui::Action::QuarantinedModuleRetry {
+            environment:scan.environment.id.clone(),scan:scan.id.clone(),module_index:0,
+            module_sha256:scan.modules[0].artifact.sha256.clone(),
+            report_sha256:scan.modules[0].report.sha256.clone(),
+        });
+    }
+    #[test]
+    fn ordinary_rescan_reuses_quarantine_but_exact_retry_rescans_only_target() {
+        let f=test_fixture::Fixture::new();
+        let mut scan=quarantined_scan(&f);
+        let other_path=f.outer.join("other.vst3");
+        fs::write(&other_path,b"other module").unwrap();
+        scan.modules.push(inventory::Module {artifact:Artifact {
+            sha256:digest(&other_path).unwrap(),path:other_path},classes:vec![],
+            report:f.r.host.clone(),inspection_error:None,quarantine_reason:None});
+        let modules=scan.modules.iter().map(|module|module.artifact.clone()).collect::<Vec<_>>();
+        assert!(reusable_scan_module(Some(&scan),&scan.environment,&scan.host,
+            &scan.host_source_sha256,&modules[0],None).unwrap().is_some());
+        let retry=QuarantinedRetry {scan:scan.id.clone(),module_index:0,
+            module_sha256:modules[0].sha256.clone(),
+            report_sha256:scan.modules[0].report.sha256.clone()};
+        let target=exact_retry_target(Some(&scan),&scan.environment,&scan.host,
+            &scan.host_source_sha256,&modules,&retry).unwrap().artifact.clone();
+        assert!(reusable_scan_module(Some(&scan),&scan.environment,&scan.host,
+            &scan.host_source_sha256,&modules[0],Some(&target)).unwrap().is_none());
+        assert_eq!(reusable_scan_module(Some(&scan),&scan.environment,&scan.host,
+            &scan.host_source_sha256,&modules[1],Some(&target)).unwrap()
+            .unwrap().artifact,modules[1]);
+        let mut changed=retry;
+        changed.report_sha256="ff".repeat(32);
+        assert!(exact_retry_target(Some(&scan),&scan.environment,&scan.host,
+            &scan.host_source_sha256,&modules,&changed).is_err());
+    }
+    #[test]
+    fn exact_retry_accepts_verified_scanner_relocation_but_rejects_changed_identity() {
+        let f=test_fixture::Fixture::new();
+        let scan=quarantined_scan(&f);
+        let modules=scan.modules.iter().map(|module|module.artifact.clone()).collect::<Vec<_>>();
+        let retry=QuarantinedRetry {scan:scan.id.clone(),module_index:0,
+            module_sha256:modules[0].sha256.clone(),
+            report_sha256:scan.modules[0].report.sha256.clone()};
+        let generation=f.outer.join("immutable-generation");
+        private_dir(&generation).unwrap();
+        let relocated_path=generation.join("host.exe");
+        fs::copy(&scan.host.path,&relocated_path).unwrap();
+        let relocated=Artifact {path:relocated_path.clone(),sha256:scan.host.sha256.clone()};
+        assert!(exact_retry_target(Some(&scan),&scan.environment,&relocated,
+            &scan.host_source_sha256,&modules,&retry).is_ok());
+
+        fs::write(&relocated_path,b"changed scanner bytes").unwrap();
+        let changed=Artifact {sha256:digest(&relocated_path).unwrap(),path:relocated_path};
+        assert!(exact_retry_target(Some(&scan),&scan.environment,&changed,
+            &scan.host_source_sha256,&modules,&retry).is_err());
+        assert!(exact_retry_target(Some(&scan),&scan.environment,&scan.host,
+            &"ff".repeat(32),&modules,&retry).is_err());
+    }
+    fn onboarding_retry_fixture() -> (test_fixture::Fixture, Environment, inventory::Scan,
+        observation::Census) {
+        use linux_vst_bridge::catalogue::{Catalogue,EnvironmentBinding};
+        let (f,p,census,native)=test_fixture::prepared();
+        let catalogue=Catalogue {schema:3,natives:vec![native],environments:vec![
+            EnvironmentBinding {family:p.requirements.environment_family,
+                environment:f.r.environment.clone()}],hosts:vec![],onboarding_runtime:None};
+        let catalogue_path=f.m.root.join("software/catalogue.json");
+        atomic_json(&catalogue_path,&catalogue).unwrap();
+        let a=f.r.host.clone();
+        let sw=Software {installer_launch:None,preparation_kit:None,manager:a.clone(),
+            operator_frontend:None,supervisor:a.clone(),ownership:a.clone(),host:a,
+            source_manifest:Artifact {path:f.r.host.path.with_file_name("host-source-manifest.json"),
+                sha256:f.r.host_source_sha256.clone()},source_sha256:f.r.host_source_sha256.clone(),
+            native_catalogue:Some(Artifact {sha256:digest(&catalogue_path).unwrap(),
+                path:catalogue_path})};
+        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
+        let mut environment=f.r.environment.clone();
+        environment.id="11".repeat(16);
+        environment.root=f.m.root.join("environments").join(&environment.id);
+        private_dir(&environment.root).unwrap();
+        atomic_json(&environment.root.join("environment.json"),&environment).unwrap();
+        let mut bytes=vec![0;1024];
+        bytes[..2].copy_from_slice(b"MZ");
+        bytes[60]=128;
+        bytes[128..132].copy_from_slice(b"PE\0\0");
+        bytes[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        bytes[148]=2;
+        bytes[150]=2;
+        bytes[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+        let source=f.outer.join("onboarding-installer.exe");
+        fs::write(&source,bytes).unwrap();
+        let installer=installer_import::import(&f.m,file(&source).unwrap()).unwrap();
+        let directory=onboarding::directory(&f.m,&environment.id).unwrap();
+        private_dir(&directory).unwrap();
+        atomic_json(&directory.join("record.json"),&onboarding::Record {schema:1,
+            id:environment.id.clone(),installer:installer.id,environment:environment.clone(),
+            created_at:1,creation_operation:"cd".repeat(16),
+            installation_operation:None,published:false,automatic:None,previous_attempt:None}).unwrap();
+        let module_path=environment.root.join(f.r.module.path
+            .strip_prefix(&f.r.environment.root).unwrap());
+        private_dir(module_path.parent().unwrap()).unwrap();
+        fs::copy(&f.r.module.path,&module_path).unwrap();
+        let mut scan=quarantined_scan(&f);
+        scan.id="ef".repeat(16);
+        scan.environment=environment.clone();
+        scan.modules[0].artifact=Artifact {sha256:digest(&module_path).unwrap(),path:module_path};
+        let inventory=f.m.root.join("inventory").join(format!("{}.json",environment.id));
+        private_dir(inventory.parent().unwrap()).unwrap();
+        atomic_json(&inventory,&scan).unwrap();
+        let history=inventory.parent().unwrap().join("history");
+        private_dir(&history).unwrap();
+        atomic_json(&history.join(format!("{}.json",scan.id)),&scan).unwrap();
+        (f,environment,scan,census)
+    }
+    #[test]
+    fn retry_route_refuses_unmanaged_onboarding_environment_without_promoting_it() {
+        let (f,environment,scan,_)=onboarding_retry_fixture();
+        let inventory=f.m.root.join("inventory").join(format!("{}.json",environment.id));
+        let snapshot=snapshot_idle_test(&f.m).unwrap();
+        let product=snapshot.products.iter().find(|product|
+            product.environment==environment.id && product.disposition=="quarantined").unwrap();
+        assert_eq!(product.actions.len(),1);
+        assert_eq!(product.actions[0].disabled_reason.as_deref(),
+            Some("No completed setup is recorded for this plug-in. Choose its installer in Setup."));
+        assert!(available(&snapshot).into_iter().all(|action|
+            !matches!(action.action,ui::Action::QuarantinedModuleRetry { .. })
+                || action.disabled_reason.is_some()));
+        let before=fs::read(&inventory).unwrap();
+        SCAN_SPAWN_COUNT.with(|count|count.set(0));
+        let error=retry_quarantined_module(&f.m,&environment.id,&scan.id,0,
+            &scan.modules[0].artifact.sha256,&scan.modules[0].report.sha256)
+            .unwrap_err().to_string();
+        assert_eq!(error,"operator_environment_unmanaged");
+        assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get),0);
+        assert_eq!(fs::read(&inventory).unwrap(),before);
+        assert!(!f.m.registry().unwrap().classes.values()
+            .any(|entry|entry.registration.environment.id==environment.id));
+    }
+    #[test]
+    fn an_open_plugin_setup_window_keeps_its_card_to_its_own_controls_in_both_views() {
+        // Review fixture for #515 difference 3: a plug-in's setup window is
+        // open (as visible_session records it). Home and Diagnostics show the
+        // card with that window's Show/Stop controls only.
+        let (f,environment,scan,_)=onboarding_retry_fixture();let m=&f.m;
+        let directory=onboarding::directory(m,&environment.id).unwrap();
+        let path=directory.join("record.json");
+        let mut record:onboarding::Record=read_json(&path).unwrap();
+        let installer=random_id().unwrap();record.installation_operation=Some(installer.clone());
+        atomic_json(&path,&record).unwrap();
+        atomic_json(&directory.join(format!("{installer}-result.json")),&json!({
+            "schema":2,"operation":installer,"state":"completed","raw_exit":0,
+            "cleanup_confirmed":true,"owned_live":0})).unwrap();
+        let removal=|card:&ui::InstallerSetup| card.secondary.iter().filter(|offer|matches!(offer.action,
+            ui::Action::SetupDelete {..} | ui::Action::SetupRemoveFromDaw {..})).count();
+        readiness::with_unit_state_fixture(&[onboarding::unit(&installer).unwrap()],"inactive",|| {
+            let card=|s:&ui::Snapshot| s.installer_setups.iter()
+                .find(|card|card.environment.as_deref()==Some(environment.id.as_str())).cloned().unwrap();
+            let before=card(&snapshot_idle_test(m).unwrap());
+            let offer=before.primary.clone().unwrap().action;
+            assert!(matches!(offer,ui::Action::PluginFinishSetup {..}),"{before:#?}");
+            assert_eq!(removal(&before),1,"{before:#?}");
+            assert_eq!(removal(current::capture(m).unwrap().snapshot.installer_setups.iter()
+                .find(|card|card.environment.as_deref()==Some(environment.id.as_str())).unwrap()),1);
+            let operation=random_id().unwrap();let job=job_dir(m,&operation).unwrap();private_dir(&job).unwrap();
+            atomic_json(&job.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,
+                state_token:"fixture".into(),action:offer}).unwrap();
+            let sw=software(m).unwrap();
+            let (mut session,spec_path)=spec(m,HostBinding {metadata:ClassSelection {class_id:String::new()},
+                environment:environment.clone(),module:scan.modules[0].artifact.clone(),host:sw.host.clone(),
+                host_source_sha256:sw.source_sha256.clone(),compatibility:Compatibility::default()},
+                true,true,false).unwrap();
+            session.finish_setup=true;atomic_json(&spec_path,&session).unwrap();
+            atomic_json(&job.join("setup-session.json"),&session).unwrap();
+            atomic_json(&job.join("result.json"),&json!({"schema":2,"operation":operation,
+                "state":"vendor_running","environment":environment.id,"plugin_setup":true})).unwrap();
+            private_dir(&m.root.join("operator")).unwrap();
+            atomic_json(&m.root.join("operator/resume.json"),&json!({"schema":2,
+                "owner_operation":operation,"resume":false,"software":"ab".repeat(32)})).unwrap();
+            for (view,snapshot) in [("home",current::capture(m).unwrap().snapshot),
+                ("diagnostics",snapshot_idle_test(m).unwrap())] {
+                let open=card(&snapshot);
+                assert_eq!(open.primary.as_ref().map(|offer|&offer.action),
+                    Some(&ui::Action::PluginSetupFocus {operation:operation.clone()}),"{view}: {open:#?}");
+                assert_eq!(open.secondary.iter().map(|offer|&offer.action).collect::<Vec<_>>(),
+                    vec![&ui::Action::PluginSetupStop {operation:operation.clone()}],"{view}: {open:#?}");
+                assert_eq!(removal(&open),0,"{view}");
+                assert!(open.status.starts_with("Finish setup in the plug-in's window"),"{view}: {}",open.status);
+            }
+        });
+    }
+    #[test]
+    fn retired_initial_installation_offers_and_executes_exact_retry_without_publication() {
+        let (f,environment,scan,census)=onboarding_retry_fixture();
+        let m=&f.m;
+        let directory=onboarding::directory(m,&environment.id).unwrap();
+        let path=directory.join("record.json");
+        let mut record:onboarding::Record=read_json(&path).unwrap();
+        let operation=random_id().unwrap();
+        record.installation_operation=Some(operation.clone());
+        atomic_json(&path,&record).unwrap();
+        let unit=onboarding::unit(&operation).unwrap();
+        let registry=fs::read(m.root.join("registry.json")).unwrap();
+        let inventory=m.root.join("inventory").join(format!("{}.json",environment.id));
+        let before=fs::read(&inventory).unwrap();
+        SCAN_SPAWN_COUNT.with(|count|count.set(0));
+        let retry=||retry_quarantined_module(m,&environment.id,&scan.id,0,
+            &scan.modules[0].artifact.sha256,&scan.modules[0].report.sha256);
+        // An operation ID alone cannot authorize another Windows process.
+        assert_eq!(retry().unwrap_err().to_string(),"installer_retirement_required");
+        assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get),0);
+        assert_eq!(fs::read(&inventory).unwrap(),before);
+        atomic_json(&directory.join(format!("{operation}-result.json")),&json!({
+            "schema":2,"operation":operation,"state":"completed","raw_exit":0,
+            "cleanup_confirmed":true,"owned_live":0})).unwrap();
+        readiness::with_unit_state_fixture(std::slice::from_ref(&unit),"active",|| {
+            assert_eq!(retry().unwrap_err().to_string(),"operator_installer_active");
+        });
+        assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get),0);
+        assert_eq!(fs::read(&inventory).unwrap(),before);
+
+        // Only the external scanner is a fixture. Projection, queued action,
+        // worker admission, retirement checks and inventory mutation are real.
+        let script=m.root.join("software/retry-supervisor.py");
+        let healthy_path=f.outer.join("retry-healthy-report.json");
+        let mut healthy=test_fixture::inspection_report(&census);
+        let factory=healthy["records"].as_array_mut().unwrap().iter_mut()
+            .find(|row|row["state"]=="ap8_factory").unwrap();
+        factory["class_count"]=json!(1);
+        factory["classes"].as_array_mut().unwrap().truncate(1);
+        assert_eq!(inventory::classes(&healthy).unwrap().len(),1);
+        atomic_json(&healthy_path,&healthy).unwrap();
+        let healthy=serde_json::to_string(&healthy_path).unwrap();
+        fs::write(&script,format!("import json,shutil,sys\njob=json.load(open(sys.argv[1]))\nwith open({healthy},'rb') as source,open(job['report'],'wb') as target: target.write(source.read())\nprint('LVO0 '+job['session']+' ready',flush=True)\nshutil.rmtree(job['directory'])\nprint('LVO1 '+job['session']+' retired',flush=True)\n")).unwrap();
+        let mut sw=software(m).unwrap();
+        test_fixture::set_source_supervisor(&mut sw, &script);
+        atomic_json(&m.root.join("software.json"),&sw).unwrap();
+        readiness::with_unit_state_fixture(&[unit],"inactive",|| {
+            let snapshot=snapshot_idle_test(m).unwrap();
+            let product=snapshot.products.iter().find(|product|
+                product.environment==environment.id&&product.disposition=="quarantined").unwrap();
+            let offer=product.actions.iter().find(|offer|matches!(offer.action,ui::Action::QuarantinedModuleRetry {..})).unwrap();
+            assert!(offer.disabled_reason.is_none(),"{:?}",offer.disabled_reason);
+            let queued=test_submit_offered(m,&offer.action).unwrap();
+            let result=test_run_offered_worker(m,&queued).unwrap();
+            assert_eq!(result["state"],"completed","{result}");
+        });
+        assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get),1);
+        let current:inventory::Scan=read_json(&inventory).unwrap();
+        assert_ne!(current.id,scan.id);
+        assert!(current.modules[0].quarantine_reason.is_none(),"{:?}",current.modules[0]);
+        assert!(current.modules[0].inspection_error.is_none());
+        assert!(!current.modules[0].classes.is_empty());
+        let history=m.root.join("inventory/history").join(format!("{}.json",scan.id));
+        assert_eq!(serde_json::to_value(read_json::<inventory::Scan>(&history).unwrap()).unwrap(),
+            serde_json::to_value(scan).unwrap());
+        assert_eq!(fs::read(m.root.join("registry.json")).unwrap(),registry);
+        assert_eq!(serde_json::to_value(read_json::<onboarding::Record>(&path).unwrap()).unwrap(),
+            serde_json::to_value(record).unwrap());
+    }
+    #[test]
+    fn visible_setup_from_unpublished_failure_rechecks_the_exact_module_after_close() {
+        for ended in ["closed","stopped","deadline","window_lost","host_ended","write_failure"] {
+            visible_setup_outcome(ended);
+        }
+    }
+    fn visible_setup_outcome(ended:&str) {
+        let (f,environment,scan,census)=onboarding_retry_fixture();let m=&f.m;
+        let directory=onboarding::directory(m,&environment.id).unwrap();
+        let path=directory.join("record.json");
+        let mut record:onboarding::Record=read_json(&path).unwrap();
+        let installer=random_id().unwrap();record.installation_operation=Some(installer.clone());
+        atomic_json(&path,&record).unwrap();
+        atomic_json(&directory.join(format!("{installer}-result.json")),&json!({
+            "schema":2,"operation":installer,"state":"completed","raw_exit":0,
+            "cleanup_confirmed":true,"owned_live":0})).unwrap();
+        let registry=fs::read(m.root.join("registry.json")).unwrap();
+        let healthy_path=f.outer.join("setup-healthy-report.json");
+        let mut healthy=test_fixture::inspection_report(&census);
+        let factory=healthy["records"].as_array_mut().unwrap().iter_mut()
+            .find(|row|row["state"]=="ap8_factory").unwrap();
+        factory["class_count"]=json!(1);factory["classes"].as_array_mut().unwrap().truncate(1);
+        atomic_json(&healthy_path,&healthy).unwrap();
+        let launches=f.outer.join("visible-launches");
+        let script=m.root.join("software/visible-supervisor.py");
+        let source=serde_json::to_string(&healthy_path).unwrap();
+        let log=serde_json::to_string(&launches).unwrap();
+        let ending=serde_json::to_string(ended).unwrap();
+        fs::write(&script,format!("import json,pathlib,shutil,sys\njob=json.load(open(sys.argv[1]))\nreport=json.load(open({source}))\nsetup=job.get('finish_setup',False)\nwith open({log},'a') as log: log.write(('setup' if setup else 'inspect')+'\\n')\nif setup: report['finish_setup']={{'ended':{ending}}}\npathlib.Path(job['report']).write_text(json.dumps(report))\nprint('LVO0 '+job['session']+' ready',flush=True)\nshutil.rmtree(job['directory'])\nprint('LVO1 '+job['session']+' retired',flush=True)\n")).unwrap();
+        let mut sw=software(m).unwrap();test_fixture::set_source_supervisor(&mut sw, &script);
+        atomic_json(&m.root.join("software.json"),&sw).unwrap();
+        readiness::with_unit_state_fixture(&[onboarding::unit(&installer).unwrap()],"inactive",|| {
+            let snapshot=snapshot_idle_test(m).unwrap();
+            let product=snapshot.products.iter().find(|p|p.environment==environment.id).unwrap();
+            assert!(product.class_id.is_empty());
+            let offer=product.actions.iter().find(|offer|matches!(offer.action,ui::Action::PluginFinishSetup {..})).unwrap();
+            assert!(offer.disabled_reason.is_none());
+            assert_eq!(offer.action,ui::Action::PluginFinishSetup {environment:environment.id.clone(),
+                scan:scan.id.clone(),module_index:0,module_sha256:scan.modules[0].artifact.sha256.clone(),
+                report_sha256:scan.modules[0].report.sha256.clone()});
+            let queued=test_submit_offered(m,&offer.action).unwrap();
+            if ended=="write_failure" {
+                private_dir(&job_dir(m,&queued).unwrap().join("setup-session.json")).unwrap();
+            }
+            let result=test_run_offered_worker(m,&queued).unwrap();
+            assert_eq!(result["state"],if ended=="closed" {"completed"} else {"refused"},
+                "{result}; launches={:?}",fs::read_to_string(&launches));
+        });
+        if ended=="write_failure" {assert!(!launches.exists());}
+        else {assert_eq!(fs::read_to_string(launches).unwrap(),if ended=="closed" {"setup\ninspect\n"} else {"setup\n"});}
+        let current:inventory::Scan=read_json(&m.root.join("inventory").join(format!("{}.json",environment.id))).unwrap();
+        if ended=="closed" {assert_ne!(current.id,scan.id);assert!(current.modules[0].quarantine_reason.is_none());}
+        else {assert_eq!(current.id,scan.id);assert!(current.modules[0].quarantine_reason.is_some());}
+        assert!(capacity::owners(m).unwrap().is_empty());
+        assert_eq!(fs::read(m.root.join("registry.json")).unwrap(),registry);
+        assert_eq!(serde_json::to_value(read_json::<onboarding::Record>(&path).unwrap()).unwrap(),
+            serde_json::to_value(record).unwrap());
+        assert!(!m.root.join("operator/resume.json").exists());
+    }
+    fn view(token: &str, action: ui::AvailableAction) -> ui::Snapshot {
+        ui::Snapshot {
+            managed_runtime_records:vec![],
+            onboarding: vec![],
+            installer_setups: vec![],
+            environment_installers: vec![],
+            schema: ui::OPERATOR_SCHEMA,
+            state_token: token.into(),
+            system: ui::System {
+                service: "active".into(),
+                keepers: 1,
+                dsp: 0,
+                maintenance: 0,
+                ceiling: 6,
+                pending_transactions: 0,
+                stale_transports: 0,
+                cleanup_unconfirmed: false,
+            },
+            environments: vec![],
+            vendor_applications: vec![],
+            products: vec![],
+            workspaces: vec![],
+            active_sessions: vec![],
+            capture: Value::Null,
+            recent_incidents: vec![],
+            actions: vec![action],
+            operation: None,
+            deleted_setups: vec![],
+            uninstallers: vec![],
+            bridge: Default::default(),
+        }
+    }
+    #[cfg(feature = "cpi2-test-contract")]
+    struct CatalogueFreeRetryFixture {
+        fixture: test_fixture::Fixture,
+        census: Census,
+        software: Software,
+        prior: inventory::Scan,
+        _contract: frg1::TestContractGuard,
+    }
+    #[cfg(feature = "cpi2-test-contract")]
+    fn catalogue_free_retry_fixture() -> CatalogueFreeRetryFixture {
+        let (fixture, mut profile, mut census, native) = test_fixture::prepared();
+        let m = &fixture.m;
+        m.unpublish(&profile.class.class_id).unwrap();
+        atomic_json(&m.root.join("registry.json"), &Registry::default()).unwrap();
+        profile.id = "frg1.test.fragments".into();
+        profile.revision = 11;
+        profile.claim = Claim::ReviewCandidate;
+        profile.role = Role::Effect;
+        profile.class.name = "Efx FRAGMENTS".into();
+        profile.class.vendor = "Arturia".into();
+        profile.class.version = "1.3.1.6566".into();
+        profile.class.subcategories = "Fx|Tools".into();
+        profile.factory_vendor = "Arturia".into();
+        profile.requirements.environment_family = Family::ArturiaPersistentV1;
+        profile.requirements.environment_revision = 2;
+        profile.requirements.native_sha256 = native.artifact.sha256.clone();
+        profile.requirements.native_source_commit = native.source_commit.clone();
+        profile.requirements.descriptor_sha256 = native.descriptor_sha256.clone();
+        profile.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
+        profile.capabilities.accessibility = Accessibility::DisabledForVendorProcess;
+        profile.limitations = vec![Limitation::ShortDeliveryGaps, Limitation::ExactOperatorArtifactOnly];
+        let mut env = fixture.r.environment.clone();
+        env.revision = 2;
+        atomic_json(&env.root.join("environment.json"), &env).unwrap();
+        let owner = env.root.join("compatdata/.ua1-owner.json");
+        fs::write(&owner, b"exact retained ubuntu owner").unwrap();
+        let relative = fixture.r.module.path.strip_prefix(env.root.join("compatdata"))
+            .unwrap().to_str().unwrap().to_string();
+        let contract = frg1::install_test_contract(profile.clone(), digest(&owner).unwrap(), relative);
+        census.environment = EnvironmentBinding { family: Family::ArturiaPersistentV1,
+            environment: env.clone() };
+        census.selected = profile.class.clone();
+        census.factory_vendor = profile.factory_vendor.clone();
+        census.classes = vec![profile.class.class_id.clone()];
+        let mut healthy = test_fixture::inspection_report(&census);
+        let factory = healthy["records"].as_array_mut().unwrap().iter_mut()
+            .find(|record| record["state"] == "ap8_factory").unwrap();
+        factory["class_count"] = json!(1);
+        factory["classes"].as_array_mut().unwrap().truncate(1);
+        atomic_json(&census.report.path, &healthy).unwrap();
+        census.report.sha256 = digest(&census.report.path).unwrap();
+        let source_manifest = Artifact { path: fixture.r.host.path.with_file_name("host-source-manifest.json"),
+            sha256: fixture.r.host_source_sha256.clone() };
+        let software = Software { installer_launch: None, preparation_kit: None,
+            operator_frontend: None, manager: fixture.r.host.clone(),
+            supervisor: fixture.r.host.clone(), ownership: fixture.r.host.clone(),
+            host: fixture.r.host.clone(), source_manifest,
+            source_sha256: fixture.r.host_source_sha256.clone(), native_catalogue: None };
+        atomic_json(&m.root.join("software.json"), &software).unwrap();
+        frg1::adopt(m, &env.id).unwrap();
+        let prior_report = fixture.outer.join("failed-scan-report.json");
+        fs::write(&prior_report, b"{\"error\":\"first scan failed\",\"records\":[]}").unwrap();
+        let other_path = census.module.path.with_file_name("z-other.vst3");
+        fs::write(&other_path, b"other fixture module").unwrap();
+        let other_artifact = Artifact { sha256: digest(&other_path).unwrap(), path: other_path };
+        let mut other_healthy = healthy;
+        other_healthy["records"][0]["module_sha256"] = json!(other_artifact.sha256);
+        let other_report_path = fixture.outer.join("other-healthy-report.json");
+        atomic_json(&other_report_path, &other_healthy).unwrap();
+        let other_report = Artifact { sha256: digest(&other_report_path).unwrap(),
+            path: other_report_path };
+        let scan = inventory::Scan {
+            schema: 1,
+            id: "ab".repeat(16),
+            environment: env,
+            host: software.host.clone(),
+            host_source_sha256: software.source_sha256.clone(),
+            completed_at: 1,
+            changes: inventory::Changes::default(),
+            modules: vec![
+                inventory::Module {
+                    artifact: census.module.clone(),
+                    classes: vec![],
+                    report: Artifact {sha256:digest(&prior_report).unwrap(),path:prior_report},
+                    inspection_error: Some("Windows host exited without successful close".into()),
+                    quarantine_reason: Some("inventory_factory_absent_or_duplicate".into()),
+                },
+                inventory::Module {
+                    artifact: other_artifact,
+                    classes: inventory::classes(&other_healthy).unwrap(),
+                    report: other_report,
+                    inspection_error: None,
+                    quarantine_reason: None,
+                },
+            ],
+        };
+        assert_eq!(managed_cli::modules(&scan.environment).unwrap().iter()
+            .map(|module| &module.path).collect::<Vec<_>>(),
+            scan.modules.iter().map(|module| &module.artifact.path).collect::<Vec<_>>());
+        let inventory_root = m.root.join("inventory");
+        private_dir(&inventory_root).unwrap();
+        private_dir(&inventory_root.join("history")).unwrap();
+        atomic_json(&inventory_root.join("history").join(format!("{}.json",scan.id)),&scan).unwrap();
+        atomic_json(&inventory_root.join(format!("{}.json",scan.environment.id)),&scan).unwrap();
+        CatalogueFreeRetryFixture { fixture, census, software, prior: scan, _contract: contract }
+    }
+    #[cfg(feature = "cpi2-test-contract")]
+    #[test]
+    fn catalogue_free_frg1_retry_worker_replaces_only_exact_quarantine() {
+        let prepared = catalogue_free_retry_fixture();
+        let prior = &prepared.prior;
+        let m = &prepared.fixture.m;
+        let mut sw = prepared.software.clone();
+        assert!(sw.native_catalogue.is_none());
+        assert!(m.registry().unwrap().classes.is_empty());
+
+        // Only the external scanner process is deterministic test machinery;
+        // request projection, worker validation, authority and inventory mutation
+        // remain the production path.
+        let launches = prepared.fixture.outer.join("scanner-launches");
+        let script = m.root.join("software/test-supervisor.py");
+        let source = serde_json::to_string(&prepared.census.report.path).unwrap();
+        let count = serde_json::to_string(&launches).unwrap();
+        fs::write(&script, format!("import json,pathlib,shutil,sys\njob=json.load(open(sys.argv[1]))\nwith open({source},'rb') as source,open(job['report'],'wb') as target: target.write(source.read())\nwith open({count},'a') as output: output.write('1\\n')\nprint('LVO0 '+job['session']+' ready',flush=True)\nshutil.rmtree(job['directory'])\nprint('LVO1 '+job['session']+' retired',flush=True)\n")).unwrap();
+        test_fixture::set_source_supervisor(&mut sw, &script);
+        atomic_json(&m.root.join("software.json"),&sw).unwrap();
+
+        let snapshot = snapshot_idle_test(m).unwrap();
+        let refresh:Vec<_> = available(&snapshot).into_iter().filter(|item|
+            matches!(item.action,ui::Action::EnvironmentRescan { .. })).collect();
+        assert_eq!(refresh.len(),1);
+        assert_eq!(refresh[0].action,ui::Action::EnvironmentRescan {
+            environment:prior.environment.id.clone(),
+        });
+        assert!(refresh[0].disabled_reason.is_none());
+        let offered:Vec<_> = available(&snapshot).into_iter().filter(|item|
+            matches!(item.action,ui::Action::QuarantinedModuleRetry { .. })).collect();
+        assert_eq!(offered.len(),1);
+        assert!(offered[0].disabled_reason.is_none());
+        let action = offered[0].action.clone();
+        assert_eq!(action,ui::Action::QuarantinedModuleRetry {
+            environment:prior.environment.id.clone(),scan:prior.id.clone(),module_index:0,
+            module_sha256:prior.modules[0].artifact.sha256.clone(),
+            report_sha256:prior.modules[0].report.sha256.clone(),
+        });
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:snapshot.state_token,action};
+        let operation = launch_queued(m,&request,|_|Ok(true)).unwrap().operation.unwrap();
+        SCAN_SPAWN_COUNT.with(|count| count.set(0));
+        worker_with_capacity(m,&operation,OPERATOR_WAIT,&||capacity_fixture(m)).unwrap();
+        assert_eq!(worker_receipt(m,&operation)["state"],"completed");
+        assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get),1);
+        assert_eq!(fs::read_to_string(&launches).unwrap(),"1\n");
+        let result = worker_receipt(m,&operation)["result"].clone();
+        assert_eq!(result["retry"]["prior_scan"],prior.id);
+        assert_eq!(result["retry"]["prior_report_sha256"],prior.modules[0].report.sha256);
+        let inventory_root = m.root.join("inventory");
+        let current:inventory::Scan = read_json(&inventory_root.join(format!("{}.json",prior.environment.id))).unwrap();
+        assert_ne!(current.id,prior.id);
+        assert_eq!(current.modules.len(),2);
+        assert!(current.modules[0].quarantine_reason.is_none(), "{:?}", current.modules[0]);
+        assert!(current.modules[0].inspection_error.is_none());
+        assert!(!current.modules[0].classes.is_empty());
+        assert_eq!(serde_json::to_value(&current.modules[1]).unwrap(),
+            serde_json::to_value(&prior.modules[1]).unwrap());
+        let retained:inventory::Scan = read_json(&inventory_root.join("history").join(format!("{}.json",prior.id))).unwrap();
+        assert_eq!(serde_json::to_value(&retained).unwrap(),
+            serde_json::to_value(prior).unwrap());
+        assert!(available(&snapshot_idle_test(m).unwrap()).into_iter().all(|item|
+            !matches!(item.action,ui::Action::QuarantinedModuleRetry { .. })));
+    }
+    #[cfg(feature = "cpi2-test-contract")]
+    #[test]
+    fn catalogue_free_frg1_retry_refuses_stale_or_unmanaged_inputs_without_scanning() {
+        for case in ["adoption_absent", "adoption_changed", "environment", "scan",
+            "module_index", "module_digest", "report_digest", "host", "source_manifest",
+            "foreign_registry"] {
+            let prepared = catalogue_free_retry_fixture();
+            let m = &prepared.fixture.m;
+            let prior = &prepared.prior;
+            let mut environment = prior.environment.id.clone();
+            let mut scan = prior.id.clone();
+            let mut module_index = 0;
+            let mut module_digest = prior.modules[0].artifact.sha256.clone();
+            let mut report_digest = prior.modules[0].report.sha256.clone();
+            match case {
+                "adoption_absent" => {
+                    fs::remove_file(m.root.join("qualifications/frg1/adoption.json")).unwrap();
+                }
+                "adoption_changed" => {
+                    let path = m.root.join("qualifications/frg1/adoption.json");
+                    let mut value: Value = read_json(&path).unwrap();
+                    value["profile_fingerprint"] = json!("00".repeat(32));
+                    atomic_json(&path, &value).unwrap();
+                }
+                "environment" => environment = "22".repeat(16),
+                "scan" => scan = "cd".repeat(16),
+                "module_index" => module_index = 1,
+                "module_digest" => module_digest = "ef".repeat(32),
+                "report_digest" => report_digest = "ef".repeat(32),
+                "host" | "source_manifest" => {
+                    let path = m.root.join("inventory").join(format!("{}.json", environment));
+                    let mut changed: inventory::Scan = read_json(&path).unwrap();
+                    if case == "host" { changed.host.sha256 = "ef".repeat(32); }
+                    else { changed.host_source_sha256 = "ef".repeat(32); }
+                    atomic_json(&path, &changed).unwrap();
+                }
+                "foreign_registry" => {
+                    let (foreign, _, _, _) = test_fixture::prepared();
+                    atomic_json(&m.root.join("registry.json"), &foreign.m.registry().unwrap()).unwrap();
+                }
+                _ => unreachable!(),
+            }
+            let current = m.root.join("inventory").join(format!("{}.json", prior.environment.id));
+            let history = m.root.join("inventory/history").join(format!("{}.json", prior.id));
+            let before_current = fs::read(&current).unwrap();
+            let before_history = fs::read(&history).unwrap();
+            SCAN_SPAWN_COUNT.with(|count| count.set(0));
+            assert!(retry_quarantined_module(m, &environment, &scan, module_index,
+                &module_digest, &report_digest).is_err(), "{case}");
+            assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get), 0, "{case}");
+            assert_eq!(fs::read(&current).unwrap(), before_current, "{case}");
+            assert_eq!(fs::read(&history).unwrap(), before_history, "{case}");
+        }
+    }
+    #[test]
+    fn retired_terminal_summary_remains_in_manager_projection() {
+        let class="01".repeat(16);
+        let rows=session_projection(None,vec![capacity::TerminalSummary{
+            schema:1,session:"ab".repeat(16),class_id:class.clone(),
+            terminal:capacity::InstanceTerminal::WindowsHostExited,
+            producer:3,status_domain:4,cleanup_confirmed:true,
+            transport_retired:true,observed_at:1,
+        }]);
+        assert_eq!(rows,vec![json!({
+            "session":"ab".repeat(16),
+            "class_id":class,"state":"failed","terminal":"windows_host_exited",
+            "recent":true,"cleanup_confirmed":true,"transport_retired":true,
+            "observed_at":1,
+        })]);
+    }
+    #[test]
+    fn live_session_projection_retains_exact_read_only_identity() {
+        let session = "cd".repeat(16);
+        let class = "01".repeat(16);
+        let capacity = CapacityReadback {
+            schema: 1,
+            dsp: 1,
+            maintenance: 0,
+            keepers: 0,
+            cleanup_unconfirmed: false,
+            owners: vec![capacity::Owner {
+                session: session.clone(),
+                class_id: class.clone(),
+                kind: capacity::Kind::Dsp,
+                terminal: None,
+            }],
+            limits: CapacityLimits { global_dsp: 6 },
+        };
+        let rows = session_projection(Some(&capacity), vec![]);
+        assert_eq!(rows, vec![json!({
+            "session": session,
+            "class_id": class,
+            "state": "active",
+            "terminal": null,
+            "recent": false,
+        })]);
+    }
+    #[test]
+    fn stale_foreign_candidate_busy_and_unknown_requests_cannot_dispatch() {
+        let allowed = ui::Action::OrdinaryRollback {
+            class_id: "a".repeat(32),
+            publication: "b".repeat(32),
+        };
+        let s = view("current", action("Rollback", allowed.clone(), None));
+        let mut r = ui::Request {
+            schema: ui::OPERATOR_SCHEMA,
+            state_token: "current".into(),
+            action: allowed.clone(),
+        };
+        validate(&r, &s).unwrap();
+        r.state_token = "previous software or registry".into();
+        assert!(validate(&r, &s).is_err());
+        r.state_token = "current".into();
+        for old_schema in [8, 9, 10, 11, 20] {
+            r.schema = old_schema;
+            assert_eq!(validate(&r, &s).unwrap_err().to_string(),
+                "operator_schema_mismatch_update_manager_frontend");
+        }
+        for malformed in [json!({"schema":"12","state_token":"current","action":{"kind":"capture_disarm"}}),
+            json!({"schema":null,"state_token":"current","action":{"kind":"capture_disarm"}})] {
+            assert!(serde_json::from_value::<ui::Request>(malformed).is_err());
+        }
+        r.schema = ui::OPERATOR_SCHEMA;
+        r.action = ui::Action::OrdinaryRollback {
+            class_id: "a".repeat(32),
+            publication: "c".repeat(32),
+        };
+        assert!(validate(&r, &s).is_err());
+        r.action = ui::Action::OrdinaryRollback {
+            class_id: "d".repeat(32),
+            publication: "b".repeat(32),
+        };
+        assert!(validate(&r, &s).is_err());
+        r.action = allowed.clone();
+        let busy = view(
+            "current",
+            action("Rollback", allowed, Some("Active DSP lease")),
+        );
+        assert!(validate(&r, &busy).is_err());
+    }
+    #[test]
+    fn unrelated_future_refused_job_preserves_onboarding_readback_and_cannot_dispatch() {
+        let f = test_fixture::Fixture::new();
+        let operation = "ab".repeat(16);
+        let directory=job_dir(&f.m,&operation).unwrap();private_dir(&directory).unwrap();
+        let request=json!({"schema":ui::OPERATOR_SCHEMA+1,"state_token":"future",
+            "action":{"kind":"future_owned_continuation","operation":"cd".repeat(16)}});
+        atomic_json(&directory.join("request.json"),&request).unwrap();
+        let before=fs::read(directory.join("request.json")).unwrap();
+        project_onboarding_failure(&f.m,&json!({"state":"refused","operation":operation}),&mut []).unwrap();
+        assert_eq!(fs::read(directory.join("request.json")).unwrap(),before);
+        assert!(serde_json::from_value::<ui::Request>(request).is_err());
+        for action in [ui::Action::EnvironmentRefresh {environment:"ab".repeat(16),daw:ui::DawChoice::Bitwig},
+            ui::Action::EnvironmentRefreshResume {operation:"cd".repeat(16)}] {
+            let request=ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"current".into(),action};
+            assert_eq!(validate(&request,&view("current",super::action("Support export",ui::Action::SupportExport {},None)))
+                .unwrap_err().to_string(),"operator_action_not_available");
+        }
+    }
+    #[test]
+    fn current_schema_keeps_exact_old_operation_request_history_readable() {
+        assert_eq!(ui::OPERATOR_SCHEMA, 29);
+        let f = test_fixture::Fixture::new();
+        let operation = "ab".repeat(16);
+        let dir = job_dir(&f.m, &operation).unwrap();
+        private_dir(&dir).unwrap();
+        let old = ui::Request { schema: 8, state_token: "old-state".into(),
+            action: ui::Action::DependencyPrepare {} };
+        atomic_json(&dir.join("request.json"), &old).unwrap();
+        atomic_json(&dir.join("result.json"),
+            &json!({"schema":1,"operation":operation,"state":"completed"})).unwrap();
+        let saved = ResumeRecord { schema: 1, owner_operation: operation.clone(),
+            resume: true, software: "cd".repeat(32), vendor_operation: Some(operation.clone()) };
+        assert_eq!(recovery_request(&f.m, &saved).unwrap(), old.action);
+        assert_eq!(worker_receipt(&f.m, &operation)["state"], "completed");
+        assert_eq!(worker_receipt(&f.m, &operation)["schema"], 1);
+        let installed_ui2 = ui::Request { schema: 11, state_token: "installed-state".into(),
+            action: ui::Action::CompatibilityFinishResult { operation: operation.clone() } };
+        atomic_json(&dir.join("request.json"), &installed_ui2).unwrap();
+        assert_eq!(recovery_request(&f.m, &saved).unwrap(), installed_ui2.action);
+        assert_eq!(validate(&installed_ui2, &view("installed-state", action("Finish", installed_ui2.action.clone(), None)))
+            .unwrap_err().to_string(), "operator_schema_mismatch_update_manager_frontend");
+    }
+    #[test]
+    fn support_export_requires_the_current_overview_offer_and_token() {
+        let f = test_fixture::Fixture::new();
+        let source = f.r.host.path.with_file_name("host-source-manifest.json");
+        fs::write(&source, b"fixture source").unwrap();
+        // Exercise a valid retained installation, including its exact helper
+        // layout and immutable paired frontend. Missing modern package records
+        // must not be treated as legacy just to produce a successful export.
+        let helper = |name: &str| {
+            let path = f.r.host.path.with_file_name(name);
+            fs::write(&path, name.as_bytes()).unwrap();
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+            Artifact { sha256: digest(&path).unwrap(), path }
+        };
+        let supervisor = helper("session.py");
+        let ownership = helper("ownership.py");
+        let frontend = helper("frontend");
+        for path in [&f.r.host.path, &source] {
+            fs::set_permissions(path, fs::Permissions::from_mode(0o400)).unwrap();
+        }
+        let sw = Software {
+            installer_launch: None,
+            preparation_kit: None,
+            operator_frontend: Some(frontend),
+            manager: f.r.host.clone(),
+            supervisor,
+            ownership,
+            host: f.r.host.clone(),
+            source_manifest: Artifact { path: source.clone(), sha256: digest(&source).unwrap() },
+            source_sha256: digest(&source).unwrap(),
+            native_catalogue: None,
+        };
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let offered = overview(&f.m).unwrap();
+        assert!(matches!(offered.readiness.support_export_action.action,
+            ui::Action::SupportExport {}));
+        let mut request = ui::Request {schema: ui::OPERATOR_SCHEMA,
+            state_token: offered.current.state_token.clone(),
+            action: ui::Action::SupportExport {}};
+        validate_current_request(&f.m, &request).unwrap();
+        request.state_token = "stale".into();
+        assert!(validate_current_request(&f.m, &request).is_err());
+        request.state_token = offered.current.state_token;
+        request.schema = 11;
+        assert!(validate_current_request(&f.m, &request).is_err());
+        let operation = test_submit_offered(&f.m, &ui::Action::SupportExport {}).unwrap();
+        let result = test_run_offered_worker(&f.m, &operation).unwrap();
+        assert_eq!(result["state"], "completed", "{result}");
+        let report = result["result"]["file"].as_str()
+            .expect("the exact offered export writes a local file");
+        let saved: Value = read_json(&f.m.root.join("support-exports").join(report)).unwrap();
+        assert_eq!(saved["schema"], 2);
+        assert!(saved["assessment"].get("state_token").is_none());
+        assert!(saved["assessment"].get("support_export_action").is_none());
+    }
+    #[test]
+    fn workspace_actions_are_never_offered_and_refused_as_retired() {
+        let (f, candidate) = preparation_cli::tests::projection_fixture();
+        atomic_json(&f.m.root.join("software.json"),
+            &preparation_cli::tests::projection_software(&candidate)).unwrap();
+        // A workspace an earlier build managed stays exactly as it was.
+        let workspace = f.m.root.join("daw-workspaces/fl-studio");
+        fs::create_dir_all(workspace.join("projects")).unwrap();
+        fs::write(workspace.join("workspace.json"), br#"{"schema":2,"session_operation":null}"#).unwrap();
+        fs::write(workspace.join("projects/song.flp"), b"song").unwrap();
+        for name in ["environment/compatdata/pfx/system.reg", "content/sound.wav",
+            "environment/compatdata/pfx/drive_c/Program Files/FL Studio/FL64.exe",
+            "sessions/old/result.json", "operations/uncertain/ownership.json"] {
+            let path = workspace.join(name);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, b"retained user or ownership fixture").unwrap();
+        }
+        let before = test_fixture::snapshot(&workspace);
+        let service = overview_service_reply(&f.m, capacity_json(false, 0, 0));
+        let current = current_overview(&f.m).unwrap().current;
+        service.join().unwrap();
+        assert!(current.workspaces.is_empty());
+        assert!(!available(&current).iter().any(|offer| workspace_action(&offer.action)));
+        let product = ui::WorkspaceProductId::Serum2;
+        let (installer, release) = ("ab".repeat(32), "26.1.6.0".to_owned());
+        for action in [ui::Action::WorkspaceSelectInstaller { installer: installer.clone(), release: release.clone() },
+            ui::Action::WorkspaceInstall {}, ui::Action::WorkspaceFinishInstall {}, ui::Action::WorkspaceLaunch {},
+            ui::Action::WorkspaceUninstall {}, ui::Action::WorkspaceFinishUninstall {},
+            ui::Action::WorkspaceFocus {}, ui::Action::WorkspaceStop {},
+            ui::Action::WorkspaceSelectProductInstaller { product, installer, release },
+            ui::Action::WorkspaceInstallProduct { product },
+            ui::Action::WorkspaceFinishProductInstall { product }] {
+            let request = ui::Request { schema: ui::OPERATOR_SCHEMA,
+                state_token: current.state_token.clone(), action: action.clone() };
+            assert_eq!(validate_current_request(&f.m, &request).unwrap_err().to_string(),
+                WORKSPACE_RETIRED, "{action:?}");
+            assert_eq!(execute_idle_test_action(&f.m, &action).unwrap_err().to_string(),
+                WORKSPACE_RETIRED, "{action:?}");
+        }
+        assert_eq!(test_fixture::snapshot(&workspace), before);
+    }
+    pub(super) fn capacity_json(blocked: bool, dsp: usize, maintenance: usize) -> Value {
+        json!({"ok":true,"capacity":{"schema":1,"dsp":dsp,"maintenance":maintenance,"keepers":1,"cleanup_unconfirmed":blocked,"owners":[],"limits":{"global_dsp":6}}})
+    }
+    fn service_reply(m: &Manager, value: Value) -> std::thread::JoinHandle<()> {
+        private_dir(&m.root.join("runtime")).unwrap();
+        let socket = m.root.join("runtime/owner.sock");
+        if socket.exists() {
+            fs::remove_file(&socket).unwrap();
+        }
+        let listener = UnixListener::bind(&socket).unwrap();
+        std::thread::spawn(move || {
+            let (mut peer, _) = listener.accept().unwrap();
+            let mut greeting = [0; 5];
+            peer.read_exact(&mut greeting).unwrap();
+            assert_eq!(&greeting, b"LVC1\n");
+            let bytes = serde_json::to_vec(&value).unwrap();
+            peer.write_all(&(bytes.len() as u32).to_le_bytes()).unwrap();
+            peer.write_all(&bytes).unwrap();
+        })
+    }
+    pub(super) fn overview_service_reply(m: &Manager, value: Value) -> std::thread::JoinHandle<()> {
+        overview_service_reply_with_counts(m, value, (1, 3))
+    }
+    #[test]
+    fn passive_overview_preserves_current_offers_without_a_readiness_assessment() {
+        let (f, candidate) = preparation_cli::tests::projection_fixture();
+        atomic_json(&f.m.root.join("software.json"),
+            &preparation_cli::tests::projection_software(&candidate)).unwrap();
+        // Keep the same service socket across both readbacks: replacing it
+        // changes the generation even when the control-record token agrees.
+        let service = overview_service_reply_with_counts(&f.m, capacity_json(false,0,0), (2,6));
+        let assessed = overview(&f.m).unwrap();
+        let passive = current_overview(&f.m).unwrap();
+        service.join().unwrap();
+        assert_eq!(passive.current.state_token, assessed.current.state_token);
+        assert_eq!(passive.current_generation, assessed.current_generation);
+        assert_eq!(passive.current.system, assessed.current.system);
+        assert_eq!(serde_json::to_value(&passive.current.products).unwrap(),
+            serde_json::to_value(&assessed.current.products).unwrap());
+        assert!(serde_json::to_value(&passive).unwrap().get("readiness").is_none());
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"expired-token".into(),
+            action:ui::Action::RuntimeInstall {}};
+        assert_eq!(validate(&request,&passive.current).unwrap_err().to_string(),
+            "operator_stale_request_refresh");
+    }
+    pub(super) fn overview_service_reply_with_counts(m: &Manager, value: Value, expected: (usize, usize))
+        -> std::thread::JoinHandle<()> {
+        overview_service_reply_within(m, value, expected, OPERATOR_WAIT)
+    }
+    /// As `overview_service_reply_with_counts`, for a page slower to compose.
+    pub(super) fn overview_service_reply_within(m: &Manager, value: Value, expected: (usize, usize),
+        wait: Duration) -> std::thread::JoinHandle<()> {
+        private_dir(&m.root.join("runtime")).unwrap();
+        let socket=m.root.join("runtime/owner.sock");
+        if socket.exists() {fs::remove_file(&socket).unwrap();}
+        let listener=UnixListener::bind(&socket).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        std::thread::spawn(move || {
+            // Capacity and the first cleanup probe run concurrently. The
+            // final recheck samples cleanup on both sides of registry.lock.
+            let mut capacity = 0;
+            let mut pulses = 0;
+            let deadline = Instant::now() + wait;
+            while capacity + pulses < expected.0 + expected.1 {
+                assert!(Instant::now() < deadline,
+                    "service stub timed out: observed {:?}, expected {:?}", (capacity, pulses), expected);
+                let (mut peer,_) = match listener.accept() {
+                    Ok(peer) => peer,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(Duration::from_millis(1));
+                        continue;
+                    }
+                    Err(error) => panic!("service stub accept: {error}"),
+                };
+                let remaining = deadline.saturating_duration_since(Instant::now())
+                    .max(Duration::from_millis(1));
+                peer.set_read_timeout(Some(remaining)).unwrap();
+                peer.set_write_timeout(Some(remaining)).unwrap();
+                let mut greeting=[0;5];
+                peer.read_exact(&mut greeting).unwrap();
+                if &greeting==b"LVC1\n" {
+                    capacity += 1;
+                    let bytes=serde_json::to_vec(&value).unwrap();
+                    peer.write_all(&(bytes.len() as u32).to_le_bytes()).unwrap();
+                    peer.write_all(&bytes).unwrap();
+                } else {
+                    assert_eq!(&greeting,b"LVP1\n");
+                    pulses += 1;
+                    peer.write_all(&[0]).unwrap();
+                }
+            }
+            assert_eq!((capacity,pulses),expected);
+        })
+    }
+    #[test]
+    fn pulse_cleanup_tracks_blocked_state_without_owner_change() {
+        let f=test_fixture::Fixture::new();
+        private_dir(&f.m.root.join("runtime")).unwrap();
+        let socket=f.m.root.join("runtime/owner.sock");
+        for blocked in [false,true] {
+            if socket.exists() {fs::remove_file(&socket).unwrap();}
+            let listener=UnixListener::bind(&socket).unwrap();
+            let server=std::thread::spawn(move || {
+                let (mut peer,_)=listener.accept().unwrap();
+                let mut greeting=[0;5];
+                peer.read_exact(&mut greeting).unwrap();
+                assert_eq!(&greeting,b"LVP1\n");
+                peer.write_all(&[u8::from(blocked)]).unwrap();
+            });
+            assert_eq!(pulse_cleanup(&f.m),Some(blocked));
+            server.join().unwrap();
+        }
+    }
+    #[test]
+    fn pulse_classifies_all_retained_nonterminal_operation_states() {
+        let f=test_fixture::Fixture::new();
+        let latest=f.m.root.join("operator/latest.json");
+        private_dir(latest.parent().unwrap()).unwrap();
+        for (state,expected_live) in [
+            ("queued",true),("waiting",true),("running",true),("vendor_running",true),
+            ("completed",false),("refused",false),
+        ] {
+            atomic_json(&latest,&json!({"schema":1,"operation":"ab".repeat(16),
+                "state":state})).unwrap();
+            assert_eq!(pulse(&f.m).unwrap().operation_live,expected_live,"{state}");
+        }
+    }
+    #[test]
+    fn selected_performance_record_changes_pulse_generation() {
+        let f=test_fixture::Fixture::new();
+        let before=pulse_generation(&f.m).unwrap();
+        let path=f.m.root.join("performance").join(format!("{}.json",f.r.key()));
+        private_dir(path.parent().unwrap()).unwrap();
+        atomic_json(&path,&Performance {schema:1,added_frames:512, delivery_mode:DeliveryMode::Buffered }).unwrap();
+        let selected=pulse_generation(&f.m).unwrap();
+        assert_ne!(before,selected);
+        atomic_json(&path,&Performance {schema:1,added_frames:256, delivery_mode:DeliveryMode::Buffered }).unwrap();
+        assert_ne!(selected,pulse_generation(&f.m).unwrap());
+    }
+    #[test]
+    fn authoritative_blocked_readback_and_unavailable_service_never_claim_safe_cleanup() {
+        let f = test_fixture::Fixture::new();
+        let server = service_reply(&f.m, capacity_json(true, 1, 0));
+        let a = activity(&f.m).unwrap();
+        server.join().unwrap();
+        assert!(a.system.capacity_available());
+        assert!(a.system.cleanup_unconfirmed);
+        assert_eq!(a.system.dsp, 1);
+        assert_eq!(
+            a.system.inactive_reason(),
+            Some("Previous instance cleanup is unconfirmed")
+        );
+        let a = activity(&f.m).unwrap();
+        assert!(!a.system.capacity_available());
+        assert!(a.system.cleanup_unconfirmed);
+        assert!(a.system.inactive_reason().unwrap().contains("unavailable"));
+    }
+    #[test]
+    fn production_capacity_status_shows_its_instance_limit_as_the_ceiling() {
+        let f = test_fixture::Fixture::new();
+        let status = capacity::status(&f.m, capacity::service_limits(), 0, false).unwrap();
+        let cap: CapacityReadback = serde_json::from_value(serde_json::to_value(&status).unwrap()).unwrap();
+        assert_eq!(system_from_capacity(Some(&cap), 0, 0).ceiling, 8);
+    }
+    #[test]
+    fn malformed_or_refused_capacity_is_unavailable_not_safe() {
+        let f = test_fixture::Fixture::new();
+        let mut missing = capacity_json(false, 0, 0);
+        missing["capacity"]
+            .as_object_mut()
+            .unwrap()
+            .remove("cleanup_unconfirmed");
+        let mut future = capacity_json(false, 0, 0);
+        future["capacity"]["schema"] = json!(2);
+        for reply in [missing, future, json!({"ok":false,"refusal":"busy"})] {
+            let server = service_reply(&f.m, reply);
+            let read = activity(&f.m).unwrap();
+            server.join().unwrap();
+            assert!(!read.system.capacity_available());
+            assert!(read.system.cleanup_unconfirmed);
+        }
+    }
+    #[test]
+    fn reconcile_remains_offered_when_cleanup_or_capacity_is_unavailable() {
+        assert!(inactive_reason(None, false, 1, true).is_none());
+        let cap: CapacityReadback = serde_json::from_value(
+            capacity_json(true, 0, 1)["capacity"].clone()).unwrap();
+        assert!(inactive_reason(Some(&cap), false, 1, true).is_none());
+        assert!(inactive_reason(Some(&cap), false, 1, false).is_some());
+        let f = test_fixture::Fixture::new();
+        let mut waits = Vec::new();
+        require_operator_inactive_with(&f.m, &ui::Action::TransactionReconcile {},
+            &|| panic!("recovery cannot depend on healthy capacity"), None,
+            Duration::from_secs(1), &mut waits).unwrap();
+    }
+    #[test]
+    fn reconcile_allows_a_known_idle_keeper_but_retains_uncertain_custody() {
+        let f = test_fixture::Fixture::new();
+        let (job, owner) = spec(&f.m, f.r.clone().into(), true, false, true).unwrap();
+        f.m.retain_lease_owner(&owner).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        let read = || capacity_fixture(&f.m);
+        let action = ui::Action::TransactionReconcile {};
+        assert_eq!(execute_with_receipt_capacity(&f.m, &action, None, &read).unwrap(),
+            json!({"reconciled":true}));
+        assert!(job.lease.exists());
+        let uncertain = || read().map(|mut cap| { cap.cleanup_unconfirmed = true; cap });
+        assert!(execute_with_receipt_capacity(&f.m, &action, None, &uncertain).is_err());
+        assert!(execute_with_receipt_capacity(&f.m, &action, None, &|| None).is_err());
+        assert!(job.lease.exists());
+    }
+    #[test]
+    fn crafted_inactive_actions_refuse_each_live_boundary_before_any_mutation() {
+        let f = test_fixture::Fixture::new();
+        atomic_json(&f.m.root.join("sentinel.json"), &json!({"unchanged":true})).unwrap();
+        let actions = [
+            ui::Action::InstallerStart {
+                onboarding: "ef".repeat(16),
+            },
+            ui::Action::InstallerScan {
+                onboarding: "ef".repeat(16),
+            },
+            ui::Action::EnvironmentRescan {
+                environment: f.r.environment.id.clone(),
+            },
+            ui::Action::QuarantinedModuleRetry {
+                environment: f.r.environment.id.clone(),
+                scan: "ab".repeat(16),
+                module_index: 0,
+                module_sha256: "cd".repeat(32),
+                report_sha256: "ef".repeat(32),
+            },
+            ui::Action::OrdinaryRollback {
+                class_id: f.r.key(),
+                publication: "a".repeat(32),
+            },
+            ui::Action::OrdinaryRestoreRecommended {
+                class_id: f.r.key(),
+            },
+        ];
+        for action in &actions {
+            for (blocked, dsp, maintenance) in [(true, 0, 0), (false, 1, 0), (false, 0, 1)] {
+                let server = service_reply(&f.m, capacity_json(blocked, dsp, maintenance));
+                let e = execute(&f.m, action).unwrap_err().to_string();
+                server.join().unwrap();
+                assert!(e.contains("cleanup") || e.contains("active bridged")
+                    || e.contains("owner census") || e.contains("maintenance"), "{e}");
+            }
+            let cap: CapacityReadback =
+                serde_json::from_value(capacity_json(false, 0, 0)["capacity"].clone()).unwrap();
+            assert!(inactive_reason(Some(&cap), false, 0, false)
+                .unwrap()
+                .contains("Check that it closed"));
+            if !matches!(action, ui::Action::TransactionReconcile {}) {
+                assert!(inactive_reason(Some(&cap), true, 1, false)
+                    .unwrap()
+                    .contains("Reconcile"));
+            }
+        }
+        assert!(!f.m.root.join("registry.json").exists());
+        assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    #[test]
+    fn vendor_admission_uses_exact_setup_owners_instead_of_global_capacity() {
+        let (f,record,_)=vendor_cli::selection::tests::installed_app();
+        let selector=vendor_cli::selection::choices(&f.m,&record).unwrap()[0].application.selector().unwrap();
+        let action=ui::Action::VendorApplicationOpen {application:selector};
+        let session=random_id().unwrap();
+        let report=f.m.root.join("runtime/results").join(format!("windows-{session}.json"));
+        let lease=f.m.root.join("runtime/leases").join(format!("{session}.json"));
+        private_dir(report.parent().unwrap()).unwrap();private_dir(lease.parent().unwrap()).unwrap();
+        let mut other=record.environment.clone();other.id=random_id().unwrap();
+        other.root=f.m.root.join("environments").join(&other.id);
+        for environment in [&other,&record.environment] {
+            let owner=environment.root.join("compatdata/pfx/drive_c/bridge/sessions")
+                .join(&session).join("owner.json");
+            private_dir(owner.parent().unwrap()).unwrap();
+            atomic_json(&owner,&json!({"session":session,"report":report,"lease":lease,
+                "keeper":false,"inspect":false,"vendor_access":false,
+                "registration":{"metadata":{"class_id":f.r.key()},"environment":environment}})).unwrap();
+            atomic_json(&lease,&report).unwrap();
+            let result=require_operator_inactive_with(&f.m,&action,
+                &||panic!("Global capacity cannot decide setup exclusivity"),None,
+                Duration::from_secs(1),&mut vec![]);
+            if environment==&other {result.unwrap();}
+            else {assert_eq!(result.unwrap_err().to_string(),"active_device_lease");}
+            fs::remove_file(owner).unwrap();
+        }
+    }
+    #[test]
+    fn environment_creation_rechecks_live_capacity_at_mutation() {
+        for (blocked, dsp, maintenance) in [(true, 0, 0), (false, 1, 0), (false, 0, 1)] {
+            let (f, id) = onboarding_worker_fixture();
+            let request: ui::Request =
+                read_json(&job_dir(&f.m, &id).unwrap().join("request.json")).unwrap();
+            let e = execute_with_receipt_capacity(&f.m, &request.action, Some(&id), &|| {
+                let mut cap = capacity_fixture(&f.m).unwrap();
+                cap.cleanup_unconfirmed = blocked;
+                cap.dsp = dsp;
+                cap.maintenance = maintenance;
+                Some(cap)
+            })
+            .unwrap_err()
+            .to_string();
+            assert!(e.contains("cleanup") || e.contains("active bridged")
+                    || e.contains("owner census") || e.contains("maintenance"), "{e}");
+            assert!(!f.m.root.join("onboarding").exists());
+            assert!(!f.m.root.join("operator/resume.json").exists());
+        }
+    }
+    #[test]
+    fn mutation_owners_recheck_global_inactivity_under_their_registry_lock() {
+        let (f, p, c, n) = test_fixture::prepared();
+        let r = observation::derive(&p, &c, &n).unwrap();
+        let key = r.key();
+        let first =
+            f.m.managed_publish(&p, &c, r.clone(), &c.host, &c.host_source_sha256, None)
+                .unwrap();
+        let before = fs::read(f.m.root.join("registry.json")).unwrap();
+        let mut binding: HostBinding = f.r.clone().into();
+        binding.metadata.class_id = "aa".repeat(16);
+        let (job, _) = spec(&f.m, binding, true, false, false).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        assert!(f.m.reconcile_inactive().is_err());
+        assert!(f.m.rollback_inactive(&key, &first.id, None).is_err());
+        assert!(f
+            .m
+            .managed_publish_inactive(&p, &c, r, &c.host, &c.host_source_sha256, None)
+            .is_err());
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), before);
+    }
+    #[test]
+    fn exact_operation_readback_follows_an_older_completion_without_changing_latest() {
+        let f = test_fixture::Fixture::new();
+        let a = queued_test_action(&f.m, ui::Action::SupportExport {});
+        let b = queued_test_action(&f.m, ui::Action::SupportExport {});
+        let latest_path = f.m.root.join("operator/latest.json");
+        let latest = fs::read(&latest_path).unwrap();
+        let generation = b"retained software generation";
+        fs::write(f.m.root.join("software.json"), generation).unwrap();
+        let request = contract::Request::Read(contract::Read::Operation(a.clone()));
+        let read = contract::Read::Operation(a.clone());
+        let first = super::view(&f.m, &read).unwrap();
+        assert_eq!(first.hold, linux_vst_bridge::service::view::Hold::Never);
+        let contract::Reply::Operation(queued) = contract::decode(&request, &first.reply).unwrap()
+            else { panic!("exact operation reply") };
+        assert_eq!(queued.record["state"], "queued");
+        let completed = json!({"schema":1,"operation":a,"state":"completed",
+            "result":{"export":"ab".repeat(16),"sha256":"cd".repeat(32)}});
+        write_operation(&f.m, &a, &completed, false).unwrap();
+        let retained_path = job_dir(&f.m, &a).unwrap().join("result.json");
+        let retained = fs::read(&retained_path).unwrap();
+        let answer = super::view(&f.m, &read).unwrap();
+        let contract::Reply::Operation(reply) = contract::decode(&request, &answer.reply).unwrap()
+            else { panic!("exact operation reply") };
+        assert_eq!(reply.operation, a);
+        assert_eq!(reply.record, completed);
+        assert_eq!(fs::read(&latest_path).unwrap(), latest);
+        assert_eq!(optional(&latest_path).unwrap()["operation"], b);
+        assert_eq!(fs::read(&retained_path).unwrap(), retained);
+        assert_eq!(fs::read(f.m.root.join("software.json")).unwrap(), generation);
+    }
+
+    #[test]
+    fn exact_operation_readback_refuses_invalid_missing_mismatched_and_redirected_records() {
+        let f = test_fixture::Fixture::new();
+        assert_eq!(operation_readback(&f.m, "../latest").unwrap_err().to_string(),
+            "operator_operation_identity");
+        assert_eq!(operation_readback(&f.m, &"ab".repeat(16)).unwrap_err().to_string(),
+            "operator_operation_unavailable");
+        let id = queued_test_action(&f.m, ui::Action::SupportExport {});
+        let path = job_dir(&f.m, &id).unwrap().join("result.json");
+        let valid = optional(&path).unwrap();
+        for (field, value) in [("operation", json!("cd".repeat(16))), ("schema", json!(3)),
+            ("state", Value::Null), ("state", json!(""))] {
+            let mut invalid = valid.clone(); invalid[field] = value;
+            atomic_json(&path, &invalid).unwrap();
+            assert_eq!(operation_readback(&f.m, &id).unwrap_err().to_string(),
+                "operator_operation_record_invalid");
+        }
+        let mut derived = valid.clone(); derived["owned_service_pause"] = json!({"unverified":true});
+        atomic_json(&path, &derived).unwrap();
+        assert!(operation_readback(&f.m, &id).unwrap().record.get("owned_service_pause").is_none());
+        assert_eq!(optional(&path).unwrap(), derived, "reading cannot rewrite retained history");
+        fs::write(&path, b"not json").unwrap();
+        assert!(operation_readback(&f.m, &id).is_err());
+        fs::File::create(&path).unwrap().set_len(8 * 1024 * 1024 + 1).unwrap();
+        assert_eq!(operation_readback(&f.m, &id).unwrap_err().to_string(), "control_record_bound");
+        fs::remove_file(&path).unwrap();
+        let source = f.m.root.join("source-result.json");
+        atomic_json(&source, &valid).unwrap();
+        std::os::unix::fs::symlink(&source, &path).unwrap();
+        assert_eq!(operation_readback(&f.m, &id).unwrap_err().to_string(), "operator_operation_path");
+    }
+
+    #[test]
+    fn terminal_receipt_waits_for_an_existing_writer_instead_of_leaving_running() {
+        let f = test_fixture::Fixture::new();
+        let request = ui::Request {
+            schema: ui::OPERATOR_SCHEMA,
+            state_token: "t".into(),
+            action: ui::Action::CaptureDisarm {},
+        };
+        let id = launch_queued(&f.m, &request, |_| Ok(true))
+            .unwrap()
+            .operation
+            .unwrap();
+        let held = f.m.lock("operator-receipt.lock").unwrap();
+        let m = Manager::new(f.m.root.clone(), f.m.publications.clone());
+        let child_id = id.clone();
+        let child =
+            std::thread::spawn(move || finish_operation(&m, &child_id).map_err(|e| e.to_string()));
+        std::thread::sleep(Duration::from_millis(40));
+        assert_eq!(
+            optional(&job_dir(&f.m, &id).unwrap().join("result.json")).unwrap()["state"],
+            "queued"
+        );
+        drop(held);
+        child.join().unwrap().unwrap();
+        assert_eq!(
+            optional(&job_dir(&f.m, &id).unwrap().join("result.json")).unwrap()["state"],
+            "refused"
+        );
+    }
+    #[test]
+    fn failed_launch_and_dead_worker_have_terminal_receipts_without_overwriting_new_jobs() {
+        let f = test_fixture::Fixture::new();
+        let request = ui::Request {
+            schema: ui::OPERATOR_SCHEMA,
+            state_token: "t".into(),
+            action: ui::Action::CaptureDisarm {},
+        };
+        for io_failure in [false, true] {
+            let result = launch_queued(&f.m, &request, |_| {
+                if io_failure {
+                    Err("launch io error".into())
+                } else {
+                    Ok(false)
+                }
+            });
+            assert!(result.is_err());
+            let last = optional(&f.m.root.join("operator/latest.json")).unwrap();
+            assert_eq!(last["state"], "refused");
+            assert_eq!(last["reason"], "operator_worker_launch_failed");
+            assert_eq!(
+                optional(
+                    &job_dir(&f.m, last["operation"].as_str().unwrap())
+                        .unwrap()
+                        .join("result.json")
+                )
+                .unwrap(),
+                last
+            );
+        }
+        for state in ["queued", "waiting", "running", "vendor_running"] {
+            let id = launch_queued(&f.m, &request, |_| Ok(true))
+                .unwrap()
+                .operation
+                .unwrap();
+            write_operation(
+                &f.m,
+                &id,
+                &json!({"schema":1,"operation":id,"state":state}),
+                false,
+            )
+            .unwrap();
+            finish_operation(&f.m, &id).unwrap();
+            let last = optional(&f.m.root.join("operator/latest.json")).unwrap();
+            assert_eq!(last["state"], "refused");
+            assert_eq!(last["reason"], "operator_worker_terminated");
+        }
+        let old = launch_queued(&f.m, &request, |_| Ok(true))
+            .unwrap()
+            .operation
+            .unwrap();
+        let new = launch_queued(&f.m, &request, |_| Ok(true))
+            .unwrap()
+            .operation
+            .unwrap();
+        finish_operation(&f.m, &old).unwrap();
+        assert_eq!(
+            optional(&f.m.root.join("operator/latest.json")).unwrap()["operation"],
+            new
+        );
+        let completed =
+            json!({"schema":1,"operation":new,"state":"completed","result":{"done":true}});
+        write_operation(&f.m, &new, &completed, false).unwrap();
+        atomic_json(
+            &f.m.root.join("operator/latest.json"),
+            &json!({"operation":new,"state":"running"}),
+        )
+        .unwrap();
+        finish_operation(&f.m, &new).unwrap();
+        assert_eq!(
+            optional(&f.m.root.join("operator/latest.json")).unwrap(),
+            completed
+        );
+    }
+    fn queued_test_action(m: &Manager, action: ui::Action) -> String {
+        launch_queued(
+            m,
+            &ui::Request {
+                schema: ui::OPERATOR_SCHEMA,
+                state_token: "fixture".into(),
+                action,
+            },
+            |_| Ok(true),
+        )
+        .unwrap()
+        .operation
+        .unwrap()
+    }
+    fn saved_test_resume(m: &Manager, owner: &str, vendor: Option<String>) -> ResumeRecord {
+        let saved = ResumeRecord {
+            schema: 1,
+            owner_operation: owner.into(),
+            resume: true,
+            software: "ab".repeat(32),
+            vendor_operation: vendor,
+        };
+        let _lock = resume_lock(m).unwrap();
+        create_resume(m, &saved).unwrap();
+        saved
+    }
+    fn retained_keeper(m: &Manager, registration: &Registration, host: &Artifact) -> (PathBuf, PathBuf) {
+        let sid = random_id().unwrap();
+        let report = m.root.join("runtime/results").join(format!("environment-{sid}.json"));
+        let spec = registration.environment.root.join("compatdata/pfx/drive_c/bridge/sessions")
+            .join(&sid).join("owner.json");
+        private_dir(spec.parent().unwrap()).unwrap();
+        private_dir(report.parent().unwrap()).unwrap();
+        let mut binding = HostBinding::from(registration.clone());
+        binding.host = host.clone();
+        atomic_json(&spec, &json!({"session":sid,"report":report,"keeper":true,
+            "inspect":true,"vendor_access":false,"registration":binding})).unwrap();
+        atomic_json(&report, &json!({"ready":true,"cleanup_confirmed":false})).unwrap();
+        let lease = m.root.join("runtime/leases").join(format!("{sid}.json"));
+        private_dir(lease.parent().unwrap()).unwrap();
+        atomic_json(&lease, &report).unwrap();
+        (lease, report)
+    }
+    #[test]
+    fn control_resume_requires_exact_operation_and_software_without_starting_environments() {
+        let (f, _) = onboarding_worker_fixture();
+        let sw = software(&f.m).unwrap();
+        let owner = queued_test_action(&f.m, ui::Action::EnvironmentRescan {
+            environment: f.r.environment.id.clone(),
+        });
+        let saved = ResumeRecord { schema: 2, owner_operation: owner.clone(), resume: true,
+            software: sw.manager.sha256.clone(), vendor_operation: None };
+        create_resume(&f.m, &saved).unwrap();
+        let before = test_fixture::snapshot(&f.m.root);
+        let _authority = f.m.lock("registry.lock").unwrap();
+        authorize_service_resume(&f.m, &owner, &sw).unwrap();
+        assert!(authorize_service_resume(&f.m, &"ef".repeat(16), &sw).is_err());
+        let mut changed = sw.clone(); changed.manager.sha256 = "de".repeat(32);
+        atomic_json(&f.m.root.join("software.json"), &changed).unwrap();
+        assert_eq!(authorize_service_resume(&f.m, &owner, &sw).unwrap_err().to_string(),
+            "operator_resume_software_changed");
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        assert_eq!(test_fixture::snapshot(&f.m.root), before);
+        assert!(!f.m.root.join("runtime/leases").exists());
+    }
+    #[test]
+    fn legacy_recovery_record_does_not_authorize_control_only_acknowledgement() {
+        let (f, _) = onboarding_worker_fixture();
+        let sw = software(&f.m).unwrap();
+        let owner = queued_test_action(&f.m, ui::Action::EnvironmentRescan {
+            environment: f.r.environment.id.clone(),
+        });
+        let mut saved = ResumeRecord { schema: 1, owner_operation: owner.clone(), resume: true,
+            software: sw.manager.sha256.clone(), vendor_operation: None };
+        create_resume(&f.m, &saved).unwrap();
+        assert_eq!(resume_record(&f.m).unwrap().unwrap().schema, 1);
+        assert!(authorize_service_resume(&f.m, &owner, &sw).is_err());
+        saved.schema = 2;
+        atomic_json(&f.m.root.join("operator/resume.json"), &saved).unwrap();
+        assert!(authorize_service_resume(&f.m, &owner, &sw).is_ok());
+        saved.resume = false;
+        atomic_json(&f.m.root.join("operator/resume.json"), &saved).unwrap();
+        assert!(authorize_service_resume(&f.m, &owner, &sw).is_err());
+    }
+    #[test]
+    fn prepare_refusal_does_not_stop_existing_keeper_or_create_recovery() {
+        let (f, c, sw, _) = preparation_cli::tests::guided_fixture();
+        f.m.register(f.r.clone()).unwrap();
+        linux_vst_bridge::preparation::retain_inspection(&f.m, &c.inspection).unwrap();
+        let (lease, report) = retained_keeper(&f.m, &f.r, &sw.host);
+        let report_before = fs::read(&report).unwrap();
+        let registry_before = fs::read(f.m.root.join("registry.json")).unwrap();
+        let action = ui::Action::PluginPrepare { selection: c.selection.id().unwrap(),
+            inspection: c.inspection.id().unwrap(), recipe: "ff".repeat(32), predecessor: None };
+        let owner = queued_test_action(&f.m, action.clone());
+        // Exact recipe drift refuses before construction. That must not turn
+        // pure proxy preparation into Wine-service cancellation.
+        let error = execute_with_receipt_policy(&f.m, &action, Some(&owner),
+            &|| capacity_fixture(&f.m), Duration::from_secs(2), &mut vec![]).unwrap_err();
+        assert_eq!(error.to_string(), "preparation_recipe_changed");
+        assert!(lease.exists());
+        assert_eq!(fs::read(report).unwrap(), report_before);
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry_before);
+        assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    #[test]
+    fn interrupted_compatibility_continuation_restores_service_without_replaying_work() {
+        for terminal in ["completed", "refused"] {
+            let f = test_fixture::Fixture::new();
+            let source = "cd".repeat(16);
+            let owner = queued_test_action(&f.m, ui::Action::CompatibilityResumeCheck {
+                operation: source.clone(),
+            });
+            let saved = saved_test_resume(&f.m, &owner, None);
+            let resume_path = f.m.root.join("operator/resume.json");
+            let resume_before = fs::read(&resume_path).unwrap();
+            atomic_json(&f.m.root.join("registry.json"), &f.m.registry().unwrap()).unwrap();
+            let registry_before = fs::read(f.m.root.join("registry.json")).unwrap();
+            let scratch = f.m.root.join("preparation/work").join(&source).join("scratch");
+            private_dir(scratch.parent().unwrap()).unwrap();
+            fs::write(&scratch, b"cold recovery must not replay preparation").unwrap();
+            assert!(resume_interrupted_with(&f.m, |_| panic!("owner is not terminal"))
+                .unwrap_err().to_string().contains("operator_resume_owner_not_terminal"));
+            assert_eq!(fs::read(&resume_path).unwrap(), resume_before);
+            write_operation(&f.m, &owner,
+                &json!({"schema":1,"operation":owner,"state":terminal}), false).unwrap();
+            let receipt_before = fs::read(job_dir(&f.m, &owner).unwrap().join("result.json")).unwrap();
+            assert_eq!(resume_interrupted_with(&f.m, |_| Err("service unavailable".into()))
+                .unwrap_err().to_string(), "service unavailable");
+            assert_eq!(fs::read(&resume_path).unwrap(), resume_before);
+            let mut restores = 0;
+            resume_interrupted_with(&f.m, |record| {
+                assert_eq!(record.owner_operation, owner);
+                assert_eq!(record.software, saved.software);
+                assert!(record.resume && record.vendor_operation.is_none());
+                restores += 1;
+                Ok(())
+            }).unwrap();
+            assert_eq!(restores, 1);
+            assert!(!resume_path.exists());
+            resume_interrupted_with(&f.m, |_| panic!("already restored")).unwrap();
+            assert_eq!(fs::read(job_dir(&f.m, &owner).unwrap().join("result.json")).unwrap(), receipt_before);
+            assert_eq!(fs::read(&scratch).unwrap(), b"cold recovery must not replay preparation");
+            assert!(!f.m.root.join("preparation/guided-checks").exists());
+            assert!(!f.m.root.join("preparation/candidates").exists());
+            assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry_before);
+        }
+    }
+    #[test]
+    fn delayed_finish_preserves_newer_service_recovery_until_its_owner_restores() {
+        let f = test_fixture::Fixture::new();
+        let a = queued_test_action(&f.m, ui::Action::CaptureDisarm {});
+        let completed =
+            json!({"schema":1,"operation":a,"state":"completed","result":{"capture":"disarmed"}});
+        write_operation(&f.m, &a, &completed, false).unwrap();
+        let b = queued_test_action(
+            &f.m,
+            ui::Action::EnvironmentRescan {
+                environment: f.r.environment.id.clone(),
+            },
+        );
+        let saved = saved_test_resume(&f.m, &b, None);
+        let path = f.m.root.join("operator/resume.json");
+        let before = fs::read(&path).unwrap();
+        let latest = fs::read(f.m.root.join("operator/latest.json")).unwrap();
+        let mut restores = 0;
+        finish_operation_with(&f.m, &a, |_| {
+            restores += 1;
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(
+            restores, 0,
+            "old finish must not even query/start recovery for B"
+        );
+        assert_eq!(fs::read(&path).unwrap(), before);
+        assert_eq!(
+            fs::read(f.m.root.join("operator/latest.json")).unwrap(),
+            latest
+        );
+        assert_eq!(
+            optional(&job_dir(&f.m, &a).unwrap().join("result.json")).unwrap(),
+            completed
+        );
+        // The current record cannot be overwritten by another suspension.
+        {
+            let _lock = resume_lock(&f.m).unwrap();
+            assert!(create_resume(&f.m, &saved).is_err());
+        }
+        assert_eq!(fs::read(&path).unwrap(), before);
+        // Failure preserves the recovery obligation; a later exact-owner call
+        // may complete it. These closures replace only external service I/O.
+        assert!(resume_owned_with(&f.m, &b, |_| Err("service unavailable".into())).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        resume_owned_with(&f.m, &b, |r| {
+            assert_eq!(r.owner_operation, b);
+            assert!(r.resume);
+            assert_eq!(r.software, saved.software);
+            restores += 1;
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(restores, 1);
+        assert!(!path.exists());
+        finish_operation_with(&f.m, &a, |_| panic!("no record to recover")).unwrap();
+    }
+    #[test]
+    fn renderer_stop_preserves_uncertain_resume_and_restores_exactly_once() {
+        use renderer_session::{self as r, UnitState};
+        let f = test_fixture::Fixture::new();
+        let application = "ab".repeat(32);
+        let owner = queued_test_action(
+            &f.m,
+            ui::Action::RendererOpen {
+                application: application.clone(),
+                policy: ui::RendererPolicy::Inherited,
+            },
+        );
+        saved_test_resume(&f.m, &owner, Some(owner.clone()));
+        let spec = json!({"operation":owner,"application_identity":application,"renderer_policy":"inherited","report":r::operation_dir(&f.m,&owner).unwrap().join("result.json")});
+        assert_eq!(
+            r::submit_with(
+                &f.m,
+                &spec,
+                |_| Err("lost acknowledgment".into()),
+                || Err("unit unavailable".into())
+            )
+            .unwrap(),
+            r::Submission::AcknowledgmentUncertain
+        );
+        let path = f.m.root.join("operator/resume.json");
+        let retained = fs::read(&path).unwrap();
+        assert!(stop_renderer_with(
+            &f.m,
+            &"ff".repeat(16),
+            |_| panic!("wrong stop"),
+            |_| panic!("wrong restore")
+        )
+        .is_err());
+        assert!(stop_renderer_with(
+            &f.m,
+            &owner,
+            |id| r::stop_with(&f.m, id, || Ok(()), || Err("unknown".into())),
+            |_| panic!("uncertain service must remain stopped")
+        )
+        .is_err());
+        assert_eq!(fs::read(&path).unwrap(), retained);
+        let mut restores = 0;
+        stop_renderer_with(
+            &f.m,
+            &owner,
+            |id| {
+                r::stop_with(
+                    &f.m,
+                    id,
+                    || panic!("absent unit needs no signal"),
+                    || {
+                        Ok(UnitState {
+                            exists: false,
+                            empty: true,
+                            observation: None,
+                        })
+                    },
+                )
+            },
+            |saved| {
+                assert_eq!(saved.owner_operation, owner);
+                restores += 1;
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(restores, 1);
+        assert!(!path.exists());
+        resume_owned_with(&f.m, &owner, |_| {
+            restores += 1;
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(restores, 1);
+        assert!(r::terminal(&r::result(&f.m, &owner).unwrap(), &owner));
+    }
+    #[test]
+    fn renderer_lost_ack_live_result_then_exact_stop_preserves_failure_and_resume_owner() {
+        use renderer_session::{self as r, UnitState};
+        let f = test_fixture::Fixture::new();
+        let application = "ab".repeat(32);
+        let owner = queued_test_action(
+            &f.m,
+            ui::Action::RendererOpen {
+                application: application.clone(),
+                policy: ui::RendererPolicy::Inherited,
+            },
+        );
+        saved_test_resume(&f.m, &owner, Some(owner.clone()));
+        let d = r::operation_dir(&f.m, &owner).unwrap();
+        let spec = json!({"operation":owner,"application_identity":application,"renderer_policy":"inherited","report":d.join("result.json")});
+        assert_eq!(
+            r::submit_with(
+                &f.m,
+                &spec,
+                |_| Ok(false),
+                || Ok(UnitState {
+                    exists: true,
+                    empty: false,
+                    observation: None
+                })
+            )
+            .unwrap(),
+            r::Submission::SubmittedOrLive
+        );
+        atomic_json(
+            &d.join("result.json"),
+            &json!({"schema":1,"operation":owner,"state":"running","renderer":{"cause":"gpu"}}),
+        )
+        .unwrap();
+        let mut probes = 0;
+        let mut stops = 0;
+        let mut restores = 0;
+        stop_renderer_with(
+            &f.m,
+            &owner,
+            |id| {
+                r::stop_with(
+                    &f.m,
+                    id,
+                    || {
+                        stops += 1;
+                        Ok(())
+                    },
+                    || {
+                        probes += 1;
+                        Ok(UnitState {
+                            exists: true,
+                            empty: probes > 1,
+                            observation: None,
+                        })
+                    },
+                )
+            },
+            |_| {
+                restores += 1;
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!((stops, restores), (1, 1));
+        assert_eq!(r::result(&f.m, &owner).unwrap()["renderer"]["cause"], "gpu");
+    }
+    #[test]
+    fn dependency_stop_preserves_uncertain_resume_and_restores_exactly_once() {
+        use dependency_session::{self as r, UnitState};
+        let f = test_fixture::Fixture::new();
+        let application = "ab".repeat(32);
+        let owner = queued_test_action(
+            &f.m,
+            ui::Action::DependencyPrepare {},
+        );
+        saved_test_resume(&f.m, &owner, Some(owner.clone()));
+        let spec = json!({"operation":owner,"application_identity":application,"renderer_policy":"inherited","report":r::operation_dir(&f.m,&owner).unwrap().join("result.json")});
+        assert_eq!(
+            r::submit_with(
+                &f.m,
+                &spec,
+                |_| Err("lost acknowledgment".into()),
+                || Err("unit unavailable".into())
+            )
+            .unwrap(),
+            r::Submission::AcknowledgmentUncertain
+        );
+        let path = f.m.root.join("operator/resume.json");
+        let retained = fs::read(&path).unwrap();
+        assert!(stop_dependency_with(
+            &f.m,
+            &"ff".repeat(16),
+            |_| panic!("wrong stop"),
+            |_| panic!("wrong restore")
+        )
+        .is_err());
+        assert!(stop_dependency_with(
+            &f.m,
+            &owner,
+            |id| r::stop_with(&f.m, id, || Ok(()), || Err("unknown".into())),
+            |_| panic!("uncertain service must remain stopped")
+        )
+        .is_err());
+        assert_eq!(fs::read(&path).unwrap(), retained);
+        let mut restores = 0;
+        stop_dependency_with(
+            &f.m,
+            &owner,
+            |id| {
+                r::stop_with(
+                    &f.m,
+                    id,
+                    || panic!("absent unit needs no signal"),
+                    || {
+                        Ok(UnitState {
+                            exists: false,
+                            empty: true,
+                            observation: None,
+                        })
+                    },
+                )
+            },
+            |saved| {
+                assert_eq!(saved.owner_operation, owner);
+                restores += 1;
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(restores, 1);
+        assert!(!path.exists());
+        resume_owned_with(&f.m, &owner, |_| {
+            restores += 1;
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(restores, 1);
+        assert!(r::terminal(&r::result(&f.m, &owner).unwrap(), &owner));
+    }
+    #[test]
+    fn dependency_lost_ack_live_result_then_exact_stop_preserves_failure_and_resume_owner() {
+        use dependency_session::{self as r, UnitState};
+        let f = test_fixture::Fixture::new();
+        let application = "ab".repeat(32);
+        let owner = queued_test_action(
+            &f.m,
+            ui::Action::DependencyPrepare {},
+        );
+        saved_test_resume(&f.m, &owner, Some(owner.clone()));
+        let d = r::operation_dir(&f.m, &owner).unwrap();
+        let spec = json!({"operation":owner,"application_identity":application,"renderer_policy":"inherited","report":d.join("result.json")});
+        assert_eq!(
+            r::submit_with(
+                &f.m,
+                &spec,
+                |_| Ok(false),
+                || Ok(UnitState {
+                    exists: true,
+                    empty: false,
+                    observation: None
+                })
+            )
+            .unwrap(),
+            r::Submission::SubmittedOrLive
+        );
+        atomic_json(
+            &d.join("result.json"),
+            &json!({"schema":1,"operation":owner,"state":"running","dependency":{"cause":"not_ready"}}),
+        )
+        .unwrap();
+        let mut probes = 0;
+        let mut stops = 0;
+        let mut restores = 0;
+        stop_dependency_with(
+            &f.m,
+            &owner,
+            |id| {
+                r::stop_with(
+                    &f.m,
+                    id,
+                    || {
+                        stops += 1;
+                        Ok(())
+                    },
+                    || {
+                        probes += 1;
+                        Ok(UnitState {
+                            exists: true,
+                            empty: probes > 1,
+                            observation: None,
+                        })
+                    },
+                )
+            },
+            |_| {
+                restores += 1;
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!((stops, restores), (1, 1));
+        assert_eq!(r::result(&f.m, &owner).unwrap()["dependency"]["cause"], "not_ready");
+    }
+    #[test]
+    fn normal_vendor_close_report_retires_through_operator_control_readback() {
+        let f = test_fixture::Fixture::new();
+        private_dir(&app_directory(&f.m)).unwrap();
+        let path = app_directory(&f.m).join("operation-result.json");
+        let mut report = json!({"schema":3,"operation_id":"ab".repeat(16),
+            "state":"completed","launcher_exit":0,"owned_live":0,
+            "cleanup_confirmed":true,"error":null,"focus_result":null,"close_result":null,
+            "discarded_diagnostic_bytes":0,"retained_diagnostic_bytes":0,
+            "diagnostic_enabled":false,"windows_accessibility_disabled":true,
+            "account_posture":"unknown"});
+        atomic_json(&path, &report).unwrap();
+        assert!(vendor_retired_with(&f.m, || Ok(false)).unwrap());
+        assert!(!vendor_retired_with(&f.m, || Ok(true)).unwrap());
+        let owner = queued_test_action(&f.m, ui::Action::VendorApplicationOpen {
+            application: ASC.into(),
+        });
+        let saved = saved_test_resume(&f.m, &owner, Some("ab".repeat(16)));
+        let failed = json!({"schema":1,"operation":owner,"state":"refused",
+            "error":"unknown field close_result"});
+        let receipt = job_dir(&f.m,&owner).unwrap().join("result.json");
+        atomic_json(&receipt,&failed).unwrap();
+        let prior_receipt = fs::read(&receipt).unwrap();
+        let reservation = f.m.root.join("operator/resume.json");
+        let prior_reservation = fs::read(&reservation).unwrap();
+        report["cleanup_confirmed"] = false.into();
+        atomic_json(&path, &report).unwrap();
+        assert!(!vendor_retired_with(&f.m, || Ok(false)).unwrap());
+        assert!(resume_interrupted_with(&f.m, |_| {
+            require(vendor_retired_with(&f.m,||Ok(false))?,"operator_vendor_cleanup_unconfirmed")
+        }).is_err());
+        assert_eq!(fs::read(&reservation).unwrap(),prior_reservation);
+        report["cleanup_confirmed"] = true.into();
+        atomic_json(&path,&report).unwrap();
+        let mut restores = 0;
+        resume_interrupted_with(&f.m, |record| {
+            assert_eq!(serde_json::to_value(record).unwrap(),serde_json::to_value(&saved).unwrap());
+            require(vendor_retired_with(&f.m,||Ok(false))?,"operator_vendor_cleanup_unconfirmed")?;
+            restores += 1;
+            Ok(())
+        }).unwrap();
+        assert_eq!(restores,1);
+        assert!(!reservation.exists());
+        assert_eq!(fs::read(&receipt).unwrap(),prior_receipt);
+        report["account_email"] = "private data must be refused".into();
+        atomic_json(&path, &report).unwrap();
+        assert!(vendor_retired_with(&f.m, || Ok(false)).is_err());
+    }
+    #[test]
+    fn stop_asc_recovers_only_the_exact_vendor_open_operation() {
+        for mismatch in [
+            "none",
+            "wrong_action",
+            "wrong_launch",
+            "missing_launch_binding",
+            "changed_vendor_result",
+        ] {
+            let f = test_fixture::Fixture::new();
+            let a = if mismatch == "wrong_action" {
+                ui::Action::EnvironmentRescan {
+                    environment: f.r.environment.id.clone(),
+                }
+            } else {
+                ui::Action::VendorApplicationOpen {
+                    application: ASC.into(),
+                }
+            };
+            let owner = queued_test_action(&f.m, a);
+            let stop = queued_test_action(
+                &f.m,
+                ui::Action::VendorApplicationStop {
+                    application: ASC.into(),
+                },
+            );
+            let vendor = "cd".repeat(16);
+            saved_test_resume(
+                &f.m,
+                &owner,
+                if mismatch == "missing_launch_binding" {
+                    None
+                } else {
+                    Some(vendor.clone())
+                },
+            );
+            private_dir(&app_directory(&f.m)).unwrap();
+            let application=vendor_application::Application {schema:1,
+                id:vendor_application::ApplicationId::ArturiaSoftwareCenter,
+                environment:f.r.environment.clone(),executable:f.r.module.clone(),helpers:vec![],
+                installer_sha256:Some("00".repeat(32)),installer_result:Some(f.r.host.clone()),
+                observed_installer_version:"fixture".into(),user_selection:None};
+            atomic_json(&app_directory(&f.m).join("application.json"),&application).unwrap();
+            atomic_json(&app_directory(&f.m).join("operation.json"),
+                &vendor_application::Operation {application,report:app_directory(&f.m).join("operation-result.json"),
+                    mode:vendor_application::LaunchMode::Normal,
+                    operation_id:if mismatch=="wrong_launch"{"ee".repeat(16)}else{vendor.clone()},launcher:None, managed:None,capability_notice:None}).unwrap();
+            atomic_json(&app_directory(&f.m).join("operation-result.json"),
+                &json!({"schema":3,"operation_id":if mismatch=="changed_vendor_result"{"ef".repeat(16)}else{vendor.clone()},
+                "state":"running","launcher_exit":null,"discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
+            let path = f.m.root.join("operator/resume.json");
+            let before = fs::read(&path).unwrap();
+            let mut cancels = 0;
+            let mut restores = 0;
+            let result = stop_vendor_with(
+                &f.m,
+                ASC,
+                |id| {
+                    assert_eq!(id, vendor);
+                    if mismatch == "changed_vendor_result" {
+                        // Actual cancellation owner rejects drift before systemctl,
+                        // application verification or any vendor/process action.
+                        return vendor_cli::cancel_owned(&f.m, ASC, id);
+                    }
+                    cancels += 1;
+                    Ok(())
+                },
+                |saved| {
+                    assert_eq!(saved.owner_operation, owner);
+                    assert_ne!(saved.owner_operation, stop);
+                    restores += 1;
+                    Ok(())
+                },
+            );
+            if mismatch == "none" {
+                result.unwrap();
+                assert_eq!(cancels, 1);
+                assert_eq!(restores, 1);
+                assert!(!path.exists());
+            } else {
+                let reason = match mismatch {
+                    "wrong_action" => "operator_vendor_open_owner_mismatch",
+                    "wrong_launch" => "operator_vendor_open_binding_changed",
+                    "missing_launch_binding" => "operator_vendor_open_binding_absent",
+                    "changed_vendor_result" => "vendor_application_operation_changed",
+                    _ => unreachable!(),
+                };
+                assert_eq!(result.unwrap_err().to_string(), reason);
+                assert_eq!(cancels, 0);
+                assert_eq!(restores, 0);
+                assert_eq!(fs::read(&path).unwrap(), before);
+            }
+        }
+    }
+    #[test]
+    fn ordinary_history_limits_rollback_to_ancestry_and_restore_preserves_bytes() {
+        use linux_vst_bridge::preparation as prep;
+        let (f, base) = preparation_cli::tests::projection_fixture();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let key = base.selection.class.id.clone();
+        let first = prep::enable(&f.m, &base, false).unwrap();
+        let abandoned_candidate = prep::configuration::prepare_settings(&f.m, &base,
+            &ui::LocalSettings { graphics:Some(ui::GraphicsBackend::WineD3d11),
+                accessibility:ui::AccessibilityChoice::ProfileDefault },
+            Some(&first)).unwrap();
+        let abandoned = prep::replace(&f.m, &abandoned_candidate, &first).unwrap();
+        f.m.rollback(&key, &first.id, None).unwrap();
+        let recommended_candidate = prep::configuration::prepare_settings(&f.m, &base,
+            &ui::LocalSettings { graphics:None,
+                accessibility:ui::AccessibilityChoice::DisabledForHost },
+            Some(&first)).unwrap();
+        let recommended = prep::replace(&f.m, &recommended_candidate, &first).unwrap();
+        let saved = fs::read(
+            f.m.root
+                .join("publications")
+                .join(&key)
+                .join("revisions")
+                .join(&recommended.id)
+                .join("revision.json"),
+        )
+        .unwrap();
+        let history = history(
+            &f.m,
+            &key,
+            f.m.registry().unwrap().classes.get(&key).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            history
+                .iter()
+                .find(|h| h.publication == first.id)
+                .unwrap()
+                .rollback_allowed
+        );
+        assert!(
+            !history
+                .iter()
+                .find(|h| h.publication == abandoned.id)
+                .unwrap()
+                .rollback_allowed
+        );
+        let action = ui::Action::OrdinaryRollback {
+            class_id: key.clone(), publication: first.id.clone() };
+        let owner = queued_test_action(&f.m, action.clone());
+        let server = service_reply(&f.m, capacity_json(false, 0, 0));
+        execute_with_receipt(&f.m, &action, Some(&owner)).unwrap();
+        server.join().unwrap();
+        assert_eq!(
+            f.m.registry().unwrap().classes[&key].managed_revision,
+            Some(first.clone())
+        );
+        let restored = prep::replace(&f.m, &recommended_candidate, &first).unwrap();
+        assert_eq!(f.m.load_revision(&key, &restored).unwrap().profile,
+            recommended_candidate.profile);
+        assert_eq!(
+            fs::read(
+                f.m.root
+                    .join("publications")
+                    .join(&key)
+                    .join("revisions")
+                    .join(&recommended.id)
+                    .join("revision.json")
+            )
+            .unwrap(),
+            saved
+        );
+    }
+    #[test]
+    fn vendor_deactivation_is_live_until_the_unit_finishes_cleanup() {
+        let sequence = ["activating", "active", "deactivating", "inactive"];
+        assert_eq!(
+            sequence.map(|s| vendor_state_live(s).unwrap()),
+            [true, true, true, false]
+        );
+        assert!(!vendor_state_live("failed").unwrap());
+        assert!(vendor_state_live("unknown").is_err());
+        assert!(vendor_state_live("").is_err());
+    }
+    #[test]
+    fn failed_capacity_readback_does_not_guess_idle_ownership() {
+        let f = test_fixture::Fixture::new();
+        let _mutation = f.m.lock("registry.lock").unwrap();
+        let read = activity(&f.m).unwrap();
+        assert!(!read.system.capacity_available());
+        assert!(read.system.cleanup_unconfirmed);
+        assert!(read.operation.is_none());
+    }
+    #[test]
+    fn ui2_problem_capture_is_admitted_during_cleanup_uncertainty_but_finish_is_not() {
+        let f = test_fixture::Fixture::new();
+        let problem = ui::Action::CompatibilityResult {
+            candidate: "ab".repeat(32),
+            expected_current: ui::PublicationIdentity {
+                id: "cd".repeat(16), sha256: "ef".repeat(32),
+            },
+            result: ui::TestResultKind::Problem {
+                category: ui::ProblemCategory::CleanupIncomplete,
+            },
+            passed: vec![], failed_area: None, note: "Cleanup did not complete".into(),
+        };
+        let finish = ui::Action::CompatibilityFinishResult { operation: "12".repeat(16) };
+        let capacity = || serde_json::from_value(json!({
+            "schema":1,"dsp":0,"maintenance":0,"keepers":0,
+            "cleanup_unconfirmed":true,"owners":[],"limits":{"global_dsp":6}
+        })).ok();
+        assert!(!problem.requires_inactive());
+        assert!(require_operator_inactive_with(&f.m, &problem, &capacity,
+            None, Duration::from_millis(100), &mut vec![]).is_ok());
+        assert!(require_operator_inactive_with(&f.m, &problem, &|| None,
+            None, Duration::from_millis(100), &mut vec![]).is_ok());
+        assert!(finish.requires_inactive());
+        assert!(require_operator_inactive_with(&f.m, &finish, &capacity,
+            None, Duration::from_millis(100), &mut vec![]).is_err());
+        assert!(require_operator_inactive_with(&f.m, &finish, &|| None,
+            None, Duration::from_millis(100), &mut vec![]).is_err());
+    }
+    pub(crate) fn retained_managed_runtime(m: &Manager, legacy: bool) -> Runner {
+        use linux_vst_bridge::runtime_delivery;
+        use std::{collections::BTreeMap,os::unix::fs::MetadataExt};
+        let (id,downloads)=if legacy {(runtime_delivery::ID,runtime_delivery::downloads())}
+            else {(runtime_delivery::recommended_id(),runtime_delivery::recommended_downloads())};
+        let base=m.root.join("runners").join(id);private_dir(&base).unwrap();
+        let mut artifacts=Vec::new();
+        for (relative,bytes) in [
+            ("GE-Proton11-7-x86_64/proton",b"fixture proton".as_slice()),
+            ("SteamLinuxRuntime_4/_v2-entry-point",b"fixture entry".as_slice()),
+            ("GE-Proton11-7-x86_64/files/lib/wine/x86_64-windows/uiautomationcore.dll",
+                if legacy {b"original UIA fixture".as_slice()} else {b"corrected UIA fixture".as_slice()}),
+            ("SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client",b"fixture client".as_slice()),
+            ("SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service",b"fixture service".as_slice()),
+        ] {
+            let path=base.join(relative);private_dir(path.parent().unwrap()).unwrap();
+            fs::write(&path,bytes).unwrap();fs::set_permissions(&path,fs::Permissions::from_mode(0o500)).unwrap();
+            artifacts.push(Artifact {sha256:digest(&path).unwrap(),path});
+        }
+        if !legacy {
+            let path=base.join("GE-Proton11-7-x86_64/native-command-session.json");
+            atomic_json(&path,&json!({"schema":1,"kind":"native_proton_command_session",
+                "client_sha256":artifacts[3].sha256,"service_sha256":artifacts[4].sha256})).unwrap();
+            fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();
+            artifacts.push(Artifact {sha256:digest(&path).unwrap(),path});
+        }
+        let mut rows=BTreeMap::new();
+        for artifact in &artifacts {
+            let relative=artifact.path.strip_prefix(&base).unwrap();
+            let metadata=fs::metadata(&artifact.path).unwrap();
+            rows.insert(relative.to_owned(),json!({"path":relative,"sha256":artifact.sha256,
+                "target":null,"size":metadata.len(),"mode":metadata.mode()&0o777,"directory":false}));
+            for parent in relative.ancestors().skip(1).filter(|p|!p.as_os_str().is_empty()) {
+                rows.insert(parent.to_owned(),json!({"path":parent,"sha256":null,"target":null,
+                    "size":0,"mode":0o700,"directory":true}));
+            }
+        }
+        let tree=base.join("runtime-tree.json");atomic_json(&tree,&rows.into_values().collect::<Vec<_>>()).unwrap();
+        fs::set_permissions(&tree,fs::Permissions::from_mode(0o400)).unwrap();
+        let mut files=vec![artifacts[0].clone(),artifacts[1].clone(),Artifact {sha256:digest(&tree).unwrap(),path:tree}];
+        if !legacy {files.push(artifacts.last().unwrap().clone());}
+        let runner=Runner {id:id.into(),version:"sealed managed fixture".into(),
+            proton:artifacts[0].path.clone(),entry_point:artifacts[1].path.clone(),files,policy:None};
+        runner.verify().unwrap();
+        let path=base.join("runtime.json");atomic_json(&path,&json!({"schema":1,"id":id,"downloads":downloads,"runner":runner})).unwrap();
+        fs::set_permissions(path,fs::Permissions::from_mode(0o400)).unwrap();
+        runner
+    }
+    pub(crate) fn onboarding_worker_fixture() -> (test_fixture::Fixture, String) {
+        use linux_vst_bridge::catalogue::{Catalogue, EnvironmentBinding, OnboardingRuntimePolicy,
+            STANDARD_ONBOARDING_RUNNER};
+        let (f, p, _, native) = test_fixture::prepared();
+        let mut standard = f.r.environment.clone();
+        standard.id = "22".repeat(16);
+        standard.root = f.m.root.join("environments").join(&standard.id);
+        standard.runner.id = STANDARD_ONBOARDING_RUNNER.into();
+        let environments = vec![EnvironmentBinding {
+            family: p.requirements.environment_family.clone(),
+            environment: f.r.environment.clone(),
+        }, EnvironmentBinding {
+            family: p.requirements.environment_family,
+            environment: standard.clone(),
+        }];
+        let catalogue = Catalogue {
+            schema: 4,
+            natives: vec![native],
+            environments: environments.clone(),
+            hosts: vec![],
+            onboarding_runtime: OnboardingRuntimePolicy::from_environments(&environments).unwrap(),
+        };
+        let path = f.m.root.join("software/catalogue.json");
+        atomic_json(&path, &catalogue).unwrap();
+        let source = Artifact {
+            path: f.r.host.path.with_file_name("host-source-manifest.json"),
+            sha256: f.r.host_source_sha256.clone(),
+        };
+        let a = f.r.host.clone();
+        let sw = Software {
+            installer_launch: None,
+            preparation_kit: None,
+            manager: a.clone(),
+            operator_frontend: None,
+            supervisor: a.clone(),
+            ownership: a.clone(),
+            host: a,
+            source_manifest: source,
+            source_sha256: f.r.host_source_sha256.clone(),
+            native_catalogue: Some(Artifact {
+                sha256: digest(&path).unwrap(),
+                path,
+            }),
+        };
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let recommended=retained_managed_runtime(&f.m,false);
+        let mut bytes = vec![0; 1024];
+        bytes[..2].copy_from_slice(b"MZ");
+        bytes[60] = 128;
+        bytes[128..132].copy_from_slice(b"PE\0\0");
+        bytes[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        bytes[148] = 2;
+        bytes[150] = 2;
+        bytes[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+        let source = f.outer.join("operator-file");
+        fs::write(&source, bytes).unwrap();
+        let installer = installer_import::import(&f.m, file(&source).unwrap()).unwrap();
+        let request = ui::Request {
+            schema: ui::OPERATOR_SCHEMA,
+            state_token: token(&f.m).unwrap(),
+            action: ui::Action::InstallerEnvironmentCreate {
+                installer: installer.id,
+                runner: onboarding::runner_key(&recommended).unwrap(),
+            },
+        };
+        let receipt = launch_queued(&f.m, &request, |_| Ok(true)).unwrap();
+        (f, receipt.operation.unwrap())
+    }
+    #[test]
+    fn managed_rescan_discovers_added_module_after_current_inventory() {
+        let (f, creation) = onboarding_worker_fixture();
+        write_operation(&f.m, &creation,
+            &json!({"schema":1,"operation":creation,"state":"completed"}), false).unwrap();
+        let mut sw = software(&f.m).unwrap();
+        let module_root = f.r.module.path.parent().unwrap();
+        let added = module_root.join("new-install.vst3");
+        let report = |id: &str, name: &[u8]| json!({
+            "cleanup_confirmed":true,"transport_retired":true,"records":[{
+                "state":"ap8_factory","factory":{"vendor_hex":hex(b"Fixture Vendor")},
+                "class_count":1,"classes":[{
+                    "raw_tuid_hex":id,"tier":"IPluginFactory2.PClassInfo2",
+                    "name_hex":hex(name),"category_hex":hex(b"Audio Module Class"),
+                    "subcategories_hex":hex(b"Instrument|Synth"),"vendor_hex":"",
+                    "version_hex":hex(b"1.0")
+                }]
+            }]
+        });
+        let known_report = report(&f.r.metadata.class_id, b"Existing fixture");
+        let known_report_path = f.outer.join("known-report.json");
+        atomic_json(&known_report_path, &known_report).unwrap();
+        let scan = inventory::Scan {
+            schema:1,id:"ef".repeat(16),environment:f.r.environment.clone(),
+            host:sw.host.clone(),host_source_sha256:sw.source_sha256.clone(),
+            completed_at:1,changes:Default::default(),modules:vec![inventory::Module {
+                artifact:f.r.module.clone(),classes:inventory::classes(&known_report).unwrap(),
+                report:Artifact {sha256:digest(&known_report_path).unwrap(),path:known_report_path},
+                inspection_error:None,quarantine_reason:None,
+            }],
+        };
+        let inventory_path = f.m.root.join("inventory").join(format!("{}.json",scan.environment.id));
+        private_dir(inventory_path.parent().unwrap()).unwrap();
+        atomic_json(&inventory_path, &scan).unwrap();
+        assert!(!onboarding::inventory_refresh_required(&f.m, &scan.environment,
+            &sw.host, &sw.source_sha256).unwrap());
+
+        // A vendor application adds one unfamiliar module without changing the
+        // installed sibling or the manager's environment identity/revision.
+        fs::write(&added, b"new first-party module").unwrap();
+        assert!(!onboarding::inventory_refresh_required(&f.m, &scan.environment,
+            &sw.host, &sw.source_sha256).unwrap());
+        assert!(!onboarding::inventory_refresh_record_required(&f.m, &scan.environment,
+            &sw.host, &sw.source_sha256).unwrap());
+
+        // The external supervisor/SDK execution is a fixture. Discovery,
+        // admission, retirement and inventory replacement use the normal owner.
+        let reports = f.outer.join("scanner-reports.json");
+        atomic_json(&reports, &json!({
+            f.r.module.sha256.clone():known_report,
+            digest(&added).unwrap():report(&"02".repeat(16),b"New fixture"),
+        })).unwrap();
+        let supervisor = f.m.root.join("software/test-supervisor.py");
+        fs::write(&supervisor, format!(
+            "import json,shutil,sys\njob=json.load(open(sys.argv[1]))\nreports=json.load(open({}))\nwith open(job['report'],'w') as target: json.dump(reports[job['registration']['module']['sha256']],target)\nprint('LVO0 '+job['session']+' ready',flush=True)\nshutil.rmtree(job['directory'])\nprint('LVO1 '+job['session']+' retired',flush=True)\n",
+            serde_json::to_string(&reports).unwrap())).unwrap();
+        test_fixture::set_source_supervisor(&mut sw, &supervisor);
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let preference = f.m.root.join("performance").join(format!("{}.json",f.r.key()));
+        private_dir(preference.parent().unwrap()).unwrap();
+        atomic_json(&preference,&Performance {schema:2,added_frames:1024,
+            delivery_mode:DeliveryMode::Buffered}).unwrap();
+        let registry_before = fs::read(f.m.root.join("registry.json")).unwrap();
+        let preferences_before = fs::read(&preference).unwrap();
+        let environment_before = fs::read(scan.environment.root.join("environment.json")).unwrap();
+        let publications_before = test_fixture::snapshot(&f.m.publications);
+        let current = snapshot_idle_test(&f.m).unwrap();
+        let offered = available(&current).into_iter().find(|offer|
+            offer.action == ui::Action::EnvironmentRescan {environment:scan.environment.id.clone()})
+            .expect("a current known inventory must still offer discovery of vendor additions");
+        assert_eq!(offered.label,"Find installed plug-ins");
+        assert!(offered.disabled_reason.is_none());
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:current.state_token.clone(),action:offered.action.clone()};
+        validate(&request,&current).unwrap();
+        let refreshed = rescan(&f.m,&scan.environment.id).unwrap();
+        assert_eq!(refreshed["modules"],2);
+        assert_eq!(refreshed["activation_permitted"],false);
+        let after:inventory::Scan = read_json(&inventory_path).unwrap();
+        assert_eq!(after.changes,inventory::Changes {
+            initial_scan:false,added:1,unchanged:1,changed:0,removed:0,
+        });
+        assert!(after.modules.iter().any(|module| module.artifact.path == added
+            && module.classes.iter().any(|class|class.name == "New fixture")));
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(),registry_before);
+        assert_eq!(fs::read(&preference).unwrap(),preferences_before);
+        assert_eq!(fs::read(scan.environment.root.join("environment.json")).unwrap(),environment_before);
+        assert_eq!(test_fixture::snapshot(&f.m.publications),publications_before);
+    }
+    #[test]
+    fn installer_controls_use_current_owned_operation_without_runtime_admission() {
+        let (f, creation) = onboarding_worker_fixture();
+        let create: ui::Request = read_json(&job_dir(&f.m, &creation).unwrap()
+            .join("request.json")).unwrap();
+        let result = execute_with_receipt_policy(&f.m, &create.action, Some(&creation),
+            &|| capacity_fixture(&f.m), OPERATOR_WAIT, &mut vec![]).unwrap();
+        let id = result["onboarding"].as_str().unwrap();
+        let operation = "ab".repeat(16);
+        let record = onboarding::reserve(&f.m, id, &operation).unwrap();
+        let mut request = ui::Request { schema: ui::OPERATOR_SCHEMA,
+            state_token: token(&f.m).unwrap(), action: ui::Action::InstallerStop {
+                onboarding: id.into(), operation: operation.clone() } };
+        // Recovery owns no binary launch. A damaged runner cannot prevent
+        // stopping the still-owned installer or confer new-work authority.
+        fs::set_permissions(&record.environment.runner.entry_point,fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&record.environment.runner.entry_point, b"damaged runtime").unwrap();
+        fs::set_permissions(&record.environment.runner.entry_point,fs::Permissions::from_mode(0o500)).unwrap();
+        assert!(onboarding::load(&f.m, id).is_err());
+        validate_installer_control_with(&f.m, &request, |op| {
+            assert_eq!(op, operation); Ok(true)
+        }).unwrap();
+        assert!(validate_installer_control_with(&f.m, &request, |_| Ok(false)).is_err());
+        assert!(validate_installer_control_with(&f.m, &request, |_| Err("unit unavailable".into())).is_err());
+        request.action = ui::Action::InstallerFocus {
+            onboarding: id.into(), operation: "ef".repeat(16) };
+        assert!(validate_installer_control_with(&f.m, &request, |_| Ok(true)).is_err());
+        request.action = ui::Action::InstallerStop { onboarding: id.into(), operation };
+        // #382: a control needs its exact live run, not an unchanged view.
+        // While an installer runs, records elsewhere change; Stop still works.
+        request.state_token = "stale".into();
+        validate_installer_control_with(&f.m, &request, |_| Ok(true)).unwrap();
+    }
+    #[test]
+    #[ignore = "opt-in snapshot latency measurement"]
+    fn snapshot_readback_latency_sample() {
+        let (f, _) = onboarding_worker_fixture();
+        let sample = || {
+            let start = Instant::now();
+            std::hint::black_box(snapshot_for_operation(
+                &f.m, None, OPERATOR_WAIT, &mut vec![], &|| capacity_fixture(&f.m),
+            ).unwrap());
+            start.elapsed().as_micros()
+        };
+        let cold = sample();
+        let mut warm: Vec<_> = (0..25).map(|_| sample()).collect();
+        warm.sort_unstable();
+        eprintln!("snapshot_readback_us cold={cold} p50={} p95={} max={}",
+            warm[12], warm[23], warm[24]);
+    }
+    #[test]
+    fn an_unconfirmed_installer_keeps_its_close_check_while_other_work_waits_for_it() {
+        // An installer whose cleanup is unconfirmed holds back other work, and
+        // the reason says to use Check that it closed on its card. That check
+        // is how the wait ends, so Home offers it, as Diagnostics does.
+        let (f, _) = preparation_cli::tests::projection_fixture();
+        let operation = test_fixture::retained_history(&f, test_fixture::Changes::Installers, 1, 0, 0).remove(0);
+        let record = onboarding::history_records(&f.m).unwrap().remove(0);
+        atomic_json(&onboarding::directory(&f.m, &record.id).unwrap().join(format!("{operation}-result.json")),
+            &json!({"schema":2,"operation":operation,"state":"completed","raw_exit":0,
+                "cleanup_confirmed":false,"owned_live":0,"error":null})).unwrap();
+        readiness::with_unit_state_fixture(&[onboarding::unit(&operation).unwrap()], "inactive", || {
+            let close_check = |rows: &[ui::Onboarding]| rows.iter()
+                .find(|row| row.environment.as_deref() == Some(record.id.as_str())).unwrap()
+                .actions.iter().find(|offer| offer.action == ui::Action::InstallerCloseCheck {
+                    operation: operation.clone() }).cloned().unwrap();
+            let server = overview_service_reply(&f.m, capacity_json(false, 0, 0));
+            let home = current_overview(&f.m).unwrap().current;
+            server.join().unwrap();
+            assert!(home.actions.iter().any(|offer| matches!(offer.action, ui::Action::RuntimeInstall {})
+                && offer.disabled_reason.as_deref().is_some_and(|reason| reason.contains("Check that it closed"))),
+                "{:#?}", home.actions);
+            assert_eq!(close_check(&home.onboarding).disabled_reason, None);
+            let diagnostics = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![],
+                &|| capacity_fixture(&f.m)).unwrap();
+            assert_eq!(close_check(&diagnostics.onboarding).disabled_reason, None);
+            let request = ui::Request { schema: ui::OPERATOR_SCHEMA, state_token: home.state_token,
+                action: ui::Action::InstallerCloseCheck { operation: operation.clone() } };
+            let server = overview_service_reply(&f.m, capacity_json(false, 0, 0));
+            validate_current_request(&f.m, &request).unwrap();
+            server.join().unwrap();
+        });
+    }
+    /// A stand-in for the running service that answers every capacity and
+    /// cleanup probe, idle, until it is dropped.
+    pub(super) struct IdleService(Option<std::sync::mpsc::Sender<()>>, Option<std::thread::JoinHandle<()>>);
+    impl Drop for IdleService {
+        fn drop(&mut self) {
+            drop(self.0.take());
+            if let Some(thread) = self.1.take() { thread.join().unwrap(); }
+        }
+    }
+    pub(super) fn idle_service(m: &Manager) -> IdleService {
+        private_dir(&m.root.join("runtime")).unwrap();
+        let socket = m.root.join("runtime/owner.sock");
+        if socket.exists() { fs::remove_file(&socket).unwrap(); }
+        let listener = UnixListener::bind(&socket).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let (stop, stopped) = std::sync::mpsc::channel::<()>();
+        let thread = std::thread::spawn(move || loop {
+            if !matches!(stopped.try_recv(), Err(std::sync::mpsc::TryRecvError::Empty)) { return; }
+            let mut peer = match listener.accept() {
+                Ok((peer, _)) => peer,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(Duration::from_millis(1));
+                    continue;
+                }
+                Err(error) => panic!("service stand-in accept: {error}"),
+            };
+            peer.set_nonblocking(false).unwrap();
+            peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+            let mut greeting = [0; 5];
+            if peer.read_exact(&mut greeting).is_err() { continue; }
+            if &greeting == b"LVC1\n" {
+                let bytes = serde_json::to_vec(&capacity_json(false, 0, 0)).unwrap();
+                let _ = peer.write_all(&(bytes.len() as u32).to_le_bytes()).and_then(|()| peer.write_all(&bytes));
+            } else if &greeting == b"LVP1\n" {
+                let _ = peer.write_all(&[0]);
+            }
+        });
+        IdleService(Some(stop), Some(thread))
+    }
+    /// #382: while an installer runs, its supervisor replaces its receipt
+    /// (twice a second, more often while the prefix starts) and its private
+    /// records beside it. Home, the interactive overview and Diagnostics are
+    /// read again and again meanwhile; on the Deck a read takes seconds, so
+    /// reads overlap these writes, here made continuously. No read may be
+    /// refused for them.
+    fn status_reads_while_an_installer_writes_progress(initial: bool) {
+        let (f, _) = preparation_cli::tests::projection_fixture();
+        // A setup's first installer runs before any other run in it.
+        let operations = test_fixture::retained_history(&f, test_fixture::Changes::Installers, 1,
+            if initial { 0 } else { 1 }, 0);
+        let (running, finished) = (operations.last().unwrap(), &operations[0]);
+        let record = onboarding::history_records(&f.m).unwrap().remove(0);
+        let directory = if initial { onboarding::directory(&f.m, &record.id).unwrap() } else { job_dir(&f.m, running).unwrap() };
+        let receipt = directory.join(if initial { format!("{running}-result.json") } else { "installation-result.json".into() });
+        let ledger = directory.join(format!("{running}-ledger.private.json"));
+        let observation = directory.join(format!("{running}-transaction-private.json"));
+        let progress = |live: u64| json!({"schema":2,"operation":running,"state":"running",
+            "cleanup_confirmed":false,"owned_live":live});
+        atomic_json(&receipt, &progress(1)).unwrap();
+        let _service = idle_service(&f.m);
+        let finished: Vec<_> = (finished != running).then(|| onboarding::unit(finished).unwrap()).into_iter().collect();
+        readiness::with_unit_state_fixture(&finished, "inactive", || {
+        readiness::with_unit_state_fixture(&[onboarding::unit(running).unwrap()], "active", || {
+            let stop = std::sync::atomic::AtomicBool::new(false);
+            let (reads, refused) = std::thread::scope(|scope| {
+                scope.spawn(|| {
+                    let mut beat = 0u64;
+                    while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+                        beat += 1;
+                        atomic_json(&receipt, &progress(1 + beat % 2)).unwrap();
+                        atomic_json(&ledger, &json!({"schema":1,"operation":running,"beat":beat})).unwrap();
+                        atomic_json(&observation, &json!({"schema":1,"operation":running,"beat":beat})).unwrap();
+                        std::thread::yield_now();
+                    }
+                });
+                let mut refused = Vec::new();
+                let mut reads = 0;
+                for _ in 0..12 {
+                    reads += 3;
+                    if let Err(error) = current_overview(&f.m) { refused.push(format!("home: {error}")); }
+                    if let Err(error) = overview(&f.m) { refused.push(format!("overview: {error}")); }
+                    if let Err(error) = snapshot(&f.m) { refused.push(format!("diagnostics: {error}")); }
+                }
+                stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                (reads, refused)
+            });
+            assert!(refused.is_empty(), "{} of {reads} reads refused: {refused:#?}", refused.len());
+        })});
+    }
+    #[test]
+    fn status_reads_answer_while_an_installer_in_a_setup_writes_progress() {
+        status_reads_while_an_installer_writes_progress(false);
+    }
+    #[test]
+    fn status_reads_answer_while_a_setups_first_installer_writes_progress() {
+        status_reads_while_an_installer_writes_progress(true);
+    }
+    #[test]
+    fn a_setup_card_whose_installer_did_not_confirm_closing_offers_the_check() {
+        // Every action that waits for this installer says to use "Check that
+        // it closed" on its setup's card; the card is where the window shows it.
+        let (f, _) = preparation_cli::tests::projection_fixture();
+        let operation = test_fixture::retained_history(&f, test_fixture::Changes::Installers, 1, 0, 0).remove(0);
+        let record = onboarding::history_records(&f.m).unwrap().remove(0);
+        atomic_json(&onboarding::directory(&f.m, &record.id).unwrap().join(format!("{operation}-result.json")),
+            &json!({"schema":2,"operation":operation,"state":"completed","raw_exit":0,
+                "cleanup_confirmed":false,"owned_live":0,"error":null})).unwrap();
+        readiness::with_unit_state_fixture(&[onboarding::unit(&operation).unwrap()], "inactive", || {
+            let card = |setups: &[ui::InstallerSetup]| setups.iter()
+                .find(|card| card.environment.as_deref() == Some(record.id.as_str())).cloned().unwrap();
+            let server = overview_service_reply(&f.m, capacity_json(false, 0, 0));
+            let home = card(&current_overview(&f.m).unwrap().current.installer_setups);
+            server.join().unwrap();
+            let diagnostics = card(&snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![],
+                &|| capacity_fixture(&f.m)).unwrap().installer_setups);
+            for (view, card) in [("home", home), ("diagnostics", diagnostics)] {
+                assert_eq!(card.phase, ui::SetupPhase::CleanupUnconfirmed, "{view}");
+                let primary = card.primary.unwrap_or_else(|| panic!("{view}: no offer"));
+                assert_eq!(primary.action, ui::Action::InstallerCloseCheck { operation: operation.clone() }, "{view}");
+                assert_eq!(primary.label, "Check that it closed", "{view}");
+                assert_eq!(primary.disabled_reason, None, "{view}");
+            }
+        });
+    }
+    #[test]
+    fn an_automatic_setup_whose_installer_did_not_confirm_closing_offers_the_check() {
+        // A setup started with "Install and connect to your DAW": its card's
+        // journey projection kept only a running window's Focus.
+        let (f, _) = preparation_cli::tests::projection_fixture();
+        let operation = test_fixture::retained_history(&f, test_fixture::Changes::Installers, 1, 0, 0).remove(0);
+        let mut record = onboarding::history_records(&f.m).unwrap().remove(0);
+        record.automatic = Some(automatic_install::Intent { owner: record.creation_operation.clone(),
+            active_operation: record.creation_operation.clone(), installer_policy: None, vendor: None,
+            journey: ui::InstallationJourney { daw: ui::DawChoice::Bitwig,
+                phase: ui::InstallationPhase::VendorRunning, plugins: vec![], failure: None },
+            scan: None, prior_selections: vec![], prior_modules: vec![], failed_modules: vec![],
+            work: vec![], predecessors: vec![], previous: None });
+        let directory = onboarding::directory(&f.m, &record.id).unwrap();
+        atomic_json(&directory.join("record.json"), &record).unwrap();
+        atomic_json(&directory.join(format!("{operation}-result.json")),
+            &json!({"schema":2,"operation":operation,"state":"completed","raw_exit":0,
+                "cleanup_confirmed":false,"owned_live":0,"error":null})).unwrap();
+        readiness::with_unit_state_fixture(&[onboarding::unit(&operation).unwrap()], "inactive", || {
+            let card = |setups: &[ui::InstallerSetup]| setups.iter()
+                .find(|card| card.environment.as_deref() == Some(record.id.as_str())).cloned().unwrap();
+            let server = overview_service_reply(&f.m, capacity_json(false, 0, 0));
+            let home = card(&current_overview(&f.m).unwrap().current.installer_setups);
+            server.join().unwrap();
+            let diagnostics = card(&snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![],
+                &|| capacity_fixture(&f.m)).unwrap().installer_setups);
+            for (view, card) in [("home", home), ("diagnostics", diagnostics)] {
+                assert!(card.journey.is_some(), "{view}: the automatic journey is shown");
+                let primary = card.primary.unwrap_or_else(|| panic!("{view}: no offer"));
+                assert_eq!(primary.action, ui::Action::InstallerCloseCheck { operation: operation.clone() }, "{view}");
+                assert_eq!(primary.disabled_reason, None, "{view}");
+            }
+        });
+    }
+    #[test]
+    fn activity_reads_the_receipt_its_worker_replaces_while_it_reads() {
+        // A worker replaces operator/latest.json as it progresses. An
+        // Activity read that lands during a replacement reads the
+        // replacement instead of refusing (#516).
+        let f = test_fixture::Fixture::new();
+        let latest = f.m.root.join("operator/latest.json");
+        private_dir(latest.parent().unwrap()).unwrap();
+        let operation = random_id().unwrap();
+        let receipt = |progress: u64| json!({"schema":1,"operation":operation,"state":"running","progress":progress});
+        atomic_json(&latest, &receipt(0)).unwrap();
+        use std::sync::atomic::{AtomicU64, Ordering};
+        // Read back to back while the receipt is replaced 200 times.
+        let replaced = AtomicU64::new(0);
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                for progress in 1..=200_u64 {
+                    atomic_json(&latest, &receipt(progress)).unwrap();
+                    replaced.store(progress, Ordering::Relaxed);
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+            });
+            while replaced.load(Ordering::Relaxed) < 200 {
+                let activity = activity_with_capacity(&f.m, None).unwrap();
+                assert_eq!(activity.operation.unwrap()["operation"], operation.as_str());
+            }
+        });
+    }
+    #[test]
+    fn diagnostics_and_the_problem_report_complete_with_more_history_than_one_watch_held() {
+        // Three plug-ins, each prepared 350 times before its current
+        // candidate: over 4,096 files in all, each plug-in within its own
+        // bound. Both views refused this before (#503).
+        let (f, candidates) = test_fixture::projection_candidates_in(test_fixture::Fixture::new(), false, 3);
+        test_fixture::preparation_history(&f, &candidates, 350);
+        for candidate in &candidates {
+            linux_vst_bridge::preparation::enable(&f.m, candidate, false).unwrap();
+        }
+        let every_history_shown = |products: &[ui::Product]| {
+            for candidate in &candidates {
+                let product = products.iter().find(|p| p.class_id == candidate.selection.class.id).unwrap();
+                let preparation = &product.details["preparation"];
+                assert_ne!(preparation["preparation"], "history_unavailable", "{}", product.class_id);
+                assert_eq!(preparation["candidates"].as_array().map(Vec::len), Some(351), "{}", product.class_id);
+            }
+        };
+        let snapshot = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![],
+            &|| capacity_fixture(&f.m)).unwrap();
+        every_history_shown(&snapshot.products);
+        let server = overview_service_reply(&f.m, capacity_json(false, 0, 0));
+        let token = current_overview(&f.m).unwrap().current.state_token;
+        server.join().unwrap();
+        // It projects every history, which takes longer than a page.
+        let server = overview_service_reply_within(&f.m, capacity_json(false, 0, 0), (1, 3),
+            Duration::from_secs(300));
+        let report = problem_report_snapshot(&f.m, &token).unwrap();
+        server.join().unwrap();
+        every_history_shown(&report.products);
+    }
+    #[test]
+    fn a_page_parses_each_installer_observation_once() {
+        // An observation lists every file before and after its installer ran.
+        // The plug-in page parsed each setup's latest one twice (#504).
+        let (f, c) = preparation_cli::tests::projection_fixture();
+        linux_vst_bridge::preparation::record_candidate(&f.m, &c).unwrap();
+        linux_vst_bridge::preparation::enable(&f.m, &c, false).unwrap();
+        let units: Vec<String> = test_fixture::retained_history(&f, test_fixture::Changes::Installers, 3, 2, 0)
+            .iter().map(|operation| onboarding::unit(operation).unwrap()).collect();
+        let mut observations = vec![];
+        for run in linux_vst_bridge::environment_revision::installer_records(&f.m).unwrap() {
+            let path = job_dir(&f.m, &run.operation).unwrap().join(format!("{}-transaction-private.json", run.operation));
+            atomic_json(&path, &json!({"schema":1,"operation":run.operation,"ledger":{"processes":[]},
+                "windows_trace":{"observed":"x".repeat(65536)}})).unwrap();
+            observations.push((fs::metadata(&path).unwrap().len(), path));
+        }
+        readiness::with_unit_state_fixture(&units, "inactive", || {
+            let s = &c.selection;
+            for page in ["current overview", "plug-in page"] {
+                let server = overview_service_reply(&f.m, capacity_json(false, 0, 0));
+                let (composed, opened) = linux_vst_bridge::with_opened_reads(|| if page == "current overview" {
+                    current_overview(&f.m).map(|_| ())
+                } else {
+                    product_detail(&f.m, &s.environment.id, &s.module.sha256, &s.class.id).map(|_| ())
+                });
+                composed.unwrap();
+                server.join().unwrap();
+                let opened = opened.unwrap();
+                let read: Vec<_> = observations.iter().filter_map(|(size, path)|
+                    opened.get(path).map(|(_, bytes)| (*size, *bytes))).collect();
+                assert_eq!(read.len(), 3, "{page}: each setup's latest observation is read");
+                assert!(read.iter().all(|(size, bytes)| bytes == size), "{page}: {read:?}");
+            }
+        });
+    }
+    /// A Deck-shaped installation (#503): 27 published plug-ins on one
+    /// runtime of 20,000 files, each prepared `earlier` times before its
+    /// current candidate, beside fifteen setups reached through eight
+    /// installer runs each and 380 other finished operations. Returns the
+    /// current candidates and the installer units, all closed.
+    fn deck_shaped(earlier: usize)
+        -> (test_fixture::Fixture, Vec<linux_vst_bridge::preparation::Candidate>, Vec<String>) {
+        let mut f = test_fixture::Fixture::new();
+        test_fixture::runtime_tree(&mut f, 20_000);
+        let (f, candidates) = test_fixture::projection_candidates_in(f, false, 27);
+        test_fixture::preparation_history(&f, &candidates, earlier);
+        for candidate in &candidates {
+            linux_vst_bridge::preparation::enable(&f.m, candidate, false).unwrap();
+        }
+        let units: Vec<String> = test_fixture::retained_history(&f, test_fixture::Changes::Installers, 15, 8, 380)
+            .iter().map(|operation| onboarding::unit(operation).unwrap()).collect();
+        // Sized stand-ins for what a real setup holds: its Windows registry
+        // hives, and what the supervisor observed of each installer run.
+        for record in onboarding::history_records(&f.m).unwrap() {
+            let prefix = record.environment.root.join("compatdata/pfx");
+            fs::write(prefix.join("system.reg"), "[Software\\Vendor] 1\n".repeat(500_000)).unwrap();
+            fs::write(prefix.join("user.reg"), "[Software\\Vendor] 1\n".repeat(50_000)).unwrap();
+            let runs = linux_vst_bridge::environment_revision::installer_records(&f.m).unwrap().into_iter()
+                .filter(|run| run.environment.id == record.id).map(|run| (job_dir(&f.m, &run.operation).unwrap(), run.operation))
+                .chain(record.installation_operation.iter().map(|operation|
+                    (f.m.root.join("onboarding").join(&record.id), operation.clone())));
+            for (directory, operation) in runs.collect::<Vec<_>>() {
+                atomic_json(&directory.join(format!("{operation}-transaction-private.json")), &json!({"schema":1,
+                    "operation":operation,"ledger":{"processes":[]},"windows_trace":{"observed":"x".repeat(500_000)}})).unwrap();
+            }
+        }
+        (f, candidates, units)
+    }
+    /// Not a check: what the window's reads cost on a Deck-shaped
+    /// installation with 1,188 retained candidates and 10 MB registry hives
+    /// (#503, #504), and the current overview composed again: files
+    /// opened, bytes read from them, this process's read calls and bytes,
+    /// CPU and wall time, and the records read most, by kind.
+    #[test]
+    #[ignore = "measurement; run with --ignored --nocapture --test-threads=1"]
+    fn reads_on_a_deck_shaped_installation() {
+        fn io() -> (u64, u64) {
+            let text = fs::read_to_string("/proc/self/io").unwrap_or_default();
+            let field = |name: &str| text.lines().find_map(|line| line.strip_prefix(name))
+                .and_then(|value| value.trim().parse().ok()).unwrap_or(0);
+            (field("syscr:"), field("rchar:"))
+        }
+        fn cpu() -> f64 {
+            let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
+            unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut usage) };
+            let ms = |t: libc::timeval| t.tv_sec as f64 * 1000.0 + t.tv_usec as f64 / 1000.0;
+            ms(usage.ru_utime) + ms(usage.ru_stime)
+        }
+        let (f, candidates, units) = deck_shaped(43);
+        // A real setup's hives last changed long before a page reads them.
+        std::thread::sleep(Duration::from_millis(2100));
+        let s = &candidates[0].selection;
+        let kind = |path: &Path| path.strip_prefix(&f.m.root).unwrap_or(path).iter().map(|part| {
+            let part = part.to_string_lossy();
+            let identity = part.chars().take_while(|c| c.is_ascii_hexdigit() || *c == '-').count();
+            if identity >= 32 { format!("*{}", &part[identity..]) } else { part.into_owned() }
+        }).collect::<Vec<_>>().join("/");
+        let read = |name: &str| -> Result<Vec<u8>> {
+            let served = (name != "snapshot").then(|| overview_service_reply(&f.m, capacity_json(false, 0, 0)));
+            let reply = match name {
+                "current overview" | "current overview, recomposed" => serde_json::to_vec(&current_overview(&f.m)?)?,
+                "plug-in page" => serde_json::to_vec(&product_detail(&f.m, &s.environment.id,
+                    &s.module.sha256, &s.class.id)?)?,
+                _ => serde_json::to_vec(&snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![],
+                    &|| capacity_fixture(&f.m))?)?,
+            };
+            if let Some(server) = served { server.join().unwrap(); }
+            Ok(reply)
+        };
+        readiness::with_unit_state_fixture(&units, "inactive", || {
+            for name in ["current overview", "plug-in page", "snapshot", "current overview, recomposed"] {
+                let ((calls, bytes), cpu_before, started) = (io(), cpu(), Instant::now());
+                let (composed, opened) = linux_vst_bridge::with_opened_reads(|| read(name));
+                let (wall, cpu_ms, (calls_after, bytes_after)) = (started.elapsed(), cpu() - cpu_before, io());
+                let opened = opened.unwrap();
+                let outcome = match &composed {
+                    Ok(reply) => format!("{} bytes", reply.len()),
+                    Err(error) => format!("refused: {error}"),
+                };
+                eprintln!("READS {name}: {outcome}; {} files opened {} times, {:.1} MB read from them; \
+                    {} read calls, {:.1} MB; CPU {cpu_ms:.0} ms, wall {} ms", opened.len(),
+                    opened.values().map(|(opens, _)| opens).sum::<u32>(),
+                    opened.values().map(|(_, read)| read).sum::<u64>() as f64 / 1e6,
+                    calls_after - calls, (bytes_after - bytes) as f64 / 1e6, wall.as_millis());
+                let mut kinds: std::collections::BTreeMap<String, (u32, u32, u64)> = Default::default();
+                for (path, (opens, read)) in &opened {
+                    let entry = kinds.entry(kind(path)).or_default();
+                    entry.0 += 1;
+                    entry.1 += opens;
+                    entry.2 += read;
+                }
+                let mut rows: Vec<_> = kinds.into_iter().collect();
+                rows.sort_by_key(|(_, (_, opens, _))| std::cmp::Reverse(*opens));
+                for (kind, (files, opens, read)) in rows.iter().take(8) {
+                    eprintln!("  {opens:>7} opens of {files:>4} files, {:>6.1} MB: {kind}", *read as f64 / 1e6);
+                }
+                rows.sort_by_key(|(_, (_, _, read))| std::cmp::Reverse(*read));
+                for (kind, (files, opens, read)) in rows.iter().take(8) {
+                    eprintln!("  {:>6.1} MB read in {opens:>7} opens of {files:>4} files: {kind}", *read as f64 / 1e6);
+                }
+            }
+        });
+    }
+    #[test]
+    fn new_setup_uses_exact_managed_recommendation_without_catalogue_default_authority() {
+        let (f, _) = onboarding_worker_fixture();
+        let rows = onboarding::projection(&f.m, None).unwrap();
+        let setups = onboarding::setup_projection(&f.m, &rows, &[]).unwrap();
+        assert_eq!(setups.len(), 1);
+        assert_eq!(setups[0].phase, ui::SetupPhase::Imported);
+        assert_eq!(setups[0].history.len(), 1);
+        let offer = setups[0].primary.as_ref().unwrap();
+        let ui::Action::InstallerEnvironmentCreate { runner, .. } = &offer.action else { panic!("expected exact setup offer") };
+        let catalogue = software(&f.m).unwrap().catalogue(&f.m).unwrap();
+        let delivered=linux_vst_bridge::runtime_delivery::installed(&f.m).unwrap().unwrap();
+        assert_eq!(runner, &onboarding::runner_key(&delivered).unwrap());
+        assert_ne!(runner, &catalogue.onboarding_runtime.as_ref().unwrap().default_runner_key);
+        assert_eq!(offer.label, "Continue setup");
+        assert_eq!(rows[0].actions.len(), 1);
+        let mut changed = catalogue.clone();
+        changed.environments[1].environment.runner.id = "specialized-runner".into();
+        let mut sw = software(&f.m).unwrap();
+        let path = sw.native_catalogue.as_ref().unwrap().path.clone();
+        atomic_json(&path, &changed).unwrap();
+        sw.native_catalogue.as_mut().unwrap().sha256 = digest(&path).unwrap();
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        assert!(software(&f.m).unwrap().catalogue(&f.m).is_err());
+        let mut unsupported = catalogue;
+        unsupported.schema = 3;
+        unsupported.onboarding_runtime = None;
+        atomic_json(&path, &unsupported).unwrap();
+        sw.native_catalogue.as_mut().unwrap().sha256 = digest(&path).unwrap();
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let rows = onboarding::projection(&f.m, None).unwrap();
+        assert_eq!(rows[0].actions.len(),1);
+        let setups = onboarding::setup_projection(&f.m, &rows, &[]).unwrap();
+        assert!(matches!(&setups[0].primary.as_ref().unwrap().action,
+            ui::Action::InstallerEnvironmentCreate {runner,..} if *runner==onboarding::runner_key(&delivered).unwrap()));
+    }
+    #[test]
+    fn ordinary_install_keeps_runtime_acquisition_automatic_and_exact_setup_available() {
+        use linux_vst_bridge::runtime_delivery;
+        for case in ["empty","catalogue_only","r3_only","malformed_r3","partial_r4",
+            "r4_present","malformed_r3_with_r4","missing_r3_with_r4"] {
+            let (f,creation)=onboarding_worker_fixture();
+            write_operation(&f.m,&creation,&json!({"schema":1,"operation":creation,"state":"completed"}),false).unwrap();
+            let has_recommended=case.ends_with("with_r4") || case=="r4_present";
+            if !has_recommended {fs::remove_dir_all(runtime_delivery::record_path(&f.m).parent().unwrap()).unwrap();}
+            if case=="empty" {
+                let mut sw=software(&f.m).unwrap();sw.native_catalogue=None;
+                atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
+                atomic_json(&f.m.root.join("registry.json"),&Registry::default()).unwrap();
+            }
+            let registry=fs::read(f.m.root.join("registry.json")).unwrap();
+            let environment=fs::read(f.r.environment.root.join("environment.json")).unwrap();
+            let publications=test_fixture::snapshot(&f.m.publications);
+            let mut retained=None;
+            if case.contains("r3") {
+                let old=retained_managed_runtime(&f.m,true);
+                let path=f.m.root.join("runners").join(runtime_delivery::ID).join("runtime.json");
+                if case.starts_with("malformed") {
+                    fs::set_permissions(&path,fs::Permissions::from_mode(0o600)).unwrap();
+                    fs::write(&path,b"malformed retained ownership").unwrap();
+                    fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();
+                } else if case.starts_with("missing") {fs::remove_file(&old.proton).unwrap();}
+                retained=Some((path.clone(),fs::read(path).unwrap()));
+            }
+            if case=="partial_r4" {
+                let path=runtime_delivery::record_path(&f.m).parent().unwrap().join("download-0");
+                private_dir(path.parent().unwrap()).unwrap();fs::write(path,b"partial acquisition").unwrap();
+                assert!(runtime_delivery::install(&f.m).unwrap_err().to_string()
+                    .contains("managed_runtime_incomplete_requires_attention"));
+            }
+            let projected=onboarding::projection(&f.m,None).unwrap();
+            let service=overview_service_reply(&f.m,capacity_json(false,0,0));
+            let current=current::capture(&f.m).unwrap();current.recheck(&f.m).unwrap();service.join().unwrap();
+            let acquire=current.snapshot.actions.iter().find(|offer|matches!(offer.action,ui::Action::RuntimeInstall {})).unwrap();
+            assert_eq!(acquire.disabled_reason.is_none(),!has_recommended,"{case}: {acquire:?}");
+            let setup=&current.snapshot.installer_setups[0];
+            let primary=setup.primary.as_ref().unwrap();
+            assert!(matches!(&primary.action,ui::Action::SoftwareInstall {installer,..}
+                if installer==&setup.installer),"{case}: {primary:?}");
+            assert!(primary.disabled_reason.is_none(),"{case}: {primary:?}");
+            if has_recommended {
+                let selected=runtime_delivery::installed(&f.m).unwrap().unwrap();
+                let key=onboarding::runner_key(&selected).unwrap();
+                assert!(projected[0].actions.iter().any(|offer|matches!(&offer.action,
+                    ui::Action::InstallerEnvironmentCreate {runner,..} if runner==&key)),"{case}");
+                if case.starts_with("malformed") {
+                    let old=&current.snapshot.managed_runtime_records[0];
+                    assert_eq!(old["id"],runtime_delivery::ID);
+                    assert!(old["runner"].is_null() && old["failure"].is_string());
+                }
+            } else {
+                assert!(projected[0].actions.is_empty(),"{case}");
+            }
+            if let Some((path,bytes))=retained {assert_eq!(fs::read(path).unwrap(),bytes,"{case}");}
+            assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(),registry,"{case}");
+            assert_eq!(fs::read(f.r.environment.root.join("environment.json")).unwrap(),environment,"{case}");
+            assert_eq!(test_fixture::snapshot(&f.m.publications),publications,"{case}");
+        }
+    }
+    #[test]
+    fn native_catalogue_views_require_the_shared_registration_record_binding() {
+        let (f, _profile, census, native) = test_fixture::prepared();
+        let catalogue = linux_vst_bridge::catalogue::Catalogue {schema:3,natives:vec![native],
+            environments:vec![census.environment],hosts:vec![],onboarding_runtime:None};
+        let catalogue_path = f.m.root.join("software/native-catalogue.json");
+        atomic_json(&catalogue_path, &catalogue).unwrap();
+        let software = Software {installer_launch:None,preparation_kit:None,
+            operator_frontend:None,manager:f.r.host.clone(),supervisor:f.r.host.clone(),
+            ownership:f.r.host.clone(),host:f.r.host.clone(),source_manifest:Artifact {
+                path:f.r.host.path.with_file_name("host-source-manifest.json"),
+                sha256:f.r.host_source_sha256.clone()},source_sha256:f.r.host_source_sha256.clone(),
+            native_catalogue:Some(Artifact {sha256:digest(&catalogue_path).unwrap(),path:catalogue_path})};
+        atomic_json(&f.m.root.join("software.json"), &software).unwrap();
+        let original = f.m.registry().unwrap();
+        let class = f.r.key();
+        assert!(original.classes[&class].managed_revision.is_none());
+        // Completed schema17 requests remain historical records. Only newly
+        // submitted requests require the current paired schema.
+        let operation = "ab".repeat(16);
+        let directory = job_dir(&f.m, &operation).unwrap();
+        private_dir(&directory).unwrap();
+        let prior_request = ui::Request {schema:17,state_token:"prior-state".into(),
+            action:ui::Action::BufferingSet {class_id:class.clone(),added_frames:512}};
+        let prior_result = json!({"schema":1,"operation":operation,"state":"completed",
+            "action":prior_request.action,"result":{"added_bridge_frames":512}});
+        atomic_json(&directory.join("request.json"), &prior_request).unwrap();
+        atomic_json(&directory.join("result.json"), &prior_result).unwrap();
+        atomic_json(&f.m.root.join("operator/latest.json"), &prior_result).unwrap();
+        let request_bytes = fs::read(directory.join("request.json")).unwrap();
+        let result_bytes = fs::read(directory.join("result.json")).unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let current = product_detail(&f.m, &f.r.environment.id, &f.r.module.sha256, &class).unwrap();
+        service.join().unwrap();
+        assert_eq!(current.product.disposition, "ready");
+        assert_eq!(current.operator_schema, ui::OPERATOR_SCHEMA);
+        let old_request = ui::Request {schema:17,state_token:current.state_token.clone(),
+            action:ui::Action::BufferingSet {class_id:class.clone(),added_frames:1024}};
+        assert_eq!(validate_current_request(&f.m, &old_request).unwrap_err().to_string(),
+            "operator_schema_mismatch_update_manager_frontend");
+        assert_eq!(fs::read(directory.join("request.json")).unwrap(), request_bytes);
+        assert_eq!(fs::read(directory.join("result.json")).unwrap(), result_bytes);
+        for module_outside in [true, false] {
+            let mut changed: Registry = serde_json::from_value(serde_json::to_value(&original).unwrap()).unwrap();
+            let registration = &mut changed.classes.get_mut(&class).unwrap().registration;
+            let artifact = if module_outside { &mut registration.module } else { &mut registration.host };
+            let outside = f.outer.join(if module_outside { "outside-module" } else { "outside-host" });
+            fs::copy(&artifact.path, &outside).unwrap();
+            artifact.path = outside;
+            assert!(artifact.validate_record().is_ok(), "individual artifact metadata still exists");
+            assert!(registration.validate_record(&f.m.root).is_err());
+            atomic_json(&f.m.root.join("registry.json"), &changed).unwrap();
+            let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+            let overview = overview(&f.m).unwrap();
+            service.join().unwrap();
+            let product = &overview.current.products[0];
+            assert_eq!(product.disposition, "needs_attention");
+            assert_eq!(product.details["publication_valid"], true,
+                "the unchanged physical pointer cannot substitute for a registration binding");
+            for key in ["module_binding_valid","runner_binding_valid","native_binding_valid","host_binding_valid"] {
+                assert_eq!(product.details[key], false, "{key}");
+            }
+            let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+            let detail = product_detail(&f.m, &f.r.environment.id, &f.r.module.sha256, &class).unwrap();
+            service.join().unwrap();
+            assert_eq!(detail.product.disposition, "needs_attention");
+            assert_eq!(detail.product.details["module_binding_valid"], false);
+            assert!(f.m.resolve(&f.identity()).is_err());
+        }
+    }
+    #[test]
+    fn retained_schema17_queued_request_refuses_without_execution_or_rewriting_its_request() {
+        let f = test_fixture::Fixture::new();
+        atomic_json(&f.m.root.join("registry.json"), &f.m.registry().unwrap()).unwrap();
+        let operation = "ab".repeat(16);
+        let directory = job_dir(&f.m, &operation).unwrap();
+        private_dir(&directory).unwrap();
+        let request = ui::Request {schema:17,state_token:token(&f.m).unwrap(),
+            action:ui::Action::BufferingSet {class_id:f.r.key(),added_frames:1024}};
+        atomic_json(&directory.join("request.json"), &request).unwrap();
+        atomic_json(&directory.join("result.json"), &json!({"schema":1,
+            "operation":operation,"state":"queued","action":request.action})).unwrap();
+        let request_bytes = fs::read(directory.join("request.json")).unwrap();
+        let registry_bytes = fs::read(f.m.root.join("registry.json")).unwrap();
+        worker_with_capacity(&f.m, &operation, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        let terminal = worker_receipt(&f.m, &operation);
+        assert_eq!(terminal["schema"], 1);
+        assert_eq!(terminal["operation"], operation);
+        assert_eq!(terminal["state"], "refused");
+        assert!(terminal["reason"].as_str().unwrap()
+            .contains("operator_schema_mismatch_update_manager_frontend"));
+        assert_eq!(fs::read(directory.join("request.json")).unwrap(), request_bytes);
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry_bytes);
+        assert!(!f.m.root.join("performance").exists());
+    }
+    #[test]
+    fn candidate_only_history_is_readable_with_scoped_recovery_and_corrupt_records_refuse() {
+        readiness::with_unit_state_fixture(&[onboarding::unit(&"cd".repeat(16)).unwrap()],"inactive",|| {
+        use linux_vst_bridge::preparation as prep;
+        let (f, mut candidate) = preparation_cli::tests::projection_fixture();
+        candidate.origin = prep::Origin::RetainedSv1;
+        candidate.inspection.origin = prep::Origin::RetainedSv1;
+        candidate.recipe_sha256 = "retained-sv1".into();
+        let retained_native = f.m.root.join("software/retained-history-native.so");
+        fs::copy(&candidate.native.artifact.path, &retained_native).unwrap();
+        candidate.native.artifact.path = retained_native;
+        f.m.register(f.r.clone()).unwrap();
+        let catalogue = linux_vst_bridge::catalogue::Catalogue {schema:3,
+            natives:vec![candidate.native.clone()],environments:vec![
+                linux_vst_bridge::catalogue::EnvironmentBinding {
+                    family:profiles::Family::ManagedInstallerV1,
+                    environment:candidate.selection.environment.clone()}],hosts:vec![],onboarding_runtime:None};
+        let catalogue_path = f.m.root.join("software/native-catalogue.json");
+        atomic_json(&catalogue_path, &catalogue).unwrap();
+        let mut sw = preparation_cli::tests::projection_software(&candidate);
+        sw.native_catalogue = Some(Artifact {sha256:digest(&catalogue_path).unwrap(),path:catalogue_path});
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let onboarding = onboarding::Record {schema:1,id:candidate.selection.environment.id.clone(),
+            installer:"ba".repeat(32),environment:candidate.selection.environment.clone(),created_at:1,
+            creation_operation:"ab".repeat(16),installation_operation:Some("cd".repeat(16)),published:false,automatic:None,previous_attempt:None};
+        let onboarding_path = f.m.root.join("onboarding").join(&onboarding.id).join("record.json");
+        private_dir(onboarding_path.parent().unwrap()).unwrap();
+        atomic_json(&onboarding_path, &onboarding).unwrap();
+        atomic_json(&onboarding_path.with_file_name(format!("{}-result.json", onboarding.installation_operation.as_ref().unwrap())),
+            &json!({"schema":2,"operation":onboarding.installation_operation,"state":"completed",
+                "cleanup_confirmed":true,"owned_live":0,"launcher_exit":0})).unwrap();
+        assert!(onboarding::retired(&onboarding::result(&f.m, &onboarding).unwrap()));
+        let id = candidate.id().unwrap();
+        let candidate_path = f.m.root.join("preparation/candidates").join(&id).join("candidate.json");
+        private_dir(candidate_path.parent().unwrap()).unwrap();
+        atomic_json(&candidate_path, &candidate).unwrap();
+        let candidate_bytes = fs::read(&candidate_path).unwrap();
+        let registry_bytes = fs::read(f.m.root.join("registry.json")).unwrap();
+        let legacy_path = f.m.root.join("preparation/legacy").join(&id);
+        let lineage_path = f.m.root.join("preparation/lineage").join(&id).join("record.json");
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let detail = product_detail(&f.m, &candidate.selection.environment.id,
+            &candidate.selection.module.sha256, &candidate.selection.class.id).unwrap();
+        service.join().unwrap();
+        assert_eq!(detail.product.disposition, "needs_attention");
+        assert_eq!(detail.product.details["preparation"]["preparation"], "history_incomplete");
+        assert!(!legacy_path.exists() && !lineage_path.exists(), "projection cannot migrate history");
+        assert_eq!(fs::read(&candidate_path).unwrap(), candidate_bytes);
+        let offered = detail.product.compatibility.as_ref().unwrap().primary.as_ref().unwrap();
+        assert!(offered.disabled_reason.is_none());
+        assert!(matches!(&offered.action, ui::Action::CandidateHistoryComplete {candidate,expected_history}
+            if candidate == &id && valid_hex(expected_history,64)));
+        let inventory = f.m.root.join("inventory").join(format!("{}.json", candidate.selection.environment.id));
+        let saved_inventory = f.outer.join("retained-current-inventory.json");
+        fs::rename(&inventory, &saved_inventory).unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let unavailable = product_detail(&f.m, &candidate.selection.environment.id,
+            &candidate.selection.module.sha256, &candidate.selection.class.id).unwrap();
+        service.join().unwrap();
+        assert_eq!(unavailable.product.disposition, "needs_attention");
+        let unavailable_offer = unavailable.product.compatibility.as_ref().unwrap().primary.as_ref().unwrap();
+        assert_eq!(unavailable_offer.disabled_reason.as_deref(), Some(
+            "Saved setup history cannot be completed because original setup records are missing."));
+        assert!(unavailable.product.details["preparation"]["history_recovery"][0]["missing"]
+            .as_array().unwrap().contains(&json!("inventory")));
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        assert_eq!(validate_current_request(&f.m, &ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:unavailable.state_token,action:unavailable_offer.action.clone()})
+            .unwrap_err().to_string(), unavailable_offer.disabled_reason.as_deref().unwrap());
+        service.join().unwrap();
+        assert!(!legacy_path.exists() && !lineage_path.exists());
+        assert_eq!(fs::read(&candidate_path).unwrap(), candidate_bytes);
+        fs::rename(saved_inventory, inventory).unwrap();
+        let mut request = ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:detail.state_token,action:offered.action.clone()};
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        validate_current_request(&f.m, &request).unwrap();
+        service.join().unwrap();
+        if let ui::Action::CandidateHistoryComplete {expected_history,..} = &mut request.action {
+            *expected_history = "00".repeat(32);
+        }
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        assert_eq!(validate_current_request(&f.m, &request).unwrap_err().to_string(),
+            "operator_action_not_available");
+        service.join().unwrap();
+        // This synthetic fixture is not the retained SV1 snapshot. Execution
+        // reaches its existing migration owner and refuses the original binding.
+        request.action = offered.action.clone();
+        let receipt = dispatch_recorded(&f.m, &request, |operation|
+            launch_reserved(&f.m, &request, operation, |_| Ok(true))).unwrap();
+        let operation = receipt.operation.unwrap();
+        worker_with_capacity(&f.m, &operation, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        let terminal = worker_receipt(&f.m, &operation);
+        assert_eq!(terminal["state"], "refused", "{terminal}");
+        assert!(terminal["reason"].as_str().unwrap().contains("legacy_input_binding"), "{terminal}");
+        assert_eq!(fs::read(&candidate_path).unwrap(), candidate_bytes);
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry_bytes);
+        assert!(!lineage_path.exists());
+        // An existing mismatched record is not disguised as missing migration.
+        private_dir(lineage_path.parent().unwrap()).unwrap();
+        atomic_json(&lineage_path, &prep::CandidateLineage {schema:1,candidate:"ff".repeat(32),
+            preparation_identity:"original".into(),ordinal:7,predecessor:None}).unwrap();
+        let corrupt = fs::read(&lineage_path).unwrap();
+        // Corrupt lineage refuses during product projection, before the two
+        // final cleanup rechecks. The initial capacity and cleanup reads remain.
+        let service = overview_service_reply_with_counts(&f.m, capacity_json(false,0,0), (1, 1));
+        let failure = product_detail(&f.m, &candidate.selection.environment.id,
+            &candidate.selection.module.sha256, &candidate.selection.class.id).unwrap_err();
+        service.join().unwrap();
+        assert_eq!(failure.to_string(), "candidate_lineage_identity");
+        assert_eq!(fs::read(&lineage_path).unwrap(), corrupt);
+        assert_eq!(fs::read(&candidate_path).unwrap(), candidate_bytes);
+        });
+    }
+    #[test]
+    fn catalogue_free_missing_lineage_preserves_selected_publication_and_rollback_readback() {
+        use linux_vst_bridge::preparation as prep;
+        let (f, base) = preparation_cli::tests::projection_fixture();
+        atomic_json(&f.m.root.join("software.json"), &preparation_cli::tests::projection_software(&base)).unwrap();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let original = prep::enable(&f.m, &base, false).unwrap();
+        let trial = prep::configuration::prepare_settings(&f.m, &base,
+            &ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
+                accessibility:ui::AccessibilityChoice::ProfileDefault}, Some(&original)).unwrap();
+        let selected = prep::replace(&f.m, &trial, &original).unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let before = product_detail(&f.m, &base.selection.environment.id,
+            &base.selection.module.sha256, &base.selection.class.id).unwrap();
+        service.join().unwrap();
+        let settings_offer = before.product.actions.iter().find(|offer|
+            matches!(offer.action, ui::Action::CandidateSettingsPrepare {..})).unwrap().action.clone();
+        let id = trial.id().unwrap();
+        let candidate_path = f.m.root.join("preparation/candidates").join(&id).join("candidate.json");
+        let candidate_bytes = fs::read(&candidate_path).unwrap();
+        let lineage_path = f.m.root.join("preparation/lineage").join(&id).join("record.json");
+        fs::remove_file(&lineage_path).unwrap();
+        let registry_bytes = fs::read(f.m.root.join("registry.json")).unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let detail = product_detail(&f.m, &base.selection.environment.id,
+            &base.selection.module.sha256, &base.selection.class.id).unwrap();
+        service.join().unwrap();
+        assert_eq!(detail.product.disposition, "needs_attention");
+        assert_eq!(detail.product.details["publication_valid"], true);
+        assert_eq!(detail.product.details["publication_selected"], true);
+        assert_eq!(detail.product.details["publication"], serde_json::to_value(&selected).unwrap());
+        assert_eq!(detail.product.details["preparation"]["history_refusal"],
+            json!({"code":"candidate_predecessor_authority_missing","candidates":[id]}));
+        let workflow = detail.product.compatibility.as_ref().unwrap();
+        assert!(workflow.primary.is_none() && workflow.alternatives.is_empty());
+        assert!(!detail.product.actions.iter().any(|offer| preparation_cli::is_action(&offer.action)));
+        let rollback = detail.product.actions.iter().find(|offer| matches!(&offer.action,
+            ui::Action::OrdinaryRollback {publication,..} if publication == &original.id)).unwrap();
+        assert!(rollback.disabled_reason.is_none());
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        validate_current_request(&f.m, &ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:detail.state_token.clone(),action:rollback.action.clone()}).unwrap();
+        service.join().unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        assert_eq!(validate_current_request(&f.m, &ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:detail.state_token,action:settings_offer}).unwrap_err().to_string(),
+            "operator_action_not_available");
+        service.join().unwrap();
+        assert!(!lineage_path.exists(), "readback must not invent predecessor authority");
+        assert_eq!(fs::read(&candidate_path).unwrap(), candidate_bytes);
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry_bytes);
+    }
+    #[test]
+    fn candidate_action_worker_missing_target_does_not_migrate_unrelated_history() {
+        use linux_vst_bridge::preparation as prep;
+        let (f, mut target) = preparation_cli::tests::projection_fixture();
+        atomic_json(&f.m.root.join("software.json"), &preparation_cli::tests::projection_software(&target)).unwrap();
+        target.origin = prep::Origin::RetainedSv1;
+        target.inspection.origin = prep::Origin::RetainedSv1;
+        target.recipe_sha256 = "retained-sv1".into();
+        let id = target.id().unwrap();
+        let target_path = f.m.root.join("preparation/candidates").join(&id).join("candidate.json");
+        private_dir(target_path.parent().unwrap()).unwrap();
+        atomic_json(&target_path, &target).unwrap();
+        let mut unrelated = target.clone();
+        unrelated.selection.class.id = "ef".repeat(16);
+        let unrelated_path = f.m.root.join("preparation/candidates").join(unrelated.id().unwrap()).join("candidate.json");
+        private_dir(unrelated_path.parent().unwrap()).unwrap();
+        atomic_json(&unrelated_path, &unrelated).unwrap();
+        for action in [
+            ui::Action::CandidateHistoryComplete {candidate:id.clone(),expected_history:"ab".repeat(32)},
+            ui::Action::CandidateSettingsPrepare {candidate:id.clone(),settings:ui::LocalSettings {
+                graphics:None,accessibility:ui::AccessibilityChoice::ProfileDefault},expected_current:None},
+            ui::Action::CandidateObserve {candidate:id.clone(),area:"editor".into(),
+                status:"not_tested".into(),note:"No editor observation".into()},
+        ] {
+            // The queued exact target disappears without a canonical generation
+            // change. Both scoped admission and non-inactive execution refuse.
+            atomic_json(&target_path, &target).unwrap();
+            let request = ui::Request {schema:ui::OPERATOR_SCHEMA,
+                state_token:token(&f.m).unwrap(),action};
+            let receipt = launch_queued(&f.m, &request, |_| Ok(true)).unwrap();
+            fs::remove_file(&target_path).unwrap();
+            assert_eq!(token(&f.m).unwrap(), request.state_token);
+            let retained = test_fixture::snapshot(&f.m.root.join("preparation"));
+            let registry = fs::read(f.m.root.join("registry.json")).unwrap();
+            let operation = receipt.operation.unwrap();
+            worker_with_capacity(&f.m, &operation, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+            let terminal = worker_receipt(&f.m, &operation);
+            assert_eq!(terminal["state"], "refused");
+            assert_eq!(terminal["reason"], "Operator action: candidate_absent");
+            assert_eq!(test_fixture::snapshot(&f.m.root.join("preparation")), retained);
+            assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry);
+            assert!(unrelated_path.exists());
+        }
+    }
+    #[test]
+    fn populated_history_keeps_selected_configuration_and_explicit_trials() {
+        use linux_vst_bridge::preparation as prep;
+        let (f, base) = preparation_cli::tests::projection_fixture();
+        atomic_json(&f.m.root.join("software.json"), &preparation_cli::tests::projection_software(&base)).unwrap();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let original = prep::enable(&f.m, &base, false).unwrap();
+        let original_entry = serde_json::to_value(&f.m.registry().unwrap().classes[&base.selection.class.id]).unwrap();
+        let selected = prep::configuration::prepare_settings(&f.m, &base,
+            &ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
+                accessibility:ui::AccessibilityChoice::ProfileDefault}, Some(&original)).unwrap();
+        let previous = prep::replace(&f.m, &selected, &original).unwrap();
+        prep::configuration::prepare_settings(&f.m, &selected,
+            &ui::LocalSettings {graphics:None,accessibility:ui::AccessibilityChoice::ProfileDefault},
+            Some(&previous)).unwrap();
+        let requested = ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
+            accessibility:ui::AccessibilityChoice::DisabledForHost};
+        let stale = prep::configuration::prepare_settings(&f.m, &selected, &requested, Some(&previous)).unwrap();
+        prep::disable_exact(&f.m, &selected, &previous).unwrap();
+        let current = prep::replace(&f.m, &selected, &original).unwrap();
+        assert_ne!(current, previous, "a reused candidate has a new publication identity");
+        let selected_entry = serde_json::to_value(&f.m.registry().unwrap().classes[&base.selection.class.id]).unwrap();
+        let preference = serde_json::to_value(f.m.performance(&base.selection.class.id).unwrap()).unwrap();
+        let read = || {
+            let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+            let detail = product_detail(&f.m, &base.selection.environment.id,
+                &base.selection.module.sha256, &base.selection.class.id).unwrap();
+            service.join().unwrap();
+            detail
+        };
+        let first = read();
+        let workflow = first.product.compatibility.as_ref().unwrap();
+        assert_eq!(workflow.current_candidate.as_deref(), Some(selected.id().unwrap().as_str()));
+        assert_eq!(workflow.phase, ui::CompatibilityPhase::AvailableForTest);
+        assert_eq!(first.product.details["preparation"]["candidate"], selected.id().unwrap());
+        assert_eq!(first.product.details["configuration"]["candidate"], selected.id().unwrap());
+        assert_eq!(first.product.details["configuration"]["publication"], "experimental");
+        assert_eq!(first.product.details["configuration"]["settings"],
+            serde_json::to_value(prep::configuration::settings(&selected)).unwrap());
+        assert_eq!(first.product.details["publication"], serde_json::to_value(&current).unwrap());
+        assert_eq!(first.product.details["publication_selected"], true);
+        let mut keep = workflow.primary.as_ref().unwrap().action.clone();
+        let ui::Action::CompatibilityResult {candidate,expected_current,passed,..} = &mut keep else {
+            panic!("selected publication must retain its test result control")
+        };
+        assert_eq!(*candidate, selected.id().unwrap());
+        assert_eq!(expected_current.id, current.id);
+        assert_eq!(expected_current.sha256, current.sha256);
+        passed.push(ui::TestArea::Audio);
+        let stale_offer = workflow.alternatives.iter().find(|offer| matches!(&offer.action,
+            ui::Action::CompatibilityPublishTest {candidate,..} if *candidate == stale.id().unwrap())).unwrap();
+        let refusal = "The previous selection changed. Prepare a trial from the current configuration.";
+        assert_eq!(stale_offer.disabled_reason.as_deref(), Some(refusal));
+        assert_eq!(test_submit_offered(&f.m, &stale_offer.action).unwrap_err().to_string(), refusal);
+        assert!(first.product.actions.iter().filter(|offer| matches!(&offer.action,
+            ui::Action::ExperimentalReplace {candidate,..} if *candidate == stale.id().unwrap()))
+            .all(|offer| offer.disabled_reason.as_deref() == Some(refusal)));
+        let mut wrong = keep.clone();
+        if let ui::Action::CompatibilityResult {candidate,..} = &mut wrong { *candidate = stale.id().unwrap(); }
+        assert_eq!(test_submit_offered(&f.m, &wrong).unwrap_err().to_string(), "operator_action_not_available");
+        if let ui::Action::CompatibilityResult {expected_current,..} = &mut wrong {
+            *expected_current = ui::PublicationIdentity {id:previous.id,sha256:previous.sha256};
+        }
+        // The candidate as well as the exact current publication must match.
+        if let ui::Action::CompatibilityResult {candidate,..} = &mut wrong { *candidate = selected.id().unwrap(); }
+        assert_eq!(test_submit_offered(&f.m, &wrong).unwrap_err().to_string(), "operator_action_not_available");
+
+        // Ordinary preparation from the selected setup remains reachable, even
+        // with a retained proposal prepared against its previous publication.
+        let prepare = first.product.actions.iter().find(|offer| matches!(&offer.action,
+            ui::Action::CandidateSettingsPrepare {candidate,settings,expected_current:Some(expected)}
+            if *candidate == selected.id().unwrap() && *settings == requested
+                && expected.id == current.id && expected.sha256 == current.sha256)).unwrap();
+        assert!(prepare.disabled_reason.is_none());
+        let operation = test_submit_offered(&f.m, &prepare.action).unwrap();
+        let prepared = test_run_offered_worker(&f.m, &operation).unwrap();
+        assert_eq!(prepared["state"], "completed", "{prepared}");
+        let fresh = prep::candidate_record(&f.m, prepared["result"]["candidate"].as_str().unwrap()).unwrap();
+        assert_ne!(fresh.id().unwrap(), stale.id().unwrap());
+        let after_prepare = read();
+        let workflow = after_prepare.product.compatibility.as_ref().unwrap();
+        assert_eq!(workflow.current_candidate.as_deref(), Some(selected.id().unwrap().as_str()));
+        let apply = workflow.alternatives.iter().find(|offer| matches!(&offer.action,
+            ui::Action::CompatibilityPublishTest {candidate,expected_current:Some(expected)}
+            if *candidate == fresh.id().unwrap() && expected.id == current.id
+                && expected.sha256 == current.sha256)).unwrap().clone();
+        assert!(apply.disabled_reason.is_none());
+        assert_ne!(apply.label, stale_offer.label, "different prepared setups have distinct labels");
+        let candidates_before = test_fixture::snapshot(&f.m.root.join("preparation/candidates"));
+        let operation = test_submit_offered(&f.m, &keep).unwrap();
+        let kept = test_run_offered_worker(&f.m, &operation).unwrap();
+        assert_eq!(kept["state"], "completed", "{kept}");
+        assert_eq!(kept["result"]["candidate"], selected.id().unwrap());
+        assert_eq!(kept["result"]["publication_changed"], false);
+        assert_eq!(kept["result"]["result"], "partial_experimental");
+        assert!(prep::observations(&f.m, &stale).unwrap().is_empty());
+        assert!(prep::observations(&f.m, &fresh).unwrap().is_empty());
+        assert_eq!(serde_json::to_value(&f.m.registry().unwrap().classes[&base.selection.class.id]).unwrap(), selected_entry);
+        let operation = test_submit_offered(&f.m, &apply.action).unwrap();
+        let applied = test_run_offered_worker(&f.m, &operation).unwrap();
+        assert_eq!(applied["state"], "completed", "{applied}");
+        for (candidate, expected_entry) in [(&fresh, &selected_entry), (&selected, &original_entry)] {
+            let detail = read();
+            assert_eq!(detail.product.compatibility.as_ref().unwrap().current_candidate.as_deref(),
+                Some(candidate.id().unwrap().as_str()));
+            let restore = detail.product.actions.iter().find(|offer| matches!(&offer.action,
+                ui::Action::ExperimentalDisable {candidate: offered} if *offered == candidate.id().unwrap())).unwrap();
+            assert!(restore.disabled_reason.is_none());
+            let operation = test_submit_offered(&f.m, &restore.action).unwrap();
+            let restored = test_run_offered_worker(&f.m, &operation).unwrap();
+            assert_eq!(restored["state"], "completed", "{restored}");
+            assert_eq!(serde_json::to_value(&f.m.registry().unwrap().classes[&base.selection.class.id]).unwrap(), *expected_entry);
+            assert_eq!(serde_json::to_value(f.m.performance(&base.selection.class.id).unwrap()).unwrap(), preference);
+        }
+        assert_eq!(test_fixture::snapshot(&f.m.root.join("preparation/candidates")), candidates_before);
+    }
+    #[test]
+    fn changed_vendor_environment_retains_history_with_unavailable_restore() {
+        use linux_vst_bridge::preparation as prep;
+        let (f,base)=preparation_cli::tests::projection_fixture();
+        prep::record_candidate(&f.m,&base).unwrap();
+        let selected=prep::enable(&f.m,&base,false).unwrap();
+        let key=base.selection.class.id.clone();
+        let mut sw=preparation_cli::tests::projection_software(&base);
+        let mut native=base.native.clone();
+        let native_path=f.m.root.join("software/recommended/engine.so");
+        private_dir(native_path.parent().unwrap()).unwrap();fs::copy(&native.artifact.path,&native_path).unwrap();
+        native.artifact.path=native_path;
+        if let Some(descriptor)=&mut native.descriptor {
+            let path=native.artifact.path.with_file_name(lvb_plugin_descriptor::FILE_NAME);
+            fs::copy(&descriptor.path,&path).unwrap();descriptor.path=path;
+        }
+        let catalogue=catalogue::Catalogue {schema:3,natives:vec![native],hosts:vec![],
+            onboarding_runtime:None,environments:vec![catalogue::EnvironmentBinding {
+                family:profiles::Family::ManagedInstallerV1,environment:base.selection.environment.clone()}]};
+        let path=f.m.root.join("software/catalogue.json");atomic_json(&path,&catalogue).unwrap();
+        sw.native_catalogue=Some(Artifact {sha256:digest(&path).unwrap(),path});
+        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
+        let mut captured=current::capture(&f.m).unwrap();captured.busy=None;
+        let mut recommended=base.profile.clone();recommended.revision+=1;
+        captured.profiles=vec![recommended];
+        let project=||project_current_product(&f.m,&captured,&sw,&f.m.registry().unwrap(),
+            &base.selection.environment.id,&base.selection.module.sha256,&key).unwrap();
+        let before=project();
+        assert!(before.actions.iter().find(|offer|matches!(offer.action,
+            ui::Action::OrdinaryRestoreRecommended { .. })).unwrap().disabled_reason.is_none());
+        let mut changed=base.selection.environment.clone();changed.revision+=1;
+        atomic_json(&changed.root.join("environment.json"),&changed).unwrap();
+        let entry=f.m.registry().unwrap().classes[&key].clone();
+        for rows in [history_records(&f.m,&key,&entry).unwrap(),history(&f.m,&key,&entry).unwrap()] {
+            let prior=rows.iter().find(|h|h.publication==selected.id).unwrap();
+            assert!(prior.rollback_unavailable.as_ref().unwrap().contains("vendor changes cannot be rolled back"));
+        }
+        assert!(f.m.rollback(&key,&selected.id,None).is_err());
+        let after=project();
+        assert!(after.actions.iter().find(|offer|matches!(offer.action,
+            ui::Action::OrdinaryRestoreRecommended { .. })).unwrap().disabled_reason.as_ref()
+            .unwrap().contains("Fresh preparation"));
+    }
+    #[test]
+    fn malformed_runtime_record_is_readable_and_its_exact_bytes_bind_current_admission() {
+        use linux_vst_bridge::{preparation as prep,runtime_delivery};
+        let (f,base)=preparation_cli::tests::projection_fixture();
+        atomic_json(&f.m.root.join("software.json"),&preparation_cli::tests::projection_software(&base)).unwrap();
+        prep::record_candidate(&f.m,&base).unwrap();prep::enable(&f.m,&base,false).unwrap();
+        let path=runtime_delivery::record_path(&f.m);private_dir(path.parent().unwrap()).unwrap();
+        fs::write(&path,b"invalid runtime ownership record").unwrap();
+        fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();
+        let before=fs::read(&path).unwrap();let token_before=token(&f.m).unwrap();
+        let current=current::capture(&f.m).unwrap();current.recheck(&f.m).unwrap();
+        let observed=&current.snapshot.managed_runtime_records[0];
+        assert_eq!(observed["id"],runtime_delivery::recommended_id());
+        assert!(observed["runner"].is_null());assert!(observed["failure"].is_string());
+        assert_eq!(observed["sha256"],digest(&path).unwrap());
+        assert_eq!(fs::read(&path).unwrap(),before);
+        assert!(runtime_delivery::installed(&f.m).is_err());
+        if unsafe {libc::getuid()}!=0 {
+            let directory=path.parent().unwrap();
+            fs::set_permissions(directory,fs::Permissions::from_mode(0o000)).unwrap();
+            let unreadable=current::capture(&f.m);
+            let pulse=pulse_generation(&f.m);
+            let checked=unreadable.as_ref().is_ok_and(|context|context.recheck(&f.m).is_ok());
+            fs::set_permissions(directory,fs::Permissions::from_mode(0o700)).unwrap();
+            let unreadable=unreadable.unwrap();
+            assert!(checked);assert!(pulse.is_ok());
+            assert!(unreadable.snapshot.managed_runtime_records[0]["runner"].is_null());
+            assert!(unreadable.snapshot.managed_runtime_records[0]["failure"].is_string());
+            assert!(unreadable.recheck(&f.m).is_err(),"restoring read access changes the observed custody");
+        }
+        fs::set_permissions(&path,fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&path,b"different invalid runtime ownership record").unwrap();
+        fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();
+        assert_ne!(token(&f.m).unwrap(),token_before);
+        assert!(current.recheck(&f.m).is_err());
+    }
+    #[test]
+    fn ordinary_views_and_offer_admission_defer_payload_tree_and_kit_verification() {
+        use linux_vst_bridge::{preparation as prep, runtime_delivery};
+        let (f, base) = preparation_cli::tests::projection_fixture();
+        let mut sw = preparation_cli::tests::projection_software(&base);
+        let kit_path = f.m.root.join("software/display-only-kit.zip");
+        fs::write(&kit_path, b"not a kit archive").unwrap();
+        fs::set_permissions(&kit_path, fs::Permissions::from_mode(0o400)).unwrap();
+        sw.preparation_kit = Some(Artifact {path:kit_path.clone(),sha256:digest(&kit_path).unwrap()});
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let baseline = prep::enable(&f.m, &base, false).unwrap();
+        let trial = prep::configuration::prepare_settings(&f.m, &base,
+            &ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
+                accessibility:ui::AccessibilityChoice::ProfileDefault}, Some(&baseline)).unwrap();
+        // A default runtime's executable tree is not needed to display the
+        // selected product. Its metadata is readable; execution still refuses.
+        let runtime_path = f.m.root.join("runners").join(runtime_delivery::ID).join("runtime.json");
+        let runtime_dir = runtime_path.parent().unwrap();
+        let artifact = |relative: &str, bytes: &[u8]| {
+            let path = runtime_dir.join(relative);
+            private_dir(path.parent().unwrap()).unwrap();
+            fs::write(&path, bytes).unwrap();
+            Artifact {sha256:digest(&path).unwrap(),path}
+        };
+        let proton = artifact("GE-Proton11-7-x86_64/proton", b"runtime bytes");
+        let entry = artifact("SteamLinuxRuntime_4/_v2-entry-point", b"entry bytes");
+        let tree = artifact("runtime-tree.json", b"[]\n");
+        let runner = Runner {id:runtime_delivery::ID.into(),version:"retained-test".into(),
+            proton:proton.path.clone(),entry_point:entry.path.clone(),
+            files:vec![proton,entry,tree],policy:None};
+        atomic_json(&runtime_path, &json!({"schema":1,"id":runtime_delivery::ID,
+            "downloads":runtime_delivery::downloads(),"runner":runner})).unwrap();
+        fs::set_permissions(&runtime_path, fs::Permissions::from_mode(0o400)).unwrap();
+        assert_eq!(runtime_delivery::installed_identity_records(&f.m).unwrap(),vec![runner.clone()]);
+        assert!(runner.verify().is_err());
+        assert!(runtime_delivery::installed(&f.m).unwrap().is_none());
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let overview = overview(&f.m).unwrap();
+        service.join().unwrap();
+        let current = &overview.current.products[0];
+        assert_eq!(current.details["verification_scope"], "control_records");
+        assert_eq!(current.details["buffering_capacity"], "deferred_to_mutation_or_launch");
+        assert_eq!(current.disposition, "ready");
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let detail = product_detail(&f.m, &base.selection.environment.id,
+            &base.selection.module.sha256, &base.selection.class.id).unwrap();
+        service.join().unwrap();
+        let workflow = detail.product.compatibility.as_ref().unwrap();
+        assert!(matches!(&workflow.primary.as_ref().unwrap().action,
+            ui::Action::CompatibilityResult {candidate,expected_current,..}
+            if *candidate == base.id().unwrap() && expected_current.id == baseline.id
+                && expected_current.sha256 == baseline.sha256));
+        let offer = workflow.alternatives.iter().find(|offer|
+            matches!(&offer.action, ui::Action::CompatibilityPublishTest {candidate,..}
+                if *candidate == trial.id().unwrap())).unwrap();
+        assert!(matches!(&offer.action, ui::Action::CompatibilityPublishTest {candidate,..}
+            if *candidate == trial.id().unwrap()));
+        assert!(offer.disabled_reason.is_none());
+        assert!(detail.product.actions.iter().any(|offer|
+            matches!(offer.action, ui::Action::BufferingSet {added_frames:1024,..})
+                && offer.disabled_reason.is_none() && offer.label.contains("capacity checked")));
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:detail.state_token,
+            action:offer.action.clone()};
+        let db = f.m.registry().unwrap();
+        let selected_native = db.classes[&base.selection.class.id].registration.native.path.clone();
+        for path in [&base.selection.module.path, &base.selection.environment.runner.proton,
+            &base.native.artifact.path, &selected_native] {
+            fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
+            fs::write(path, b"changed executable bytes").unwrap();
+        }
+        let registry = fs::read(f.m.root.join("registry.json")).unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        validate_current_request(&f.m, &request).unwrap();
+        service.join().unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let changed = product_detail(&f.m, &base.selection.environment.id,
+            &base.selection.module.sha256, &base.selection.class.id).unwrap();
+        service.join().unwrap();
+        for key in ["module_valid","runner_valid","native_valid","host_valid"] {
+            assert!(changed.product.details[key].is_null(), "{key} must not claim fresh verification");
+        }
+        for key in ["module_binding_valid","runner_binding_valid","native_binding_valid","host_binding_valid"] {
+            assert_eq!(changed.product.details[key], true, "{key}");
+        }
+        let receipt = dispatch_recorded(&f.m, &request, |id|
+            launch_reserved(&f.m, &request, id, |_| Ok(true))).unwrap();
+        assert!(receipt.accepted, "queue acceptance is distinct from execution");
+        let id = receipt.operation.unwrap();
+        worker_with_capacity(&f.m, &id, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        let result = worker_receipt(&f.m, &id);
+        assert_eq!(result["state"], "refused", "{result}");
+        assert!(result["reason"].as_str().unwrap().contains("artifact missing or changed"), "{result}");
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry);
+        assert_eq!(f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision, Some(baseline));
+        assert!(!f.m.publication_pending(&base.selection.class.id).unwrap());
+        assert!(f.m.resolve(&f.identity()).is_err(), "launch must still verify current executable bytes");
+    }
+    #[test]
+    fn changed_manager_bytes_refuse_before_queue_with_exact_durable_request() {
+        use linux_vst_bridge::preparation as prep;
+        let (f, base) = preparation_cli::tests::projection_fixture();
+        let mut sw = preparation_cli::tests::projection_software(&base);
+        let manager = f.m.root.join("software/current-manager");
+        fs::write(&manager, b"manager generation").unwrap();
+        sw.manager = Artifact {path:manager.clone(),sha256:digest(&manager).unwrap()};
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let baseline = prep::enable(&f.m, &base, false).unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let detail = product_detail(&f.m, &base.selection.environment.id,
+            &base.selection.module.sha256, &base.selection.class.id).unwrap();
+        service.join().unwrap();
+        let offer = detail.product.actions.iter().find(|offer|
+            matches!(offer.action, ui::Action::BufferingSet {added_frames:1024,..})).unwrap();
+        assert!(offer.disabled_reason.is_none());
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:detail.state_token,
+            action:offer.action.clone()};
+        let registry = fs::read(f.m.root.join("registry.json")).unwrap();
+        fs::write(&manager, b"other manager bytes").unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let receipt = dispatch(&f.m, request.clone()).unwrap();
+        service.join().unwrap();
+        assert!(!receipt.accepted);
+        assert_eq!(receipt.refusal.as_deref(), Some("artifact missing or changed"));
+        let id = receipt.operation.unwrap();
+        let dir = job_dir(&f.m, &id).unwrap();
+        assert_eq!(serde_json::to_value(read_json::<ui::Request>(&dir.join("request.json")).unwrap()).unwrap(),
+            serde_json::to_value(&request).unwrap());
+        let result: Value = read_json(&dir.join("result.json")).unwrap();
+        assert_eq!(result["operation"], id);
+        assert_eq!(result["state"], "refused");
+        assert_eq!(result["stage"], "operator_request_admission");
+        assert_eq!(result["worker_started"], false);
+        assert_eq!(result["mutation_started"], false);
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry);
+        assert_eq!(f.m.performance(&base.selection.class.id).unwrap().added_frames, 512);
+        assert_eq!(f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision, Some(baseline));
+    }
+    #[test]
+    fn ordinary_rollback_defers_capacity_then_uses_the_exact_retained_target() {
+        use linux_vst_bridge::preparation as prep;
+        let (f, base) = preparation_cli::tests::projection_fixture();
+        let mut sw = preparation_cli::tests::projection_software(&base);
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let baseline = prep::enable(&f.m, &base, false).unwrap();
+        let trial = prep::configuration::prepare_settings(&f.m, &base,
+            &ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
+                accessibility:ui::AccessibilityChoice::ProfileDefault}, Some(&baseline)).unwrap();
+        let selected = prep::replace(&f.m, &trial, &baseline).unwrap();
+        let performance = f.m.root.join("performance").join(format!("{}.json", base.selection.class.id));
+        private_dir(performance.parent().unwrap()).unwrap();
+        // Simulate a retained 1024 preference while the currently selected
+        // package points at an unrelated 512-only kit. The rollback target's
+        // retained exact kit supports 1024, so mutation must use that target.
+        atomic_json(&performance, &Performance {schema:1,added_frames:1024, delivery_mode:DeliveryMode::Buffered }).unwrap();
+        let native = "fe".repeat(32);
+        let path = f.m.root.join("software/other-selected-kit.zip");
+        let index = json!({"schema":1,"proxies":[{"class_id":base.selection.class.id,
+            "module_sha256":base.selection.module.sha256,"native_sha256":native,
+            "file":"prebuilt/proxy.so"}]}).to_string();
+        let status = Command::new("python3").args(["-I","-c",r#"
+import hashlib,json,sys,zipfile
+index=sys.argv[2].encode()
+with zipfile.ZipFile(sys.argv[1],'w') as archive:
+ archive.writestr('prebuilt/index.json',index)
+ archive.writestr('recipe.json',json.dumps({'schema':3,'files':{
+  'prebuilt/index.json':hashlib.sha256(index).hexdigest(),'prebuilt/proxy.so':sys.argv[3]}}))
+"#]).arg(&path).arg(index).arg(&native).status().unwrap();
+        assert!(status.success());
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        sw.preparation_kit = Some(Artifact {sha256:digest(&path).unwrap(),path});
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let detail = product_detail(&f.m, &base.selection.environment.id,
+            &base.selection.module.sha256, &base.selection.class.id).unwrap();
+        service.join().unwrap();
+        assert_eq!(detail.product.details["added_frames"], 1024);
+        assert_eq!(detail.product.details["performance_valid"], true);
+        assert_eq!(detail.product.details["buffering_capacity"], "deferred_to_mutation_or_launch");
+        let offer = detail.product.actions.iter().find(|offer|
+            matches!(&offer.action, ui::Action::OrdinaryRollback {publication,..}
+                if publication == &baseline.id)).unwrap();
+        assert!(offer.disabled_reason.is_none());
+        assert!(offer.label.contains("capacity checked"));
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:detail.state_token,
+            action:offer.action.clone()};
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        validate_current_request(&f.m, &request).unwrap();
+        service.join().unwrap();
+        let receipt = dispatch_recorded(&f.m, &request, |id|
+            launch_reserved(&f.m, &request, id, |_| Ok(true))).unwrap();
+        let id = receipt.operation.unwrap();
+        worker_with_capacity(&f.m, &id, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        let result = worker_receipt(&f.m, &id);
+        assert_eq!(result["state"], "completed", "{result}");
+        assert_eq!(f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision,
+            Some(baseline));
+        assert_ne!(selected, f.m.registry().unwrap().classes[&base.selection.class.id]
+            .managed_revision.clone().unwrap());
+        assert_eq!(f.m.performance(&base.selection.class.id).unwrap().added_frames, 1024);
+        assert!(!f.m.publication_pending(&base.selection.class.id).unwrap());
+    }
+    #[test]
+    fn current_setup_offer_receives_durable_ack_without_diagnostics_snapshot() {
+        let (fixture, _) = onboarding_worker_fixture();
+        let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
+        let current = overview(&fixture.m).unwrap();
+        service.join().unwrap();
+        let offer = current.current.installer_setups[0].primary.as_ref().unwrap();
+        assert!(matches!(offer.action,ui::Action::SoftwareInstall {..}));
+        assert!(offer.disabled_reason.is_none());
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:current.current.state_token,action:offer.action.clone()};
+        let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
+        let started = Instant::now();
+        let receipt = dispatch_recorded(&fixture.m,&request,|id| {
+            validate_current_request(&fixture.m,&request)?;
+            launch_reserved(&fixture.m,&request,id,|_|Ok(true))
+        }).unwrap();
+        let elapsed = started.elapsed();
+        service.join().unwrap();
+        eprintln!("PB0_SOURCE_SETUP_ACK_MS {}",elapsed.as_millis());
+        assert!(receipt.accepted && receipt.operation.is_some());
+        assert!(elapsed < Duration::from_secs(2),"current Setup acknowledgement took {elapsed:?}");
+        assert_eq!(optional(&fixture.m.root.join("operator/latest.json")).unwrap()["state"],"queued");
+    }
+    #[test]
+    fn product_environment_accepts_retained_uuid_and_hex_identities() {
+        assert!(valid_product_environment(
+            "1de8d28b-d98b-4a41-8462-c07cca8e1609"));
+        assert!(valid_product_environment(
+            "7d8fce354e68595cdc20485f754a892d"));
+        assert!(!valid_product_environment("1de8d28b/../record.json"));
+        assert!(!valid_product_environment(
+            "1de8d28b-d98b-4a41-8462-c07cca8e160z"));
+    }
+    #[test]
+    fn current_product_offer_receives_durable_ack_without_diagnostics_snapshot() {
+        let (fixture, candidate) = preparation_cli::tests::projection_fixture();
+        atomic_json(&fixture.m.root.join("software.json"),
+            &preparation_cli::tests::projection_software(&candidate)).unwrap();
+        let selection = &candidate.selection;
+        let mut installer_bytes=vec![0;1024];
+        installer_bytes[..2].copy_from_slice(b"MZ");
+        installer_bytes[60]=128;
+        installer_bytes[128..132].copy_from_slice(b"PE\0\0");
+        installer_bytes[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        installer_bytes[148]=2;
+        installer_bytes[150]=2;
+        installer_bytes[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+        let installer_path=fixture.outer.join("product-installer.exe");
+        fs::write(&installer_path,installer_bytes).unwrap();
+        let installer=installer_import::import(&fixture.m,file(&installer_path).unwrap()).unwrap();
+        let directory=onboarding::directory(&fixture.m,&selection.environment.id).unwrap();
+        private_dir(&directory).unwrap();
+        atomic_json(&directory.join("record.json"),&onboarding::Record {schema:1,
+            id:selection.environment.id.clone(),installer:installer.id,
+            environment:selection.environment.clone(),created_at:1,
+            creation_operation:"cd".repeat(16),installation_operation:None,
+            published:false,automatic:None,previous_attempt:None}).unwrap();
+        let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
+        let detail = product_detail(&fixture.m, &selection.environment.id,
+            &selection.module.sha256, &selection.class.id).unwrap();
+        service.join().unwrap();
+        assert_eq!(detail.schema, 1);
+        assert_eq!(detail.operator_schema, ui::OPERATOR_SCHEMA);
+        assert!(detail.system.capacity_available());
+        assert_eq!(detail.product.environment, selection.environment.id);
+        assert!(detail.product.compatibility.is_some());
+        let offered = detail.product.actions.iter().find(|offer|
+            matches!(offer.action, ui::Action::PluginReinspect { .. })).unwrap();
+        assert!(offered.disabled_reason.is_none());
+        let mut wrong = offered.action.clone();
+        if let ui::Action::PluginReinspect { audio_layout, .. } = &mut wrong {
+            *audio_layout = Some(profiles::AudioLayoutPolicy::StereoMainPair);
+        }
+        let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
+        let refused = validate_current_request(&fixture.m,&ui::Request {
+            schema:ui::OPERATOR_SCHEMA,state_token:detail.state_token.clone(),action:wrong,
+        }).unwrap_err();
+        service.join().unwrap();
+        assert_eq!(refused.to_string(),"operator_action_not_available");
+        let mut request = ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:detail.state_token,action:offered.action.clone()};
+        let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
+        let started = Instant::now();
+        let receipt = dispatch_recorded(&fixture.m,&request,|id| {
+            validate_current_request(&fixture.m,&request)?;
+            launch_reserved(&fixture.m,&request,id,|_|Ok(true))
+        }).unwrap();
+        let elapsed = started.elapsed();
+        service.join().unwrap();
+        assert!(receipt.accepted && receipt.operation.is_some());
+        assert!(elapsed < Duration::from_secs(2),
+            "current product acknowledgement took {elapsed:?}");
+        assert_eq!(optional(&fixture.m.root.join("operator/latest.json")).unwrap()["state"],"queued");
+        request.state_token = "stale".into();
+        let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
+        assert_eq!(validate_current_request(&fixture.m,&request).unwrap_err().to_string(),
+            "operator_stale_request_refresh");
+        service.join().unwrap();
+        request.schema = 11;
+        assert_eq!(validate_current_request(&fixture.m,&request).unwrap_err().to_string(),
+            "operator_schema_mismatch_update_manager_frontend");
+        // A missing service is a fresh, different capture even when product
+        // and generation identities have not changed.
+        let unavailable = product_detail(&fixture.m, &selection.environment.id,
+            &selection.module.sha256, &selection.class.id).unwrap();
+        assert!(!unavailable.system.capacity_available());
+        let refused = unavailable.product.actions.iter().find(|offer|
+            matches!(offer.action, ui::Action::PluginReinspect { .. })).unwrap();
+        assert!(refused.disabled_reason.as_deref().unwrap().contains("unavailable"));
+    }
+    #[test]
+    fn scoped_ordinary_product_keeps_exact_rollback_offer() {
+        let (fixture, mut profile, census, native) = test_fixture::prepared();
+        let registration = observation::derive(&profile, &census, &native).unwrap();
+        let class = registration.key();
+        let first = fixture.m.managed_publish(&profile, &census, registration.clone(),
+            &census.host, &census.host_source_sha256, None).unwrap();
+        profile.revision += 1;
+        fixture.m.managed_publish(&profile, &census, registration.clone(),
+            &census.host, &census.host_source_sha256, None).unwrap();
+        let catalogue = linux_vst_bridge::catalogue::Catalogue {schema:3,natives:vec![native],
+            environments:vec![census.environment],hosts:vec![],onboarding_runtime:None};
+        let catalogue_path = fixture.m.root.join("software/native-catalogue.json");
+        atomic_json(&catalogue_path,&catalogue).unwrap();
+        let source_path = fixture.r.host.path.with_file_name("host-source-manifest.json");
+        let software = Software {installer_launch:None,preparation_kit:None,
+            operator_frontend:None,manager:fixture.r.host.clone(),
+            supervisor:fixture.r.host.clone(),ownership:fixture.r.host.clone(),
+            host:fixture.r.host.clone(),source_manifest:Artifact {
+                path:source_path,sha256:fixture.r.host_source_sha256.clone()},
+            source_sha256:fixture.r.host_source_sha256.clone(),
+            native_catalogue:Some(Artifact {sha256:digest(&catalogue_path).unwrap(),
+                path:catalogue_path})};
+        atomic_json(&fixture.m.root.join("software.json"),&software).unwrap();
+        let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
+        let detail = product_detail(&fixture.m, &registration.environment.id,
+            &registration.module.sha256, &class).unwrap();
+        service.join().unwrap();
+        let rollback = detail.product.actions.iter().find(|offer|
+            matches!(&offer.action, ui::Action::OrdinaryRollback { publication, .. }
+                if publication == &first.id)).unwrap();
+        assert!(rollback.disabled_reason.is_none());
+        assert!(detail.product.history.iter().any(|entry|
+            entry.publication == first.id && entry.rollback_allowed));
+        assert_eq!(detail.environments.len(),1);
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:detail.state_token,action:rollback.action.clone()};
+        let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
+        validate_current_request(&fixture.m,&request).unwrap();
+        service.join().unwrap();
+        let mut wrong = request;
+        if let ui::Action::OrdinaryRollback {publication,..} = &mut wrong.action {
+            *publication = "ff".repeat(16);
+        }
+        let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
+        assert_eq!(validate_current_request(&fixture.m,&wrong).unwrap_err().to_string(),
+            "operator_action_not_available");
+        service.join().unwrap();
+    }
+    #[test]
+    fn ui1_rename_requires_exact_offered_installer_and_changes_no_custody_record() {
+        let (f, _) = onboarding_worker_fixture();
+        let rows = onboarding::projection(&f.m, None).unwrap();
+        let setups = onboarding::setup_projection(&f.m, &rows, &[]).unwrap();
+        let sha = setups[0].installer.clone();
+        let record_path = f.m.root.join("installers").join(format!("{sha}.json"));
+        let original = fs::read(&record_path).unwrap();
+        let mut view = view("current", action("Refresh", ui::Action::CaptureDisarm {}, None));
+        view.installer_setups = setups;
+        let mut request = ui::Request { schema: ui::OPERATOR_SCHEMA, state_token: "current".into(),
+            action: ui::Action::InstallerRename { installer: sha.clone(), label: "Lunacy Audio".into() } };
+        assert!(validate(&request, &view).is_ok());
+        request.action = ui::Action::InstallerRename { installer: "ff".repeat(32), label: "Other".into() };
+        assert!(validate(&request, &view).is_err());
+        request.action = ui::Action::InstallerRename { installer: sha.clone(), label: "invalid/label".into() };
+        assert!(validate(&request, &view).is_err());
+        installer_import::rename(&f.m, &sha, "Lunacy Audio").unwrap();
+        assert_eq!(fs::read(&record_path).unwrap(), original);
+        assert_eq!(installer_import::presentation(&f.m, &installer_import::load(&f.m, &sha).unwrap())
+            .unwrap().display_label, "Lunacy Audio");
+    }
+    #[test]
+    fn ui1_one_card_tracks_setup_phases_and_exact_discovered_product() {
+        let (f, _) = onboarding_worker_fixture();
+        let imported = onboarding::projection(&f.m, None).unwrap().remove(0);
+        let environment = f.r.environment.id.clone();
+        let mut current = imported.clone();
+        current.environment = Some(environment.clone());
+        current.state = "environment_ready".into();
+        current.actions = vec![action("Run installer", ui::Action::InstallerStart {
+            onboarding: environment.clone() }, None)];
+        let mut rows = vec![imported, current.clone()];
+        let project = |rows: &[ui::Onboarding], products: &[ui::Product]| {
+            let setups = onboarding::setup_projection(&f.m, rows, products).unwrap();
+            assert_eq!(setups.len(), 1);
+            assert_eq!(setups[0].history.len(), 2);
+            setups.into_iter().next().unwrap()
+        };
+        let ready = project(&rows, &[]);
+        assert_eq!(ready.phase, ui::SetupPhase::EnvironmentReady);
+        assert!(matches!(ready.primary.unwrap().action, ui::Action::InstallerStart { .. }));
+        current.state = "running".into();
+        current.actions = vec![action("Focus installer", ui::Action::InstallerFocus {
+            onboarding: environment.clone(), operation: "aa".repeat(16) }, None),
+            action("Stop installer", ui::Action::InstallerStop {
+                onboarding: environment.clone(), operation: "aa".repeat(16) }, None)];
+        rows[1] = current.clone();
+        let running = project(&rows, &[]);
+        assert_eq!(running.phase, ui::SetupPhase::InstallerRunning);
+        assert_eq!(running.secondary.len(), 1);
+        current.state = "completed".into();
+        current.details = json!({"installation":{"state":"completed",
+            "transaction":{"schema":1,"outcome":"installed","durable_installation":"installed"}}});
+        current.actions = vec![action("Scan installed products", ui::Action::InstallerScan {
+            onboarding: environment.clone() }, None)];
+        rows[1] = current.clone();
+        let retired = project(&rows, &[]);
+        assert_eq!(retired.phase, ui::SetupPhase::InstallerRetired);
+        assert_eq!(retired.primary.unwrap().label, "Find installed plug-ins");
+        let class = inventory::Class { id: f.r.metadata.class_id.clone(), name: "BEAM".into(),
+            vendor: "Lunacy Audio".into(), version: "2.3.1".into(), category: "Audio Module Class".into(),
+            subcategories: "Fx".into(), role: "effect".into() };
+        let scan = inventory::Scan { schema: 1, id: "bb".repeat(16),
+            environment: f.r.environment.clone(), host: f.r.host.clone(),
+            host_source_sha256: f.r.host_source_sha256.clone(), completed_at: 1,
+            modules: vec![inventory::Module { artifact: f.r.module.clone(),
+                classes: vec![class], report: f.r.host.clone(),
+                inspection_error: None, quarantine_reason: None }], changes: Default::default() };
+        current.state = "installed_unqualified".into();
+        current.details["scan"] = json!(scan.clone());
+        current.details["previous_attempt"] = Value::Null;
+        current.actions.clear();
+        rows[1] = current.clone();
+        let product = ui::Product { class_id: f.r.metadata.class_id.clone(), name: "BEAM".into(),
+            vendor: "Lunacy Audio".into(), role: "effect".into(), version: "2.3.1".into(),
+            disposition: "installed_unqualified".into(), active_revision: None, recommended_revision: None,
+            environment: environment.clone(), runner: f.r.environment.runner.id.clone(),
+            module_sha256: f.r.module.sha256.clone(), limitations: vec![], history: vec![],
+            actions: vec![], compatibility: None, availability: None, details: Value::Null };
+        let found = project(&rows, std::slice::from_ref(&product));
+        assert_eq!(found.phase, ui::SetupPhase::DiscoveryComplete);
+        assert_eq!(found.discovered.len(), 1);
+        assert_eq!(found.discovered[0].module_sha256, f.r.module.sha256);
+        assert!(found.status.contains("discovery did not publish"));
+        assert!(!found.status.contains("not yet available in Bitwig"));
+        assert!(found.primary.is_none());
+        current.details["installation"] = json!({"state":"failed",
+            "transaction":{"schema":1,"outcome":"partial_installation",
+                "durable_installation":"partial_installation"}});
+        rows[1] = current.clone();
+        let found_after_partial = project(&rows, std::slice::from_ref(&product));
+        assert_eq!(found_after_partial.phase, ui::SetupPhase::DiscoveryComplete);
+        assert_eq!(found_after_partial.discovered[0].module_sha256, f.r.module.sha256);
+        assert!(found_after_partial.primary.is_none());
+        current.details["installation"] = json!({"state":"failed",
+            "transaction":{"schema":1,"outcome":"installed_dependency_failed",
+                "durable_installation":"installed"}});
+        let mut stale_scan = scan.clone();
+        stale_scan.host_source_sha256 = "ef".repeat(32);
+        current.state = "needs_attention".into();
+        current.details["scan"] = json!(stale_scan);
+        current.actions = vec![action("Scan installed products", ui::Action::InstallerScan {
+            onboarding: environment.clone() }, None)];
+        rows[1] = current.clone();
+        let stale = project(&rows, std::slice::from_ref(&product));
+        assert_eq!(stale.phase, ui::SetupPhase::SetupNeedsAttention);
+        assert_eq!(stale.discovered.len(), 1);
+        assert!(matches!(stale.primary.unwrap().action, ui::Action::InstallerScan { .. }));
+        current.actions.clear();
+        rows[1] = current.clone();
+        let managed_stale = project(&rows, std::slice::from_ref(&product));
+        assert!(managed_stale.primary.is_none());
+        assert_eq!(managed_stale.discovered.len(), 1);
+        let mut quarantined_scan = scan;
+        quarantined_scan.modules[0].classes.clear();
+        quarantined_scan.modules[0].quarantine_reason = Some("inventory_factory_absent".into());
+        current.state = "quarantined".into();
+        current.details["scan"] = json!(quarantined_scan);
+        rows[1] = current.clone();
+        let mut quarantined_product = product;
+        quarantined_product.class_id.clear();
+        quarantined_product.disposition = "quarantined".into();
+        let quarantined = project(&rows, std::slice::from_ref(&quarantined_product));
+        assert_eq!(quarantined.phase, ui::SetupPhase::SetupNeedsAttention);
+        assert!(quarantined.status.contains("quarantined"));
+        assert_eq!(quarantined.discovered.len(), 1);
+        assert!(quarantined.discovered[0].class_id.is_empty());
+        assert_eq!(quarantined.discovered[0].module_sha256, f.r.module.sha256);
+        current.state = "cleanup_unconfirmed".into();
+        current.details = Value::Null;
+        rows[1] = current;
+        let blocked = project(&rows, &[]);
+        assert_eq!(blocked.phase, ui::SetupPhase::CleanupUnconfirmed);
+        assert!(blocked.primary.is_none());
+    }
+    pub(super) fn capacity_fixture(m: &Manager) -> Option<CapacityReadback> {
+        // Actual capacity owner and registry read, only the Unix socket is omitted.
+        capacity::status(m, capacity::fixture_limits(), 0, false)
+            .ok()
+            .and_then(|v| serde_json::from_value(serde_json::to_value(v).unwrap()).ok())
+    }
+    #[cfg(feature = "pb0-c0-audit")]
+    #[test]
+    fn audit_observes_normal_publish_test_recorded_dispatch_and_actual_worker() {
+        use linux_vst_bridge::preparation as prep;
+        let (f,base) = preparation_cli::tests::projection_fixture();
+        atomic_json(&f.m.root.join("software.json"),
+            &preparation_cli::tests::projection_software(&base)).unwrap();
+        prep::record_candidate(&f.m,&base).unwrap();
+        let baseline = prep::enable(&f.m,&base,false).unwrap();
+        let trial = prep::configuration::prepare_settings(&f.m,&base,
+            &ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
+                accessibility:ui::AccessibilityChoice::DisabledForHost},Some(&baseline)).unwrap();
+        let service = overview_service_reply(&f.m,capacity_json(false,0,0));
+        let detail = product_detail(&f.m,&base.selection.environment.id,
+            &base.selection.module.sha256,&base.selection.class.id).unwrap();
+        service.join().unwrap();
+        let offer = detail.product.compatibility.as_ref().unwrap().alternatives.iter().find(|offer|
+            matches!(&offer.action, ui::Action::CompatibilityPublishTest {candidate,..}
+                if *candidate == trial.id().unwrap())).unwrap();
+        assert!(matches!(&offer.action,ui::Action::CompatibilityPublishTest {candidate,..}
+            if *candidate == trial.id().unwrap()));
+        assert!(offer.disabled_reason.is_none());
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:detail.state_token,
+            action:offer.action.clone()};
+        let service = overview_service_reply(&f.m,capacity_json(false,0,0));
+        // Reuse recorded dispatch/current authority; only the external service
+        // launch is a deterministic seam, as in existing operator tests.
+        let receipt = dispatch_recorded(&f.m,&request,|id| {
+            timing::measure(Stage::RequestValidation,|| validate_current_request(&f.m,&request))?;
+            launch_reserved(&f.m,&request,id,|_| Ok(true))
+        }).unwrap();
+        service.join().unwrap();
+        assert!(receipt.accepted);
+        let id = receipt.operation.unwrap();
+        worker_with_capacity(&f.m,&id,OPERATOR_WAIT,&|| capacity_fixture(&f.m)).unwrap();
+        let receipt = worker_receipt(&f.m,&id);
+        assert_eq!(receipt["state"],"completed","{receipt}");
+        for (lane,stages) in [
+            ("dispatch",vec!["request_creation","request_validation","current_capture","selected_projection","queued_receipt","worker_launch"]),
+            ("worker",vec!["worker","worker_lock","worker_validation","worker_admission","publication_final_authority","pointer_mutation","registry_mutation","final_receipt"]),
+        ] {
+            let observed:Value = read_json(&job_dir(&f.m,&id).unwrap().join(format!("timing-{lane}.json"))).unwrap();
+            assert_eq!(observed["kind"],"apply");
+            assert_eq!(observed["omitted"],0);
+            let marks = observed["marks"].as_array().unwrap();
+            for stage in stages {
+                assert!(marks.iter().any(|mark|mark["stage"] == stage && mark["edge"] == "returned"),
+                    "{lane} missing completed {stage}: {observed}");
+            }
+        }
+        assert!(f.m.registry().unwrap().classes[&base.selection.class.id].registration.compatibility.disable_windows_accessibility);
+        assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    #[cfg(feature = "pb0-c0-audit")]
+    #[test]
+    fn audit_dispatch_receipt_failure_keeps_durable_request_timing() {
+        let f = test_fixture::Fixture::new();
+        fs::create_dir(f.m.root.join("operator-receipt.lock")).unwrap();
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"private state".into(),
+            action:ui::Action::CompatibilityPublishTest {candidate:"aa".repeat(32),expected_current:None}};
+        let dispatched = std::cell::Cell::new(false);
+        assert!(dispatch_recorded(&f.m,&request,|_| {dispatched.set(true);unreachable!()}).is_err());
+        assert!(!dispatched.get());
+        let directory = fs::read_dir(f.m.root.join("operator")).unwrap().next().unwrap().unwrap().path();
+        assert_eq!(read_json::<ui::Request>(&directory.join("request.json")).unwrap().action,request.action);
+        assert!(!directory.join("result.json").exists());
+        let observed:Value = read_json(&directory.join("timing-dispatch.json")).unwrap();
+        assert_eq!(observed["kind"],"apply");assert_eq!(observed["kind_basis"],"dispatch_request");
+        let marks = observed["marks"].as_array().unwrap();
+        assert!(marks.iter().any(|mark|mark["stage"] == "request_creation" && mark["edge"] == "failed"));
+        assert!(marks.iter().any(|mark|mark["stage"] == "receipt_lock" && mark["edge"] == "scope_exit"));
+        assert!(marks.iter().all(|mark|mark["stage"] != "worker_launch"));
+    }
+    #[cfg(feature = "pb0-c0-audit")]
+    #[test]
+    fn audit_actual_worker_retry_keeps_first_primary_after_receipt_write_failure() {
+        let f = test_fixture::Fixture::new();
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"private state".into(),
+            action:ui::Action::CompatibilityPublishTest {candidate:"aa".repeat(32),expected_current:None}};
+        let id = begin_request(&f.m,&request).unwrap();
+        let directory = job_dir(&f.m,&id).unwrap();
+        let result_before = fs::read(directory.join("result.json")).unwrap();
+        let receipt_lock = f.m.root.join("operator-receipt.lock");
+        fs::remove_file(&receipt_lock).unwrap();
+        fs::create_dir(&receipt_lock).unwrap();
+        assert!(worker_with_capacity(&f.m,&id,OPERATOR_WAIT,&|| panic!("readback cannot begin")).is_err());
+        assert_eq!(fs::read(directory.join("result.json")).unwrap(),result_before);
+        let primary = directory.join("timing-worker.json");
+        let first = fs::read(&primary).unwrap();
+        let observed:Value = serde_json::from_slice(&first).unwrap();
+        assert_eq!(observed["kind"],"apply");assert_eq!(observed["attempt"],"primary");
+        assert_eq!(observed["kind_basis"],"worker_request_read");
+        let marks = observed["marks"].as_array().unwrap();
+        assert!(marks.iter().any(|mark|mark["stage"] == "worker_request_read" && mark["edge"] == "returned"));
+        assert!(marks.iter().any(|mark|mark["stage"] == "receipt_lock" && mark["edge"] == "scope_exit"));
+        assert!(marks.iter().any(|mark|mark["stage"] == "worker" && mark["edge"] == "failed"));
+        assert!(marks.iter().all(|mark|mark["stage"] != "worker_validation"));
+
+        fs::remove_dir(&receipt_lock).unwrap();
+        worker_with_capacity(&f.m,&id,OPERATOR_WAIT,&|| capacity_fixture(&f.m)).unwrap();
+        let receipt = worker_receipt(&f.m,&id);
+        assert_eq!(receipt["state"],"refused","{receipt}");
+        assert!(receipt["reason"].as_str().unwrap().contains("operator_stale_request_refresh"));
+        assert_ne!(fs::read(directory.join("result.json")).unwrap(),result_before);
+        assert_eq!(fs::read(&primary).unwrap(),first,
+            "the first observation stays historical; the canonical receipt owns the retry outcome");
+    }
+    #[cfg(feature = "pb0-c0-audit")]
+    #[test]
+    fn audit_actual_worker_lock_and_receipt_failures_keep_separate_early_attempts() {
+        for lock_failure in [true,false] {
+            let f = test_fixture::Fixture::new();
+            let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"private state".into(),
+                action:ui::Action::CompatibilityPublishTest {candidate:"aa".repeat(32),expected_current:None}};
+            let id = begin_request(&f.m,&request).unwrap();
+            let directory = job_dir(&f.m,&id).unwrap();
+            let canonical = directory.join("timing-worker.json");
+            atomic_json(&canonical,&json!({"retained":"canonical worker trace"})).unwrap();
+            let before = fs::read(&canonical).unwrap();
+            let owned = lock_failure.then(|| f.m.lock(&format!("operator-worker-{id}.lock")).unwrap());
+            if !lock_failure {fs::write(directory.join("result.json"),b"invalid receipt").unwrap();}
+            assert!(worker_with_capacity(&f.m,&id,OPERATOR_WAIT,&|| panic!("readback cannot begin")).is_err());
+            drop(owned);
+            let observed:Value = read_json(&directory.join("timing-worker-early.json")).unwrap();
+            assert_eq!(observed["kind"],"apply");assert_eq!(observed["attempt"],"early");
+            assert_eq!(observed["kind_basis"],"recovered_after_return");
+            let stage = if lock_failure {"worker_lock"} else {"worker_receipt_read"};
+            let marks = observed["marks"].as_array().unwrap();
+            assert!(marks.iter().any(|mark|mark["stage"] == stage && mark["edge"] == "failed"));
+            assert!(marks.iter().all(|mark|mark["stage"] != "worker_request_read"));
+            assert_eq!(fs::read(&canonical).unwrap(),before);
+        }
+    }
+    #[test]
+    fn interrupted_unfamiliar_publication_keeps_the_ordinary_reconcile_offer_reachable() {
+        use linux_vst_bridge::preparation as prep;
+        let (f, candidate) = preparation_cli::tests::projection_fixture();
+        atomic_json(&f.m.root.join("software.json"),
+            &preparation_cli::tests::projection_software(&candidate)).unwrap();
+        prep::record_candidate(&f.m, &candidate).unwrap();
+        let baseline = prep::enable(&f.m, &candidate, false).unwrap();
+        let next = prep::configuration::prepare(&f.m, &candidate,
+            Some(ui::GraphicsBackend::WineD3d11), Some(&baseline)).unwrap();
+        prep::replace(&f.m, &next, &baseline).unwrap();
+        let class = &candidate.selection.class.id;
+        let before = f.m.registry().unwrap().classes[class].clone();
+
+        let sibling_class = capacity::fixture_limits().classes[1].class_id.clone();
+        let session = random_id().unwrap();
+        let report = f.m.root.join("runtime/results").join(format!("windows-{session}.json"));
+        private_dir(report.parent().unwrap()).unwrap();
+        let owner = f.r.environment.root.join("compatdata/pfx/drive_c/bridge/sessions")
+            .join(&session).join("owner.json");
+        private_dir(owner.parent().unwrap()).unwrap();
+        atomic_json(&owner, &json!({"session":session,"report":report,
+            "keeper":false,"inspect":false,"vendor_access":false,
+            "registration":{"metadata":{"class_id":sibling_class}}})).unwrap();
+        let lease = f.m.root.join("runtime/leases").join(format!("{session}.json"));
+        private_dir(lease.parent().unwrap()).unwrap();
+        atomic_json(&lease, &report).unwrap();
+        f.m.rollback(class, &baseline.id,
+            Some(linux_vst_bridge::publication::Boundary::Intent)).unwrap_err();
+        assert!(f.m.publication_pending(class).unwrap());
+        assert_eq!(f.m.registry().unwrap().classes[class], before);
+        let sw = software(&f.m).unwrap();
+        assert!(sw.native_catalogue.is_none());
+        assert!(operator_catalogue(&f.m, &sw, &f.m.registry().unwrap()).is_err());
+        assert!(onboarding::runners(&f.m).is_err());
+
+        // Home and the scoped product view retain the pending configuration
+        // without describing it as ready or granting publication admission.
+        let current = current::capture(&f.m).unwrap();
+        current.recheck(&f.m).unwrap();
+        let product = current.snapshot.products.iter().find(|p| &p.class_id == class).unwrap();
+        assert_eq!(product.disposition, "needs_attention");
+        assert_eq!(product.details["publication_valid"], false);
+        let detail = product_detail(&f.m, &candidate.selection.environment.id,
+            &candidate.selection.module.sha256, class).unwrap();
+        assert_eq!(detail.product.disposition, "needs_attention");
+        assert_eq!(detail.product.details["publication_valid"], false);
+
+        let read = || capacity_fixture(&f.m);
+        let live = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &read).unwrap();
+        assert!(live.system.capacity_available());
+        assert_eq!(live.system.dsp, 1);
+        let product = live.products.iter().find(|p| &p.class_id == class).unwrap();
+        assert_eq!(product.disposition, "needs_attention");
+        assert_eq!(product.details["refusal"]["code"], "recovery_pending");
+        let offer = live.actions.iter().find(|offer|
+            matches!(offer.action, ui::Action::TransactionReconcile {})).unwrap();
+        assert!(offer.disabled_reason.is_none()); // recovery is reachable; its worker checks custody
+        assert!(execute_with_receipt_capacity(&f.m, &offer.action, None, &read).is_err());
+        assert_eq!(capacity::owners(&f.m).unwrap()[0].session, session);
+        assert_eq!(f.m.registry().unwrap().classes[class], before);
+
+        // Supervised fixture retirement confirms cleanup. Ordinary Reconcile
+        // must retire that exact lease before repairing the publication.
+        atomic_json(&report, &json!({"cleanup_confirmed":true,"transport_retired":true})).unwrap();
+        assert_eq!(read().unwrap().dsp, 1);
+        assert_eq!(execute_with_receipt_capacity(&f.m, &offer.action, None, &read).unwrap(),
+            json!({"reconciled":true}));
+        assert!(!lease.exists());
+        // Interrupt again to exercise the ordinary pending-publication offer.
+        f.m.rollback(class, &baseline.id,
+            Some(linux_vst_bridge::publication::Boundary::Intent)).unwrap_err();
+        assert!(rescan(&f.m, &candidate.selection.environment.id).unwrap_err()
+            .to_string().contains("operator_pending_transaction_reconcile"));
+        let retired = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &read).unwrap();
+        assert!(retired.system.capacity_available());
+        assert_eq!(retired.system.dsp, 0);
+        let offer = retired.actions.iter().find(|offer|
+            matches!(offer.action, ui::Action::TransactionReconcile {})).unwrap();
+        assert!(offer.disabled_reason.is_none());
+        validate(&ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:retired.state_token.clone(),action:offer.action.clone()}, &retired).unwrap();
+        assert_eq!(execute_with_receipt_capacity(&f.m, &offer.action, None, &read).unwrap(),
+            json!({"reconciled":true}));
+        assert!(!f.m.publication_pending(class).unwrap());
+        assert_eq!(f.m.registry().unwrap().classes[class], before);
+
+        // A substituted selected link is also inspectable, never ready or
+        // usable as a prerequisite for a new mutation.
+        let link = f.m.link(class);
+        let target = fs::read_link(&link).unwrap();
+        fs::remove_file(&link).unwrap();
+        std::os::unix::fs::symlink(&f.m.root, &link).unwrap();
+        let changed = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &read).unwrap();
+        assert!(changed.system.capacity_available());
+        let product = changed.products.iter().find(|p| &p.class_id == class).unwrap();
+        assert_eq!(product.disposition, "needs_attention");
+        assert_eq!(product.details["publication_valid"], false);
+        assert!(operator_catalogue(&f.m, &sw, &f.m.registry().unwrap()).is_err());
+        assert!(onboarding::runners(&f.m).is_err());
+        assert!(capacity::reserve(&f.m, &capacity::fixture_limits(), Some(class), false).is_err());
+        let detail = product_detail(&f.m, &candidate.selection.environment.id,
+            &candidate.selection.module.sha256, class).unwrap();
+        assert_eq!(detail.product.disposition, "needs_attention");
+        fs::remove_file(&link).unwrap();
+        std::os::unix::fs::symlink(target, &link).unwrap();
+
+        // A missing owner is still an authority gap, even for reconciliation.
+        let unattributed = f.m.root.join("runtime/leases").join(format!("{}.json", "cd".repeat(16)));
+        atomic_json(&unattributed, &report).unwrap();
+        assert!(read().is_none());
+        assert!(snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &read).is_err());
+        assert!(execute_with_receipt_capacity(&f.m, &offer.action, None, &read).is_err());
+    }
+    fn contended_registry<T>(m: &Manager,
+        run: impl FnOnce(std::sync::mpsc::Sender<()>) -> T) -> T {
+        let held = m.lock("registry.lock").unwrap();
+        assert!(matches!(m.try_lock("registry.lock").unwrap(),
+            linux_vst_bridge::operator_lock::LockAttempt::Busy));
+        let (entered, release) = std::sync::mpsc::channel();
+        std::thread::scope(|scope| {
+            scope.spawn(move || {
+                release.recv().unwrap();
+                // Begin the hold window immediately before the intended
+                // acquisition, after unrelated fixture work has finished.
+                std::thread::sleep(Duration::from_millis(200));
+                drop(held);
+            });
+            run(entered)
+        })
+    }
+    fn idle_test_capacity() -> Option<CapacityReadback> {
+        Some(serde_json::from_value(capacity_json(false, 0, 0)["capacity"].clone()).unwrap())
+    }
+    #[test]
+    fn preparation_inspection_admission_waits_for_polling_registry() {
+        let f = test_fixture::Fixture::new();
+        let owner = "ab".repeat(16);
+        let mut waits = vec![];
+        let (job, _, admission) = contended_registry(&f.m, |entered| {
+            preparation_cli::admitted_inspection_spec(&f.m, f.r.clone().into(), || {
+                entered.send(()).unwrap();
+                acquire_readback(
+                    &f.m,
+                    ui::OperatorLock::Registry,
+                    Some(&owner),
+                    Duration::from_secs(2),
+                    &mut waits,
+                )
+            })
+        })
+        .unwrap();
+        assert!(job.inspect && !job.first_audio);
+        assert!(matches!(f.m.try_lock("registry.lock").unwrap(),
+            linux_vst_bridge::operator_lock::LockAttempt::Busy));
+        drop(admission);
+        assert_eq!(waits.len(), 1);
+        assert_eq!(waits[0].name, ui::OperatorLock::Registry);
+        assert_eq!(waits[0].purpose, ui::LockPurpose::OperatorValidationReadback);
+        assert_eq!(waits[0].operation.as_deref(), Some(owner.as_str()));
+        assert!(waits[0].attempts > 1 && waits[0].outcome == ui::LockOutcome::Acquired);
+        assert!(matches!(
+            f.m.try_lock("registry.lock").unwrap(),
+            linux_vst_bridge::operator_lock::LockAttempt::Acquired(_)
+        ));
+    }
+    #[test]
+    fn renderer_preflight_and_suspension_wait_for_polling_then_restore_once() {
+        let (f, _) = onboarding_worker_fixture();
+        let action = ui::Action::RendererOpen {
+            application: "ab".repeat(32), policy: renderer_application::RendererPolicy::SoftwareRendering,
+        };
+        let owner = queued_test_action(&f.m, action.clone());
+        let mut waits = vec![];
+        contended_registry(&f.m, |entered| {
+            entered.send(()).unwrap();
+            require_operator_inactive_with(
+                &f.m, &action, &idle_test_capacity, Some(&owner), Duration::from_secs(2), &mut waits,
+            )
+        }).unwrap();
+        assert!(!f.m.root.join("operator/resume.json").exists());
+        let stops = std::cell::Cell::new(0);
+        contended_registry(&f.m, |entered| {
+            entered.send(()).unwrap();
+            suspend_with(&f.m, &owner, Some(owner.clone()), Duration::from_secs(2), &mut waits,
+                (|| true, || { stops.set(stops.get()+1); Ok(()) }))
+        }).unwrap();
+        assert_eq!(stops.get(), 1);
+        let saved = resume_record(&f.m).unwrap().unwrap();
+        assert_eq!(saved.owner_operation, owner);
+        assert_eq!(saved.vendor_operation.as_deref(), Some(owner.as_str()));
+        assert!(waits.iter().all(|w| w.name == ui::OperatorLock::Registry
+            && w.outcome == ui::LockOutcome::Acquired));
+        assert!(waits.iter().any(|w| w.attempts > 1));
+        assert_eq!(waits.len(), 2);
+        let restores = std::cell::Cell::new(0);
+        for _ in 0..2 {
+            resume_owned_with(&f.m, &owner, |_| { restores.set(restores.get()+1); Ok(()) }).unwrap();
+        }
+        assert_eq!(restores.get(), 1);
+        assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    #[test]
+    fn managed_rescan_revalidates_authority_under_final_registry_custody() {
+        let (f, owner) = onboarding_worker_fixture();
+        let sw = software(&f.m).unwrap();
+        let environment = f.r.environment.id.clone();
+        let stale_snapshot = snapshot_idle_test(&f.m).unwrap();
+        let refresh: Vec<_> = available(&stale_snapshot)
+            .into_iter()
+            .filter(|available| matches!(available.action, ui::Action::EnvironmentRescan { .. }))
+            .collect();
+        assert_eq!(refresh.len(), 1);
+        assert_eq!(
+            refresh[0].action,
+            ui::Action::EnvironmentRescan {
+                environment: environment.clone()
+            }
+        );
+
+        let inventory = f.m.root.join("inventory");
+        private_dir(&inventory).unwrap();
+        let current = inventory.join(format!("{environment}.json"));
+        let history = inventory.join("history");
+        atomic_json(&current, &inventory::Scan {
+            schema: 1,
+            id: "ef".repeat(16),
+            environment: f.r.environment.clone(),
+            host: sw.host.clone(),
+            host_source_sha256: sw.source_sha256.clone(),
+            completed_at: 1,
+            changes: Default::default(),
+            modules: vec![],
+        }).unwrap();
+        let current_snapshot = snapshot_idle_test(&f.m).unwrap();
+        let current_actions = available(&current_snapshot);
+        assert!(current_actions.iter().any(|available|
+            available.action == ui::Action::EnvironmentRescan {environment:environment.clone()}
+                && available.disabled_reason.is_none()));
+        assert!(current_actions
+            .into_iter()
+            .all(|available| !matches!(
+                available.action,
+                ui::Action::InstallerScan { .. }
+            )));
+        fs::remove_file(&current).unwrap();
+        assert!(!history.exists());
+        let publications = test_fixture::snapshot(&f.m.publications);
+
+        let stops = std::cell::Cell::new(0);
+        let mut waits = vec![];
+        suspend_with(
+            &f.m,
+            &owner,
+            None,
+            Duration::from_secs(2),
+            &mut waits,
+            (
+                || true,
+                || {
+                    stops.set(stops.get() + 1);
+                    Ok(())
+                },
+            ),
+        )
+        .unwrap();
+        assert_eq!(stops.get(), 1);
+
+        // This is the competing exact registry update after initial action
+        // validation and suspension, but before the scan owns registry.lock.
+        let registry_path = f.m.root.join("registry.json");
+        let mut changed = f.m.registry().unwrap();
+        changed
+            .classes
+            .values_mut()
+            .find(|entry| entry.registration.environment.id == environment)
+            .unwrap()
+            .registration
+            .environment
+            .revision += 1;
+        atomic_json(&registry_path, &changed).unwrap();
+        let changed_registry = fs::read(&registry_path).unwrap();
+
+        SCAN_SPAWN_COUNT.with(|count| count.set(0));
+        let error = rescan(&f.m, &environment).unwrap_err().to_string();
+        assert_eq!(error, "operator_managed_environment_mismatch");
+        assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get), 0);
+
+        let restores = std::cell::Cell::new(0);
+        resume_owned_with(&f.m, &owner, |saved| {
+            assert!(saved.resume);
+            restores.set(restores.get() + 1);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(restores.get(), 1);
+        assert!(!f.m.root.join("operator/resume.json").exists());
+        assert_eq!(fs::read(&registry_path).unwrap(), changed_registry);
+        assert_eq!(test_fixture::snapshot(&f.m.publications), publications);
+        assert!(!current.exists());
+        assert!(!history.exists());
+    }
+    #[test]
+    fn native_access_restoration_requires_idle_bridge_two_keepers_and_no_resume_owner() {
+        let base=json!({"schema":7,"system":{"service":"active","keepers":2,"dsp":0,"maintenance":0,
+            "ceiling":6,"pending_transactions":0,"stale_transports":0,"cleanup_unconfirmed":false},
+            "capture":{"armed":false,"active_retention":0},"operation":null});
+        let activity:ui::Activity=serde_json::from_value(base.clone()).unwrap();
+        assert_eq!(native_access_restoration_value(&activity,false).unwrap()["pending_resume_owner"],false);
+        assert!(native_access_restoration_value(&activity,true).is_err());
+        for (field,value) in [("service",json!("inactive")),("keepers",json!(1)),("dsp",json!(1)),
+            ("maintenance",json!(1)),("pending_transactions",json!(1)),("stale_transports",json!(1)),
+            ("cleanup_unconfirmed",json!(true))] {
+            let mut bad=base.clone();bad["system"][field]=value;
+            assert!(native_access_restoration_value(&serde_json::from_value(bad).unwrap(),false).is_err());
+        }
+        for (field,value) in [("armed",json!(true)),("active_retention",json!(1))] {
+            let mut bad=base.clone();bad["capture"][field]=value;
+            assert!(native_access_restoration_value(&serde_json::from_value(bad).unwrap(),false).is_err());
+        }
+    }
+    #[test]
+    fn native_access_session_summary_distinguishes_graceful_exact_owned_and_failed_cleanup() {
+        let recovery=json!({"bridge":"active","keepers":2,"dsp_leases":0,"maintenance_leases":0,
+            "pending_transactions":0,"stale_transports":0,"pending_resume_owner":false,"capture":"off"});
+        let graceful=json!({"state":"completed","dependency":{"dependency_cleanup_disposition":"graceful_service_retirement",
+            "service_retirement_confirmed":true,"process_cleanup_confirmed":true,"forced_cleanup_used":false}});
+        assert_eq!(native_access_session_summary(&graceful,&recovery).unwrap()["fresh_session_restartable"],true);
+        let exact=json!({"state":"cancelled","dependency":{"dependency_cleanup_disposition":"exact_owned_session_cleanup",
+            "service_retirement_confirmed":false,"process_cleanup_confirmed":true,"forced_cleanup_used":true,
+            "service_stop_request_count":1,"stop_observation":{"classification":"NAD2_STOP_SUBMITTED_NO_TRANSITION"},
+            "post_cleanup":{"cgroup_empty":true,"exact_daemon_generation_absent":true,"listener_mask":0,
+                "candidate_count":0,"candidate_observation_unavailable":0,"application_image_unchanged":true,
+                "daemon_image_unchanged":true}}});
+        assert_eq!(native_access_session_summary(&exact,&recovery).unwrap()["dependency_cleanup_disposition"],"exact_owned_session_cleanup");
+        let mut unavailable=exact.clone();unavailable["dependency"]["stop_observation"]["classification"]=json!("NAD2_STOP_OBSERVATION_UNAVAILABLE");
+        assert!(native_access_session_summary(&unavailable,&recovery).is_err());
+        let failed=json!({"state":"failed","dependency":{"dependency_cleanup_disposition":"cleanup_unconfirmed"}});
+        assert_eq!(native_access_session_summary(&failed,&recovery).unwrap()["fresh_session_restartable"],false);
+    }
+    #[test]
+    fn renderer_preflight_contention_timeout_never_stops_or_reserves() {
+        let (f, owner) = onboarding_worker_fixture();
+        let held = f.m.lock("registry.lock").unwrap();
+        let action = ui::Action::RendererOpen {
+            application: "ab".repeat(32), policy: renderer_application::RendererPolicy::SoftwareRendering,
+        };
+        let mut waits = vec![];
+        let error = require_operator_inactive_with(&f.m, &action, &idle_test_capacity,
+            Some(&owner), Duration::from_millis(20), &mut waits).unwrap_err();
+        assert!(error.is::<linux_vst_bridge::operator_lock::AcquisitionFailure>());
+        let error = suspend_with(&f.m, &owner, Some(owner.clone()), Duration::from_millis(20), &mut waits,
+            (|| panic!("must not inspect service before lock"), || panic!("must not stop service"))).unwrap_err();
+        assert!(error.is::<linux_vst_bridge::operator_lock::AcquisitionFailure>());
+        assert_eq!(waits.len(), 2);
+        assert!(waits.iter().all(|w| w.outcome == ui::LockOutcome::Timeout));
+        assert!(!f.m.root.join("operator/resume.json").exists());
+        assert!(!f.m.root.join("vendor-applications/native-access/current.json").exists());
+        drop(held);
+    }
+    #[test]
+    fn renderer_preflight_rechecks_durable_owners_after_contention() {
+        let (f, owner) = onboarding_worker_fixture();
+        let sid = "cd".repeat(16);
+        let report = f.m.root.join("runtime/results").join(format!("windows-{sid}.json"));
+        let spec = f.r.environment.root.join("compatdata/pfx/drive_c/bridge/sessions").join(&sid).join("owner.json");
+        private_dir(spec.parent().unwrap()).unwrap();
+        atomic_json(&spec, &json!({"session":sid,"report":report,"keeper":false,"inspect":false,
+            "registration":{"metadata":{"class_id":f.r.key()}}})).unwrap();
+        private_dir(&f.m.root.join("runtime/leases")).unwrap();
+        atomic_json(&f.m.root.join("runtime/leases").join(format!("{sid}.json")), &report).unwrap();
+        let action = ui::Action::RendererOpen {
+            application: "ab".repeat(32), policy: renderer_application::RendererPolicy::SoftwareRendering,
+        };
+        let mut waits = vec![];
+        let error = contended_registry(&f.m, |entered| {
+            entered.send(()).unwrap();
+            require_operator_inactive_with(&f.m, &action, &idle_test_capacity,
+                Some(&owner), Duration::from_secs(2), &mut waits)
+        }).unwrap_err();
+        assert_eq!(error.to_string(), "operator_owners_changed");
+        let error = contended_registry(&f.m, |entered| {
+            entered.send(()).unwrap();
+            suspend_with(&f.m, &owner, Some(owner.clone()), Duration::from_secs(2), &mut waits,
+                (|| panic!("must not inspect service"), || panic!("must not stop service")))
+        }).unwrap_err();
+        assert_eq!(error.to_string(), "active_device_lease");
+        assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    fn worker_receipt(m: &Manager, id: &str) -> Value {
+        read_json(&job_dir(m, id).unwrap().join("result.json")).unwrap()
+    }
+    #[test]
+    fn new_attempt_uses_production_creation_owner_and_preserves_parent() {
+        let (f, first) = onboarding_worker_fixture();
+        let registry_before = fs::read(f.m.root.join("registry.json")).unwrap();
+        let request: ui::Request =
+            read_json(&job_dir(&f.m, &first).unwrap().join("request.json")).unwrap();
+        let v = execute_with_receipt_policy(
+            &f.m,
+            &request.action,
+            Some(&first),
+            &|| capacity_fixture(&f.m),
+            OPERATOR_WAIT,
+            &mut vec![],
+        )
+        .unwrap();
+        let parent = v["onboarding"].as_str().unwrap();
+        let old_op = "cd".repeat(16);
+        let r = onboarding::reserve(&f.m, parent, &old_op).unwrap();
+        let result_path = onboarding::directory(&f.m, parent)
+            .unwrap()
+            .join(format!("{old_op}-result.json"));
+        atomic_json(&result_path,&json!({"schema":2,"operation":old_op,"state":"cancelled","cleanup_confirmed":true,"owned_live":0,"raw_exit":-15})).unwrap();
+        let record_path = onboarding::directory(&f.m, parent)
+            .unwrap()
+            .join("record.json");
+        let before = fs::read(&record_path).unwrap();
+        let before_result = fs::read(&result_path).unwrap();
+        let action = ui::Action::InstallerNewAttempt {
+            previous: parent.into(),
+            runner: onboarding::runner_key(&r.environment.runner).unwrap(),
+        };
+        let next = execute_with_receipt_policy(
+            &f.m,
+            &action,
+            Some(&"ef".repeat(16)),
+            &|| capacity_fixture(&f.m),
+            OPERATOR_WAIT,
+            &mut vec![],
+        )
+        .unwrap();
+        assert_ne!(next["onboarding"], parent);
+        assert_eq!(onboarding::records(&f.m).unwrap().len(), 2);
+        assert_eq!(fs::read(&record_path).unwrap(), before);
+        assert_eq!(fs::read(&result_path).unwrap(), before_result);
+        assert!(execute_with_receipt_policy(
+            &f.m,
+            &action,
+            Some(&"01".repeat(16)),
+            &|| capacity_fixture(&f.m),
+            OPERATOR_WAIT,
+            &mut vec![]
+        )
+        .is_err());
+        assert!(!f.m.root.join("operator/resume.json").exists());
+        assert_eq!(
+            fs::read(f.m.root.join("registry.json")).unwrap(),
+            registry_before
+        );
+    }
+    #[test]
+    fn projection_recheck_refuses_registry_change_during_installer_record_readback() {
+        let (f, _) = onboarding_worker_fixture();
+        let m = Manager::new(f.m.root.clone(), f.m.publications.clone());
+        installer_import::IDENTITY_READ_BARRIER.with(|h| {
+            *h.borrow_mut() = Some(Box::new(move || {
+                let _guard = m.lock("registry.lock").unwrap();
+                let mut db = m.registry().unwrap();
+                db.revision += 1;
+                atomic_json(&m.root.join("registry.json"), &db).unwrap();
+            }))
+        });
+        let result = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &|| {
+            capacity_fixture(&f.m)
+        });
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "operator_state_changed_refresh"
+        );
+    }
+    #[test]
+    fn detail_read_refuses_a_pending_update_that_appears_during_projection() {
+        let (f, _) = onboarding_worker_fixture();
+        let root = f.m.root.clone();
+        // Not part of the state token; the overview's change samples cover it.
+        installer_import::IDENTITY_READ_BARRIER.with(|h| {
+            *h.borrow_mut() = Some(Box::new(move || {
+                private_dir(&root.join("transactions")).unwrap();
+                fs::write(root.join("transactions/fixture.pending.json"), b"{}").unwrap();
+            }))
+        });
+        let result = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &|| {
+            capacity_fixture(&f.m)
+        });
+        assert_eq!(result.unwrap_err().to_string(), "operator_state_changed_refresh");
+    }
+    #[test]
+    fn validation_refuses_a_runtime_change_made_during_its_projection() {
+        // A request validated against the snapshot composes it, deriving the
+        // state token's facts once. The closing token must still see a change.
+        let (f, _) = onboarding_worker_fixture();
+        test_fixture::retained_history(&f, test_fixture::Changes::Runtimes, 1, 2, 0);
+        let change = test_fixture::withheld_runtime_change(&f.m);
+        let request = ui::Request { schema: ui::OPERATOR_SCHEMA, state_token: token(&f.m).unwrap(),
+            action: ui::Action::CaptureDisarm {} };
+        installer_import::IDENTITY_READ_BARRIER.with(|hook| *hook.borrow_mut() = Some(Box::new(change)));
+        assert_eq!(validate_current_request(&f.m, &request).unwrap_err().to_string(),
+            "operator_state_changed_refresh");
+        assert!(installer_import::IDENTITY_READ_BARRIER.with(|hook| hook.borrow().is_none()),
+            "the change was made during the projection");
+        let request = ui::Request { state_token: token(&f.m).unwrap(), ..request };
+        validate_current_request(&f.m, &request).unwrap();
+    }
+    #[test]
+    fn exact_readback_lock_purposes_for_acquisition_and_timeout() {
+        let f = test_fixture::Fixture::new();
+        let id = "ab".repeat(16);
+        for (name, op, purpose) in [
+            (
+                ui::OperatorLock::Canonical,
+                None,
+                ui::LockPurpose::ActionSerialization,
+            ),
+            (
+                ui::OperatorLock::Canonical,
+                Some(id.as_str()),
+                ui::LockPurpose::ActionSerialization,
+            ),
+            (
+                ui::OperatorLock::Registry,
+                None,
+                ui::LockPurpose::OperatorReadback,
+            ),
+            (
+                ui::OperatorLock::Registry,
+                Some(id.as_str()),
+                ui::LockPurpose::OperatorValidationReadback,
+            ),
+        ] {
+            let mut waits = vec![];
+            let guard =
+                acquire_readback(&f.m, name, op, Duration::from_millis(20), &mut waits).unwrap();
+            assert_eq!(waits[0].name, name);
+            assert_eq!(waits[0].purpose, purpose);
+            assert_eq!(waits[0].outcome, ui::LockOutcome::Acquired);
+            assert!(
+                acquire_readback(&f.m, name, op, Duration::from_millis(20), &mut waits).is_err()
+            );
+            assert_eq!(waits[1].name, name);
+            assert_eq!(waits[1].purpose, purpose);
+            assert_eq!(waits[1].outcome, ui::LockOutcome::Timeout);
+            assert!(waits[1].attempts > 1);
+            drop(guard);
+        }
+    }
+    #[test]
+    fn creation_refuses_verified_file_replacement_before_mutation() {
+        for target in ["installer", "runner", "catalogue"] {
+            let (f, id) = onboarding_worker_fixture();
+            let request: ui::Request =
+                read_json(&job_dir(&f.m, &id).unwrap().join("request.json")).unwrap();
+            let ui::Action::InstallerEnvironmentCreate { installer, .. } = &request.action else {
+                unreachable!()
+            };
+            let path = match target {
+                "installer" => {
+                    installer_import::load_record(&f.m, installer)
+                        .unwrap()
+                        .artifact
+                        .path
+                }
+                "runner" => linux_vst_bridge::runtime_delivery::installed_identity_record(&f.m).unwrap().unwrap().proton,
+                _ => software(&f.m).unwrap().native_catalogue.unwrap().path,
+            };
+            let e = execute_with_receipt_capacity(&f.m, &request.action, Some(&id), &|| {
+                let cap = capacity_fixture(&f.m);
+                let replacement = path.with_extension("replacement");
+                fs::copy(&path, &replacement).unwrap();
+                fs::rename(replacement, &path).unwrap();
+                cap
+            })
+            .unwrap_err()
+            .to_string();
+            assert_eq!(e, "onboarding_verified_file_changed");
+            assert!(!f.m.root.join("onboarding").exists());
+            assert!(!f.m.root.join("operator/resume.json").exists());
+        }
+    }
+    fn mutation_contention_case(timeout: bool) {
+        let (f, id) = onboarding_worker_fixture();
+        let m = Manager::new(f.m.root.clone(), f.m.publications.clone());
+        let op = id.clone();
+        let (sampled, arrival) = std::sync::mpsc::channel();
+        let (locked, barrier) = std::sync::mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            let count = std::cell::Cell::new(0);
+            worker_with_capacity(
+                &m,
+                &op,
+                if timeout {
+                    Duration::from_millis(50)
+                } else {
+                    Duration::from_secs(2)
+                },
+                &|| {
+                    let cap = capacity_fixture(&m);
+                    count.set(count.get() + 1);
+                    // Validation completed. Sample the real capacity owner, then
+                    // arrange independent registry contention before mutation.
+                    if count.get() == 2 {
+                        sampled.send(()).unwrap();
+                        barrier.recv_timeout(Duration::from_secs(3)).unwrap();
+                    }
+                    cap
+                },
+            )
+        });
+        arrival.recv_timeout(Duration::from_secs(3)).unwrap();
+        let guard = f.m.lock("registry.lock").unwrap();
+        locked.send(()).unwrap();
+        if !timeout {
+            std::thread::sleep(Duration::from_millis(40));
+            drop(guard);
+            thread.join().unwrap().unwrap();
+        } else {
+            thread.join().unwrap().unwrap();
+            drop(guard);
+        }
+        let receipt = worker_receipt(&f.m, &id);
+        let admissions: Vec<_> = receipt["lock_waits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|v| v["purpose"] == "environment_creation_admission")
+            .collect();
+        assert_eq!(
+            admissions.len(),
+            1,
+            "one mutation acquisition, no reacquisition: {receipt}"
+        );
+        assert_eq!(admissions[0]["name"], "registry.lock");
+        assert_eq!(admissions[0]["operation"], id);
+        assert!(admissions[0]["attempts"].as_u64().unwrap() > 1);
+        for wait in receipt["lock_waits"].as_array().unwrap() {
+            if wait["name"] == "operator-canonical.lock" {
+                assert_eq!(wait["purpose"], "action_serialization");
+            } else if wait["purpose"] != "environment_creation_admission" {
+                assert_eq!(wait["purpose"], "operator_validation_readback");
+            }
+        }
+        if timeout {
+            assert_eq!(receipt["state"], "refused");
+            assert_eq!(admissions[0]["outcome"], "timeout");
+            let failure: ui::OperationFailure =
+                serde_json::from_value(receipt["failure"].clone()).unwrap();
+            assert_eq!(
+                failure.stage,
+                ui::FailureStage::EnvironmentCreationAdmission
+            );
+            assert_eq!(failure.code, ui::FailureCode::RegistryLockTimeout);
+            assert!(
+                failure.retryable
+                    && !failure.mutation_started
+                    && !failure.environment_created
+                    && !failure.installer_launched
+            );
+            assert_eq!(failure.lock.holder, ui::LockHolder::Unknown);
+            assert!(!f.m.root.join("onboarding").exists());
+            let snap = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &|| {
+                capacity_fixture(&f.m)
+            })
+            .unwrap();
+            assert_eq!(snap.onboarding[0].failure.as_ref(), Some(&failure));
+        } else {
+            assert_eq!(receipt["state"], "completed", "{receipt}");
+            assert_eq!(admissions[0]["outcome"], "acquired");
+            let records = onboarding::records(&f.m).unwrap();
+            assert_eq!(records.len(), 1);
+            assert_eq!(records[0].creation_operation, id);
+            assert!(records[0].installation_operation.is_none());
+            assert!(!records[0].published);
+        }
+        assert!(!f.m.root.join("operator/resume.json").exists());
+        worker_with_capacity(&f.m, &id, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        assert_eq!(
+            worker_receipt(&f.m, &id),
+            receipt,
+            "same terminal operation cannot run twice"
+        );
+    }
+    #[test]
+    fn mutation_wait_continues_same_operation_under_one_guard() {
+        mutation_contention_case(false);
+    }
+    #[test]
+    fn mutation_timeout_is_structured_without_environment_or_launch() {
+        mutation_contention_case(true);
+    }
+    #[test]
+    fn preworker_refusal_is_durable_and_bound_to_installer_without_mutation() {
+        let (f, old) = onboarding_worker_fixture();
+        let request: ui::Request =
+            read_json(&job_dir(&f.m, &old).unwrap().join("request.json")).unwrap();
+        let _busy = f.m.lock("operator-dispatch.lock").unwrap();
+        let reply = dispatch(&f.m, request).unwrap();
+        assert!(!reply.accepted);
+        assert_eq!(reply.refusal.as_deref(), Some(linux_vst_bridge::operator_lock::BUSY_SENTENCE));
+        let id = reply.operation.unwrap();
+        assert_ne!(id, old);
+        let result = worker_receipt(&f.m, &id);
+        assert_eq!(result["state"], "refused");
+        assert_eq!(result["stage"], "operator_request_admission");
+        assert_eq!(result["worker_started"], false);
+        assert_eq!(result["mutation_started"], false);
+        assert!(!f.m.root.join("onboarding").exists());
+        assert!(!f.m.root.join("operator/resume.json").exists());
+        write_operation(
+            &f.m,
+            &old,
+            &json!({"schema":1,"operation":old,"state":"refused","reason":"late old error"}),
+            false,
+        )
+        .unwrap();
+        assert_eq!(
+            optional(&f.m.root.join("operator/latest.json")).unwrap(),
+            result
+        );
+        let snapshot = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &|| {
+            capacity_fixture(&f.m)
+        })
+        .unwrap();
+        assert_eq!(
+            snapshot.onboarding[0].details["request_result"]["operation"],
+            id
+        );
+        assert_eq!(
+            snapshot.onboarding[0].details["request_result"]["worker_started"],
+            false
+        );
+    }
+    #[test]
+    fn admission_interruption_never_claims_a_queued_or_running_worker() {
+        let (f, old) = onboarding_worker_fixture();
+        let request: ui::Request =
+            read_json(&job_dir(&f.m, &old).unwrap().join("request.json")).unwrap();
+        let id = begin_request(&f.m, &request).unwrap();
+        let result = worker_receipt(&f.m, &id);
+        assert_eq!(result["state"], "unconfirmed");
+        assert_eq!(result["worker_started"], false);
+        assert!(!f.m.root.join("onboarding").exists());
+        let newer = begin_request(&f.m, &request).unwrap();
+        refuse_unfinished(&f.m, &id, "late admission failure").unwrap();
+        assert_eq!(
+            optional(&f.m.root.join("operator/latest.json")).unwrap()["operation"],
+            newer
+        );
+    }
+    #[test]
+    fn installer_record_projection_leaves_registry_available() {
+        let (f, _) = onboarding_worker_fixture();
+        let m = Manager::new(f.m.root.clone(), f.m.publications.clone());
+        let (entered, arrival) = std::sync::mpsc::channel();
+        let (release, barrier) = std::sync::mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            installer_import::IDENTITY_READ_BARRIER.with(|h| {
+                *h.borrow_mut() = Some(Box::new(move || {
+                    entered.send(()).unwrap();
+                    barrier.recv_timeout(Duration::from_secs(3)).unwrap();
+                }))
+            });
+            snapshot_for_operation(&m, None, Duration::from_secs(1), &mut vec![], &|| {
+                capacity_fixture(&m)
+            })
+            .map_err(|e| e.to_string())
+        });
+        arrival.recv_timeout(Duration::from_secs(3)).unwrap();
+        let acquired = f.m.lock("registry.lock");
+        let available = acquired.is_ok();
+        drop(acquired);
+        release.send(()).unwrap();
+        let result = thread.join().unwrap();
+        assert!(
+            available,
+            "installer record readback blocked registry authority"
+        );
+        result.unwrap();
+    }
+    #[test]
+    fn terminated_worker_preserves_acquired_wait_context_and_first_terminal() {
+        let (f, id) = onboarding_worker_fixture();
+        let (_, facts) =
+            f.m.lock_bounded(
+                ui::OperatorLock::Registry,
+                ui::LockPurpose::OperatorValidationReadback,
+                Some(&id),
+                Duration::from_millis(40),
+            )
+            .unwrap();
+        let waits = json!([facts]);
+        write_operation(
+            &f.m,
+            &id,
+            &json!({"schema":1,"operation":id,"state":"running","lock_waits":waits}),
+            false,
+        )
+        .unwrap();
+        refuse_unfinished(&f.m, &id, "operator_worker_terminated").unwrap();
+        let terminal = worker_receipt(&f.m, &id);
+        assert_eq!(terminal["lock_waits"], waits);
+        write_operation(
+            &f.m,
+            &id,
+            &json!({"schema":1,"operation":id,"state":"completed"}),
+            false,
+        )
+        .unwrap();
+        assert_eq!(worker_receipt(&f.m, &id), terminal);
+    }
+    #[test]
+    fn environment_worker_timeout_is_structured_retryable_and_never_mutates() {
+        let (f, id) = onboarding_worker_fixture();
+        let registry = f.m.lock("registry.lock").unwrap();
+        // Exercise this worker's registry deadline independently of the
+        // service's separately bounded capacity-readback wait.
+        worker_with_capacity(&f.m, &id, Duration::from_millis(40), &|| None)
+        .unwrap();
+        let receipt = worker_receipt(&f.m, &id);
+        assert_eq!(receipt["state"], "refused");
+        let failure: ui::OperationFailure =
+            serde_json::from_value(receipt["failure"].clone()).unwrap();
+        assert_eq!(failure.code, ui::FailureCode::RegistryLockTimeout);
+        assert!(
+            failure.retryable
+                && !failure.mutation_started
+                && !failure.environment_created
+                && !failure.installer_launched
+        );
+        assert_eq!(failure.lock.name, ui::OperatorLock::Registry);
+        assert_eq!(
+            failure.lock.purpose,
+            ui::LockPurpose::OperatorValidationReadback
+        );
+        assert_eq!(failure.lock.operation.as_deref(), Some(id.as_str()));
+        assert_eq!(failure.lock.holder, ui::LockHolder::Unknown);
+        assert!(failure.lock.attempts >= 2);
+        assert!(!f.m.root.join("onboarding").exists());
+        assert!(!f.m.root.join("operator/resume.json").exists());
+        drop(registry);
+        // A duplicate worker/late ExecStopPost cannot rerun or overwrite terminal custody.
+        worker_with_capacity(&f.m, &id, Duration::from_millis(40), &|| {
+            capacity_fixture(&f.m)
+        })
+        .unwrap();
+        refuse_unfinished(&f.m, &id, "late hook").unwrap();
+        assert_eq!(worker_receipt(&f.m, &id), receipt);
+        let snapshot = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &|| {
+            capacity_fixture(&f.m)
+        })
+        .unwrap();
+        assert_eq!(snapshot.onboarding.len(), 1);
+        assert_eq!(snapshot.onboarding[0].failure.as_ref(), Some(&failure));
+        assert!(snapshot.onboarding[0]
+            .actions
+            .iter()
+            .all(|a| a.disabled_reason.is_none()));
+    }
+    #[test]
+    fn environment_worker_waits_then_creates_once_and_keeps_wait_receipt() {
+        let (f, id) = onboarding_worker_fixture();
+        let registry = f.m.lock("registry.lock").unwrap();
+        let m = Manager::new(f.m.root.clone(), f.m.publications.clone());
+        let op = id.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            let first = std::cell::Cell::new(true);
+            worker_with_capacity(&m, &op, Duration::from_secs(2), &|| {
+                // An unavailable first read must still reach the worker's
+                // registry wait and resample after contention clears.
+                if first.replace(false) {
+                    tx.send(()).unwrap();
+                    None
+                } else {
+                    capacity_fixture(&m)
+                }
+            })
+        });
+        rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        std::thread::sleep(Duration::from_millis(30));
+        drop(registry);
+        thread.join().unwrap().unwrap();
+        let receipt = worker_receipt(&f.m, &id);
+        assert_eq!(receipt["state"], "completed", "{receipt}");
+        assert!(receipt["lock_waits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|w| w["name"] == "registry.lock"
+                && w["attempts"].as_u64().unwrap() > 1
+                && w["outcome"] == "acquired"));
+        let records = onboarding::records(&f.m).unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].creation_operation, id);
+        assert!(records[0].installation_operation.is_none());
+        assert!(!records[0].published);
+        worker_with_capacity(&f.m, &id, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        assert_eq!(onboarding::records(&f.m).unwrap().len(), 1);
+        assert_eq!(worker_receipt(&f.m, &id), receipt);
+        assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    #[test]
+    fn state_change_during_wait_refuses_original_request_without_mutation() {
+        let (f, id) = onboarding_worker_fixture();
+        let registry = f.m.lock("registry.lock").unwrap();
+        let m = Manager::new(f.m.root.clone(), f.m.publications.clone());
+        let op = id.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            worker_with_capacity(&m, &op, Duration::from_secs(2), &|| {
+                let _ = tx.send(());
+                capacity_fixture(&m)
+            })
+        });
+        rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        let mut db = f.m.registry().unwrap();
+        db.revision += 1;
+        atomic_json(&f.m.root.join("registry.json"), &db).unwrap();
+        drop(registry);
+        thread.join().unwrap().unwrap();
+        let r = worker_receipt(&f.m, &id);
+        assert_eq!(r["state"], "refused");
+        assert_eq!(
+            r["reason"],
+            "Operator validation readback: operator_stale_request_refresh"
+        );
+        assert!(!f.m.root.join("onboarding").exists());
+        assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    /// The fixture's setup creation as the window requests it: from Home's
+    /// offer and token, accepted with what it acts on recorded (#382).
+    fn accepted_setup_creation(f: &test_fixture::Fixture, queued: &str) -> String {
+        let queued: ui::Request = read_json(&job_dir(&f.m, queued).unwrap().join("request.json")).unwrap();
+        let _service = idle_service(&f.m);
+        let home = current_overview(&f.m).unwrap().current;
+        let offered = available(&home).into_iter().find(|offer| offer.action == queued.action)
+            .unwrap_or_else(|| panic!("setup creation not offered: {:#?}", available(&home)));
+        assert_eq!(offered.disabled_reason, None);
+        let request = ui::Request { state_token: home.state_token.clone(), ..queued };
+        let receipt = test_accept(&f.m, &request).unwrap();
+        assert!(receipt.accepted, "{:?}", receipt.refusal);
+        assert!(job_dir(&f.m, receipt.operation.as_ref().unwrap()).unwrap().join("preconditions.json").exists());
+        receipt.operation.unwrap()
+    }
+    fn setup_creation_fixture() -> (test_fixture::Fixture, String) {
+        let (f, queued) = onboarding_worker_fixture();
+        // The fixture's own request was queued without admission; it ends.
+        refuse_unfinished(&f.m, &queued, "fixture").unwrap();
+        (f, queued)
+    }
+    #[test]
+    fn an_accepted_setup_creation_runs_after_an_unrelated_registry_change() {
+        // #382. Before its worker runs, a record it does not act on changes:
+        // here the plug-in registry's revision. Its worker creates the setup.
+        let (f, queued) = setup_creation_fixture();
+        let id = accepted_setup_creation(&f, &queued);
+        let mut db = f.m.registry().unwrap();
+        db.revision += 1;
+        atomic_json(&f.m.root.join("registry.json"), &db).unwrap();
+        worker_with_capacity(&f.m, &id, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        let r = worker_receipt(&f.m, &id);
+        assert_eq!(r["state"], "completed", "{r:#}");
+        assert_eq!(onboarding::history_records(&f.m).unwrap().len(), 1);
+    }
+    #[test]
+    fn an_accepted_setup_creation_is_refused_by_name_once_its_installer_has_a_setup() {
+        // #382. Two creations from the same Home are accepted; the first to
+        // run makes the installer's setup, so the second no longer applies.
+        // It is refused by what changed, and makes no second setup.
+        let (f, queued) = setup_creation_fixture();
+        let first = accepted_setup_creation(&f, &queued);
+        let second = accepted_setup_creation(&f, &queued);
+        worker_with_capacity(&f.m, &first, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        assert_eq!(worker_receipt(&f.m, &first)["state"], "completed");
+        worker_with_capacity(&f.m, &second, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        let r = worker_receipt(&f.m, &second);
+        assert_eq!(r["state"], "refused", "{r:#}");
+        assert_eq!(r["precondition"], "installer_setups", "{r:#}");
+        assert_eq!(r["reason"], "The setups made from this installer changed after you chose this. \
+            Look at them again, then choose again.");
+        assert_eq!(onboarding::history_records(&f.m).unwrap().len(), 1);
+    }
+    #[test]
+    fn snapshot_capacity_and_creation_complete_without_reverse_wait_or_latest_theft() {
+        let (f, id) = onboarding_worker_fixture();
+        let registry = f.m.lock("registry.lock").unwrap();
+        let a = Manager::new(f.m.root.clone(), f.m.publications.clone());
+        let b = Manager::new(f.m.root.clone(), f.m.publications.clone());
+        let op = id.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let (release_worker, worker_gate) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let first = std::cell::Cell::new(true);
+            worker_with_capacity(&a, &op, OPERATOR_WAIT, &|| {
+                if first.replace(false) {
+                    tx.send(()).unwrap();
+                    worker_gate.recv_timeout(OPERATOR_WAIT).unwrap();
+                }
+                capacity_fixture(&a)
+            })
+        });
+        rx.recv_timeout(OPERATOR_WAIT).unwrap();
+        // Newer receipt is projection authority, regardless of A's late completion.
+        let newer = "fe".repeat(16);
+        private_dir(&job_dir(&f.m, &newer).unwrap()).unwrap();
+        let latest = json!({"schema":1,"operation":newer,"state":"queued"});
+        write_operation(&f.m, &newer, &latest, true).unwrap();
+        let (capacity_sampled, capacity_ready) = std::sync::mpsc::channel();
+        let (projecting, projection_ready) = std::sync::mpsc::channel();
+        let (release_snapshot, projection_gate) = std::sync::mpsc::channel();
+        let snapshot = std::thread::spawn(move || {
+            installer_import::IDENTITY_READ_BARRIER.with(|hook| {
+                *hook.borrow_mut() = Some(Box::new(move || {
+                    projecting.send(()).unwrap();
+                    projection_gate.recv_timeout(OPERATOR_WAIT).unwrap();
+                }));
+            });
+            let mut waits = vec![];
+            let result = snapshot_for_operation(&b, None, OPERATOR_WAIT, &mut waits, &|| {
+                let _ = capacity_sampled.send(());
+                capacity_fixture(&b)
+            });
+            (result, waits)
+        });
+        // Capacity must be sampled without registry.lock; the snapshot then
+        // releases that lock before projection, allowing creation to complete.
+        capacity_ready.recv_timeout(OPERATOR_WAIT).unwrap();
+        drop(registry);
+        projection_ready.recv_timeout(OPERATOR_WAIT).unwrap();
+        release_worker.send(()).unwrap();
+        worker.join().unwrap().unwrap();
+        release_snapshot.send(()).unwrap();
+        let (result, waits) = snapshot.join().unwrap();
+        // An optimistic read spanning real creation must refuse mixed state.
+        assert_eq!(result.unwrap_err().to_string(), "operator_state_changed_refresh");
+        let fresh = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &|| {
+            capacity_fixture(&f.m)
+        }).unwrap();
+        assert_eq!(fresh.state_token, token(&f.m).unwrap());
+        assert_eq!(fresh.onboarding.len(), 1);
+        assert_eq!(fresh.operation.as_ref().unwrap()["operation"], newer);
+        assert!(waits.iter().all(|wait| wait.name != ui::OperatorLock::Canonical));
+        assert_eq!(worker_receipt(&f.m, &id)["state"], "completed");
+        assert_eq!(
+            optional(&f.m.root.join("operator/latest.json")).unwrap(),
+            latest
+        );
+        assert_eq!(onboarding::records(&f.m).unwrap().len(), 1);
+    }
+    #[test]
+    fn status_details_never_wait_for_an_action_but_a_worker_validation_does() {
+        let (f, id) = onboarding_worker_fixture();
+        // An action, or a connection check inside one, owns serialization.
+        let _action = canonical_lock(&f.m).unwrap();
+        let mut waits = vec![];
+        snapshot_for_operation(&f.m, None, Duration::from_millis(200), &mut waits,
+            &|| capacity_fixture(&f.m)).unwrap();
+        assert!(waits.iter().all(|wait| wait.name != ui::OperatorLock::Canonical), "{waits:?}");
+        // A worker validating its own request is still serialized with it.
+        let error = snapshot_for_operation(&f.m, Some(&id), Duration::from_millis(50), &mut vec![],
+            &|| capacity_fixture(&f.m)).unwrap_err();
+        let failure = error.downcast_ref::<linux_vst_bridge::operator_lock::AcquisitionFailure>().unwrap();
+        assert_eq!((failure.facts.name, failure.facts.outcome),
+            (ui::OperatorLock::Canonical, ui::LockOutcome::Timeout));
+    }
+    #[test]
+    fn readback_and_action_entry_share_one_bounded_lock_without_repeating_action() {
+        let f = test_fixture::Fixture::new();
+        let held = canonical_lock(&f.m).unwrap();
+        let root = f.m.root.clone();
+        let publications = f.m.publications.clone();
+        let entered = Arc::new(AtomicBool::new(false));
+        let after = entered.clone();
+        let child = std::thread::spawn(move || {
+            let m = Manager::new(root, publications);
+            let _guard = canonical_lock(&m).unwrap();
+            after.store(true, Ordering::SeqCst);
+        });
+        std::thread::sleep(Duration::from_millis(75));
+        assert!(!entered.load(Ordering::SeqCst));
+        drop(held);
+        child.join().unwrap();
+        assert!(entered.load(Ordering::SeqCst));
+    }
+    #[test]
+    fn software_and_registry_both_invalidate_an_operator_request_token() {
+        let f = test_fixture::Fixture::new();
+        atomic_json(&f.m.root.join("software.json"), &json!({"generation":1})).unwrap();
+        let a = token(&f.m).unwrap();
+        atomic_json(&f.m.root.join("software.json"), &json!({"generation":2})).unwrap();
+        let b = token(&f.m).unwrap();
+        assert_ne!(a, b);
+        let mut db = f.m.registry().unwrap();
+        db.revision += 1;
+        atomic_json(&f.m.root.join("registry.json"), &db).unwrap();
+        assert_ne!(b, token(&f.m).unwrap());
+    }
+}
+
+#[cfg(test)]
+mod renderer_lifetime_regression {
+    use super::*;
+    #[test]
+    fn long_normal_session_keeps_recovery_owner_until_exact_retirement() {
+        let mut observations=0;let mut waits=0;
+        wait_renderer_retirement(|| {observations+=1;Ok(observations==2001)},||waits+=1).unwrap();
+        assert_eq!(waits,2000); // More polls than the former 650-second/500ms cap.
+        let mut waits=0;
+        assert!(wait_renderer_retirement(||Err("exact_probe_failed".into()),||waits+=1).is_err());
+        assert_eq!(waits,0);
+    }
+}
+
+#[cfg(test)]
+mod dead_worker_reconciliation {
+    use super::*;
+    fn request() -> ui::Request {
+        ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"t".into(),action:ui::Action::CaptureDisarm {}}
+    }
+    fn operation(m: &Manager, state: &str) -> String {
+        let id = launch_queued(m, &request(), |_| Ok(true)).unwrap().operation.unwrap();
+        write_operation(m, &id, &json!({"schema":1,"operation":id,"state":state}), false).unwrap();
+        id
+    }
+    fn receipt(m: &Manager, id: &str) -> Value {
+        optional(&job_dir(m, id).unwrap().join("result.json")).unwrap()
+    }
+    #[test]
+    fn runtime_progress_preserves_control_generation_and_terminal_receipts() {
+        let f = test_fixture::Fixture::new();
+        let id = operation(&f.m, "running");
+        let original = receipt(&f.m, &id);
+        let generation = pulse_generation(&f.m).unwrap();
+        verification_progress(&f.m, &id, Some((3, 10))).unwrap();
+        assert_eq!(pulse_generation(&f.m).unwrap(), generation);
+        assert_eq!(receipt(&f.m, &id), original);
+        let mut shown = Some(original.clone());
+        present_verification_progress(&f.m, &mut shown);
+        assert_eq!(shown.unwrap()["runtime_verification"]["checked"], 3);
+        verification_progress(&f.m, &id, Some((4, 10))).unwrap();
+        assert_eq!(pulse_generation(&f.m).unwrap(), generation);
+        verification_progress(&f.m, &id, None).unwrap();
+        assert_eq!(pulse_generation(&f.m).unwrap(), generation);
+        let mut shown = Some(original.clone());
+        present_verification_progress(&f.m, &mut shown);
+        assert_eq!(shown.unwrap(), original);
+        write_operation(&f.m, &id, &json!({"schema":1,"operation":id,"state":"completed"}), false).unwrap();
+        let completed = receipt(&f.m, &id);
+        verification_progress(&f.m, &id, Some((5, 10))).unwrap();
+        let mut shown = Some(completed.clone());
+        present_verification_progress(&f.m, &mut shown);
+        assert_eq!(shown.unwrap(), completed);
+        assert_eq!(receipt(&f.m, &id), completed);
+    }
+    fn suspend_for(m: &Manager, owner: &str) {
+        let _resume = resume_lock(m).unwrap();
+        create_resume(m, &ResumeRecord {schema:2,owner_operation:owner.into(),resume:true,
+            software:"ab".repeat(32),vendor_operation:None}).unwrap();
+    }
+    /// Check that it closed (or Finish checking) on an uninstaller takes over
+    /// the pause the uninstaller's ended action still holds, so the bridge
+    /// stays paused for the re-check and only the check releases it; after
+    /// a restart that started the bridge again, it is stopped again.
+    #[test]
+    fn a_close_check_takes_over_the_uninstallers_pause() {
+        let f = test_fixture::Fixture::new();
+        let queued_test_action = |m: &Manager, action: ui::Action| launch_queued(m, &ui::Request {schema: ui::OPERATOR_SCHEMA,
+            state_token: "fixture".into(), action}, |_| Ok(true)).unwrap().operation.unwrap();
+        let uninstaller = queued_test_action(&f.m, ui::Action::TransactionReconcile {});
+        let check = queued_test_action(&f.m, ui::Action::InstallerCloseCheck {operation: uninstaller.clone()});
+        {
+            let _resume = resume_lock(&f.m).unwrap();
+            create_resume(&f.m, &ResumeRecord {schema:2,owner_operation:uninstaller.clone(),resume:false,
+                software:"ab".repeat(32),vendor_operation:None}).unwrap();
+        }
+        let stops = std::cell::Cell::new(0);
+        take_pause_with(&f.m, &uninstaller, &check, Duration::from_secs(2), &mut vec![],
+            (|| true, || { stops.set(stops.get()+1); Ok(()) })).unwrap();
+        assert_eq!(stops.get(), 1, "the bridge running again after a restart is stopped again");
+        let saved = resume_record(&f.m).unwrap().unwrap();
+        assert_eq!((saved.owner_operation.as_str(), saved.resume), (check.as_str(), true));
+        let restores = std::cell::Cell::new(0);
+        resume_owned_with(&f.m, &uninstaller, |_| { restores.set(restores.get()+1); Ok(()) }).unwrap();
+        assert_eq!(restores.get(), 0, "the uninstaller's ending no longer releases it");
+        resume_owned_with(&f.m, &check, |_| { restores.set(restores.get()+1); Ok(()) }).unwrap();
+        assert_eq!(restores.get(), 1);
+        // Another operation's pause is never taken.
+        let other = queued_test_action(&f.m, ui::Action::TransactionReconcile {});
+        suspend_for(&f.m, &other);
+        assert_eq!(take_pause_with(&f.m, &uninstaller, &check, Duration::from_secs(2), &mut vec![],
+            (|| false, || Ok(()))).unwrap_err().to_string(), "operator_resume_pending");
+        assert_eq!(resume_record(&f.m).unwrap().unwrap().owner_operation, other);
+    }
+    #[test]
+    fn only_stopped_worker_units_are_finished_and_their_service_restored() {
+        let f = test_fixture::Fixture::new();
+        let dead = operation(&f.m, "vendor_running");
+        let live = operation(&f.m, "running");
+        let unknown = operation(&f.m, "waiting");
+        let held = operation(&f.m, "submission_uncertain");
+        let queued = operation(&f.m, "queued");
+        let unconfirmed = begin_request(&f.m, &request()).unwrap();
+        suspend_for(&f.m, &dead);
+        let untouched = [&live, &unknown, &held, &queued, &unconfirmed];
+        let before: Vec<Value> = untouched.iter().map(|id| receipt(&f.m, id)).collect();
+        let worker = f.m.lock(&format!("operator-worker-{held}.lock")).unwrap();
+        let dispatch = f.m.lock("operator-dispatch.lock").unwrap();
+        let unit = |id: &str| -> Result<bool> {
+            if id == live { Ok(true) } else if id == unknown { Err("readiness_unit_state_unavailable".into()) } else { Ok(false) }
+        };
+        let mut restored = vec![];
+        let failures = reconcile_dead_workers_with(&f.m, unit,
+            Some(|saved: &ResumeRecord| { restored.push(saved.owner_operation.clone()); Ok(()) })).unwrap();
+        assert!(failures.is_empty(), "{failures:?}");
+        let finished = receipt(&f.m, &dead);
+        assert_eq!((finished["state"].as_str(), finished["reason"].as_str()),
+            (Some("refused"), Some("operator_worker_terminated")));
+        assert_eq!(restored, vec![dead.clone()], "The suspended service is restored exactly once");
+        assert!(!f.m.root.join("operator/resume.json").exists());
+        // Active, unobservable, still-locked, undispatched and pre-dispatch
+        // operations keep their exact receipts.
+        assert_eq!(untouched.iter().map(|id| receipt(&f.m, id)).collect::<Vec<_>>(), before);
+        drop(worker);
+        drop(dispatch);
+        let failures = settle_dead_workers(&f.m, unit).unwrap();
+        assert!(failures.is_empty(), "{failures:?}");
+        for id in [&held, &queued] {
+            assert_eq!(receipt(&f.m, id)["reason"], "operator_worker_terminated", "{id}");
+        }
+        for (id, prior) in [(&live, &before[0]), (&unknown, &before[1]), (&unconfirmed, &before[4])] {
+            assert_eq!(&receipt(&f.m, id), prior);
+        }
+        // Terminal receipts are never rewritten by a later pass.
+        let settled: Vec<Value> = [&dead, &held, &queued].iter().map(|id| receipt(&f.m, id)).collect();
+        settle_dead_workers(&f.m, |_| Ok(false)).unwrap();
+        assert_eq!([&dead, &held, &queued].iter().map(|id| receipt(&f.m, id)).collect::<Vec<_>>(), settled);
+    }
+    #[test]
+    fn a_live_latest_pointer_follows_its_terminal_receipt() {
+        let f = test_fixture::Fixture::new();
+        let id = operation(&f.m, "running");
+        write_operation(&f.m, &id, &json!({"schema":1,"operation":id,"state":"completed","result":{}}), false).unwrap();
+        let latest = f.m.root.join("operator/latest.json");
+        atomic_json(&latest, &json!({"schema":1,"operation":id,"state":"running"})).unwrap();
+        settle_dead_workers(&f.m, |_| panic!("A terminal receipt needs no unit observation")).unwrap();
+        assert_eq!(optional(&latest).unwrap(), receipt(&f.m, &id));
+    }
+    #[test]
+    fn production_worker_state_comes_from_the_exact_unit() {
+        let f = test_fixture::Fixture::new();
+        let id = operation(&f.m, "running");
+        let unit = vec![format!("linux-vst-bridge-operator-{id}.service")];
+        for state in ["active", "activating", "deactivating", "reloading", "unreadable"] {
+            readiness::with_unit_state_fixture(&unit, state, || reconcile_dead_workers(&f.m)).unwrap();
+            assert_eq!(receipt(&f.m, &id)["state"], "running", "{state}");
+        }
+        let failures = readiness::with_unit_state_fixture(&unit, "failed", || reconcile_dead_workers(&f.m)).unwrap();
+        assert!(failures.is_empty(), "{failures:?}");
+        assert_eq!(receipt(&f.m, &id)["reason"], "operator_worker_terminated");
+    }
+    #[test]
+    fn a_reservation_is_released_only_for_a_finished_owner_and_never_under_a_package_transition() {
+        let f = test_fixture::Fixture::new();
+        let owner = operation(&f.m, "vendor_running");
+        let vendor = "cd".repeat(16);
+        {
+            let _resume = resume_lock(&f.m).unwrap();
+            create_resume(&f.m, &ResumeRecord {schema:2,owner_operation:owner.clone(),resume:true,
+                software:"ab".repeat(32),vendor_operation:Some(vendor.clone())}).unwrap();
+        }
+        let reservation = f.m.root.join("operator/resume.json");
+        let before = fs::read(&reservation).unwrap();
+        let job = json!({"operation_id":vendor});
+        // Recover appears for a retired session only while its finished,
+        // dead owner still holds the reservation.
+        assert!(!holds_reservation_with(&f.m, &job, |_| Ok(false)).unwrap(), "Unfinished owner");
+        refuse_unfinished(&f.m, &owner, "operator_worker_terminated").unwrap();
+        assert!(holds_reservation_with(&f.m, &job, |_| Ok(false)).unwrap());
+        assert!(!holds_reservation_with(&f.m, &job, |_| Ok(true)).unwrap(), "Running owner");
+        assert!(!holds_reservation_with(&f.m, &job,
+            |_| Err("readiness_unit_state_unavailable".into())).unwrap(), "Unobservable owner");
+        assert!(!holds_reservation_with(&f.m, &json!({"operation_id":"ef".repeat(16)}), |_| Ok(false)).unwrap());
+        // An interrupted update may carry this reservation as its handoff;
+        // neither the service start, Recover nor any owner may consume it.
+        let journal = f.m.root.join("package-transition.json");
+        atomic_json(&journal, &json!({"schema":3})).unwrap();
+        assert!(!holds_reservation_with(&f.m, &job, |_| Ok(false)).unwrap());
+        assert_eq!(restore_terminated_owner_with(&f.m, |_| Ok(false), || panic!("Never restored"))
+            .unwrap_err().to_string(), "package_transition_needs_recovery");
+        assert!(resume_owned_with(&f.m, &owner, |_| panic!("Never restored")).is_err());
+        assert_eq!(fs::read(&reservation).unwrap(), before);
+        fs::remove_file(&journal).unwrap();
+        let restored = std::cell::Cell::new(0);
+        restore_terminated_owner_with(&f.m, |_| Ok(false), || { restored.set(1); Ok(()) }).unwrap();
+        assert_eq!(restored.get(), 1);
+        assert!(!reservation.exists());
+    }
+    #[test]
+    fn gate_settling_never_restores_a_service() {
+        let f = test_fixture::Fixture::new();
+        let owner = operation(&f.m, "running");
+        suspend_for(&f.m, &owner);
+        let reservation = f.m.root.join("operator/resume.json");
+        RESTORATION_DEFERRED.with(|deferred| deferred.set(true));
+        let deferred = resume_owned(&f.m, &owner);
+        RESTORATION_DEFERRED.with(|deferred| deferred.set(false));
+        deferred.unwrap();
+        assert!(reservation.exists());
+        settle_dead_workers(&f.m, |_| Ok(false)).unwrap();
+        assert_eq!(receipt(&f.m, &owner)["reason"], "operator_worker_terminated");
+        assert!(reservation.exists(), "The reservation waits for the service start, activation or Recover");
+        assert!(!RESTORATION_DEFERRED.with(std::cell::Cell::get));
+    }
+    #[test]
+    fn a_terminated_owner_restores_its_suspended_service_under_the_held_lock() {
+        let f = test_fixture::Fixture::new();
+        let owner = operation(&f.m, "vendor_running");
+        suspend_for(&f.m, &owner);
+        let calls = std::cell::Cell::new(0);
+        let restore = |_: &ResumeRecord| { calls.set(calls.get() + 1); Ok(()) };
+        let _resume = resume_lock(&f.m).unwrap();
+        restore_terminated_owner_locked_with(&f.m, |_| Ok(false), restore).unwrap();
+        assert_eq!(calls.get(), 0, "A live owner keeps its reservation");
+        refuse_unfinished(&f.m, &owner, "operator_worker_terminated").unwrap();
+        restore_terminated_owner_locked_with(&f.m, |_| Ok(true), restore).unwrap();
+        assert!(restore_terminated_owner_locked_with(&f.m,
+            |_| Err("package_resume_worker_state_unavailable".into()), restore).is_err());
+        assert_eq!(calls.get(), 0, "A running or unobservable worker keeps its reservation");
+        restore_terminated_owner_locked_with(&f.m, |_| Ok(false), restore).unwrap();
+        assert_eq!(calls.get(), 1);
+        assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+}

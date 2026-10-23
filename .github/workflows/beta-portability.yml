@@ -6,8 +6,8 @@ on:
       - '.github/workflows/beta-portability.yml'
       - 'tools/pkg0/**'
       - 'tools/portable/**'
-      - 'bridge-manager/src/package_authority.rs'
-      - 'bridge-manager/src/main.rs'
+      - 'crates/service/src/owner/package_authority.rs'
+      - 'crates/service/src/owner.rs'
   workflow_dispatch:
 
 jobs:

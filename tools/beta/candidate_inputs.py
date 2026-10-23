@@ -39,7 +39,7 @@ frontend_record=None
 if a.frontend_build:
  frontend=a.frontend_build.resolve().with_name(frontend_build.BINARY)
  frontend_record=frontend_build.verify_record(json.loads(a.frontend_build.read_bytes()),s,a.frontend_source,frontend)
-copies={s/'bridge-manager/target/x86_64-unknown-linux-gnu/release/linux-vst-bridge':'linux-vst-bridge',frontend:'linux-audio-compatibility-manager',a.windows_package/'wf0-factory-probe.exe':'host.exe',a.windows_package/'host-source-manifest.json':'host-source-manifest.json',a.kit:'preparation-kit.zip',s/'compatibility/arturia-pure-lofi.json':'profile.json',s/'COPYRIGHT.md':'LVB-Proprietary.txt',a.fixture:'fixture.vst3'}
+copies={s/'crates/cli/target/x86_64-unknown-linux-gnu/release/linux-vst-bridge':'linux-vst-bridge',frontend:'linux-audio-compatibility-manager',a.windows_package/'wf0-factory-probe.exe':'host.exe',a.windows_package/'host-source-manifest.json':'host-source-manifest.json',a.kit:'preparation-kit.zip',s/'compatibility/arturia-pure-lofi.json':'profile.json',s/'COPYRIGHT.md':'LVB-Proprietary.txt',a.fixture:'fixture.vst3'}
 for source,name in copies.items():shutil.copyfile(source,p/name)
 (p/'preparation-kit.zip').write_bytes(public_launch_kit((p/'preparation-kit.zip').read_bytes()))
 for name in ('session','ownership'):

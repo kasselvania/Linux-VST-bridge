@@ -27,7 +27,7 @@ class CandidateInputs(unittest.TestCase):
             source = root / 'source'
             source.mkdir()
             files = {
-                'bridge-manager/target/x86_64-unknown-linux-gnu/release/linux-vst-bridge': b'\x7fELFmanager',
+                'crates/cli/target/x86_64-unknown-linux-gnu/release/linux-vst-bridge': b'\x7fELFmanager',
                 'manager-ui/target/x86_64-unknown-linux-gnu/release/linux-audio-compatibility-manager': b'\x7fELFfrontend',
                 'bridge-manager/runtime/session.py': b'# fixture supervisor\n',
                 'bridge-manager/runtime/ownership.py': b'# fixture ownership\n',

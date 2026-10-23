@@ -1,0 +1,23 @@
+[package]
+name = "linux-vst-bridge"
+version = "0.12.0"
+edition = "2021"
+[features]
+service-executor-fixture = ["linux-vst-bridge/service-executor-fixture"]
+cpi2-test-contract = ["linux-vst-bridge/cpi2-test-contract"]
+pb0-c0-audit = ["linux-vst-bridge/pb0-c0-audit"]
+runtime-revision-fixture = ["linux-vst-bridge/runtime-revision-fixture"]
+[dependencies]
+linux-vst-bridge = { package = "lvb-service", path = "../service" }
+lvb-model = { path = "../model" }
+serde_json = "=1.0.150"
+libc = "=0.2.189"
+[dev-dependencies]
+serde = { version = "=1.0.228", features = ["derive"] }
+sha2 = "=0.10.9"
+ap1-native-client = { path = "../../native-audio-client" }
+lvb-plugin-descriptor = { path = "../../plugin-descriptor" }
+[[test]]
+name = "native_access_signin"
+path = "tests/native_access_signin/main.rs"
+required-features = ["runtime-revision-fixture"]

@@ -73,3 +73,6 @@ core.*
 /crates/view-model/target/
 
 /crates/client/target/
+
+/crates/service/target/
+/crates/cli/target/

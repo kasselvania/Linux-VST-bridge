@@ -90,6 +90,15 @@ impl Client {
         Ok(client)
     }
 
+    /// Whether this immutable frontend is still selected. Updater adapters use
+    /// the same admission check before touching saved links or staging a build.
+    pub fn current_frontend(&self) -> Result<bool, String> {
+        match &self.frontend {
+            Some(frontend) => frontend_selected(&self.home, frontend),
+            None => Err("Open the installed Bridge manager to continue".into()),
+        }
+    }
+
     /// Dispatch through the existing service/installed-manager contract.
     pub fn call(&self, query: Query, selection: &impl FileSelection) -> Result<Reply, String> {
         self.call_with(query, selection, contract::Installed::home(&self.home))
@@ -183,8 +192,8 @@ impl Client {
         } else {
             (request(query), None)
         };
-        // Status reads use the command only while no service listens; that goes
-        // away in #489 step 5 with the whole-service stop (`contract::Installed`).
+        // Exchange through the owner contract. An unavailable service does not
+        // authorize a command fallback or replay an uncertain action.
         exchange(transport, &request, input)
     }
 }
@@ -263,7 +272,7 @@ fn save_support_report(path: &std::path::Path, bytes: &[u8]) -> Result<(), Strin
     }
     Ok(())
 }
-#[path = "../../../bridge-manager/src/installer_source.rs"]
+#[path = "../../service/src/owner/installer_source.rs"]
 mod installer_source;
 
 fn open_selected(path: &std::path::Path) -> Result<std::fs::File, String> {

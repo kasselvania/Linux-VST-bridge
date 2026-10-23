@@ -965,15 +965,13 @@ mod tests {
             (Action::OrdinaryRollback {class_id:"class".into(),publication:"previous".into()},None,true),
             (Action::BufferingSet {class_id:"class".into(),added_frames:512},Some("This class is active"),false),
             (Action::DeliverySet {class_id:"class".into(),mode:crate::model::DeliveryMode::SameCallback},Some("This class is active"),false),
-            (Action::EnvironmentRescan {environment:"environment".into()},None,false),
+            (Action::EnvironmentRescan {environment:"environment".into()},None,true),
         ] {
             let offer = AvailableAction {label:"Selected action".into(),action:action.clone(),disabled_reason:refusal.map(str::to_owned)};
             let busy = Some("Another class is active");
             assert_eq!(primary_refusal(&offer,busy).is_none(),clickable);
-            if !action.requires_global_inactive() {
-                assert!(!visible_refusals(std::slice::from_ref(&offer),busy,false)
-                    .iter().any(|reason| reason == "Another class is active"));
-            }
+            assert!(!visible_refusals(std::slice::from_ref(&offer),busy,false)
+                .iter().any(|reason| reason == "Another class is active"));
             let ctx = egui::Context::default();
             let mut point = egui::Pos2::ZERO;
             let mut chosen = None;

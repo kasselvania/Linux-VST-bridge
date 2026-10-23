@@ -101,6 +101,9 @@ pub trait FileSelection {
 pub mod native;
 
 #[cfg(target_os = "linux")]
+pub mod updates;
+
+#[cfg(target_os = "linux")]
 mod installed;
 #[cfg(target_os = "linux")]
 pub use installed::{Client, launch_selected_with};
@@ -190,3 +193,5 @@ mod tests {
         );
     }
 }
+
+pub mod bootstrap;

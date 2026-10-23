@@ -2,7 +2,7 @@ use crate::{
     client::{self, Query, Reply},
     model::*,
     presentation,
-    screen_model::{self, forms, journey, screen::{Frame, Reading, Records, Screen},
+    screen_model::{self, forms, screen::{Frame, Reading, Records, Screen},
         setup, state::{Effect, Imported, PageFocus, State}, Local, ProductKey},
     widgets,
 };

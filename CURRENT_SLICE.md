@@ -1,43 +1,37 @@
-# Current slice — fresh r7 Native Access → Kontakt (#482)
+# Current slice — approved Console application (#504)
 
-Goal: a new CachyOS user installs one signed, release-shaped package, acquires r7,
-installs and authorizes Native Access/Kontakt, plays in native REAPER and recalls
-changed state after full exit and reboot, without terminal recovery or blocking
-an unrelated setup. Architecture and beta scope remain in `docs/ARCHITECTURE.md`.
+Goal: deliver the agreed Console interface and service/client structure on the
+installed SteamOS and CachyOS routes. The musician gets the actual approved
+screens and journeys, with working controls, touch and scrolling.
+`docs/ARCHITECTURE.md` remains the product and runtime authority.
 
-Delivered reference comparison:
-- Test225 / PR 484 delivers exact signed supervisor source, isolated launch and
-  CPython 3.13/3.14, tested on both (next package: >=3.13,<3.16, 3.15 in CI).
-  Ordinary old bytecode → source → exact old restore → source passed Reference
-  playback, saved-instance recall, full exit and clean retirement on CachyOS.
-  The original long-home account also launches and retires with the repaired
-  home-independent keeper endpoint. Historical generation records stay exact.
-- #468 recovery and setup isolation are complete through #474–#480. Test223
-  admits new Reference instances during NI maintenance and preserves mixed recall.
-- Fresh NI installation passed on r5; r7 migration did not prove fresh r7 install.
-  Deck/Test216 remains earlier cross-generation qualification.
+Reference comparison:
+- `docs/design-dossier/console-journeys.html` is the recovered approved 27-screen
+  proof: install, readiness, repair, update, recovery, presets and sample locations.
+  Its outer journey selector and illustrative records are prototype scaffolding.
+- Test242 exposed wrong screen composition, idle flashing, missing Linux touch,
+  slow scrolling and Activity/Support reads stuck loading (Makepad issue #10).
+- Colours and shared widgets alone do not satisfy the approved design.
 
-Remaining journey, using the same signed Test225 package:
-1. In a fresh CachyOS account and normal graphical login, acquire r7 through the
-   product, install Native Access and reach its managed usable window/sign-in.
-2. Install Kontakt + Factory Selection, discover/publish, play MIDI/audio and use
-   the editor in REAPER; recall changed instrument state after full exit and reboot.
-3. Keep unrelated Reference audio working, admit a new instance during NI
-   maintenance and follow-up, and preserve its saved state and ownership.
+Next changes:
+1. Compose the compact header, library rows, exact plug-in detail, readiness
+   ladder, contextual actions and journey screens from actual owner records.
+2. Make passive refresh quiet; keep failed reads actionable; complete native
+   input, file selection, forms and exact retained-operation feedback.
+3. Complete service-owned command execution and setup-scoped maintenance.
+   UI/CLI consume the same owner view and offers; no frontend policy fallback.
+4. Complete the missing owner facts/actions needed by the agreed journeys,
+   then qualify and land the native window as the product interface.
 
 Working completion:
-- Kontakt identity and changed state survive full DAW exit/reopen and reboot.
-- During NI maintenance, Reference plays, admits a new instance and recalls state.
-- Progress and Stop/Cancel/Retry remain reachable; normal close/follow-up completes.
-- Final retirement: zero DSP, setup maintenance leases, pending transactions,
-  stale transports and cleanup uncertainty. Record phase timings and any Retry.
+- Installed screens match the approved hierarchy and layout at Deck and desktop
+  sizes; ordinary and failure states are navigable without development chrome.
+- Activity and Support settle; background observation does not flash or reset
+  controls; physical touch, mouse, keyboard and scrolling work on target hosts.
+- Each problem has its exact next action; offers execute through the service,
+  preserve confirmations and survive refresh without replay or wrong identity.
+- Setup maintenance leaves unrelated playback and new-instance admission working.
+- Native installed journey checks and independent code review pass before merge.
+- Existing projects, installed plug-ins, vendor accounts and activation survive.
 
-Repair the first demonstrated product-owned failure only. Slow bounded completion
-may pass correctness while responsiveness stays open in #481; status invalidation
-belongs to #382. Loading failure origin is unestablished; repeated Retry fails.
-SteamOS, Serum transparency, Blackhole/BEAM, DirectComposition, old Bitwig project,
-empty editor, Rust port, broad endurance and manager redesign are separate.
-Preserve licensed setups, activation, original projects and retained predecessors.
-Old Download and update cannot read source-only bundles; use the signed installer
-and Open Setup. The retained Test223 no-prefix fixture remains unrecovered.
-Confirm Storage2 is mounted before homelab writes under /mnt/Storage2/LinuxPluginBridge.
+The closed-beta targets and runtime/saved-state obligations are unchanged.
