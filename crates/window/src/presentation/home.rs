@@ -49,11 +49,12 @@ impl Builder<'_> {
             }
             Next::Setup { title, status: said, journey: _, primary, open } => {
                 let mut children = vec![Node::Heading(title.clone()), words(Role::Body, said.clone())];
+                let mut actions = Vec::new();
                 if let Some(primary) = primary {
-                    children.push(self.main_offer(primary, After::Nothing));
+                    actions.push(self.offer(primary, After::Nothing));
                 }
-                let open = self.control(open);
-                children.push(self.one(open));
+                actions.push(self.control(open));
+                children.push(self.actions("setup-next", actions));
                 Node::Panel { kind: PanelKind::Card, children }
             }
             Next::Computer { note, title, detail, action, blocker, review } => {

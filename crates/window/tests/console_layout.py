@@ -18,6 +18,41 @@ class ProductApp(ui.App):
 
 
 class ConsoleLayout(unittest.TestCase):
+    def test_retained_health_fits_during_refresh(self):
+        for width in (1280, 640):
+            for request in (None, "renewing"):
+                args = ["--state=populated", "--page=diagnostics", f"--size={width}x800"]
+                if request:
+                    args.append(f"--request={request}")
+                with self.subTest(width=width, request=request), ProductApp("console-support-refresh", *args) as app:
+                    chip = app.required(prefix="chip.health", kind="StatusChip")
+                    self.assertNotEqual(chip.get("t"), "Bridge service status unavailable")
+                    x, y, w, h = chip["r"]
+                    self.assertGreater(w, 100)
+                    self.assertGreater(h, 20)
+                    self.assertGreaterEqual(x, 0)
+                    self.assertLessEqual(x + w, width)
+                    if width == 1280:
+                        self.assertAlmostEqual(x + w, width - 24, delta=1,
+                                               msg="Refresh must preserve the header right anchor")
+                    self.assertLessEqual(y + h, app.required(prefix="page_scroll")["r"][1])
+                    app.capture(f"support-{width}-{request or 'current'}")
+
+    def test_next_setup_groups_its_exact_actions_at_desktop_and_deck_widths(self):
+        for width in (1280, 640):
+            with self.subTest(width=width), ProductApp("console-next-setup", "--state=install_app",
+                    "--page=home", f"--size={width}x800") as app:
+                primary = app.required("Install plug-ins with Example Hub", kind="ActionButton")
+                opened = app.required("Open this setup", kind="ActionButton")
+                px, py, pw, ph = primary["r"]
+                ox, oy, ow, oh = opened["r"]
+                self.assertEqual(py, oy, "Actions that fit belong on the same row")
+                self.assertGreaterEqual(ox, px + pw)
+                self.assertLessEqual(ox + ow, width)
+                self.assertGreaterEqual(min(ph, oh), 44)
+                self.assertNotEqual(primary["i"], opened["i"])
+                app.capture(f"setup-actions-{width}")
+
     def test_long_collection_rows_grow_without_clipping_and_preserve_held_actions(self):
         name = ("Layout fixture: a very long orchestral instrument with multiple microphone "
                 "positions and an extended performance edition")

@@ -59,7 +59,7 @@ jobs:
           ssh-key: ${{ secrets.MAKEPAD_READONLY_DEPLOY_KEY }}
           persist-credentials: false
       - name: Native build prerequisites
-        run: bash bridge/.github/scripts/apt-install.sh libssl-dev libxcursor-dev libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev libpulse-dev libwayland-dev
+        run: bash bridge/.github/scripts/apt-install.sh libssl-dev libxcursor-dev libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev libpulse-dev libwayland-dev libxkbcommon-dev
       - run: rustup toolchain install 1.95.0 --profile minimal
       - name: Compile and test the Bridge-owned application
         run: |

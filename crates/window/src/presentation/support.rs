@@ -23,6 +23,9 @@ impl Builder<'_> {
         let versions = Node::Panel { kind: PanelKind::Card, children };
         let mut rows = vec![Node::Heading((*actions_title).into())];
         for row in actions {
+            // The primary row already prints this exact offer, refusal and
+            // consequence. Retain any distinct owner offer or explanation.
+            if frame.title.export.as_ref() == Some(row) { continue; }
             rows.extend(self.row(row));
         }
         out.push(Node::Columns(vec![versions, Node::Panel { kind: PanelKind::Card, children: rows }]));

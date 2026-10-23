@@ -194,6 +194,11 @@ fn an_unfinished_installation_remains_actionable_beside_working_products() {
             matches!(node, Node::Heading(heading) if heading == title)) => Some(children),
         _ => None,
     }).expect("compact installation callout");
+    assert!(callout.iter().any(|node| matches!(node, Node::Actions { stacked: false, actions, .. }
+        if actions.len() == 2
+            && matches!(preview.built.targets.get(&actions[0].id.0), Some(Target::Offer { offer, .. }) if offer == primary)
+            && matches!(preview.built.targets.get(&actions[1].id.0), Some(Target::Control(control)) if control == open))),
+        "Continuation and exact setup navigation share one wrapping action row");
     assert!(!format!("{callout:?}").contains("Example Keys"),
         "The healthy sibling belongs in its own library row, not the problem callout");
     let open_id = control_id(&preview, &open.does);

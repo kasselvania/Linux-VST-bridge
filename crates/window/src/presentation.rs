@@ -621,7 +621,7 @@ impl<'a> Builder<'a> {
                 out
             },
             Screen::LoadingDetails { words: said, retry } => {
-                let mut out = vec![Node::Title(Tab::of(state.page).label().into()), words(Role::Body, if retry.is_some() { "This page could not be loaded. Try again." } else { *said })];
+                let mut out = vec![Node::Title(Tab::of(state.page).label().into()), words(Role::Body, said.clone())];
                 if let Some(retry) = retry {
                     let view = self.control(retry);
                     out.push(self.one(view));

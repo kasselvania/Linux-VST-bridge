@@ -1393,6 +1393,7 @@ impl Operator {
             working: self.queued_import || (self.pending && self.origin.is_some_and(RequestOrigin::foreground)),
             explicit_refresh: self.pending && self.origin == Some(RequestOrigin::ExplicitRefresh),
             details_attempted: self.details_attempted,
+            details_notice: None,
             product_attempted: attempted && !self.pending,
             superseded: self.frontend_superseded,
             preview: self.preview,

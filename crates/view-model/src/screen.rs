@@ -56,6 +56,8 @@ pub struct Reading<'a> {
     pub explicit_refresh: bool,
     /// The full records were asked for and did not arrive.
     pub details_attempted: bool,
+    /// Why the last full read is unavailable, separately from any request result.
+    pub details_notice: Option<&'a str>,
     /// The opened plug-in's records were asked for and did not arrive.
     pub product_attempted: bool,
     /// An updated window replaced this one.
@@ -101,12 +103,17 @@ impl Frame {
         if reading.current_unavailable && reading.request.is_none() {
             if let Some(request) = &mut request { request.dismiss = None; }
         }
+        let mut health = HealthBar::build(records.health, reading.owned_pause, reading.health_renewing);
+        if reading.superseded && records.health.is_some() {
+            health.last_observed = true;
+            health.note = "Last observed status · window paused";
+        }
         Self {
             title: TitleRow::build(records.current.or(records.details), reading.own_version, reading.fresh,
                 reading.controls_pending, records.actions, reading.explicit_refresh),
             superseded: reading.superseded.then(window::superseded),
             preview: reading.preview.then_some(window::PREVIEW),
-            health: HealthBar::build(records.health, reading.owned_pause, reading.health_renewing),
+            health,
             headline: window::update_headline(reading.update_headline.clone().filter(|_| state.page != Page::Setup)),
             request,
         }
@@ -128,7 +135,7 @@ pub enum Screen {
     /// Home or Setup before the manager's first answer.
     Checking { heading: &'static str, words: &'static str, retry: Option<Control> },
     /// A technical page before its records arrive.
-    LoadingDetails { words: &'static str, retry: Option<Control> },
+    LoadingDetails { words: String, retry: Option<Control> },
     /// Home or Setup with full records but no current status yet.
     LoadingCurrent(&'static str),
 }
@@ -164,7 +171,9 @@ impl Screen {
             }
         }
         let Some(details) = records.details else {
-            return Self::LoadingDetails { words: window::LOADING_DETAILS,
+            return Self::LoadingDetails { words: if reading.details_attempted {
+                    reading.details_notice.unwrap_or("This page could not be loaded. Try again.")
+                } else { window::LOADING_DETAILS }.into(),
                 retry: (reading.details_attempted && !reading.in_flight).then(window::retry_details) };
         };
         match state.page {

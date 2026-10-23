@@ -1032,6 +1032,7 @@ impl Sample {
             working: self.importing || in_flight,
             explicit_refresh: false,
             details_attempted: false,
+            details_notice: None,
             product_attempted: false,
             superseded: self.superseded,
             preview: true,

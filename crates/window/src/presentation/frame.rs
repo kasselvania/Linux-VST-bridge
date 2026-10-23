@@ -9,17 +9,20 @@ impl Builder<'_> {
     pub fn frame(&mut self, frame: &Frame, page: Page) -> (Vec<Node>, Vec<Node>) {
         let Frame { title, superseded, preview, health, headline, request } = frame;
         let TitleRow { title, refreshing, .. } = title;
-        let HealthBar { status: owner, note: health_note, .. } = health;
+        let HealthBar { status: owner, note: health_note, last_observed, .. } = health;
         let selected = Tab::of(page);
         let tabs: Vec<ActionView> = Tab::ALL
             .iter()
             .map(|tab| self.local(tab.label(), Importance::Quiet, Target::Tab(*tab), None))
             .collect();
+        let health_chip = Node::Chip { id: "chip.health".into(), status: if *last_observed {
+            StatusView::new(class(owner.class), format!("{} · {health_note}", owner.words))
+        } else { status(owner) } };
         let header = vec![Node::Header(vec![
             Node::Brand("Linux Plugin Bridge".into()),
             Node::Tabs { id: "tabs".into(), tabs,
                 selected: Tab::ALL.iter().position(|tab| *tab == selected).unwrap() },
-            Node::Chip { id: "chip.health".into(), status: status(owner) },
+            health_chip,
         ])];
         let mut top = Vec::new();
         if let Some(Superseded { title, explanation, open }) = superseded {
@@ -28,7 +31,7 @@ impl Builder<'_> {
                 Node::Heading((*title).into()), words(Role::Body, *explanation), self.one(open),
             ] });
         }
-        let _ = (title, preview, refreshing, health_note);
+        let _ = (title, preview, refreshing);
         if let Some((line, view)) = headline {
             let view = self.control(view);
             top.push(words(Role::Strong, line.clone()));
