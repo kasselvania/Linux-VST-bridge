@@ -6,7 +6,7 @@ use crate::model::{Action, Snapshot};
 
 /// What the installed bridge is and what Setup holds, with a plain copy for
 /// bug reports.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct VersionSection {
     pub installed: String,
     pub setup: Option<String>,
@@ -36,7 +36,7 @@ impl VersionSection {
 }
 
 /// The Diagnostics page.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Diagnostics {
     pub heading: &'static str,
     pub version: VersionSection,

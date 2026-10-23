@@ -191,7 +191,7 @@ pub fn incident_lines(v: &serde_json::Value) -> Vec<String> {
 }
 
 /// The Activity page.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Activity {
     pub heading: &'static str,
     pub intro: &'static str,
@@ -201,7 +201,7 @@ pub struct Activity {
     pub incidents: Incidents,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Sessions {
     pub title: &'static str,
     /// Said when the rows are not a live confirmation.
@@ -210,7 +210,7 @@ pub struct Sessions {
     pub rows: Vec<SessionRow>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SessionRow {
     pub recent: bool,
     /// Position in its list, for a row without a session identity.
@@ -224,7 +224,7 @@ pub struct SessionRow {
     pub record: Disclosure,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Attentions {
     pub title: &'static str,
     pub empty: Option<&'static str>,
@@ -233,14 +233,14 @@ pub struct Attentions {
     pub more: Option<Control>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AttentionItem {
     pub title: String,
     pub detail: String,
     pub open: Control,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Incidents {
     pub title: &'static str,
     pub empty: Option<&'static str>,

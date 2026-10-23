@@ -135,6 +135,17 @@ jobs:
       # The window's screen model, built on its own with nothing but the wire model.
       - run: cargo +1.95.0 test --manifest-path crates/view-model/Cargo.toml --locked
       - run: cargo +1.95.0 clippy --manifest-path crates/view-model/Cargo.toml --locked --all-targets --all-features -- -D warnings
+      # The window's own build carries none of the view model's sample states;
+      # only its tests and previews (dev-dependencies) turn them on.
+      - name: The window builds the view model without its samples
+        run: |
+          tree=$(cargo +1.95.0 tree --manifest-path manager-ui/Cargo.toml --locked -e normal,features -i lvb-view-model)
+          echo "$tree"
+          grep -q '^lvb-view-model v' <<<"$tree"
+          if grep -q 'feature "samples"' <<<"$tree"; then
+            echo "::error::The window's build enables lvb-view-model's samples feature"
+            exit 1
+          fi
   manager:
     runs-on: ubuntu-24.04
     timeout-minutes: 15

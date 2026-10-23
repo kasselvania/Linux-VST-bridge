@@ -24,6 +24,22 @@ impl Page {
     pub const ALL: [Self; 6] = [Self::Home, Self::Plugins, Self::Workspaces, Self::Activity, Self::Setup,
         Self::Diagnostics];
 
+    /// A short stable name, for previews and their sample lists.
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Home => "home",
+            Self::Plugins => "plugins",
+            Self::Workspaces => "workspaces",
+            Self::Activity => "activity",
+            Self::Setup => "setup",
+            Self::Diagnostics => "diagnostics",
+        }
+    }
+
+    pub fn from_key(key: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|page| page.key() == key)
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             Self::Home => "Home",
@@ -38,7 +54,7 @@ impl Page {
 
 /// The title row: the product, its installed build and runtime, and the
 /// window's own Refresh and problem report.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TitleRow {
     pub title: &'static str,
     /// "0.12.0test144 · runtime r5"; before the manager answers, this window's build.
@@ -80,7 +96,7 @@ impl TitleRow {
 }
 
 /// This window was replaced by an updated one and no longer acts.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Superseded {
     pub title: &'static str,
     pub explanation: &'static str,
@@ -99,7 +115,7 @@ pub fn superseded() -> Superseded {
 pub const PREVIEW: &str = "LOCAL DESIGN PREVIEW · sample records · actions do not execute";
 
 /// The bridge service's health, with its counters on request.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct HealthBar {
     pub status: Status,
     pub show: &'static str,
@@ -181,7 +197,7 @@ pub struct Request<'a> {
 pub const CAPTURED: &str = "Click received. Waiting for the current readback; no operation submitted yet.";
 
 /// The current request, its installation progress and its record.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RequestBar {
     pub title: &'static str,
     pub working: bool,
@@ -192,7 +208,7 @@ pub struct RequestBar {
     pub dismiss: Option<Control>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RequestProgress {
     pub counts: Option<String>,
     pub problem: Option<String>,

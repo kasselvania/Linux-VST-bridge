@@ -15,10 +15,15 @@
 //!
 //! This crate depends only on the wire model (`lvb-model`) and `serde_json`,
 //! never on the manager service or a toolkit, so any frontend can build on it.
-//! Each screen is built by its `build` function from the manager's
-//! `model::Snapshot` (see `window::Page` for the pages); `forms::route` says
-//! where a pressed offer goes. The `samples` feature adds the named sample
-//! states the previews and tests use.
+//! A frontend keeps one `state::State` (the open page, what it is narrowed
+//! to, the open form) and builds the whole window from the manager's records
+//! with `screen::Window::build`; each part also has its own `build`. Pressed
+//! offers go only through `State::press_offer`, pressed controls through
+//! `State::apply`, and new records, sent requests and added installers
+//! through `State::observe`, `sent` and `imported`, so the routing is the
+//! same in every frontend. The `samples` feature adds the named sample states, the
+//! request and window samples and the update panel's states, as one table
+//! the previews, tests and a gallery share.
 pub mod activity;
 pub mod diagnostics;
 pub mod forms;
@@ -28,9 +33,11 @@ pub mod journey;
 pub mod offers;
 pub mod plugins;
 pub mod product;
+pub mod screen;
 pub mod service;
 pub mod settings;
 pub mod setup;
+pub mod state;
 pub mod updates;
 pub mod version;
 pub mod window;

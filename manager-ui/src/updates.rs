@@ -105,41 +105,35 @@ impl Updates {
         Self { home: None, link: None, draft: String::new(), editing: false, link_message: None,
             status: Status::Idle, receiver: None, next_check: None, notice: None, handover: None }
     }
-    /// Every state Setup's update panel draws, for render checks. Sample
-    /// values only: no saved link, no check, no download, no files.
+    /// One state of Setup's update panel from the view model's samples, as
+    /// the updater holds it. No saved link, no check, no download, no files.
     #[cfg(test)]
-    pub fn samples() -> Vec<(&'static str, Self)> {
-        let link = || BetaLink::parse("https://beta.example.ts.net:8443/private-beta/?pw=s3cret").ok();
-        let offer = || Offer { version: "0.12.0test148".into(), notes: "Setup → Beta updates\r\nFaster plug-in list".into(),
+    pub fn sample(sample: &crate::screen_model::samples::UpdateSample) -> Self {
+        let link = sample.linked.then(|| BetaLink::parse("https://beta.example.ts.net:8443/private-beta/?pw=s3cret").ok())
+            .flatten();
+        let notes = "Setup → Beta updates\r\nFaster plug-in list";
+        let offer = |version: &str, notes: &str| Offer { version: version.into(), notes: notes.into(),
             system: "cachyos".into(), package: feed::FeedPackage { file: "a.install".into(), size: 10_000_000,
                 sha256: "a".repeat(64) } };
-        let with = |status: Status| Self { link: link(), status, ..Self::disabled() };
         let soon = Instant::now() + Duration::from_secs(3600);
         let long_ago = Instant::now().checked_sub(READING_GRACE + Duration::from_secs(1)).unwrap_or_else(Instant::now);
-        vec![
-            ("no_link", Self::disabled()),
-            ("unreadable_link", Self { link_message: Some("Your saved beta link could not be read. Paste it again.".into()),
-                ..Self::disabled() }),
-            ("idle", with(Status::Idle)),
-            ("editing", Self { editing: true, draft: "https://example".into(),
-                link_message: Some("This is not a beta link.".into()), ..with(Status::Idle) }),
-            ("checking", with(Status::Checking)),
-            ("failed", with(Status::Failed(error_notice(UpdateError::Install("user_package_intake_busy".into()))))),
-            ("up_to_date", with(Status::UpToDate("0.12.0test146".into()))),
-            ("no_package", with(Status::NoPackage("0.12.0test148".into()))),
-            ("manual", with(Status::Manual(Some("0.12.0test148".into())))),
-            ("manual_unknown", with(Status::Manual(None))),
-            ("available", with(Status::Available(offer()))),
-            ("available_notice", Self { notice: Some(error_notice(UpdateError::DownloadStopped)),
-                ..with(Status::Available(offer())) }),
-            ("downloading", with(Status::Downloading { offer: offer(), done: 4_000_000, total: 10_000_000 })),
-            ("waiting", with(Status::WaitingForDaw { offer: offer(), frontend: "/nonexistent/setup".into(),
-                since: soon, observed: false })),
-            ("waiting_long", with(Status::WaitingForDaw { offer: offer(), frontend: "/nonexistent/setup".into(),
-                since: long_ago, observed: false })),
-            ("handing_over", with(Status::HandingOver(offer()))),
-            ("handed_over", with(Status::HandedOver)),
-        ]
+        let status = match &sample.phase {
+            Phase::Idle => Status::Idle,
+            Phase::Checking => Status::Checking,
+            Phase::Failed(notice) => Status::Failed(notice.clone()),
+            Phase::UpToDate(installed) => Status::UpToDate(installed.clone()),
+            Phase::NoPackage(latest) => Status::NoPackage(latest.clone()),
+            Phase::Manual(latest) => Status::Manual(latest.clone()),
+            Phase::Available { version, notes } => Status::Available(offer(version, notes)),
+            Phase::Downloading { version, done, total } =>
+                Status::Downloading { offer: offer(version, notes), done: *done, total: *total },
+            Phase::Waiting { version, observed, long } => Status::WaitingForDaw { offer: offer(version, notes),
+                frontend: "/nonexistent/setup".into(), since: if *long { long_ago } else { soon }, observed: *observed },
+            Phase::HandingOver => Status::HandingOver(offer("0.12.0test148", notes)),
+            Phase::HandedOver => Status::HandedOver,
+        };
+        Self { link, draft: sample.draft.clone(), editing: sample.editing, link_message: sample.link_message.clone(),
+            status, notice: sample.notice.clone(), ..Self::disabled() }
     }
     /// Work is running that a new check or link must not interrupt.
     fn busy(&self) -> bool {
@@ -524,6 +518,21 @@ fn open_setup(frontend: &Path, continue_update: bool) -> Result<Child, ()> {
 mod tests {
     use super::*;
     use linux_vst_bridge::update_feed::FeedPackage;
+
+    #[test]
+    fn every_update_sample_is_drawn_as_the_view_model_builds_it() {
+        for (name, sample) in crate::screen_model::samples::updates() {
+            let updates = Updates::sample(&sample);
+            assert_eq!(updates.panel(), sample.panel(), "{name}");
+            assert_eq!(updates.headline(), panel::headline(&sample.phase), "{name}");
+        }
+        // The samples' notices are the updater's own words for these refusals.
+        let notice = |name: &str| crate::screen_model::samples::updates().into_iter()
+            .find(|(sample, _)| *sample == name).unwrap().1;
+        assert_eq!(notice("failed").phase,
+            Phase::Failed(error_notice(UpdateError::Install("user_package_intake_busy".into()))));
+        assert_eq!(notice("available_notice").notice, Some(error_notice(UpdateError::DownloadStopped)));
+    }
 
     fn offer() -> Offer {
         Offer { version: "0.12.0test148".into(), notes: "Notes".into(), system: "cachyos".into(),

@@ -102,15 +102,8 @@ fn main() -> eframe::Result {
         .get(1)
         .map(|value| value.parse::<f32>().expect("WIDTH must be a number"))
         .unwrap_or(960.0);
-    let page = match args.get(2).map(String::as_str).unwrap_or("home") {
-        "home" => operator::Page::Home,
-        "plugins" => operator::Page::Plugins,
-        "workspaces" => operator::Page::Workspaces,
-        "activity" => operator::Page::Activity,
-        "setup" => operator::Page::Setup,
-        "diagnostics" => operator::Page::Diagnostics,
-        other => panic!("unknown page: {other}"),
-    };
+    let page = args.get(2).map(String::as_str).unwrap_or("home");
+    let page = operator::Page::from_key(page).unwrap_or_else(|| panic!("unknown page: {page}"));
     let state = args.get(3).map(String::as_str).unwrap_or("populated");
     let mut snapshot = samples::snapshot(page, args.get(3).map(String::as_str));
     if let Some(path) = args.get(6) {
@@ -125,6 +118,9 @@ fn main() -> eframe::Result {
         other => panic!("unknown theme: {other}"),
     };
     let readiness = samples::readiness(args.get(3).map(String::as_str), &snapshot);
+    // The window state the sample table shows this state in.
+    let case = samples::Case::new(page, state);
+    let window = samples::Sample::with_records(case.clone(), snapshot.clone(), readiness.clone()).state();
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([width,args.get(5).map(|height|height.parse::<f32>().expect("HEIGHT must be a number")).unwrap_or(720.0)])
@@ -141,9 +137,8 @@ fn main() -> eframe::Result {
             // Capture the settled disclosure state, not an animation frame.
             cc.egui_ctx.global_style_mut(|style| style.animation_time = 0.0);
             Ok(Box::new(Preview {
-                operator: operator::Operator::preview_current(snapshot, readiness, page,
-                    page == operator::Page::Plugins && state != "current_loading",
-                    state == "pending", matches!(state,"plugin_details" | "plugin_history_open" | "recorded_expanded"), state == "stale"),
+                operator: operator::Operator::preview_current(snapshot, readiness, window,
+                    case.plugin_open, case.pending, case.stale),
                 output,
                 frame: 0,
                 open_label,

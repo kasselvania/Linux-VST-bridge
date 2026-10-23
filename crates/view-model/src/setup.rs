@@ -311,7 +311,7 @@ pub fn vendor_default_notice(app: &VendorApplication) -> Option<String> {
 }
 
 /// The Setup page.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Setup {
     pub heading: &'static str,
     pub add: Control,
@@ -402,7 +402,7 @@ pub fn listed<'a>(snapshot: &'a Snapshot, installer: Option<&str>) -> Vec<&'a In
 }
 
 /// One installer's setup: its journey, next step, other choices and records.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SetupCard {
     pub installer: String,
     pub name: String,
@@ -424,21 +424,21 @@ pub struct SetupCard {
 }
 
 /// Choosing a different installer, or a required app's installer, for a setup.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Replace {
     Allowed(Box<ReplaceChoices>),
     /// Why no installer can be chosen now.
     Waiting(&'static str),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ReplaceChoices {
     pub dependency: Option<RequiredApp>,
     pub another: Control,
 }
 
 /// A required app, such as a licence manager, installed into the same setup.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RequiredApp {
     pub title: &'static str,
     /// The setup's own dependency help from the manager.
@@ -448,13 +448,13 @@ pub struct RequiredApp {
 }
 
 /// The replacement being chosen for this setup.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ReplacementDraft {
     pub selected: Option<SelectedInstaller>,
     pub keep: Control,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SelectedInstaller {
     pub title: String,
     /// What running it in this same setup changes.
@@ -768,7 +768,7 @@ impl SetupControls {
 }
 
 /// Existing setups the musician chooses between, to run something in one.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ExistingSetups {
     pub title: &'static str,
     pub placeholder: &'static str,
@@ -777,7 +777,7 @@ pub struct ExistingSetups {
     pub actionable: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ExistingSetup {
     pub controls: SetupControls,
     /// Programs the musician chose for this setup.
@@ -786,7 +786,7 @@ pub struct ExistingSetup {
     pub stop: Option<OfferRow>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct UserProgram {
     pub name: String,
     pub version: String,
@@ -821,7 +821,7 @@ impl ExistingSetups {
 }
 
 /// The apps installed in one setup that install or manage its plug-ins.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AppGroup {
     pub environment: String,
     pub title: String,
@@ -831,7 +831,7 @@ pub struct AppGroup {
     pub actionable: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AppCard {
     pub id: String,
     pub name: String,
@@ -845,7 +845,7 @@ pub struct AppCard {
 }
 
 /// Choosing one installed program of this setup to open.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ProgramPicker {
     pub title: &'static str,
     pub hint: &'static str,
@@ -859,7 +859,7 @@ pub struct ProgramPicker {
 }
 
 /// Opening one chosen program: what it changes, and the manager's offer.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ProgramOpen {
     pub consequence: Option<String>,
     pub offer: Offer,
@@ -914,7 +914,7 @@ impl AppGroup {
 }
 
 /// Setups the musician deleted, with any deletion still to finish.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DeletedSetups {
     pub title: String,
     pub start_open: bool,
@@ -922,7 +922,7 @@ pub struct DeletedSetups {
     pub actionable: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DeletedSetupView {
     pub environment: String,
     pub name: String,

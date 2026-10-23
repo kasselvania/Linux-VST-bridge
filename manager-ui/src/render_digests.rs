@@ -16,16 +16,13 @@
 //! The list stays outside Git. Nothing here contacts the manager.
 use crate::operator::{Operator, Page};
 use crate::{presentation, updates::Updates};
-use lvb_view_model::samples;
+use lvb_view_model::samples::{self, Case, Sample};
 use eframe::egui;
 use std::hash::{Hash, Hasher};
 
 /// Tall enough that no page is cut off below the fold.
 const HEIGHT: f32 = 6000.0;
 const WIDTHS: [f32; 2] = [960.0, 560.0];
-const PAGES: [(Page, &str); 6] = [(Page::Home, "home"), (Page::Plugins, "plugins"),
-    (Page::Workspaces, "workspaces"), (Page::Activity, "activity"), (Page::Setup, "setup"),
-    (Page::Diagnostics, "diagnostics")];
 /// Clicks only labels this short: buttons, headings and choices, not prose.
 const CLICKABLE: usize = 90;
 /// Second clicks per first click, at most.
@@ -143,12 +140,40 @@ fn cases(name: &str, out: &mut Vec<String>, mut build: impl FnMut() -> Box<dyn F
     }
 }
 
-fn operator(page: Page, state: &str) -> Operator {
-    let snapshot = samples::snapshot(page, Some(state));
-    let readiness = samples::readiness(Some(state), &snapshot);
-    Operator::preview_current(snapshot, readiness, page,
-        page == Page::Plugins && state != "current_loading", state == "pending",
-        matches!(state, "plugin_details" | "plugin_history_open" | "plugin_technical"), state == "stale")
+/// The request and window samples are drawn over these two.
+const REQUEST_PAGES: [(Page, &str); 2] = [(Page::Home, "populated"), (Page::Plugins, "plugin_ready")];
+
+fn window(sample: &Sample) -> Box<dyn FnMut(&mut egui::Ui)> {
+    let mut window = Operator::preview_sample(sample);
+    let mut frame = eframe::Frame::_new_kittest();
+    Box::new(move |ui: &mut egui::Ui| eframe::App::ui(&mut window, ui, &mut frame))
+}
+
+/// Every sample the render checks draw, by case name.
+fn all_samples() -> Vec<(String, Sample)> {
+    let mut out: Vec<_> = samples::cases()
+        .map(|case| (format!("{}/{}", case.page.key(), case.state), Sample::new(case))).collect();
+    for request in samples::REQUESTS {
+        for (page, state) in REQUEST_PAGES {
+            out.push((format!("frame/{request}/{}", page.key()), Sample::new(Case::new(page, state)).with_request(request)));
+        }
+    }
+    for (update, _) in samples::updates() {
+        out.push((format!("updates/{update}/headline"),
+            Sample::new(Case::new(Page::Home, "available")).with_update(update)));
+    }
+    out
+}
+
+/// A gallery drawing the view model's samples shows what this window draws.
+#[test]
+fn the_window_builds_what_the_view_model_samples_build() {
+    let samples = all_samples();
+    assert_eq!(samples.len(), samples::cases().count() + 2 * samples::REQUESTS.len() + samples::updates().len());
+    for (name, sample) in samples {
+        assert_eq!(Operator::preview_sample(&sample).preview_window(), sample.window(presentation::distribution()),
+            "{name}");
+    }
 }
 
 #[test]
@@ -157,45 +182,21 @@ fn render_digests() {
     let path = std::env::var("LVB_RENDER_DIGESTS").expect("LVB_RENDER_DIGESTS names the output list");
     let only = std::env::var("LVB_RENDER_ONLY").ok();
     let mut out = Vec::new();
-    for (page, page_name) in PAGES {
-        for state in samples::STATES {
-            let name = format!("{page_name}/{state}");
-            if only.as_deref().is_some_and(|prefix| !name.starts_with(prefix)) { continue; }
-            cases(&name, &mut out, || {
-                let mut window = operator(page, state);
-                let mut frame = eframe::Frame::_new_kittest();
-                Box::new(move |ui: &mut egui::Ui| eframe::App::ui(&mut window, ui, &mut frame))
-            });
+    let mut updates = samples::updates().into_iter();
+    for (name, sample) in all_samples() {
+        if let Some(update) = name.strip_prefix("updates/").and_then(|rest| rest.strip_suffix("/headline")) {
+            // Setup's update panel on its own, then its one line on another page.
+            let (_, panel) = updates.next().filter(|(sample, _)| *sample == update).expect("update samples in order");
+            let panel_name = format!("updates/{update}");
+            if only.as_deref().is_none_or(|prefix| panel_name.starts_with(prefix)) {
+                cases(&panel_name, &mut out, || {
+                    let mut updates = Updates::sample(&panel);
+                    Box::new(move |ui: &mut egui::Ui| updates.show(ui))
+                });
+            }
         }
-    }
-    // The request bar and window states, over two pages.
-    for sample in Operator::REQUEST_SAMPLES {
-        for (page, page_name, state) in [(Page::Home, "home", "populated"), (Page::Plugins, "plugins", "plugin_ready")] {
-            let name = format!("frame/{sample}/{page_name}");
-            if only.as_deref().is_some_and(|prefix| !name.starts_with(prefix)) { continue; }
-            cases(&name, &mut out, || {
-                let mut window = operator(page, state).with_request_sample(sample);
-                let mut frame = eframe::Frame::_new_kittest();
-                Box::new(move |ui: &mut egui::Ui| eframe::App::ui(&mut window, ui, &mut frame))
-            });
-        }
-    }
-    for (sample, _) in Updates::samples() {
-        let name = format!("updates/{sample}");
         if only.as_deref().is_some_and(|prefix| !name.starts_with(prefix)) { continue; }
-        cases(&name, &mut out, || {
-            let mut updates = Updates::samples().into_iter().find(|(name, _)| *name == sample)
-                .expect("sample").1;
-            Box::new(move |ui: &mut egui::Ui| updates.show(ui))
-        });
-        // The one-line headline on another page.
-        cases(&format!("{name}/headline"), &mut out, || {
-            let updates = Updates::samples().into_iter().find(|(name, _)| *name == sample)
-                .expect("sample").1;
-            let mut window = operator(Page::Home, "available").with_updates(updates);
-            let mut frame = eframe::Frame::_new_kittest();
-            Box::new(move |ui: &mut egui::Ui| eframe::App::ui(&mut window, ui, &mut frame))
-        });
+        cases(&name, &mut out, || window(&sample));
     }
     let clicks = out.iter().filter(|line| line.contains("/click:")).count();
     let seconds = out.iter().filter(|line| line.contains("/then:")).count();

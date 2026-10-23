@@ -810,3 +810,287 @@ pub fn readiness(requested: Option<&str>, snapshot: &model::Snapshot) -> Option<
         _ => None,
     }
 }
+
+// The sample table: each named state as a window shows it, the request and
+// window samples over it, and every state of Setup's update panel. The
+// current window's previews and render checks are built from these, so a
+// gallery that draws `Sample::window` shows what that window draws.
+
+/// One named state on one page, with the window state previews show it in.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Case {
+    pub page: Page,
+    pub state: String,
+    /// The first plug-in is open, with its own records read.
+    pub plugin_open: bool,
+    /// The musician's last request is still in flight.
+    pub pending: bool,
+    /// Every disclosure is held open.
+    pub expanded: bool,
+    /// The records are no longer current.
+    pub stale: bool,
+}
+
+impl Case {
+    pub fn new(page: Page, state: &str) -> Self {
+        Self {
+            page,
+            state: state.to_owned(),
+            plugin_open: page == Page::Plugins && state != "current_loading",
+            pending: state == "pending",
+            expanded: matches!(state, "plugin_details" | "plugin_history_open" | "plugin_technical"
+                | "recorded_expanded"),
+            stale: state == "stale",
+        }
+    }
+}
+
+/// Every page in every named state, in the order the render checks draw them.
+pub fn cases() -> impl Iterator<Item = Case> {
+    Page::ALL.into_iter().flat_map(|page| STATES.into_iter().map(move |state| Case::new(page, state)))
+}
+
+/// A request as the window's own feedback records it.
+#[derive(Clone, Debug)]
+pub struct RequestRecord {
+    pub action: model::Action,
+    pub text: String,
+    pub operation: Option<String>,
+    pub transitions: Vec<String>,
+    pub journey: Option<model::InstallationJourney>,
+    /// A problem report ready to save: its id and SHA-256.
+    pub report: Option<(String, String)>,
+    /// The manager reported its result.
+    pub terminal: bool,
+    /// The request still holds the window's controls.
+    pub blocking: bool,
+}
+
+impl RequestRecord {
+    pub fn view(&self) -> crate::window::Request<'_> {
+        crate::window::Request { text: &self.text, journey: self.journey.as_ref(),
+            operation: self.operation.as_deref(), transitions: &self.transitions,
+            report: self.report.is_some(), blocking: self.blocking }
+    }
+
+    /// A click waiting for current status, then started.
+    fn running(action: model::Action) -> Self {
+        Self { action, text: crate::window::CAPTURED.into(), operation: None,
+            transitions: vec!["captured".into(), "running".into()], journey: None, report: None,
+            terminal: false, blocking: true }
+    }
+
+    /// A request the manager accepted and finished.
+    fn settled(action: model::Action, text: &str) -> Self {
+        Self { action, text: text.into(), operation: Some("0a".repeat(16)),
+            transitions: vec!["captured".into(), "accepted".into(), "completed".into()], journey: None,
+            report: None, terminal: true, blocking: false }
+    }
+}
+
+/// The request bar and window samples, drawn over Home and the plug-in page.
+pub const REQUESTS: [&str; 7] = ["journey", "report", "refused", "message", "importing", "superseded", "renewing"];
+
+/// Setup's update panel in one state.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UpdateSample {
+    /// A beta link is saved.
+    pub linked: bool,
+    /// The musician is changing it.
+    pub editing: bool,
+    /// What is typed in the link field.
+    pub draft: String,
+    pub link_message: Option<String>,
+    pub phase: crate::updates::Phase,
+    pub notice: Option<crate::updates::UpdateNotice>,
+}
+
+impl UpdateSample {
+    /// A check, download or hand-over runs.
+    pub fn busy(&self) -> bool {
+        use crate::updates::Phase;
+        matches!(self.phase, Phase::Checking | Phase::Downloading { .. } | Phase::HandingOver | Phase::HandedOver)
+    }
+
+    pub fn panel(&self) -> crate::updates::Panel {
+        crate::updates::Panel::build(self.linked, self.editing, self.busy(), self.link_message.as_deref(),
+            &self.phase, self.notice.as_ref())
+    }
+}
+
+/// Every state Setup's update panel draws, in the order the render checks draw them.
+pub fn updates() -> Vec<(&'static str, UpdateSample)> {
+    use crate::updates::{Phase, UpdateNotice};
+    let version = || "0.12.0test148".to_owned();
+    let linked = |phase: Phase| UpdateSample { linked: true, editing: false, draft: String::new(), link_message: None,
+        phase, notice: None };
+    let available = || Phase::Available { version: version(), notes: "Setup → Beta updates\r\nFaster plug-in list".into() };
+    vec![
+        ("no_link", UpdateSample { linked: false, ..linked(Phase::Idle) }),
+        ("unreadable_link", UpdateSample { linked: false,
+            link_message: Some("Your saved beta link could not be read. Paste it again.".into()), ..linked(Phase::Idle) }),
+        ("idle", linked(Phase::Idle)),
+        ("editing", UpdateSample { editing: true, draft: "https://example".into(),
+            link_message: Some("This is not a beta link.".into()), ..linked(Phase::Idle) }),
+        ("checking", linked(Phase::Checking)),
+        ("failed", linked(Phase::Failed(UpdateNotice {
+            text: "Setup is already installing something; try again when it finishes.".into(),
+            technical: Some("user_package_intake_busy".into()) }))),
+        ("up_to_date", linked(Phase::UpToDate("0.12.0test146".into()))),
+        ("no_package", linked(Phase::NoPackage(version()))),
+        ("manual", linked(Phase::Manual(Some(version())))),
+        ("manual_unknown", linked(Phase::Manual(None))),
+        ("available", linked(available())),
+        ("available_notice", UpdateSample { notice: Some(UpdateNotice {
+            text: "The download stopped before it finished. Choose Download and update again to continue where it left off.".into(),
+            technical: None }), ..linked(available()) }),
+        ("downloading", linked(Phase::Downloading { version: version(), done: 4_000_000, total: 10_000_000 })),
+        ("waiting", linked(Phase::Waiting { version: version(), observed: false, long: false })),
+        ("waiting_long", linked(Phase::Waiting { version: version(), observed: false, long: true })),
+        ("handing_over", linked(Phase::HandingOver)),
+        ("handed_over", linked(Phase::HandedOver)),
+    ]
+}
+
+/// One sample as a window holds it: the records, the window's own state, and
+/// what its last request, notice and updater say.
+#[derive(Clone, Debug)]
+pub struct Sample {
+    pub case: Case,
+    pub snapshot: model::Snapshot,
+    pub readiness: Option<model::ReadinessAssessment>,
+    pub request: Option<RequestRecord>,
+    pub message: String,
+    /// An installer file is being chosen.
+    pub importing: bool,
+    /// An updated window replaced this one.
+    pub superseded: bool,
+    /// The records aged and are being read again.
+    pub renewing: bool,
+    pub update: Option<UpdateSample>,
+}
+
+impl Sample {
+    /// The case's own sample records.
+    pub fn new(case: Case) -> Self {
+        let snapshot = snapshot(case.page, Some(&case.state));
+        let readiness = readiness(Some(&case.state), &snapshot);
+        Self::with_records(case, snapshot, readiness)
+    }
+
+    /// The case shown over other records, such as a recorded snapshot.
+    pub fn with_records(case: Case, snapshot: model::Snapshot, readiness: Option<model::ReadinessAssessment>) -> Self {
+        let request = case.pending.then(|| RequestRecord::running(model::Action::RuntimeInstall {}));
+        Self { case, snapshot, readiness, request, message: String::new(), importing: false, superseded: false,
+            renewing: false, update: None }
+    }
+
+    /// One of `REQUESTS` over this sample.
+    pub fn with_request(mut self, name: &str) -> Self {
+        use model::Action;
+        match name {
+            "journey" => {
+                let mut request = RequestRecord::settled(Action::SoftwareInstall { installer: "ab".repeat(32),
+                    daw: model::DawChoice::Reaper },
+                    "Installation or DAW connection needs attention. Its results and continuation are shown below.");
+                request.journey = serde_json::from_value(serde_json::json!({"daw": "reaper", "phase": "needs_attention",
+                    "failure": {"stage": "publication", "reason": "Run the same step again.", "code": "x", "retryable": true},
+                    "plugins": [{"selection": "s1", "class_id": "c1", "name": "Example Keys", "stage": "available", "failure": null},
+                        {"selection": "s2", "class_id": "c2", "name": "Example Pads", "stage": "needs_attention",
+                            "failure": {"stage": "preparation", "reason": "The native connection could not be prepared.",
+                                "code": "y", "retryable": true}},
+                        {"selection": "s3", "class_id": "c3", "name": "Example Echo", "stage": "replacement_required",
+                            "failure": null}]})).ok();
+                self.request = Some(request);
+            }
+            "report" => {
+                let mut request = RequestRecord::settled(Action::SupportExport {},
+                    "Problem report created. Choose where to save the file to send.");
+                request.report = Some(("ab".repeat(16), "cd".repeat(32)));
+                self.request = Some(request);
+            }
+            "refused" => self.request = Some(RequestRecord::settled(Action::RuntimeInstall {},
+                "This request was refused: Close active bridged instances before this action")),
+            "message" => self.message = format!("Operation accepted: {}", "0a".repeat(16)),
+            "importing" => self.importing = true,
+            "superseded" => self.superseded = true,
+            "renewing" => self.renewing = true,
+            other => panic!("unknown request sample: {other}"),
+        }
+        self
+    }
+
+    /// One of `updates()` as the updater's state.
+    pub fn with_update(mut self, name: &str) -> Self {
+        self.update = Some(updates().into_iter().find(|(sample, _)| *sample == name)
+            .unwrap_or_else(|| panic!("unknown update sample: {name}")).1);
+        self
+    }
+
+    /// The window's own state for this sample.
+    pub fn state(&self) -> crate::state::State {
+        let mut state = crate::state::State { page: self.case.page, ..Default::default() };
+        state.plugins.expanded = self.case.expanded;
+        if self.case.plugin_open {
+            if let Some(product) = self.snapshot.products.first() {
+                state.plugins.focus_product(product.into());
+            }
+        }
+        state
+    }
+
+    fn fresh(&self) -> bool { !self.case.stale && !self.renewing }
+
+    /// Current status is at hand: fresh, or aged and being read again.
+    fn current(&self) -> bool { self.fresh() || self.renewing }
+
+    /// The opened plug-in's records, when exactly one plug-in matches it.
+    fn product(&self) -> Option<&model::Snapshot> {
+        let product = self.snapshot.products.first().filter(|_| self.case.plugin_open)?;
+        let key = crate::ProductKey::from(product);
+        (self.snapshot.products.iter().filter(|other| crate::ProductKey::from(*other) == key).count() == 1)
+            .then_some(&self.snapshot)
+    }
+
+    pub fn records(&self) -> crate::screen::Records<'_> {
+        let current = self.current().then_some(&self.snapshot);
+        crate::screen::Records {
+            current: Some(&self.snapshot),
+            details: Some(&self.snapshot),
+            product: self.product(),
+            actions: current,
+            readiness: self.readiness.as_ref().filter(|readiness| readiness.state_token == self.snapshot.state_token
+                && readiness.system == self.snapshot.system),
+            health: current.map(|snapshot| &snapshot.system),
+        }
+    }
+
+    /// `distribution`: the name Diagnostics shows; a frontend reads its own.
+    pub fn reading<'a>(&'a self, distribution: Option<&'a str>) -> crate::screen::Reading<'a> {
+        let in_flight = self.case.pending;
+        crate::screen::Reading {
+            fresh: self.fresh(),
+            renewing: self.renewing,
+            health_renewing: !self.superseded && self.renewing,
+            owned_pause: self.current() && crate::service::owned_service_pause(self.snapshot.operation.as_ref()),
+            controls_pending: self.superseded || self.importing || in_flight
+                || self.request.as_ref().is_some_and(|request| request.blocking),
+            in_flight,
+            working: self.importing || in_flight,
+            explicit_refresh: false,
+            details_attempted: false,
+            product_attempted: false,
+            superseded: self.superseded,
+            preview: true,
+            own_version: None,
+            distribution,
+            update_headline: self.update.as_ref().and_then(|update| crate::updates::headline(&update.phase)),
+            request: self.request.as_ref().map(RequestRecord::view),
+            message: &self.message,
+        }
+    }
+
+    pub fn window(&self, distribution: Option<&str>) -> crate::screen::Window {
+        crate::screen::Window::build(&self.records(), &self.reading(distribution), &self.state())
+    }
+}
