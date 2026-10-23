@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "status": "static_overlay_application_passed",
+  "kernel_package": {
+    "name": "linux-image-6.18.50+rpt-rpi-2712",
+    "version": "1:6.18.50-1+rpt1",
+    "sha256": "41a73543781af93f591adddcbf1e2fcc478450784ba2a27be2f07af84ce2bbb6"
+  },
+  "base_dtb": {
+    "path_in_package": "usr/lib/modules/6.18.50+rpt-rpi-2712/dtb/broadcom/bcm2712-rpi-5-b.dtb",
+    "sha256": "a5165cb562035f479ea9f5a81cedf7b6596ea32a0598608c4dc3b77ada909c60"
+  },
+  "overlay": {
+    "source_sha256": "25a4feedd593c0d374d29085f5cd5f2d6a1d0a624541248fc17f9f909b903a23",
+    "dtbo_sha256": "53133944a3f24d51aaf14bce73ea362d8277f6517540e8a2fa824c279b50e592",
+    "compiler": "DTC 1.7.2"
+  },
+  "rp1_adaptation": {
+    "gpio_target": "rp1_gpio",
+    "i2c_target": "i2c_arm",
+    "spi_target": "rp1_spi0",
+    "cpu_dai_target": "i2s_clk_consumer",
+    "codec_reset": "ShieldXL GPIO17 is wired directly to active-low CS4270 /RST; the Linux driver uses descriptor value 0 to assert reset and 1 to deassert it, so the reset-gpios descriptor is deliberately GPIO_ACTIVE_HIGH",
+    "packaged_w1_gpio_pi5_dtbo_sha256": "3d2372c30a6b5f3d67b7ac8723372a00652f70422bed5c9ca9407ee5cc43343c",
+    "packaged_i2s_dac_dtbo_sha256": "4f5625af2c88472217448cdc3e04a408535a171e2d987607da02bb824832c43e"
+  },
+  "application": {
+    "tool": "fdtoverlay from DTC 1.7.2",
+    "result": "pass",
+    "resulting_dtb_sha256": "bc8247bd66f838e1fa9cb96362dc7d1118c354692b516be63997593f6c51e4d3",
+    "clock_direction": "CS4270 is bit/frame-clock owner; RP1 i2s_clk_consumer is the CPU DAI",
+    "resolved_nodes": [
+      "/soc@107c000000/sound",
+      "/axi/pcie@1000120000/rp1/i2s@a4000",
+      "/axi/pcie@1000120000/rp1/i2c@74000/codec@48",
+      "/axi/pcie@1000120000/rp1/spi@50000/spidev@0",
+      "/shieldxl-encoder-1",
+      "/shieldxl-encoder-2",
+      "/shieldxl-encoder-3",
+      "/shieldxl-button-1",
+      "/shieldxl-button-2",
+      "/shieldxl-button-3"
+    ]
+  },
+  "nonclaim": "Static application proves symbol, RP1 target, and tree compatibility with the packaged Pi 5 DTB only. It does not prove boot, probe, electrical behavior, or physical hardware acceptance."
+}

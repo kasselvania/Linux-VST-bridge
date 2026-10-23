@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "status": "physical_controls_acceptance_passed",
+  "reader": "/usr/local/libexec/shieldxl0/controls.py --format json",
+  "stable_aliases": {
+    "encoders": ["/dev/input/shieldxl-encoder-1", "/dev/input/shieldxl-encoder-2", "/dev/input/shieldxl-encoder-3"],
+    "buttons": ["/dev/input/shieldxl-button-1", "/dev/input/shieldxl-button-2", "/dev/input/shieldxl-button-3"]
+  },
+  "physical_observation": {
+    "encoders": "all three emitted clean relative events in both directions",
+    "buttons": "all three emitted one press and one release for the bounded operator action",
+    "operator_note": "the encoders are smooth rather than detented, so events-per-detent is not applicable and absolute turn distance was not claimed",
+    "peak_temperature_c": 54.3,
+    "throttling": "0x0",
+    "result": "pass"
+  },
+  "post_reboot_aliases_present": true,
+  "mapping_nonclaim": "SHIELDXL0 does not map these controls to plug-in parameters; RPI0 consumes typed events off the audio callback."
+}
