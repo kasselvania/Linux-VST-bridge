@@ -6800,6 +6800,33 @@ pub(crate) mod tests {
         });
     }
     #[test]
+    fn a_setup_card_whose_installer_did_not_confirm_closing_offers_the_check() {
+        // Every action that waits for this installer says to use "Check that
+        // it closed" on its setup's card; the card is where the window shows it.
+        let (f, _) = preparation_cli::tests::projection_fixture();
+        let operation = test_fixture::retained_history(&f, test_fixture::Changes::Installers, 1, 0, 0).remove(0);
+        let record = onboarding::history_records(&f.m).unwrap().remove(0);
+        atomic_json(&onboarding::directory(&f.m, &record.id).unwrap().join(format!("{operation}-result.json")),
+            &json!({"schema":2,"operation":operation,"state":"completed","raw_exit":0,
+                "cleanup_confirmed":false,"owned_live":0,"error":null})).unwrap();
+        readiness::with_unit_state_fixture(&[onboarding::unit(&operation).unwrap()], "inactive", || {
+            let card = |setups: &[ui::InstallerSetup]| setups.iter()
+                .find(|card| card.environment.as_deref() == Some(record.id.as_str())).cloned().unwrap();
+            let server = overview_service_reply(&f.m, capacity_json(false, 0, 0));
+            let home = card(&current_overview(&f.m).unwrap().current.installer_setups);
+            server.join().unwrap();
+            let diagnostics = card(&snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![],
+                &|| capacity_fixture(&f.m)).unwrap().installer_setups);
+            for (view, card) in [("home", home), ("diagnostics", diagnostics)] {
+                assert_eq!(card.phase, ui::SetupPhase::CleanupUnconfirmed, "{view}");
+                let primary = card.primary.unwrap_or_else(|| panic!("{view}: no offer"));
+                assert_eq!(primary.action, ui::Action::InstallerCloseCheck { operation: operation.clone() }, "{view}");
+                assert_eq!(primary.label, "Check that it closed", "{view}");
+                assert_eq!(primary.disabled_reason, None, "{view}");
+            }
+        });
+    }
+    #[test]
     fn diagnostics_and_the_problem_report_complete_with_more_history_than_one_watch_held() {
         // Three plug-ins, each prepared 350 times before its current
         // candidate: over 4,096 files in all, each plug-in within its own
