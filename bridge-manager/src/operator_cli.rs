@@ -6827,6 +6827,40 @@ pub(crate) mod tests {
         });
     }
     #[test]
+    fn an_automatic_setup_whose_installer_did_not_confirm_closing_offers_the_check() {
+        // A setup started with "Install and connect to your DAW": its card's
+        // journey projection kept only a running window's Focus.
+        let (f, _) = preparation_cli::tests::projection_fixture();
+        let operation = test_fixture::retained_history(&f, test_fixture::Changes::Installers, 1, 0, 0).remove(0);
+        let mut record = onboarding::history_records(&f.m).unwrap().remove(0);
+        record.automatic = Some(automatic_install::Intent { owner: record.creation_operation.clone(),
+            active_operation: record.creation_operation.clone(), installer_policy: None, vendor: None,
+            journey: ui::InstallationJourney { daw: ui::DawChoice::Bitwig,
+                phase: ui::InstallationPhase::VendorRunning, plugins: vec![], failure: None },
+            scan: None, prior_selections: vec![], prior_modules: vec![], failed_modules: vec![],
+            work: vec![], predecessors: vec![], previous: None });
+        let directory = onboarding::directory(&f.m, &record.id).unwrap();
+        atomic_json(&directory.join("record.json"), &record).unwrap();
+        atomic_json(&directory.join(format!("{operation}-result.json")),
+            &json!({"schema":2,"operation":operation,"state":"completed","raw_exit":0,
+                "cleanup_confirmed":false,"owned_live":0,"error":null})).unwrap();
+        readiness::with_unit_state_fixture(&[onboarding::unit(&operation).unwrap()], "inactive", || {
+            let card = |setups: &[ui::InstallerSetup]| setups.iter()
+                .find(|card| card.environment.as_deref() == Some(record.id.as_str())).cloned().unwrap();
+            let server = overview_service_reply(&f.m, capacity_json(false, 0, 0));
+            let home = card(&current_overview(&f.m).unwrap().current.installer_setups);
+            server.join().unwrap();
+            let diagnostics = card(&snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![],
+                &|| capacity_fixture(&f.m)).unwrap().installer_setups);
+            for (view, card) in [("home", home), ("diagnostics", diagnostics)] {
+                assert!(card.journey.is_some(), "{view}: the automatic journey is shown");
+                let primary = card.primary.unwrap_or_else(|| panic!("{view}: no offer"));
+                assert_eq!(primary.action, ui::Action::InstallerCloseCheck { operation: operation.clone() }, "{view}");
+                assert_eq!(primary.disabled_reason, None, "{view}");
+            }
+        });
+    }
+    #[test]
     fn diagnostics_and_the_problem_report_complete_with_more_history_than_one_watch_held() {
         // Three plug-ins, each prepared 350 times before its current
         // candidate: over 4,096 files in all, each plug-in within its own

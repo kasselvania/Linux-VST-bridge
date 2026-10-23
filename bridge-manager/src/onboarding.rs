@@ -985,12 +985,14 @@ fn setup_posture(current: &ui::Onboarding, ambiguous: bool, discovered: usize)
         return (Phase::Imported,
             "No native plug-in setup has started from this installer.".into(), SetupNext::Create);
     }
+    let has_focus = current.actions.iter().any(|a| matches!(a.action, ui::Action::InstallerFocus { .. }));
     if current.state == "cleanup_unconfirmed" {
         // Every action that waits for it says to check that it closed here.
+        // While its installer still runs, its window comes first.
         return (Phase::CleanupUnconfirmed,
-            "Installer cleanup is unresolved. Further setup is paused.".into(), SetupNext::CloseCheck);
+            "Installer cleanup is unresolved. Further setup is paused.".into(),
+            if has_focus { SetupNext::Focus } else { SetupNext::CloseCheck });
     }
-    let has_focus = current.actions.iter().any(|a| matches!(a.action, ui::Action::InstallerFocus { .. }));
     if current.state == "needs_attention" && has_focus {
         return (Phase::SetupNeedsAttention, current.required_human_action.clone(), SetupNext::Focus);
     }
@@ -1313,6 +1315,13 @@ pub(crate) mod tests {
         assert_eq!(setup_primary(&row.actions, next).unwrap().action, close.action);
         row.actions.retain(|offer| offer.action != close.action);
         assert!(setup_primary(&row.actions, next).is_none(), "no invented close check");
+        // While its installer still runs, its window is the card's offer.
+        let focus = offered(ui::Action::InstallerFocus { onboarding: env.clone(), operation: "ab".repeat(16) });
+        row.actions = vec![focus.clone(),
+            offered(ui::Action::InstallerStop { onboarding: env.clone(), operation: "ab".repeat(16) })];
+        let (phase, _, next) = setup_posture(&row, false, 0);
+        assert_eq!(phase, ui::SetupPhase::CleanupUnconfirmed);
+        assert_eq!(setup_primary(&row.actions, next).unwrap().action, focus.action);
         row.state = "needs_attention".into();
         row.actions = vec![offered(ui::Action::InstallerFocus {
             onboarding: env.clone(), operation: "aa".repeat(16) }),
