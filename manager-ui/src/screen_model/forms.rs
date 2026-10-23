@@ -403,6 +403,9 @@ pub fn result_form() -> ResultForm {
 
 /// A result can be recorded once it says what was observed: a check that
 /// worked, or a described problem with its area when the category is Other.
+/// A duplicate of the manager's own validation of the result, kept so the
+/// form can refuse before sending; retire it when the service supplies the
+/// refusal (#489).
 pub fn result_complete(result: &TestResultKind, passed: &[TestArea], failed_area: Option<TestArea>, note: &str) -> bool {
     match result {
         TestResultKind::Worked => !passed.is_empty(),

@@ -117,10 +117,10 @@ impl HealthBar {
     /// a status read is under way after the last one aged.
     pub fn build(system: Option<&System>, owned_pause: bool, renewing: bool) -> Self {
         let unobserved = renewing && system.is_none();
-        // The same row shape is retained through readback transitions.
-        let paused = owned_pause && system.is_none_or(|system|
-            system.pending_transactions == 0 && system.stale_transports == 0
-                && (!system.capacity_available() || !system.cleanup_unconfirmed));
+        // The same row shape is retained through readback transitions. The
+        // window derives the pause and the health from the service's counters,
+        // a duplicate of the status the service should report (#489).
+        let paused = service::paused_for_installation(owned_pause, system);
         let health = system.map(service::health).unwrap_or(Health::Unavailable);
         let status = if paused {
             Status { words: "Bridge temporarily paused for installation", class: StatusClass::Working }

@@ -65,6 +65,8 @@ pub fn system_status(snapshot: &Snapshot, pending: bool, expanded: bool) -> Disc
     if system.capacity_available() && system.cleanup_unconfirmed {
         content.push(Text::alert("Previous instance cleanup is unconfirmed — retained leases are not proof of a live DSP; new admission is blocked").into());
     }
+    // A fixed claim the window prints itself, not a service fact; replace it
+    // with the service's buffering recommendation (#489, schema 30).
     content.push(Text::body("512 added frames recommended · 256 unqualified").into());
     content.push(Text::body(if snapshot.capture["armed"] == true { "Crash capture: armed for next admitted launch" }
         else if snapshot.capture["active_retention"].as_u64().unwrap_or(0) > 0 { "Crash capture: retaining an active instance" }

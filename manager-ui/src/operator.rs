@@ -2703,18 +2703,31 @@ mod tests {
         overview.current.installer_setups = vec![automatic_setup(
             automatic_journey(InstallationPhase::Available), None)];
         let screen = Some(egui::Rect::from_min_size(egui::Pos2::ZERO,egui::vec2(560.0,1200.0)));
-        // The title row's build line and note, as the window draws them beside the title.
-        let badge = |snapshot: Option<&Snapshot>| {
-            let title = screen_model::window::TitleRow::build(snapshot, Some("0.12.0test150"), true, false, None, false);
-            title.version.into_iter().chain(title.note).collect::<Vec<_>>()
+        // The whole window, drawn as the render check draws it: the build
+        // line and any note follow the title.
+        let badge = |snapshot: &Snapshot| {
+            let ctx = result_form_context();
+            let mut window = Operator::preview_current(snapshot.clone(), None, Page::Home, false, false, false, false);
+            let mut frame = eframe::Frame::_new_kittest();
+            let mut labels = vec![];
+            for _ in 0..3 {
+                labels.clear();
+                let mut output = ctx.run_ui(egui::RawInput {screen_rect:screen,..Default::default()},
+                    |ui| eframe::App::ui(&mut window, ui, &mut frame));
+                for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
+                output.textures_delta.clear();
+            }
+            let title = labels.iter().position(|(label,_)| label == "Linux VST Bridge").expect("the title");
+            labels.into_iter().skip(title + 1).take(3).map(|(label,_)| label).collect::<Vec<_>>()
         };
-        assert_eq!(badge(Some(&overview.current)), ["0.12.0test144 · runtime r5","Update ready: 0.12.0test145"]);
-        // Before any readback, the window names its own build.
-        assert_eq!(badge(None), ["0.12.0test150"]);
+        assert_eq!(badge(&overview.current), ["0.12.0test144 · runtime r5","Update ready: 0.12.0test145","Refresh"]);
         // An older package in Setup is not announced beside the title.
         let mut older = overview.current.clone();
         older.bridge.setup = SetupPackage::Older("0.12.0test140".into());
-        assert_eq!(badge(Some(&older)), ["0.12.0test144 · runtime r5"]);
+        assert_eq!(badge(&older)[..2], ["0.12.0test144 · runtime r5","Refresh"]);
+        // Before any readback, the window names its own build.
+        let title = screen_model::window::TitleRow::build(None, Some("0.12.0test150"), false, false, None, false);
+        assert_eq!((title.version.as_deref(), title.note), (Some("0.12.0test150"), None));
 
         let ctx = result_form_context();
         let mut point = egui::Pos2::ZERO;

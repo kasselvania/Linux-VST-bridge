@@ -409,7 +409,10 @@ impl Updates {
                 Block::Notice { notice, warn } => notice_line(ui, notice, *warn),
                 Block::Available { headline, notes, notice, advice, download } => {
                     ui.label(egui::RichText::new(headline).strong());
-                    if let Some(notes) = notes { crate::widgets::disclosure(ui, notes, &mut None); }
+                    if let Some((title, notes)) = notes {
+                        egui::CollapsingHeader::new(*title).default_open(false)
+                            .show(ui, |ui| { ui.label(plain_notes(notes)); });
+                    }
                     if let Some(notice) = notice { notice_line(ui, notice, true); }
                     ui.label(*advice);
                     if ui.add(crate::presentation::primary_button(download.label, ui)).clicked() {
@@ -468,6 +471,11 @@ impl Updates {
             self.notice = Some("The update is downloaded and kept. Choose Download and update when you're ready.".into());
         }
     }
+}
+
+/// The notes as plain text in the window's font, which has no arrow glyphs.
+fn plain_notes(notes: &str) -> String {
+    notes.replace('\r', "").replace('→', "->").replace('←', "<-")
 }
 
 fn notice_line(ui: &mut egui::Ui, notice: &Notice, warn: bool) {
@@ -681,5 +689,6 @@ mod tests {
         assert!(labels.iter().any(|l| l == "Check for updates"));
         updates.status = Status::UpToDate("0.12.0test146".into());
         assert!(rendered(&mut updates).iter().any(|l| l == "You have the latest version (Test146)."));
+        assert_eq!(plain_notes("Setup → Beta updates\r\n"), "Setup -> Beta updates\n");
     }
 }

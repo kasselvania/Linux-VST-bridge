@@ -3,7 +3,6 @@
 //! version's Setup. The window's updater owns that work; this says where it
 //! is and what can be pressed. The link and its key are never shown.
 //! Versions are shown as the update feed names them (`display_version`).
-use super::{Disclosure, Text};
 use linux_vst_bridge::update_feed::display_version;
 
 /// A plain line, with the manager's exact refusal kept for technical details.
@@ -75,7 +74,8 @@ pub enum Block {
     Working(&'static str),
     Line(String),
     Notice { notice: UpdateNotice, warn: bool },
-    Available { headline: String, notes: Option<Disclosure>, notice: Option<UpdateNotice>,
+    /// `notes`: the release notes as published, under their heading.
+    Available { headline: String, notes: Option<(&'static str, String)>, notice: Option<UpdateNotice>,
         advice: &'static str, download: UpdateControl },
     Downloading { line: String, fraction: f32, progress: String, note: &'static str },
     Waiting { headline: String, warning: &'static str, continue_anyway: Option<UpdateControl>,
@@ -97,11 +97,6 @@ pub struct Panel {
 /// Something is typed to save as the beta link.
 pub fn can_save(draft: &str) -> bool {
     !draft.trim().is_empty()
-}
-
-/// The notes as plain text in the manager's font, which has no arrow glyphs.
-pub fn plain_notes(notes: &str) -> String {
-    notes.replace('\r', "").replace('→', "->").replace('←', "<-")
 }
 
 /// An update available or under way, as one line for the other pages.
@@ -149,8 +144,7 @@ impl Panel {
                 }),
                 Phase::Available { version: offered, notes } => Block::Available {
                     headline: format!("Update available: {}", version(offered)),
-                    notes: (!notes.trim().is_empty()).then(|| Disclosure::new("What's new",
-                        vec![Text::body(plain_notes(notes)).into()])),
+                    notes: (!notes.trim().is_empty()).then(|| ("What's new", notes.clone())),
                     notice: notice.cloned(),
                     advice: "Close your DAW before updating. Your plug-ins, projects and settings are kept, and Restore previous setup can bring back this version.",
                     download: control("Download and update", Step::Download),
@@ -206,6 +200,5 @@ mod tests {
         assert!(!waiting(true, true), "a reading says the DAW is open: no way around it");
         assert_eq!(headline(&Phase::Waiting { version: "0.12.0test148".into(), observed: false, long: false }).unwrap(),
             "Close your DAW to finish updating to Test148.");
-        assert_eq!(plain_notes("Setup → Beta updates\r\n"), "Setup -> Beta updates\n");
     }
 }
