@@ -2471,6 +2471,9 @@ fn execute_with_receipt_policy_progress(
         timeout,
         waits,
     )?);
+    // The worker checked what this action acts on, then released
+    // serialization; check it again now that this executor holds it.
+    if let Some(owner) = operation { preconditions::recheck_accepted(m, owner, a)?; }
     if matches!(
         a,
         ui::Action::InstallerEnvironmentCreate { .. } | ui::Action::InstallerNewAttempt { .. }
@@ -4248,15 +4251,20 @@ fn worker_with_capacity_observed(
                     installer_launched: false,
                     lock: f.facts.clone(),
                 });
+            let changed = e.downcast_ref::<preconditions::Changed>().map(|changed| changed.0);
             let reason = if failure.as_ref().is_some_and(|f| f.retryable) {
                 format!("{} No setup was created and the installer did not start.",
                     linux_vst_bridge::operator_lock::BUSY_SENTENCE)
             } else if linux_vst_bridge::operator_lock::is_busy(e.as_ref()) {
                 linux_vst_bridge::operator_lock::BUSY_SENTENCE.to_owned()
+            } else if changed.is_some() {
+                e.to_string()
             } else {
                 format!("Operator action: {e}").chars().take(512).collect()
             };
-            json!({"schema":1,"operation":id,"state":"refused","reason":reason,"failure":failure,"preparation_failure":preparation_failure(&request.action,e.as_ref()),"lock_waits":waits})
+            let mut refused = json!({"schema":1,"operation":id,"state":"refused","reason":reason,"failure":failure,"preparation_failure":preparation_failure(&request.action,e.as_ref()),"lock_waits":waits});
+            if let Some(fact) = changed { refused["precondition"] = fact.name().into(); }
+            refused
         }
     };
     timing::measure(Stage::FinalReceipt, || write_operation(m, id, &value, false))

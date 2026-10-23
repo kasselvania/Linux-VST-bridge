@@ -511,13 +511,16 @@ fn installer_liveness(operations: &[String]) -> Result<BTreeMap<String, bool>> {
     })
 }
 
-/// Whether a Native Access session's report says it is still running.
-fn renderer_session_running(m: &Manager, owner: &str) -> Result<bool> {
+/// A session report larger than a control record can be.
+const RENDERER_REPORT_BOUND: u64 = 8 * 1024 * 1024;
+/// Whether a Native Access session's report says it is still running. A
+/// report too large to read as a record is not taken as running; it stays
+/// watched, and the page reports what its own reader finds.
+pub(super) fn renderer_session_running(m: &Manager, owner: &str) -> Result<bool> {
     let session = linux_vst_bridge::renderer_session::operation_dir(m, owner)?;
     if session.join("recovery-result.json").try_exists()? { return Ok(false); }
     let report = session.join("result.json");
-    if !report.try_exists()? { return Ok(false); }
-    require(file(&report)?.metadata()?.len() <= 65536, "renderer_result_bound")?;
+    if !report.try_exists()? || file(&report)?.metadata()?.len() > RENDERER_REPORT_BOUND { return Ok(false); }
     let current: Value = read_json(&report)?;
     Ok(current["operation"] == owner && matches!(current["state"].as_str(), Some("starting" | "running" | "unknown"))
         && current["cleanup_confirmed"] != true)
@@ -940,9 +943,10 @@ fn compose_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->Result<boo
         else { preparation::RecordReadback::capture_watched(m)? };
     let mut watched = if diagnostics { BTreeMap::new() } else { watch_paths(m, &sw, &db)? };
     // After the stamps: a session that ends meanwhile is found terminal again.
+    // Only the current journey's session can still run.
     let mut renderer_live = BTreeMap::new();
     if !diagnostics {
-        for retained in renderer_continuation::records(m)? {
+        if let Some(retained) = renderer_continuation::latest(m)? {
             let owner = &retained.intent.owner;
             if renderer_session_running(m, owner)? { renderer_live.insert(owner.clone(), renderer_cli::live(owner)?); }
         }
