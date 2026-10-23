@@ -167,6 +167,7 @@ pub fn runners(m: &Manager) -> Result<Vec<(String, Runner)>> {
     } else { runners_from_catalogue_with(Some(&sw.catalogue_record(m)?), true)? };
     with_delivered_runtime(m, list)
 }
+#[cfg(test)]
 fn runners_for_readback(m: &Manager) -> Result<Vec<(String, Runner)>> {
     let sw = software_record(m)?;
     let list = if sw.native_catalogue.is_none() {
@@ -777,9 +778,12 @@ pub fn stop(m: &Manager, id: &str, op: &str) -> Result<Value> {
     require(!live(op)? && retired(&v), "installer_cleanup_unconfirmed")?;
     Ok(v)
 }
+/// The setup rows as the view composer projects them, with their inputs read here.
+#[cfg(test)]
 pub fn projection(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::Onboarding>> {
     projection_with_live(m, busy, live)
 }
+#[cfg(test)]
 fn projection_with_live(
     m: &Manager,
     busy: Option<&str>,
@@ -1084,6 +1088,8 @@ fn setup_primary(actions: &[ui::AvailableAction], next: SetupNext) -> Option<ui:
     })
 }
 
+/// The setup cards as the view composer projects them, with their inputs read here.
+#[cfg(test)]
 pub fn setup_projection(m: &Manager, rows: &[ui::Onboarding], products: &[ui::Product],
     workspace_installers: &std::collections::BTreeSet<String>) -> Result<Vec<ui::InstallerSetup>> {
     let runners = runners_for_readback(m)?;
