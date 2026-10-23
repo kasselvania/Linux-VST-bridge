@@ -319,8 +319,7 @@ impl Updates {
                 }
             }
         }
-        let close = self.poll_handover();
-        close
+        self.poll_handover()
     }
 
     fn start_handover(&mut self, offer: Offer, frontend: PathBuf) {
