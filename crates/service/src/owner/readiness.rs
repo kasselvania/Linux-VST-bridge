@@ -176,6 +176,19 @@ fn path_probe(path: &Path, socket: bool) -> Probe<bool> {
 /// Only fixed, read-only platform verbs. The 3-second deadline and 4-KiB
 /// output limit prevent a broken helper from hanging manager readback.
 fn bounded_command(program: &str, args: &[&str]) -> Probe<String> {
+    command_text(bounded_command_output(program, args))
+}
+#[derive(Debug, PartialEq, Eq)]
+struct FixedOutput { success: bool, text: String }
+fn command_text(output: Probe<FixedOutput>) -> Probe<String> {
+    match output {
+        Probe::Observed(output) if output.success => Probe::Observed(output.text),
+        Probe::Observed(_) | Probe::Absent => Probe::Absent,
+        Probe::Unavailable => Probe::Unavailable,
+        Probe::Malformed => Probe::Malformed,
+    }
+}
+fn bounded_command_output(program: &str, args: &[&str]) -> Probe<FixedOutput> {
     let executable = match program {
         "flatpak" => "/usr/bin/flatpak",
         "pw-metadata" => "/usr/bin/pw-metadata",
@@ -205,7 +218,7 @@ fn bounded_command(program: &str, args: &[&str]) -> Probe<String> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Probe::Unavailable,
         Err(_) => return Probe::Unavailable,
     };
-    bounded_child(child, Duration::from_secs(3))
+    bounded_child_output(child, Duration::from_secs(3))
 }
 
 /// Fixed systemd queries and stop submission use the process-cohort and output
@@ -272,6 +285,21 @@ pub(super) fn request_user_unit_stop(unit: &str) -> Result<()> {
     require(matches!(bounded_command("systemctl", &["--user", "--no-block", "stop", unit]),
         Probe::Observed(_)), "vendor_application_cancellation_unconfirmed")
 }
+/// Exact application lifecycle properties share the existing three-second
+/// helper bound. A not-found unit can carry valid properties with a nonzero exit.
+pub(crate) fn application_unit_properties(unit: &str) -> Result<(bool, String)> {
+    validate_user_unit(unit)?;
+    match bounded_command_output("systemctl", &["--user", "show", unit,
+        "--property=Id,LoadState,ActiveState,SubState,Result,ControlGroup,MainPID,ControlPID"]) {
+        Probe::Observed(output) => Ok((output.success, output.text)),
+        _ => Err("application_unit_state_unavailable".into()),
+    }
+}
+pub(crate) fn reset_application_unit(unit: &str) -> Result<()> {
+    validate_user_unit(unit)?;
+    require(matches!(bounded_command("systemctl", &["--user", "reset-failed", unit]), Probe::Observed(_)),
+        "application_unit_reset_unconfirmed")
+}
 fn admit_unit_state(probe: Probe<String>) -> Result<String> {
     match probe {
         Probe::Observed(state) if matches!(state.as_str(),
@@ -307,7 +335,11 @@ fn completed_helper(child: &mut Child) -> std::io::Result<Option<std::process::E
     unsafe { libc::kill(-(child.id() as i32), libc::SIGKILL); }
     child.wait().map(Some)
 }
-fn bounded_child(mut child: Child, limit: Duration) -> Probe<String> {
+#[cfg(test)]
+fn bounded_child(child: Child, limit: Duration) -> Probe<String> {
+    command_text(bounded_child_output(child, limit))
+}
+fn bounded_child_output(mut child: Child, limit: Duration) -> Probe<FixedOutput> {
     let Some(mut stdout) = child.stdout.take() else {
         retire_helper(&mut child);
         return Probe::Unavailable;
@@ -352,9 +384,9 @@ fn bounded_child(mut child: Child, limit: Duration) -> Probe<String> {
         }
         thread::sleep(Duration::from_millis(10));
     }
-    if !exited.is_some_and(|status| status.success()) { return Probe::Absent; }
     match String::from_utf8(bytes) {
-        Ok(text) => Probe::Observed(text.trim().to_owned()),
+        Ok(text) => Probe::Observed(FixedOutput {success:exited.is_some_and(|status|status.success()), text:text.trim().to_owned()}),
+        Err(_) if !exited.is_some_and(|status|status.success()) => Probe::Absent,
         Err(_) => Probe::Malformed,
     }
 }
@@ -1716,6 +1748,10 @@ mod tests {
         };
         let child = spawn("printf ready");
         assert_eq!(bounded_child(child, Duration::from_secs(2)), Probe::Observed("ready".into()));
+        let not_found = bounded_child_output(spawn("printf 'LoadState=not-found'; exit 1"), Duration::from_secs(2));
+        assert_eq!(not_found, Probe::Observed(FixedOutput {success:false, text:"LoadState=not-found".into()}));
+        assert_eq!(command_text(not_found), Probe::Absent,
+            "application codecs may inspect a nonzero reply without changing ordinary probe semantics");
         let child = spawn("printf ready; sleep 0.3 &");
         let started = Instant::now();
         assert_eq!(bounded_child(child, Duration::from_millis(50)), Probe::Unavailable);

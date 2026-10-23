@@ -7,12 +7,12 @@ use linux_vst_bridge::vendor_application::{
 };
 
 pub(super) fn launch_owned(m: &Manager, application: &str, operation: &str) -> Result<()> {
-    run_selected(m, &["launch".into(), application.into()], Some(operation))
+    vendor_app::open(m, application, operation)
 }
 pub(super) fn cancel_owned(m: &Manager, application: &str, operation: &str) -> Result<()> {
-    run_selected(m, &["cancel".into(), application.into()], Some(operation))
+    vendor_app::stop(m, application, operation)
 }
-fn current_application(m: &Manager, record: &Path) -> Result<Application> {
+pub(super) fn current_application(m: &Manager, record: &Path) -> Result<Application> {
     let mut app:Application=read_json(record)?;
     app.environment=operator_cli::environment_install::current_environment(m,&app.environment)?;
     Ok(app)
@@ -584,7 +584,7 @@ fn publish_application(m: &Manager, app: &Application, guard: &Lock) -> Result<(
     Ok(())
 }
 /// True when the previous launch of this exact app had automatic support.
-fn recheck_bound_assistance(m: &Manager, directory: &Path, app: &Application) -> Result<bool> {
+pub(super) fn recheck_bound_assistance(m: &Manager, directory: &Path, app: &Application) -> Result<bool> {
     let path=directory.join("operation.json");
     if !path.exists() { return Ok(false); }
     let prior:vendor_application::Operation=read_json(&path)?;
@@ -601,194 +601,12 @@ fn recheck_bound_assistance(m: &Manager, directory: &Path, app: &Application) ->
     Ok(true)
 }
 /// An app that had automatic support never silently reopens without it.
-const ASSISTANCE_LOST: &str = "This app had automatic setup before, but its files no longer match what this version of the bridge supports. Run its full installer again, or use Choose program to open it without automatic setup.";
-fn submit_with(report: &Path, operation: &str, managed: bool,
-    spawn: impl FnOnce()->std::io::Result<std::process::Child>) -> Result<()> {
-    let mut child=match spawn() {
-        Ok(child)=>child,
-        Err(_)=> {
-            // Spawn failure proves this submission command never executed.
-            // A started command's failed/unknown acknowledgment proves no such
-            // thing and retains uncertain custody instead.
-            let mut value:serde_json::Value=read_json(report)?;
-            require(value["operation_id"]==operation,"vendor_application_operation_changed")?;
-            value["error"]="The app could not be started. Try again; if it still fails, send Setup details.".into();
-            value["error_code"]="vendor_application_not_submitted".into();
-            if managed {value["dependency"]=json!({"dependency_cleanup_disposition":"not_started",
-                "service_actions_started":false,"process_cleanup_confirmed":false});}
-            atomic_json(report,&value)?;
-            return Err("The app could not be started. Try again; if it still fails, send Setup details.".into());
-        }
-    };
-    require(child.wait()?.success(),"vendor_application_launch_unconfirmed")
-}
-/// Recover a session whose app is not running. Plug-in admission takes the
-/// registry lock without waiting, so it is released before the re-check (up to
-/// 30 s). The app's own writer lock, held by the re-check, keeps this app from
-/// launching meanwhile; a later launch binds a new operation.
-fn recover_stopped(m:&Manager,selector:&str,operation:&str,registry:Lock,
-    reconcile:impl FnOnce(&Manager,&str,&str)->Result<()>)->Result<()> {
-    drop(registry);
-    reconcile(m,selector,operation)?;
-    println!("{}",serde_json::to_string(&result(m,selector,operation)?)?);
-    Ok(())
-}
-fn cancel_with(m:&Manager,selector:&str,operation:Option<&str>,timeout:Duration,
-    mut unit_live:impl FnMut()->Result<bool>,request_stop:impl FnOnce()->Result<()>)->Result<()> {
-    require(timeout <= Duration::from_secs(90),"vendor_application_stop_wait_bound")?;
-    let directory=directory(m,selector)?;
-    let registry=m.lock("registry.lock")?;
-    let job_path=directory.join("operation.json");
-    let pinned=operator_cli::control_artifact(job_path.clone())?;
-    let job:vendor_application::Operation=read_json(&job_path)?;
-    let current=||->Result<OperationResult> {
-        require(operator_cli::control_artifact(job_path.clone())? == pinned,
-            "vendor_application_operation_changed")?;
-        let result=result(m,selector,&job.operation_id)?;
-        if let Some(id)=operation {
-            require(job.operation_id==id && result.operation_id.as_deref()==Some(id),
-                "vendor_application_operation_changed")?;
-        }
-        Ok(result)
-    };
-    // The live supervisor owns writer.lock until it exits. Registry authority
-    // pins the immutable submission while only the nonblocking stop is queued.
-    // Reject a changed job/result before any external unit action.
-    current()?;
-    drop(registry);
-    let running=unit_live()?;
-    let registry=m.lock("registry.lock")?;
-    current()?;
-    if !running {
-        return recover_stopped(m,selector,&job.operation_id,registry,reconcile);
-    }
-    request_stop()?;
-    drop(registry);
-    let deadline=Instant::now()+timeout;
-    let writer=directory.join("writer.lock");
-    let writer=writer.strip_prefix(&m.root)?.to_str().ok_or("vendor_writer_gate")?;
-    loop {
-        current()?;
-        if !unit_live()? {
-            if let linux_vst_bridge::operator_lock::LockAttempt::Acquired(_writer)=m.try_lock(writer)? {
-                let result=current()?;
-                require(result.retired(),"vendor_application_cleanup_unconfirmed")?;
-                println!("{}",serde_json::to_string(&result)?);
-                return Ok(());
-            }
-        }
-        require(Instant::now()<deadline,"vendor_application_cleanup_unconfirmed")?;
-        std::thread::sleep(Duration::from_millis(50).min(deadline.saturating_duration_since(Instant::now())));
-    }
-}
-fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result<()> {
-    if let Some(id) = operation {
-        require(valid_hex(id, 32), "vendor_application_operation_identity")?;
-    }
-    require(args.len() == 2, "vendor_application_action_arguments")?;
-    ApplicationId::parse(&args[1])?;
-    let directory = directory(m, &args[1])?;
-    let unit = unit(&args[1])?;
-    private_dir(&directory)?;
-    let record = directory.join("application.json");
-    match args[0].as_str() {
-        "cancel" => cancel_with(m,&args[1],operation,Duration::from_secs(90),
-            ||live(&args[1]),||readiness::request_user_unit_stop(&unit)),
-        "launch"
-        | "diagnose-agent"
-        | "diagnose-runinprefix"
-        | "diagnose-initialized"
-        | "diagnose-accessibility" => {
-            require(operation.is_some(),"vendor_application_operator_intent_required")?;
-            let _writer=m.lock(directory.join("writer.lock").strip_prefix(&m.root)?.to_str().ok_or("vendor_writer_gate")?)?;
-            let mode = LaunchMode::action(&args[0])?;
-            let app=current_application(m,&record)?;
-            app.verify(&m.root)?;
-            let assisted_before = recheck_bound_assistance(m,&directory,&app)?;
-            // Observe resource bytes before admission. A structural nonmatch
-            // preserves normal program launch with its specific explanation.
-            let inspected = linux_vst_bridge::vendor_profile::inspect(&app, &m.root)?;
-            require(!assisted_before || inspected.capabilities.is_some(), ASSISTANCE_LOST)?;
-            let sw = if inspected.capabilities.is_some() || app.user_selection.is_some() {
-                preparation::build::launch_software(m)?
-            } else {software(m)?};
-            let managed = inspected.capabilities.map(|capabilities|
-                linux_vst_bridge::vendor_profile::ManagedLaunch::new(capabilities, sw.clone())).transpose()?;
-            let launcher = if managed.is_some() || app.user_selection.is_some() {
-                sw.installer_launch.clone()
-            } else {None};
-            // The per-app writer excludes another submission while the unit is
-            // observed without holding native admission's registry lock.
-            let old_job=directory.join("operation.json");
-            let prior_job=if old_job.try_exists()? {Some(operator_cli::control_artifact(old_job.clone())?)} else {None};
-            if prior_job.is_some() {require(!live(&args[1])?,"vendor_application_owner_active")?;}
-            let _guard = m.lock("registry.lock")?;
-            if let Some(environment)=operator_cli::vendor_maintenance::for_vendor(m,operation.unwrap())? {
-                require(environment==app.environment,"vendor_maintenance_environment_changed")?;
-                capacity::require_environment_inactive(m,&environment)?;
-            } else {
-                require(!operator_cli::vendor_maintenance::blocks(m,&app.environment)?,"setup_maintenance_active")?;
-                capacity::require_environment_inactive(m,&app.environment)?;
-            }
-            require(current_application(m,&record)? == app, "vendor_application_selection_changed")?;
-            require(
-                app.selector()? == args[1],
-                "vendor_application_selection_changed",
-            )?;
-            require(
-                app.schema == 1 || mode == LaunchMode::Normal,
-                "vendor_application_diagnostic_adapter_absent",
-            )?;
-            // systemd owns the launch beyond this CLI/SSH lifetime. An existing
-            // unit refuses a second launch rather than duplicating the app.
-            let job = directory.join("operation.json");
-            if job.exists() {
-                let old: OperationResult = read_json(&directory.join("operation-result.json"))?;
-                require(
-                    old.retired(),
-                    "vendor_application_operation_requires_retirement",
-                )?;
-                require(prior_job==Some(operator_cli::control_artifact(job.clone())?),"vendor_application_operation_changed")?;
-                let history = directory.join(format!("retired-{}", random_id()?));
-                private_dir(&history)?;
-                fs::rename(&job, history.join("operation.json"))?;
-                fs::rename(
-                    directory.join("operation-result.json"),
-                    history.join("result.json"),
-                )?;
-            }
-            let operation_id = match operation {
-                Some(id) => id.to_owned(),
-                None => random_id()?,
-            };
-            let supervised_service = managed.is_some();
-            if let Some(launch) = &managed {
-                // Launch-time profile settings stay beside the saved binding,
-                // never inside it, so rolled-back managers still read it.
-                atomic_json(&directory.join(linux_vst_bridge::vendor_profile::LAUNCH_SETTINGS),
-                    &linux_vst_bridge::vendor_profile::launch_settings(&launch.capabilities.profile, &operation_id)?)?;
-            }
-            atomic_json(
-                &job,
-                &vendor_application::Operation {application:app,
-                    report:directory.join("operation-result.json"),mode,operation_id:operation_id.clone(),launcher,
-                    managed,capability_notice:inspected.missing_capability},
-            )?;
-            atomic_json(&directory.join("operation-result.json"),&json!({"schema":3,"operation_id":operation_id,"state":"unknown","launcher_exit":null,"owned_live":null,"cleanup_confirmed":false,"error":null,"discarded_diagnostic_bytes":0,"account_posture":"unknown"}))?;
-            drop(_guard);
-            if prior_job.is_some() {
-                let _=Command::new("systemctl").args(["--user","reset-failed",&unit]).status()?;
-            }
-            let mut command=vendor_application::session_command(&unit,supervised_service,&sw,&job)?;
-            submit_with(&directory.join("operation-result.json"),&operation_id,supervised_service,||command.spawn())
-        }
-        _ => Err("vendor_application_action_unknown".into()),
-    }
-}
+pub(super) const ASSISTANCE_LOST: &str = "This app had automatic setup before, but its files no longer match what this version of the bridge supports. Run its full installer again, or use Choose program to open it without automatic setup.";
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::vendor_app::{cancel_with, recover_stopped, submit_with};
     use linux_vst_bridge::operator_model as ui;
     fn assisted() -> (test_fixture::Fixture,vendor_application::Operation) {
         let (f,app,_)=selection::tests::structured_application(27);
@@ -811,7 +629,7 @@ mod tests {
             let path=&job.managed.as_ref().unwrap().capabilities.resources["resources/app.asar"].artifact.path;
             if missing {fs::remove_file(path).unwrap();} else {fs::write(path,b"substituted resources").unwrap();}
             let before=fs::read(directory(&f.m,&selector).unwrap().join("operation.json")).unwrap();
-            assert!(run_selected(&f.m,&["launch".into(),selector.clone()],Some(&random_id().unwrap())).is_err());
+            assert!(vendor_app::open(&f.m,&selector,&random_id().unwrap()).is_err());
             assert_eq!(before,fs::read(directory(&f.m,&selector).unwrap().join("operation.json")).unwrap());
         }
     }
@@ -851,7 +669,7 @@ mod tests {
         atomic_json(&directory.join("operation.json"),&job).unwrap();
         assert!(recheck_bound_assistance(&f.m,&directory,&job.application).unwrap());
         let before=fs::read(directory.join("operation.json")).unwrap();
-        let error=run_selected(&f.m,&["launch".into(),selector.clone()],Some(&random_id().unwrap())).unwrap_err();
+        let error=vendor_app::open(&f.m,&selector,&random_id().unwrap()).unwrap_err();
         assert_eq!(error.to_string(),ASSISTANCE_LOST);
         assert_eq!(before,fs::read(directory.join("operation.json")).unwrap());
         // After an environment revision the old files are not compared, but
@@ -860,7 +678,7 @@ mod tests {
         atomic_json(&directory.join("operation.json"),&revised).unwrap();
         fs::remove_file(&job.managed.as_ref().unwrap().capabilities.resources["resources/app.asar"].artifact.path).unwrap();
         assert!(recheck_bound_assistance(&f.m,&directory,&job.application).unwrap());
-        let error=run_selected(&f.m,&["launch".into(),selector.clone()],Some(&random_id().unwrap())).unwrap_err();
+        let error=vendor_app::open(&f.m,&selector,&random_id().unwrap()).unwrap_err();
         assert_eq!(error.to_string(),ASSISTANCE_LOST);
     }
     #[test]
@@ -950,7 +768,7 @@ mod tests {
         // The next Open re-verifies every byte; a changed app cannot launch silently.
         fs::write(&job.application.executable.path,b"MZ self-updated application").unwrap();
         let bound=fs::read(directory(&f.m,&selector).unwrap().join("operation.json")).unwrap();
-        let error=run_selected(&f.m,&["launch".into(),selector.clone()],Some(&random_id().unwrap())).unwrap_err();
+        let error=vendor_app::open(&f.m,&selector,&random_id().unwrap()).unwrap_err();
         assert_eq!(error.to_string(),"artifact missing or changed");
         assert_eq!(bound,fs::read(directory(&f.m,&selector).unwrap().join("operation.json")).unwrap());
     }
@@ -964,7 +782,7 @@ mod tests {
             reconcile_with(m,selector,operation,empty_unit,|_|{
                 // Plug-in admission takes this lock without waiting.
                 drop(m.lock("registry.lock").expect("registry is free during the census"));
-                let launch=run_selected(m,&["launch".into(),selector.into()],Some(&random_id().unwrap())).unwrap_err();
+                let launch=vendor_app::open(m,selector,&random_id().unwrap()).unwrap_err();
                 assert!(launch.is::<linux_vst_bridge::operator_lock::LockBusy>(),"{launch}");
                 Ok(verdict(json!({})))
             })).unwrap();
