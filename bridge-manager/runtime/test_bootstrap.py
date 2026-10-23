@@ -84,18 +84,23 @@ print(json.dumps({'session': __file__, 'ownership': ownership.__file__,
         result = subprocess.run(command, capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), 'cpython-source-v1')
-        for version in ((3, 12), (3, 15), (4, 0)):
+        for version in ((3, 13), (3, 14), (3, 15)):
+            command[5] = f'import sys; sys.version_info={version!r}; exec({BOOTSTRAP!r})'
+            result = subprocess.run(command, capture_output=True, text=True, timeout=10)
+            self.assertEqual((result.returncode, result.stdout.strip()), (0, 'cpython-source-v1'),
+                             f'{version}: {result.stderr}')
+        for version in ((3, 12), (3, 16), (4, 0)):
             command[5] = f'import sys; sys.version_info={version!r}; exec({BOOTSTRAP!r})'
             result = subprocess.run(command, capture_output=True, text=True, timeout=10)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn('CPython >=3.13,<3.15', result.stderr)
+            self.assertIn('CPython >=3.13,<3.16', result.stderr)
 
     def test_non_cpython_refuses_before_loading_sources(self):
         code = 'import sys, types; sys.implementation=types.SimpleNamespace(name="pypy"); exec(' + repr(BOOTSTRAP) + ')'
         result = subprocess.run([sys.executable, '-I', '-S', '-B', '-c', code, '--probe'],
                                 capture_output=True, text=True, timeout=10)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn('CPython >=3.13,<3.15', result.stderr)
+        self.assertIn('CPython >=3.13,<3.16', result.stderr)
 
     def test_original_bytecode_shape_still_loads_its_adjacent_ownership(self):
         for source in (self.session, self.ownership):

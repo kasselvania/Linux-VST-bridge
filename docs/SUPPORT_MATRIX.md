@@ -24,7 +24,7 @@ final source run preserved that root's device/inode/owner/mode; source generatio
 wrote no bytecode. Old/restored and source/source-again records remain byte-exact.
 The runtime inventory stayed exact at 16,950 entries. Reference also played and
 retired in the original long-home account, fixing its keeper endpoint refusal.
-The declared CPython 3.13/3.14 range has bootstrap/runtime qualification on actual
+Test225's declared CPython 3.13/3.14 range has bootstrap/runtime qualification on actual
 3.13.15 and 3.14.8 interpreters; this installed comparison used 3.14.8.
 Limits: the retained old **Download and update** feed cannot stage source-only
 bundles; use the new signed standalone installer and Open Setup. The retained

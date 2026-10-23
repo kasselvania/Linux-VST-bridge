@@ -10,7 +10,7 @@ import re
 import stat
 import subprocess
 import tempfile
-from assemble import (ADOPTED, ADOPTED_WITH_KIT, SOURCE_ADOPTED, SOURCE_PYTHON_RANGE, source_supervisor, ADOPTION_MANIFEST, SUPERVISOR_PATHS,
+from assemble import (ADOPTED, ADOPTED_WITH_KIT, SOURCE_ADOPTED, SOURCE_PYTHON_RANGES, source_supervisor, ADOPTION_MANIFEST, SUPERVISOR_PATHS,
                       KIT_DESTINATION, PKGREL, verify_kit, verify_kit_backend,
                       verify_kit_source, validate_release_roster, package_dependencies,
                       supervisor_python_minor, declared_operator_schema)
@@ -18,7 +18,7 @@ from assemble import (ADOPTED, ADOPTED_WITH_KIT, SOURCE_ADOPTED, SOURCE_PYTHON_R
 OPTIONAL_META = {".BUILDINFO": 1024 * 1024, ".MTREE": 4 * 1024 * 1024}
 
 
-def package_info(path, manifest, python_minor):
+def package_info(path, manifest, python_minors):
     data = path.read_bytes()
     fields = {}
     for line in data.decode("utf-8").splitlines():
@@ -35,8 +35,9 @@ def package_info(path, manifest, python_minor):
                           ("arch", "x86_64")):
         if fields.get(key) != [expected]:
             raise ValueError(f"package {key} differs")
-    dependencies = package_dependencies(python_minor)
-    if set(fields.get("depend", [])) != set(dependencies) or len(fields.get("depend", [])) != len(dependencies):
+    declared = fields.get("depend", [])
+    if not any(set(declared) == set(dependencies) and len(declared) == len(dependencies)
+               for dependencies in map(package_dependencies, python_minors)):
         raise ValueError("package dependencies differ")
     if "install" in fields or "installfile" in fields:
         raise ValueError("package install hook forbidden")
@@ -144,10 +145,10 @@ def verify(package, manifest, structure_only=False, source_root=None, rebuild_ba
                 pe = subprocess.check_output(["file", "-b", str(path)], text=True)
                 if "PE32+" not in pe or "x86-64" not in pe:
                     raise ValueError("package PE architecture differs")
-        python_minor = SOURCE_PYTHON_RANGE if source_supervisor(expected) else supervisor_python_minor({
+        python_minors = SOURCE_PYTHON_RANGES if source_supervisor(expected) else (supervisor_python_minor({
             name: bytecode_header(root / name) for name in SUPERVISOR_PATHS
-        })
-        package_info(root / ".PKGINFO", manifest, python_minor)
+        }),)
+        package_info(root / ".PKGINFO", manifest, python_minors)
         adopted = json.loads((root / ADOPTION_MANIFEST).read_bytes())
         if KIT_DESTINATION in expected:
             kit_bytes = (root / KIT_DESTINATION).read_bytes()

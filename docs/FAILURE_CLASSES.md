@@ -39,7 +39,7 @@ remain #382. Fresh r7 NI installation remains #482.
 
 Supervisor source delivery and the long-home keeper endpoint refusal are accepted
 on CachyOS Test225 ([PR 484](https://github.com/kasselvania/Linux-VST-bridge/pull/484)):
-the declared CPython 3.13/3.14 range passes tests on both real interpreters. Installed
+Test225's declared CPython 3.13/3.14 range passes tests on both real interpreters. Installed
 ordinary source update, exact bytecode predecessor restore and source update again
 pass first-party launch, audio and normal retirement on host 3.14.8. Historical
 generation records stay exact. Retained old Download and update cannot read the

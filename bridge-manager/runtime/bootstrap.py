@@ -1,8 +1,8 @@
 """Fixed host bootstrap embedded in the product, never imported from a package."""
 import sys
 
-if sys.implementation.name != "cpython" or not (3, 13) <= sys.version_info[:2] < (3, 15):
-    raise SystemExit("supervisor requires host CPython >=3.13,<3.15")
+if sys.implementation.name != "cpython" or not (3, 13) <= sys.version_info[:2] < (3, 16):
+    raise SystemExit("supervisor requires host CPython >=3.13,<3.16")
 if sys.argv[1:] == ["--probe"]:
     print("cpython-source-v1")
     raise SystemExit(0)

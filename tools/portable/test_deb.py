@@ -67,7 +67,7 @@ class DebianPackage(unittest.TestCase):
             deb.build(staged, package, 1_234_567_890)
             deb.verify(package, staged)
             manifest, _ = deb.read_manifest(staged / 'RELEASE_MANIFEST.json')
-            self.assertIn('python3 (>= 3.13), python3 (<< 3.15)',
+            self.assertIn('python3 (>= 3.13), python3 (<< 3.16)',
                           deb.control_bytes(manifest, deb.python_abi({path: b'' for path in assemble.SOURCE_SUPERVISOR_PATHS})).decode())
         finally:
             fixture.doCleanups()
