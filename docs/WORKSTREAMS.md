@@ -11,8 +11,7 @@ observed failure scope. Previous allocations remain in Git history.
 | Lane | Product relationship | Engineering boundary |
 | --- | --- | --- |
 | Native Linux DAW bridge | Primary compatibility and beta-delivery goal | Shared machine/runtime assessment, unfamiliar plug-in preparation, audio/editor/state contracts, manager operations and recovery. Fixtures and existing implementations do not limit the design. |
-| Managed Windows DAW | Separately authorized workspace capability | A Windows DAW loads Windows plug-ins directly within its workspace. Reuse platform management where its contract applies; do not insert a Linux proxy or import its latency/count claims. See [workspace architecture](WINDOWS_DAW_WORKSPACES.md). |
-| ARM/manufacturer appliance | Separately authorized appliance work | Share validated abstractions where appropriate. Architecture, device and audio evidence remains specific; native Linux or Windows-workspace results do not qualify an appliance. |
+| ARM/manufacturer appliance | Separately authorized appliance work | Share validated abstractions where appropriate. Architecture, device and audio evidence remains specific; native Linux results do not qualify an appliance. |
 
 The platform design accounts for shared contracts across lanes. Implementation
 ownership and mutable application environments stay explicit. One lane's scope
@@ -47,6 +46,6 @@ before integration, without treating one lane's success as universal support.
 - Use the agreed handoff or current task record to transfer custody; do not invent
   a scheduling service or another mandatory permission/receipt framework.
 
-Historical [WD0](WD0.md), [WD1](WD1.md) and other fixture reports retain their original
+Historical [WD0](history/WD0.md), [WD1](history/WD1.md) and other fixture reports retain their original
 results and limitations. Consult current machine readback for installed state;
 historical commit names and old allocation text are not current deployment facts.

@@ -1,10 +1,14 @@
 # WD0 — Managed FL Studio workspace: first usable stock project
 
+> Retired on 2026-10-22 under #504 E3. This document records the former
+> FL Studio workspace; it is not current product authority. Existing
+> installations, projects, content and ownership records remain in place.
+
 Selected by the operator on 2026-09-24. This work order now has a bounded
 physical trial-mode result; licensed saved-project recall remains deferred.
 Architecture:
 [WINDOWS_DAW_WORKSPACES.md](WINDOWS_DAW_WORKSPACES.md). Work allocation:
-[WORKSTREAMS.md](WORKSTREAMS.md). Tracking issue:
+[WORKSTREAMS.md](../WORKSTREAMS.md). Tracking issue:
 [#158](https://github.com/kasselvania/Linux-VST-bridge/issues/158).
 
 ## Outcome and fixed scope
@@ -86,7 +90,7 @@ mutation, kept the same workspace/prefix/user roots and runner, and created a
 new installation operation while retaining the old install and uninstall
 receipts. The executable's version resources read `26.1.5.5618` and its exact
 image SHA-256 is retained in the
-[sanitized Deck result](../evidence/wd0/deck-trial-2026-09-25.md).
+[sanitized Deck result](../../evidence/wd0/deck-trial-2026-09-25.md).
 
 The installer's outer process again returned `outer_nonzero_stage_unknown`.
 The manager therefore retained `needs_user_action` for that installation
@@ -127,7 +131,7 @@ recovery; migration must not manufacture a clean outcome. Current status shows
 the latest current failure, while older failures stay in history after a later
 success. Unowned FL files in the prefix are not adopted as a managed install.
 
-Read [AGENTS.md](../AGENTS.md), [ARCHITECTURE.md](ARCHITECTURE.md), this work
+Read [AGENTS.md](../../AGENTS.md), [ARCHITECTURE.md](../ARCHITECTURE.md), this work
 order, [WINDOWS_DAW_WORKSPACES.md](WINDOWS_DAW_WORKSPACES.md), the support
 matrix and failure ledger. Reuse relevant source owners, especially manager
 installer/import, onboarding, exact application/process generation, operator

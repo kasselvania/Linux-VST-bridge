@@ -3,7 +3,7 @@
 //! A composed reply is answered again only under the same change generation
 //! ([`Changes`]) and the same unwritten service state, and only when its
 //! composer found nothing that could change it without a record write: no
-//! operation, installer, application or workspace session was live. Any other
+//! operation, installer or application session was live. Any other
 //! read is composed afresh, exactly as the command line composes it.
 use super::{changes::Changes, contract::Read};
 use std::{

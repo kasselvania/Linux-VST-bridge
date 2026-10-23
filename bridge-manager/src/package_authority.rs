@@ -1196,7 +1196,6 @@ fn preflight(m: &Manager, service: &impl ServiceControl) -> Result<()> {
         "package_transaction_pending")?;
     require(onboarding::all_retired(m)?, "package_installer_owner_active")?;
     require(service.vendor_retired(m)?, "package_vendor_owner_active")?;
-    daw_workspace::package_idle(m)?;
     transport_storage::require_no_sessions()?;
     Ok(())
 }
@@ -1297,7 +1296,6 @@ fn recovery_preflight(m: &Manager,
     m.verify_package_pending_intents(&transition.receipt.transitions)?;
     require(onboarding::all_retired(m)?, "package_installer_owner_active")?;
     require(service.vendor_retired(m)?, "package_vendor_owner_active")?;
-    daw_workspace::package_idle(m)?;
     transport_storage::require_no_sessions()?;
     Ok(())
 }
@@ -2536,7 +2534,6 @@ fn stop_gate(m: &Manager, service: &impl ServiceControl,
     }
     require(onboarding::all_retired(m)?, "package_installer_owner_active")?;
     require(service.vendor_retired(m)?, "package_vendor_owner_active")?;
-    daw_workspace::package_idle(m)?;
     transport_storage::require_no_sessions()?;
     let after = service.idle(m)?;
     require(after == before, "package_owners_changed")?;
@@ -4238,7 +4235,12 @@ assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
         let catalogue_bytes = fs::read(old.native_catalogue.as_ref().unwrap().path.clone()).unwrap();
         let registry_bytes = fs::read(f.base.m.root.join("registry.json")).unwrap();
         let mut retained = Vec::new();
-        for name in ["daw-workspaces/fl/workspace.json", "installers/a.json",
+        for name in ["daw-workspaces/fl-studio/workspace.json",
+            "daw-workspaces/fl-studio/projects/song.flp",
+            "daw-workspaces/fl-studio/content/sound.wav",
+            "daw-workspaces/fl-studio/environment/compatdata/pfx/system.reg",
+            "daw-workspaces/fl-studio/operations/uncertain/ownership.json",
+            "daw-workspaces/fl-studio/sessions/active/result.json", "installers/a.json",
             "compatibility/history/a.json", "vendor/app/a.json", "projects/a.flp"] {
             let path = f.base.m.root.join(name);
             fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -4291,6 +4293,108 @@ assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
         assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry_bytes);
         for (path, bytes) in &retained { assert_eq!(&fs::read(path).unwrap(), bytes); }
         old.native_catalogue.unwrap().verify().unwrap();
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn package_update_and_restore_leave_a_live_retired_workspace_owner_untouched() {
+        use serde_json::{json, Value};
+        use std::io::{BufRead, BufReader};
+        use std::process::{Child, ChildStdout};
+        // A real, bounded old supervisor, launched from its immutable package
+        // generation. Only the bridge service/systemd responses are simulated.
+        // Dropping its input asks it to exit normally, including on assertion failure.
+        struct Owner(Child);
+        impl Drop for Owner {
+            fn drop(&mut self) { self.0.stdin.take(); let _ = self.0.wait(); }
+        }
+        fn ping(owner: &mut Owner, output: &mut BufReader<ChildStdout>) -> Value {
+            owner.0.stdin.as_mut().unwrap().write_all(b"ping\n").unwrap();
+            let mut line = String::new();
+            assert!(output.read_line(&mut line).unwrap() > 0, "old owner stopped replying");
+            assert!(owner.0.try_wait().unwrap().is_none(), "old owner exited");
+            serde_json::from_str(&line).unwrap()
+        }
+        let f = Fixture::new();
+        let source = f.base.outer.join("retired-owner.py");
+        fs::write(&source, r#"import hashlib,json,os,pathlib,select,sys
+report=pathlib.Path(sys.argv[1])
+image=pathlib.Path(__file__)
+start=pathlib.Path('/proc/self/stat').read_text().rsplit(') ',1)[1].split()[19]
+identity=dict(pid=os.getpid(),start_ticks=start,supervisor=str(image))
+report.write_text(json.dumps(dict(identity,cleanup_confirmed=False,owned_live=1,state='running')))
+while True:
+ if not select.select([sys.stdin],[],[],30)[0]:sys.exit(72)
+ line=sys.stdin.readline()
+ if not line:break
+ assert line=='ping\n'
+ print(json.dumps(dict(identity,sha256=hashlib.sha256(image.read_bytes()).hexdigest())),flush=True)
+report.write_text(json.dumps(dict(identity,cleanup_confirmed=True,owned_live=0,state='completed')))
+"#).unwrap();
+        let compiled = f.base.outer.join("retired-owner.pyc");
+        assert!(Command::new("python3").args(["-I", "-c",
+            "import py_compile,sys; py_compile.compile(sys.argv[1],cfile=sys.argv[2],doraise=True)"])
+            .arg(&source).arg(&compiled).status().unwrap().success());
+        f.replace("session.pyc", &fs::read(compiled).unwrap(), true);
+        f.add_kit(b"retired workspace package fixture");
+        f.adopt().unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        let old = f.current();
+        let generation = old.manager.path.parent().unwrap();
+        let generation_before = test_fixture::snapshot(generation);
+        let workspace = f.base.m.root.join("daw-workspaces/fl-studio");
+        let operation = "ab".repeat(16);
+        let unit = format!("linux-vst-bridge-daw-fl-{operation}.service");
+        let session = workspace.join("sessions").join(&operation);
+        fs::create_dir_all(&session).unwrap();
+        let report = session.join("result.json");
+        atomic_json(&workspace.join("workspace.json"), &json!({
+            "schema":2,"session_operation":operation,"supervisor":old.supervisor,
+            "ownership":old.ownership,"unit":unit})).unwrap();
+        for name in ["projects/song.flp", "content/sound.wav",
+            "environment/compatdata/pfx/system.reg", "operations/uncertain/ownership.json"] {
+            let path = workspace.join(name);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, b"retained user or ownership fixture").unwrap();
+        }
+        let mut owner = Owner(Command::new("python3").arg("-I").arg(&old.supervisor.path)
+            .arg(&report).stdin(Stdio::piped()).stdout(Stdio::piped()).spawn().unwrap());
+        let mut output = BufReader::new(owner.0.stdout.take().unwrap());
+        let identity = ping(&mut owner, &mut output);
+        assert_eq!(identity["pid"], owner.0.id());
+        assert_eq!(identity["sha256"], old.supervisor.sha256);
+        let workspace_before = test_fixture::snapshot(&workspace);
+        let active_notice = || readiness::retired_workspace_notice_for_test(&f.base.m,
+            readiness::Probe::Observed(format!("{unit} loaded active running fixture\n"))).unwrap();
+        assert!(active_notice().contains("An earlier FL Studio workspace operation is still running"));
+        f.replace("linux-vst-bridge", b"successor manager", true);
+        f.replace("session.pyc", b"successor supervisor", true);
+        update_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service).unwrap();
+        assert_ne!(f.current().supervisor, old.supervisor);
+        assert_eq!(ping(&mut owner, &mut output), identity);
+        assert_eq!(test_fixture::snapshot(generation), generation_before);
+        assert_eq!(test_fixture::snapshot(&workspace), workspace_before);
+        assert!(active_notice().contains("the bridge leaves it running"));
+        restore_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service).unwrap();
+        assert_eq!(f.current().supervisor, old.supervisor);
+        assert_eq!(ping(&mut owner, &mut output), identity);
+        assert_eq!(test_fixture::snapshot(generation), generation_before);
+        assert_eq!(test_fixture::snapshot(&workspace), workspace_before);
+        owner.0.stdin.take();
+        assert!(owner.0.wait().unwrap().success());
+        let completed: Value = read_json(&report).unwrap();
+        assert_eq!(completed["cleanup_confirmed"], true);
+        assert_eq!(completed["owned_live"], 0);
+        let mut after_exit = test_fixture::snapshot(&workspace);
+        after_exit.remove(&report);
+        let mut before_exit = workspace_before;
+        before_exit.remove(&report);
+        assert_eq!(after_exit, before_exit, "normal owner exit changes only its own result");
+        assert_eq!(test_fixture::snapshot(generation), generation_before);
+        let idle = readiness::retired_workspace_notice_for_test(&f.base.m,
+            readiness::Probe::Observed(String::new())).unwrap();
+        assert!(idle.contains(&workspace.display().to_string()));
+        assert!(!idle.contains("still running"));
     }
 
     #[test]

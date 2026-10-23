@@ -1,12 +1,16 @@
 # Managed Windows DAW workspaces
 
-Decision date: 2026-09-24. Status: selected architecture extension for implementation; no Windows DAW is qualified by this document. The first outcome is [WD0 — FL Studio](WD0.md). Allocation and integration rules are in [WORKSTREAMS.md](WORKSTREAMS.md).
+> Retired on 2026-10-22 under #504 E3. This document records the former
+> FL Studio workspace; it is not current product authority. Existing
+> installations, projects, content and ownership records remain in place.
+
+Decision date: 2026-09-24. Status: selected architecture extension for implementation; no Windows DAW is qualified by this document. The first outcome is [WD0 — FL Studio](WD0.md). Allocation and integration rules are in [WORKSTREAMS.md](../WORKSTREAMS.md).
 
 ## Architectural ruling
 
 The manager owns installation, environments, runtime selection, launch ownership, diagnostics and support claims. It does not need to own every audio call.
 
-The four-plane path in [ARCHITECTURE.md](ARCHITECTURE.md) remains the native-Linux-DAW path:
+The four-plane path in [ARCHITECTURE.md](../ARCHITECTURE.md) remains the native-Linux-DAW path:
 
 ```text
 Bitwig or another qualified native Linux DAW
@@ -35,7 +39,7 @@ A workspace is not one giant universal prefix. FL and a later Ableton installati
 
 Reuse the Rust environment/artifact verification, installer supervision, exact process-generation ownership, private diagnostics, session-specific graphics/audio projection and existing installation/update primitives where their contracts fit. Existing ASC/Native Access code is a source of reusable owners, not a generic DAW implementation.
 
-At the decision baseline, `bridge-manager/src/vendor_application.rs` has a closed ASC application identity; [NAUI2](NAUI2.md) deliberately limits the adjacent owner to Native Access. Do not weaken those selectors with an arbitrary `Other`, shell command, executable path or argument array. Add a small adjacent `DawWorkspace` owner and typed FL application action, factoring actual shared primitives rather than copying vendor code or designing a universal launcher first.
+At the decision baseline, `bridge-manager/src/vendor_application.rs` has a closed ASC application identity; [NAUI2](../NAUI2.md) deliberately limits the adjacent owner to Native Access. Do not weaken those selectors with an arbitrary `Other`, shell command, executable path or argument array. Add a small adjacent `DawWorkspace` owner and typed FL application action, factoring actual shared primitives rather than copying vendor code or designing a universal launcher first.
 
 Minimum persistent facts, with private representation left to the implementer:
 
@@ -79,7 +83,7 @@ observations, not consequences of a copied file or installer exit status.
 
 Reuse installer caches and immutable runtime artifacts where permitted. Defer shared mutable libraries, deduplication, cross-prefix plug-in hosting and runtime patch aggregation until a concrete workload needs them. A later runtime change must preserve already-required fixes and qualify the DAW plus the installed plug-in set; a plug-in-specific runner swap cannot silently change the rest of the workspace.
 
-Existing native-Linux publication claims do not become direct-FL claims. Conversely, a direct-FL pass does not qualify a Linux proxy. Use distinct execution-lane coverage in [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md) when physical evidence exists.
+Existing native-Linux publication claims do not become direct-FL claims. Conversely, a direct-FL pass does not qualify a Linux proxy. Use distinct execution-lane coverage in [SUPPORT_MATRIX.md](../SUPPORT_MATRIX.md) when physical evidence exists.
 
 ## Containment and session ownership
 

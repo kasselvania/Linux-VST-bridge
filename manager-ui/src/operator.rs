@@ -29,41 +29,6 @@ fn runtime_verification_label(op: &serde_json::Value) -> Option<String> {
 
 pub use crate::screen_model::window::Page;
 
-fn workspace_state_label(state: &str) -> &str {
-    match state {
-        "imported" => "Ready to install",
-        "installing" => "Installing",
-        "needs_user_action" => "Needs your attention",
-        "installed" => "Installed",
-        "ready" => "Ready",
-        "starting" => "Starting",
-        "running" => "Running",
-        "stopping" => "Closing",
-        "uninstalling" => "Uninstalling",
-        "uninstalled" => "Uninstalled",
-        "failed" => "Needs your attention",
-        "cleanup_unconfirmed" => "Cleanup unconfirmed",
-        _ => "State unavailable",
-    }
-}
-
-fn workspace_product_state_label(state: &str) -> &str {
-    match state {
-        "not_selected" => "Not installed",
-        "selected" => "Ready to install",
-        "installing" => "Installing",
-        "installed" => "Installed",
-        "needs_user_action" | "needs_attention" | "failed" => "Needs your attention",
-        _ => "State unavailable",
-    }
-}
-
-fn workspace_primary_action(actions: &[AvailableAction]) -> Option<usize> {
-    actions
-        .iter()
-        .position(|action| action.disabled_reason.is_none())
-        .or_else(|| (!actions.is_empty()).then_some(0))
-}
 #[derive(Clone, Debug)]
 struct RequestFeedback {
     action: Action,
@@ -891,15 +856,6 @@ impl Operator {
         self.refresh_after |= !changed;
         None
     }
-    fn buttons(
-        ui: &mut egui::Ui,
-        actions: &[AvailableAction],
-        busy: Option<&str>,
-        pending: bool,
-        chosen: &mut Option<Action>,
-    ) {
-        crate::widgets::action_buttons(ui, actions, busy, pending, chosen);
-    }
     fn resolve_import_route(&mut self, snapshot: &Snapshot) {
         let Some((installer, newly_imported, label)) = self.pending_import_route.take() else { return };
         match self.window.imported(snapshot, &installer, newly_imported, &label) {
@@ -1010,7 +966,6 @@ impl Operator {
                         || s.system.maintenance != a.system.maintenance
                         || s.system.cleanup_unconfirmed != a.system.cleanup_unconfirmed
                         || refresh_for_receipt(&s.operation, &a.operation)
-                        || refresh_for_workspace_product(s, a.workspace_product_install_ready)
                     {
                         self.refresh_after = true;
                     }
@@ -1139,15 +1094,6 @@ impl Operator {
                 self.overview_renewing = false;
             }
         }
-    }
-    fn value(ui: &mut egui::Ui, v: &serde_json::Value) {
-        ui.add(
-            egui::Label::new(
-                egui::RichText::new(serde_json::to_string_pretty(v).unwrap_or_default())
-                    .monospace(),
-            )
-            .wrap(),
-        );
     }
 }
 
@@ -1753,144 +1699,6 @@ impl Operator {
         widgets::disclosure(ui, &view.technical, chosen);
     }
 
-    fn workspaces(
-        ui: &mut egui::Ui,
-        snapshot: &Snapshot,
-        pending: bool,
-        chosen: &mut Option<Action>,
-        pick: &mut bool,
-        focus: &mut PageFocus,
-    ) {
-        ui.heading("Workspaces");
-        ui.small("Managed DAWs have their own workspace and installation history. Native DAW plug-in publications remain in Plug-ins.");
-        if snapshot.workspaces.is_empty() {
-            ui.label("No managed DAW workspace is available here yet.");
-            return;
-        }
-        if ui
-            .add_enabled(
-                !pending,
-                egui::Button::new("Import Windows installer").min_size(egui::vec2(240.0, 44.0)),
-            )
-            .clicked()
-        {
-            focus.replacement = None;
-            *pick = true;
-        }
-        ui.small("The manager copies and verifies the selected file in private installer custody. Choose its exact release under the application or product below.");
-        for workspace in &snapshot.workspaces {
-            ui.push_id(&workspace.id, |ui| {
-                ui.group(|ui| {
-                    ui.heading(&workspace.name);
-                    ui.strong(workspace_state_label(&workspace.state));
-                    ui.label(format!("Selected version: {}", workspace.selected_release));
-                    if let Some(release) = &workspace.installed_advertised_release {
-                        ui.label(format!("Installed from declared release: {release}"));
-                        if let Some(version) = &workspace.observed_file_version {
-                            ui.label(format!("Observed executable version: {version}"));
-                        }
-                    }
-                    if let Some(operation) = &workspace.active_installation_operation {
-                        ui.label(format!("Installation in progress: {operation}"));
-                    }
-                    if workspace.cleanup != "confirmed" {
-                        ui.colored_label(warning_color(ui), format!("Workspace cleanup: {}", workspace.cleanup.replace('_', " ")));
-                    }
-                    if let Some(failure) = &workspace.first_useful_failure {
-                        ui.colored_label(warning_color(ui), failure.replace('_', " "));
-                    }
-                    if let Some(primary_index) = workspace_primary_action(&workspace.actions) {
-                        let primary = &workspace.actions[primary_index];
-                        let response = ui.add_enabled(
-                            !pending && primary.disabled_reason.is_none(),
-                            egui::Button::new(egui::RichText::new(&primary.label).strong())
-                                .min_size(egui::vec2(240.0, 48.0)),
-                        );
-                        if response.clicked() {
-                            if let Some(action) = screen_model::offers::offer(primary,
-                                screen_model::offers::Importance::Primary, None, pending).pressed() { *chosen = Some(action); }
-                        }
-                        if let Some(reason) = primary.disabled_reason.as_deref() {
-                            ui.small(reason);
-                        } else if pending {
-                            ui.small("Waiting for the current request or manager readback");
-                        }
-                        for (index, offer) in workspace.actions.iter().enumerate() {
-                            if index != primary_index {
-                                Self::buttons(ui, std::slice::from_ref(offer), None, pending, chosen);
-                            }
-                        }
-                    }
-                    egui::CollapsingHeader::new("Choose an imported version")
-                        .show(ui, |ui| {
-                            ui.label("Enter the exact release shown by the installer. Selection does not run Windows code or change workspace files.");
-                            if workspace.installer_choices.is_empty() {
-                                ui.label("No admitted Windows installer is available in manager custody.");
-                            }
-                            Self::buttons(ui, &workspace.installer_choices, None, pending, chosen);
-                        });
-                    for product in &workspace.products {
-                        ui.separator();
-                        ui.push_id(product.id, |ui| {
-                            ui.heading(&product.name);
-                            ui.strong(workspace_product_state_label(&product.state));
-                            if let Some(release) = &product.selected_release {
-                                ui.label(format!("Selected plug-in version: {release}"));
-                            }
-                            if let Some(failure) = &product.current_failure {
-                                ui.colored_label(warning_color(ui), failure.replace('_', " "));
-                            }
-                            if let Some(index) = workspace_primary_action(&product.actions) {
-                                let primary = &product.actions[index];
-                                let response = ui.add_enabled(
-                                    !pending && primary.disabled_reason.is_none(),
-                                    egui::Button::new(egui::RichText::new(&primary.label).strong())
-                                        .min_size(egui::vec2(240.0, 48.0)),
-                                );
-                                if response.clicked() {
-                                    if let Some(action) = screen_model::offers::offer(primary,
-                                        screen_model::offers::Importance::Primary, None, pending).pressed() {
-                                        *chosen = Some(action);
-                                    }
-                                }
-                                if let Some(reason) = primary.disabled_reason.as_deref() {
-                                    ui.small(reason.replace('_', " "));
-                                }
-                                for (other, offer) in product.actions.iter().enumerate() {
-                                    if other != index {
-                                        Self::buttons(ui, std::slice::from_ref(offer), None, pending, chosen);
-                                    }
-                                }
-                            }
-                            egui::CollapsingHeader::new("Choose an imported plug-in version")
-                                .show(ui, |ui| {
-                                    if product.installer_choices.is_empty() {
-                                        ui.label("No admitted installer for this plug-in is in manager custody.");
-                                    }
-                                    Self::buttons(ui, &product.installer_choices, None, pending, chosen);
-                                });
-                            egui::CollapsingHeader::new("Technical plug-in installation history")
-                                .show(ui, |ui| {
-                                    if let Some(sha) = &product.module_sha256 {
-                                        ui.label(format!("Installed module SHA-256: {sha}"));
-                                    }
-                                    Self::value(ui, &product.details);
-                                });
-                        });
-                    }
-                    egui::CollapsingHeader::new("Technical workspace details and history")
-                        .show(ui, |ui| {
-                            ui.label(format!("Workspace: {}", workspace.id));
-                            ui.label(format!("Selected installer SHA-256: {}", workspace.selected_installer));
-                            if let Some(image) = &workspace.installed_image_sha256 {
-                                ui.label(format!("Installed image SHA-256: {image}"));
-                            }
-                            Self::value(ui, &workspace.details);
-                        });
-                });
-            });
-        }
-    }
     /// The records and reading the frame and the page are built from.
     /// `product`: the opened plug-in's records over current status.
     /// `controls_pending`: read once at the start of the frame.
@@ -2058,9 +1866,6 @@ impl eframe::App for Operator {
                         crate::library::show_current(ui, &mut self.window.plugins, current, Some(*list),
                             actions_current, attempted && !self.pending, &mut retry_details);
                     },
-                    Screen::Workspaces => if let Some(snapshot) = &self.snapshot {
-                        Self::workspaces(ui, snapshot, action_controls_pending, &mut chosen, &mut pick, &mut self.window.focus);
-                    },
                     Screen::Activity(view) => Self::activity_page(ui, &view, &mut self.window, &mut chosen),
                     Screen::Diagnostics(view) => Self::diagnostics_page(ui, &view, &mut chosen),
                     Screen::Checking { heading, words } => {
@@ -2092,34 +1897,6 @@ impl eframe::App for Operator {
                 } else if cancel.clicked() {
                     self.window.forms.install = None;
                 }
-            }
-        }
-        if let Some(form) = self.window.forms.release.as_mut() {
-            let (title, installer, release) = match form {
-                Action::WorkspaceSelectInstaller { installer, release } => {
-                    ("Choose exact FL Studio version", installer, release)
-                }
-                Action::WorkspaceSelectProductInstaller {
-                    installer, release, ..
-                } => ("Choose exact plug-in version", installer, release),
-                _ => unreachable!("only workspace selections open this form"),
-            };
-            let mut submit = false;
-            let mut cancel = false;
-            egui::Window::new(title)
-                .collapsible(false)
-                .show(ui.ctx(), |ui| {
-                    ui.label(format!("Imported installer SHA-256: {installer}"));
-                    ui.label("Exact installer release");
-                    ui.add(egui::TextEdit::singleline(release).char_limit(32).min_size(egui::vec2(220.0, 44.0)));
-                    ui.small("The manager verifies this installer in canonical custody before changing the selection.");
-                    submit = ui.add_enabled(!release.is_empty() && !action_controls_pending, egui::Button::new("Select version").min_size(egui::vec2(180.0, 44.0))).clicked();
-                    cancel = ui.add_sized([100.0, 44.0], egui::Button::new("Cancel")).clicked();
-                });
-            if submit {
-                chosen = self.window.forms.release.clone();
-            } else if cancel {
-                self.window.forms.release = None;
             }
         }
         if let Some(Action::InstallerRename { installer, label }) = self.window.forms.rename.as_mut() {
@@ -2431,24 +2208,6 @@ fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json:
             .is_some_and(|s| matches!(s, "vendor_running" | "completed" | "refused"))
 }
 
-fn refresh_for_workspace_product(snapshot: &Snapshot, install_finish_ready: bool) -> bool {
-    install_finish_ready
-        && snapshot
-            .workspaces
-            .iter()
-            .flat_map(|workspace| &workspace.products)
-            .any(|product| {
-                product.id == WorkspaceProductId::Serum2
-                    && !product.actions.iter().any(|offer| {
-                        matches!(
-                            offer.action,
-                            Action::WorkspaceFinishProductInstall {
-                                product: WorkspaceProductId::Serum2
-                            }
-                        ) && offer.disabled_reason.is_none()
-                    })
-            })
-}
 #[cfg(test)]
 mod tests {
     #[test]
@@ -5654,40 +5413,6 @@ mod tests {
         assert!(focus.replacement.is_none());
     }
     #[test]
-    fn duplicate_historical_fl_application_installer_routes_to_workspaces_not_empty_setup() {
-        let mut operator = state_fixture();
-        let sha = "ab".repeat(32);
-        let snapshot: Snapshot = serde_json::from_value(serde_json::json!({
-            "schema":crate::model::OPERATOR_SCHEMA,"state_token":"current",
-            "system":{"service":"active","keepers":0,"dsp":0,"maintenance":0,
-                "ceiling":6,"pending_transactions":0,"stale_transports":0,
-                "cleanup_unconfirmed":false},
-            "onboarding":[],"installer_setups":[],"environments":[],
-            "vendor_applications":[],"products":[],"active_sessions":[],
-            "capture":null,"recent_incidents":[],"actions":[],"operation":null,
-            "workspaces":[{"id":"cd".repeat(16),"name":"FL Studio","state":"installed",
-                "selected_installer":"ef".repeat(32),
-                "application_installers":[sha.clone(),"ef".repeat(32)],
-                "selected_release":"27.0.0.0","installed_advertised_release":"27.0.0.0",
-                "observed_file_version":null,"installed_image_sha256":null,
-                "active_installation_operation":null,"cleanup":"confirmed",
-                "first_useful_failure":null,"actions":[],"installer_choices":[],
-                "products":[],"details":null}]
-        })).unwrap();
-        operator.pending = true;
-        operator.origin = Some(RequestOrigin::InstallerImport);
-        operator.handle_reply(Reply::Imported(crate::model::InstallerImportResult {
-            schema: 2, installer_sha256: sha, byte_size: 1024,
-            format: "pe_executable".into(), newly_imported: false,
-            display_label: "FL Studio Installer".into(), created_at: 1,
-        }));
-        operator.handle_reply(Reply::Snapshot(Box::new(snapshot)));
-        assert_eq!(operator.window.page, Page::Workspaces);
-        assert!(operator.window.focus.setup_installer.is_none());
-        assert!(operator.message.contains("FL Studio"));
-        assert!(operator.pending_import_route.is_none());
-    }
-    #[test]
     fn fast_setup_keeps_import_focus_and_routes_exact_discoveries() {
         fn labels(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
             match shape {
@@ -6149,7 +5874,8 @@ mod tests {
                 bounds = navigation(ui, &mut page);
             });
             output.textures_delta.clear();
-            assert_eq!(bounds.len(), 6);
+            assert_eq!(bounds.iter().map(|(item, _, _)| item.label()).collect::<Vec<_>>(),
+                ["Home", "Plug-ins", "Activity", "Setup", "Diagnostics"]);
             assert_eq!(
                 bounds.iter().filter(|(_, selected, _)| *selected).count(),
                 1
@@ -6178,203 +5904,6 @@ mod tests {
                 assert!(bounds.iter().all(|(_, _, rect)| rect.top() == first.top()));
             }
         }
-    }
-    #[test]
-    fn workspace_state_actions_and_history_are_reachable_at_ordinary_and_narrow_width() {
-        fn texts(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
-            match shape {
-                egui::epaint::Shape::Text(text) => out.push(text.galley.text().into()),
-                egui::epaint::Shape::Vec(shapes) => {
-                    for shape in shapes {
-                        texts(shape, out);
-                    }
-                }
-                _ => {}
-            }
-        }
-        let mut snapshot: Snapshot =
-            serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap();
-        snapshot.workspaces.push(DawWorkspace {
-            id: "ab".repeat(16),
-            name: "FL Studio".into(),
-            state: "uninstalled".into(),
-            selected_installer: "cd".repeat(32),
-            application_installers: vec!["cd".repeat(32)],
-            selected_release: "26.1.6.0".into(),
-            installed_advertised_release: None,
-            observed_file_version: None,
-            installed_image_sha256: None,
-            active_installation_operation: None,
-            cleanup: "confirmed".into(),
-            first_useful_failure: None,
-            actions: vec![AvailableAction {
-                label: "Install selected version".into(),
-                action: Action::WorkspaceInstall {},
-                disabled_reason: Some("Prior owner has not retired".into()),
-            }],
-            installer_choices: vec![AvailableAction {
-                label: "Choose imported installer efefefefefef".into(),
-                action: Action::WorkspaceSelectInstaller {
-                    installer: "ef".repeat(32),
-                    release: String::new(),
-                },
-                disabled_reason: None,
-            }],
-            products: vec![DawWorkspaceProduct {
-                id: WorkspaceProductId::Serum2,
-                name: "Serum 2".into(),
-                state: "selected".into(),
-                selected_release: Some("2.1.5".into()),
-                module_sha256: None,
-                current_failure: None,
-                actions: vec![AvailableAction {
-                    label: "Install Serum 2 in FL Studio".into(),
-                    action: Action::WorkspaceInstallProduct {
-                        product: WorkspaceProductId::Serum2,
-                    },
-                    disabled_reason: Some("FL session is active".into()),
-                }],
-                installer_choices: vec![AvailableAction {
-                    label: "Choose official Serum 2 2.1.5 installer".into(),
-                    action: Action::WorkspaceSelectProductInstaller {
-                        product: WorkspaceProductId::Serum2,
-                        installer: "ef".repeat(32),
-                        release: String::new(),
-                    },
-                    disabled_reason: None,
-                }],
-                details: serde_json::json!({"installation_history":[]}),
-            }],
-            details: serde_json::json!({"installation_history":[{"operation":"old-exact"}]}),
-        });
-        for width in [960.0, 560.0] {
-            let ctx = egui::Context::default();
-            let mut chosen = None;
-            let mut pick = false;
-            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-                ui.set_max_width(width - 32.0);
-                Operator::workspaces(ui, &snapshot, false, &mut chosen, &mut pick, &mut PageFocus::default());
-            });
-            let mut labels = Vec::new();
-            for clipped in &output.shapes {
-                texts(&clipped.shape, &mut labels);
-            }
-            output.textures_delta.clear();
-            assert!(labels.iter().any(|s| s == "FL Studio"));
-            assert!(labels.iter().any(|s| s == "Uninstalled"));
-            assert!(labels.iter().any(|s| s == "Selected version: 26.1.6.0"));
-            assert!(labels.iter().any(|s| s == "Install selected version"));
-            assert!(labels.iter().any(|s| s == "Import Windows installer"));
-            assert!(labels.iter().any(|s| s == "Prior owner has not retired"));
-            assert!(labels.iter().any(|s| s == "Choose an imported version"));
-            assert!(labels.iter().any(|s| s == "Serum 2"));
-            assert!(labels
-                .iter()
-                .any(|s| s == "Selected plug-in version: 2.1.5"));
-            assert!(labels.iter().any(|s| s == "Install Serum 2 in FL Studio"));
-            assert!(labels.iter().any(|s| s == "FL session is active"));
-            assert!(labels
-                .iter()
-                .any(|s| s == "Choose an imported plug-in version"));
-            assert!(labels
-                .iter()
-                .any(|s| s == "Technical workspace details and history"));
-            assert!(chosen.is_none());
-            assert!(!pick);
-            // A selected but unsubmitted replacement must not capture an import
-            // initiated from Workspaces. Exercise the actual general picker.
-            let replacement=wrong_installer_overview(Some("intended-environment"));
-            let mut operator=state_fixture();
-            operator.window.focus.replacement=replacement_context(&replacement.current,&replacement.current.installer_setups[0]);
-            operator.window.focus.replacement.as_mut().unwrap().selected=Some("old-selected-installer".into());
-            let mut point=egui::Pos2::ZERO;
-            for pressed in [None,Some(true),Some(false)] {
-                let events=pressed.map(|pressed|vec![egui::Event::PointerMoved(point),
-                    egui::Event::PointerButton {pos:point,button:egui::PointerButton::Primary,pressed,
-                        modifiers:egui::Modifiers::NONE}]).unwrap_or_default();
-                let mut output=ctx.run_ui(egui::RawInput {events,..Default::default()},|ui| {
-                    ui.set_max_width(width-32.0);
-                    Operator::workspaces(ui,&snapshot,false,&mut None,&mut pick,&mut operator.window.focus);
-                });
-                if pressed.is_none() {point=output.shapes.iter().find_map(|shape|
-                    wrong_installer_text_position(&shape.shape,"Import Windows installer")).unwrap();}
-                output.textures_delta.clear();
-            }
-            assert!(pick);assert!(operator.window.focus.replacement.is_none());
-            operator.origin=Some(RequestOrigin::InstallerImport);
-            operator.handle_reply(Reply::Imported(InstallerImportResult {schema:2,
-                installer_sha256:"34".repeat(32),display_label:"General import".into(),byte_size:1024,
-                format:"pe_executable".into(),newly_imported:true,created_at:1}));
-            assert_eq!(operator.pending_import_route.as_ref().unwrap().0,"34".repeat(32));
-            assert!(operator.queued_action.is_none());
-        }
-        let workspace = &mut snapshot.workspaces[0];
-        workspace.state = "ready".into();
-        workspace.selected_release = "27.0.0.0".into();
-        workspace.installed_advertised_release = Some("26.1.6.0".into());
-        workspace.observed_file_version = Some("26.1.6.5639".into());
-        let ctx = egui::Context::default();
-        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-            Operator::workspaces(ui, &snapshot, false, &mut None, &mut false, &mut PageFocus::default());
-        });
-        let mut labels = Vec::new();
-        for clipped in &output.shapes {
-            texts(&clipped.shape, &mut labels);
-        }
-        output.textures_delta.clear();
-        assert!(labels.iter().any(|s| s == "Selected version: 27.0.0.0"));
-        assert!(labels
-            .iter()
-            .any(|s| s == "Installed from declared release: 26.1.6.0"));
-        assert!(labels
-            .iter()
-            .any(|s| s == "Observed executable version: 26.1.6.5639"));
-
-        assert!(!refresh_for_workspace_product(&snapshot, false));
-        assert!(refresh_for_workspace_product(&snapshot, true));
-        let product = &mut snapshot.workspaces[0].products[0];
-        product.state = "installing".into();
-        product.actions = vec![AvailableAction {
-            label: "Complete Serum installation readback".into(),
-            action: Action::WorkspaceFinishProductInstall {
-                product: WorkspaceProductId::Serum2,
-            },
-            disabled_reason: Some("Serum installer is active".into()),
-        }];
-        assert!(refresh_for_workspace_product(&snapshot, true));
-        let mut operator = Operator::preview(snapshot.clone(), Page::Workspaces);
-        operator.handle_reply(Reply::Activity(Activity {
-            schema: crate::model::OPERATOR_SCHEMA,
-            system: snapshot.system.clone(),
-            capture: snapshot.capture.clone(),
-            operation: snapshot.operation.clone(),
-            workspace_product_install_ready: true,
-        }));
-        assert!(operator.refresh_after);
-        snapshot.workspaces[0].products[0].actions[0].disabled_reason = None;
-        assert!(!refresh_for_workspace_product(&snapshot, true));
-    }
-    #[test]
-    fn workspace_primary_action_uses_manager_eligibility_without_changing_offers() {
-        let actions = vec![
-            AvailableAction {
-                label: "Launch FL Studio".into(),
-                action: Action::WorkspaceLaunch {},
-                disabled_reason: Some("FL session already active".into()),
-            },
-            AvailableAction {
-                label: "Focus FL Studio".into(),
-                action: Action::WorkspaceFocus {},
-                disabled_reason: None,
-            },
-        ];
-        assert_eq!(workspace_primary_action(&actions), Some(1));
-        assert_eq!(
-            actions[0].disabled_reason.as_deref(),
-            Some("FL session already active")
-        );
-        assert_eq!(workspace_primary_action(&actions[..1]), Some(0));
-        assert_eq!(workspace_primary_action(&[]), None);
     }
     #[test]
     fn session_attention_opens_activity_at_exact_session_identity() {
@@ -6600,11 +6129,14 @@ mod tests {
                     |ui| {
                         point = ui.next_widget_position() + egui::vec2(12.0, 12.0);
                         let projected = o.snapshot.as_ref().unwrap();
-                        Operator::buttons(
+                        crate::widgets::offer_row(
                             ui,
-                            &projected.onboarding[0].actions,
-                            projected.system.inactive_reason(),
-                            o.controls_pending(),
+                            &screen_model::offers::row(
+                                &projected.onboarding[0].actions,
+                                screen_model::offers::Importance::Secondary,
+                                projected.system.inactive_reason(),
+                                o.controls_pending(),
+                            ),
                             &mut chosen,
                         );
                     },
@@ -6666,11 +6198,14 @@ mod tests {
                     },
                     |ui| {
                         point = ui.next_widget_position() + egui::vec2(12.0, 12.0);
-                        Operator::buttons(
+                        crate::widgets::offer_row(
                             ui,
-                            &s.onboarding[0].actions,
-                            s.system.inactive_reason(),
-                            o.controls_pending(),
+                            &screen_model::offers::row(
+                                &s.onboarding[0].actions,
+                                screen_model::offers::Importance::Secondary,
+                                s.system.inactive_reason(),
+                                o.controls_pending(),
+                            ),
                             &mut chosen,
                         );
                     },
@@ -6737,11 +6272,14 @@ mod tests {
                     },
                     |ui| {
                         point = ui.next_widget_position() + egui::vec2(12.0, 12.0);
-                        Operator::buttons(
+                        crate::widgets::offer_row(
                             ui,
-                            &s.onboarding[0].actions,
-                            s.system.inactive_reason(),
-                            o.controls_pending(),
+                            &screen_model::offers::row(
+                                &s.onboarding[0].actions,
+                                screen_model::offers::Importance::Secondary,
+                                s.system.inactive_reason(),
+                                o.controls_pending(),
+                            ),
                             &mut chosen,
                         );
                     },
@@ -6942,31 +6480,26 @@ mod tests {
         o.overview = Some(overview_fixture().into());
         let observation = Action::CandidateObserve { candidate: "ef".repeat(32),
             area: "editor".into(), status: "failed".into(), note: "Retained note".into() };
-        let workspace = Action::WorkspaceSelectInstaller {
-            installer: "ab".repeat(32), release: "Exact release".into() };
         let rename = Action::InstallerRename { installer: "cd".repeat(32),
             label: "Retained display name".into() };
         o.window.forms.record = Some(observation.clone());
-        o.window.forms.release = Some(workspace.clone());
         o.window.forms.rename = Some(rename.clone());
-        for draft in [&observation, &workspace, &rename] {
+        for draft in [&observation, &rename] {
             assert!(!o.capture_chosen_action(draft.clone()));
         }
         o.overview_fresh = true;
         o.queued_import = true;
-        for draft in [&observation, &workspace, &rename] {
+        for draft in [&observation, &rename] {
             assert!(!o.capture_chosen_action(draft.clone()));
         }
         assert!(o.feedback.is_none() && o.queued_action.is_none());
         assert_eq!(o.window.forms.record.as_ref(), Some(&observation));
-        assert_eq!(o.window.forms.release.as_ref(), Some(&workspace));
         assert_eq!(o.window.forms.rename.as_ref(), Some(&rename));
         o.queued_import = false;
-        assert!(o.capture_chosen_action(workspace.clone()));
-        assert!(o.window.forms.release.is_none());
+        assert!(o.capture_chosen_action(rename.clone()));
+        assert!(o.window.forms.rename.is_none());
         assert_eq!(o.window.forms.record.as_ref(), Some(&observation));
-        assert_eq!(o.window.forms.rename.as_ref(), Some(&rename));
-        assert_eq!(o.next_action().unwrap().action, workspace);
+        assert_eq!(o.next_action().unwrap().action, rename);
     }
     #[test]
     fn long_setup_feedback_names_only_the_exact_running_operation() {
@@ -7155,15 +6688,14 @@ mod tests {
                 };
                 let mut output = ctx.run_ui(input, |ui| {
                     point = ui.next_widget_position() + egui::vec2(12.0, 12.0);
-                    Operator::buttons(
+                    crate::widgets::offer_row(
                         ui,
-                        &actions,
-                        None,
-                        if old_gate {
-                            o.pending
-                        } else {
-                            o.controls_pending()
-                        },
+                        &screen_model::offers::row(
+                            &actions,
+                            screen_model::offers::Importance::Secondary,
+                            None,
+                            if old_gate { o.pending } else { o.controls_pending() },
+                        ),
                         &mut chosen,
                     );
                 });

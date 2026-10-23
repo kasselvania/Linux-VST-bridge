@@ -1094,22 +1094,19 @@ fn setup_primary(actions: &[ui::AvailableAction], next: SetupNext) -> Option<ui:
 
 /// The setup cards as the view composer projects them, with their inputs read here.
 #[cfg(test)]
-pub fn setup_projection(m: &Manager, rows: &[ui::Onboarding], products: &[ui::Product],
-    workspace_installers: &std::collections::BTreeSet<String>) -> Result<Vec<ui::InstallerSetup>> {
+pub fn setup_projection(m: &Manager, rows: &[ui::Onboarding], products: &[ui::Product])
+    -> Result<Vec<ui::InstallerSetup>> {
     let runners = runners_for_readback(m)?;
     let default = default_runtime(m, &runners)?;
     let retained = history_records(m)?;
     let installers = installer_import::list_identity_records(m)?;
-    setup_projection_current(m, rows, products, workspace_installers,
-        &retained, &installers, default.as_ref())
+    setup_projection_current(m, rows, products, &retained, &installers, default.as_ref())
 }
 pub(super) fn setup_projection_current(m: &Manager, rows: &[ui::Onboarding],
-    products: &[ui::Product], workspace_installers: &std::collections::BTreeSet<String>,
-    retained: &[Record], installers: &[installer_import::Installer],
+    products: &[ui::Product], retained: &[Record], installers: &[installer_import::Installer],
     default: Option<&(String, Runner)>) -> Result<Vec<ui::InstallerSetup>> {
     let mut setups = Vec::new();
     for installer in installers {
-        if workspace_installers.contains(&installer.id) { continue; }
         let presentation = installer_import::presentation(m, installer)?;
         let history: Vec<_> = rows.iter().filter(|row| row.installer == installer.id).cloned().collect();
         let bound: Vec<_> = history.iter().filter(|row| row.environment.is_some()).collect();
@@ -1628,8 +1625,7 @@ pub(crate) mod tests {
         assert_eq!(rows[0].actions[0].action, ui::Action::InstallerEnvironmentCreate {
             installer: installer.id, runner: selected.0.clone(),
         });
-        let setups = setup_projection_current(&f.m, &rows, &[],
-            &Default::default(), &[], &installers, Some(&selected)).unwrap();
+        let setups = setup_projection_current(&f.m, &rows, &[], &[], &installers, Some(&selected)).unwrap();
         assert_eq!(setups[0].primary.as_ref().unwrap().action, rows[0].actions[0].action);
         assert_eq!(compatibility_label(true, Some(&runner), Some(&selected), false).as_deref(),
             Some("Standard · recommended"));
@@ -1661,7 +1657,7 @@ pub(crate) mod tests {
                 registry:&registry,records:&records,installers:&installers}, |_|Ok(false)).unwrap();
             let retry=rows[0].actions.iter().find(|a|matches!(a.action,ui::Action::InstallerNewAttempt {..})).unwrap();
             assert_eq!(retry.action,ui::Action::InstallerNewAttempt {previous:id.into(),runner:retained_key.clone()});
-            let setups=setup_projection_current(&f.m,&rows,&[],&Default::default(),&records,&installers,default_runner).unwrap();
+            let setups=setup_projection_current(&f.m,&rows,&[],&records,&installers,default_runner).unwrap();
             assert_eq!(setups[0].primary.as_ref().unwrap().action,retry.action);
         }
         assert!(prepare_attempt(&f.m,id,&recommended.0).err().unwrap().to_string()
@@ -1849,8 +1845,8 @@ pub(crate) mod tests {
                 sw:&sw, default_runner:Some(&default), registry:&registry,
                 records:&retained_records, installers:&installers,
             }, |_| Ok(false)).unwrap();
-            let cards = setup_projection_current(&f.m, &rows, &[], &Default::default(),
-                &retained_records, &installers, Some(&default)).unwrap();
+            let cards = setup_projection_current(&f.m, &rows, &[], &retained_records, &installers,
+                Some(&default)).unwrap();
             let retries: Vec<_> = cards[0].primary.iter().chain(&cards[0].secondary)
                 .filter(|offer| matches!(offer.action, ui::Action::InstallerNewAttempt { .. }))
                 .collect();

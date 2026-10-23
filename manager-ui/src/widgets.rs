@@ -2,9 +2,9 @@
 //! and disclosures. Drawing only; every decision and word comes from the model.
 //! A pressed offer is taken with `Offer::pressed` and routed with
 //! `State::press` when the frame ends: the two halves of `State::press_offer`.
-use crate::model::{Action, AvailableAction};
+use crate::model::Action;
 use crate::screen_model::journey::Results;
-use crate::screen_model::offers::{self, Availability, Importance, OfferRow, SetupChoice};
+use crate::screen_model::offers::{self, Availability, OfferRow, SetupChoice};
 use crate::screen_model::{Detail, Disclosure, Text, TextRole};
 use eframe::egui;
 
@@ -58,17 +58,6 @@ pub fn offer_row(ui: &mut egui::Ui, row: &OfferRow, chosen: &mut Option<Action>)
     // also blocks a manager-disabled action.
     for note in &row.notes { ui.small(note); }
     for consequence in &row.consequences { ui.small(*consequence); }
-}
-
-/// Manager-offered actions as one row, for screens not yet built from the model.
-pub fn action_buttons(
-    ui: &mut egui::Ui,
-    actions: &[AvailableAction],
-    busy: Option<&str>,
-    pending: bool,
-    chosen: &mut Option<Action>,
-) {
-    offer_row(ui, &offers::row(actions, Importance::Secondary, busy, pending), chosen);
 }
 
 pub fn setup_choice(ui: &mut egui::Ui, choice: &SetupChoice, chosen: &mut Option<Action>) {

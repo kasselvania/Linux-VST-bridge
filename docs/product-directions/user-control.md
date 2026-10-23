@@ -4,7 +4,7 @@ Research and proposal, 2026-10-14. Source audit only; no installation, runtime, 
 
 **Recommendation: give users an editable working setup, with the manager remembering what they selected and helping them maintain it.** A changed hash should lead to “Use this version,” not require maintainer permission. Keep exact identities for history and reliable launches; remove product/build whitelists and installer-history requirements where they substitute for the user's explicit selection.
 
-The user's requested control conflicts with the old workspace restriction against executable selection. The proposed flow replaces that restriction while retaining immutable history. The native architecture already permits unfamiliar runners and local overrides; it explicitly admits that the complete workflow is unimplemented. See `docs/WINDOWS_DAW_WORKSPACES.md:38–61` and `docs/ARCHITECTURE.md:1295–1307,1327–1332,1355–1371`.
+The user's requested control conflicts with the old workspace restriction against executable selection. The proposed flow replaces that restriction while retaining immutable history. The native architecture already permits unfamiliar runners and local overrides; it explicitly admits that the complete workflow is unimplemented. See `docs/history/WINDOWS_DAW_WORKSPACES.md` (retired with the workspace) and `docs/ARCHITECTURE.md:1295–1307,1327–1332,1355–1371`.
 
 ## What the code actually permits and blocks
 

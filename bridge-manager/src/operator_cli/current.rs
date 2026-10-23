@@ -46,7 +46,6 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
         paths.insert(binding.spec.path);
         paths.insert(binding.result.path);
     }
-    paths.insert(m.root.join("daw-workspaces/fl-studio/workspace.json"));
     let deleted = linux_vst_bridge::deleted_setup::directory(m);
     paths.insert(deleted.clone());
     let deleted_scan = linux_vst_bridge::deleted_setup::scan(m)?;
@@ -288,17 +287,13 @@ impl CurrentOverviewContext {
     }
     fn recheck_external(&self, m: &Manager) -> Result<()> {
         // These fixed, bounded service observations are independent. Run at
-        // most four installer cohorts alongside vendor, workspace and cleanup
-        // so a larger retained setup history does not create one thread per
+        // most four installer cohorts alongside vendor and cleanup so a
+        // larger retained setup history does not create one thread per
         // attempt. None of these probes holds registry.lock.
         std::thread::scope(|scope| -> Result<()> {
             let vendor = linux_vst_bridge::spawn_recorded(scope, || {
                 let at = Instant::now();
                 ((vendor_retired(m), live_vendor_progress(m)), at.elapsed().as_millis())
-            });
-            let workspace = linux_vst_bridge::spawn_recorded(scope, || {
-                let at = Instant::now();
-                (daw_workspace::current_projection(m), at.elapsed().as_millis())
             });
             let cleanup = self.cleanup_seen.map(|_| linux_vst_bridge::spawn_recorded(scope, || {
                 let at = Instant::now();
@@ -312,8 +307,6 @@ impl CurrentOverviewContext {
             let renderer = linux_vst_bridge::spawn_recorded(scope, || renderer_liveness(self.renderer_live.keys()));
             let (vendor_result, vendor_ms) = vendor.join()
                 .map_err(|_| "operator_vendor_probe_failed")?;
-            let (workspace_result, workspace_ms) = workspace.join()
-                .map_err(|_| "operator_workspace_probe_failed")?;
             let (cleanup_result, cleanup_ms) = match cleanup {
                 Some(check) => {
                     let (result, elapsed) = check.join()
@@ -334,16 +327,13 @@ impl CurrentOverviewContext {
             }
             require(installer_result? == self.installer_live,
                 "operator_installer_state_changed_refresh")?;
-            require(renderer_result? == self.renderer_live, "operator_vendor_state_changed_refresh")?;
-            let (workspaces, _) = workspace_result?;
             #[cfg(feature = "pb0-c0-audit")]
             eprintln!("PB0_PHASE {}",json!({"external_vendor_ms":vendor_ms,
                 "external_cleanup_ms":cleanup_ms,"external_installer_ms":installer_ms,
-                "external_workspace_ms":workspace_ms,"installer_cohorts":self.installer_live.len()}));
+                "installer_cohorts":self.installer_live.len()}));
             #[cfg(not(feature = "pb0-c0-audit"))]
-            let _ = (vendor_ms, cleanup_ms, installer_ms, workspace_ms);
-            require(serde_json::to_value(&workspaces)? == serde_json::to_value(&self.snapshot.workspaces)?,
-                "operator_workspace_state_changed_refresh")
+            let _ = (vendor_ms, cleanup_ms, installer_ms);
+            require(renderer_result? == self.renderer_live, "operator_vendor_state_changed_refresh")
         })
     }
     fn recheck_with(&self, m: &Manager, mut external: impl FnMut() -> Result<()>) -> Result<()> {
@@ -417,7 +407,6 @@ impl CurrentOverviewContext {
         let quiescent = self.all_vendor_retired && self.vendor_progress.is_none()
             && !self.installer_live.values().any(|live| *live) && !operation_live
             && !self.renderer_live.values().any(|live| *live)
-            && !self.snapshot.workspaces.iter().any(|workspace| workspace.state == "running")
             && self.snapshot.system.capacity_available() && !self.snapshot.system.cleanup_unconfirmed;
         let mut directories = BTreeSet::new();
         for (path, stamp) in &self.watched {
@@ -430,10 +419,10 @@ impl CurrentOverviewContext {
     }
 }
 /// Whether nothing a view shows can change without a record write, and the
-/// directories of the files it stamped. A live operation, installer,
-/// application or workspace session changes what the view shows without
-/// writing a record (its unit can end), and so can a service census that was
-/// unreadable or awaits cleanup.
+/// directories of the files it stamped. A live operation, installer or
+/// application session changes what the view shows without writing a record
+/// (its unit can end), and so can a service census that was unreadable or
+/// awaits cleanup.
 pub(super) struct Reuse {
     pub quiescent: bool,
     pub directories: Vec<PathBuf>,
@@ -923,14 +912,12 @@ fn compose_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->Result<boo
     };
     std::thread::scope(|scope| {
     // Diagnostics sampled capacity with registry authority; a current view
-    // reads it, cleanup and the workspace beside its own projection.
+    // reads it and cleanup beside its own projection.
     let capacity_task = (!diagnostics).then(|| linux_vst_bridge::spawn_recorded(scope, || {
         let started = Instant::now();
         (live_capacity(m).ok(), started.elapsed().as_millis())
     }));
     let cleanup_task = (!diagnostics).then(|| linux_vst_bridge::spawn_recorded(scope, || pulse_cleanup(m)));
-    let workspace_task = (!diagnostics).then(|| linux_vst_bridge::spawn_recorded(scope,
-        || daw_workspace::current_projection(m)));
     let before = match &sampled { Some((_, before)) => before.clone(), None => token_with_registry(m, &db)? };
     let token_at = Instant::now(); phases.push(("token_before",token_at.duration_since(started).as_millis()));
     let authority_observed = timing::span(Stage::CaptureSoftwareCatalogue);
@@ -1060,11 +1047,6 @@ fn compose_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->Result<boo
             offer.disabled_reason = Some(reason.into());
         }
     }
-    let (workspaces, workspace_installers) = match workspace_task {
-        Some(task) => task.join().map_err(|_| "operator_workspace_probe_failed")??,
-        None => daw_workspace::projection(m, &onboarding)?,
-    };
-    onboarding.retain(|row| !workspace_installers.contains(&row.installer));
     let live_operation = automatic_install::current_operation(m)?;
     if diagnostics {
         if let Some(receipt) = &live_operation {
@@ -1081,7 +1063,7 @@ fn compose_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->Result<boo
         preparation_cli::project_required_recovery(m,&mut products,&preparation,&class_scope)?;
     }
     let mut installer_setups = onboarding::setup_projection_current(m, &onboarding, &products,
-        &workspace_installers, &records, &installers, default.as_ref())?;
+        &records, &installers, default.as_ref())?;
     automatic_install::project_from(m, &mut installer_setups, busy, &records)?;
     automatic_install::project_revalidation(m,&mut products,&records)?;
     for product in &mut products {
@@ -1105,9 +1087,9 @@ fn compose_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->Result<boo
             let live = installer_is_live(operation)?;
             installer_live.insert(operation.to_owned(),live);Ok(live)
         })?;
-    let workspace_at = Instant::now(); phases.push(("workspace_and_cards",workspace_at.duration_since(joined_at).as_millis()));
+    let cards_at = Instant::now(); phases.push(("cards",cards_at.duration_since(joined_at).as_millis()));
     let uninstallers=uninstall::project(m,&installer_setups,&records,&db,&managed_bindings,busy)?;
-    phases.push(("uninstallers",workspace_at.elapsed().as_millis()));
+    phases.push(("uninstallers",cards_at.elapsed().as_millis()));
     // A plug-in whose setup window is open takes over its setup's card.
     plugin_setup::project(m,&mut products,&mut installer_setups,busy)?;
     let environment_installers = environment_install::projection(m,&products,busy,|operation| {
@@ -1156,7 +1138,7 @@ fn compose_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->Result<boo
     let snapshot = ui::Snapshot {schema:ui::OPERATOR_SCHEMA,state_token,system,
         managed_runtime_records:linux_vst_bridge::runtime_delivery::readback_records(m)?,
         onboarding,installer_setups,environment_installers,environments,vendor_applications,products,
-        workspaces,active_sessions,capture:if diagnostics { capture_state(m)? } else { Value::Null },
+        workspaces:vec![],active_sessions,capture:if diagnostics { capture_state(m)? } else { Value::Null },
         recent_incidents:incidents,actions,
         operation,deleted_setups,uninstallers,
         bridge:crate::package_authority::bridge_build(m,&sw)};
@@ -1612,16 +1594,11 @@ pub(super) mod tests {
         let reuse = quiet().reuse();
         assert!(reuse.quiescent);
         assert_eq!(reuse.directories, [module.parent().unwrap().to_owned()], "a stamped file's directory");
-        let live: [fn(&mut CurrentOverviewContext); 7] = [
+        let live: [fn(&mut CurrentOverviewContext); 6] = [
             |c| c.snapshot.operation = Some(json!({"state":"running"})),
             |c| c.snapshot.operation = Some(json!({"state":"submission_uncertain"})),
             |c| { c.installer_live.insert("ab".repeat(16), true); },
             |c| c.all_vendor_retired = false,
-            |c| c.snapshot.workspaces.push(serde_json::from_value(json!({"id":"fl-studio","name":"FL Studio",
-                "state":"running","selected_installer":"","selected_release":"","installed_advertised_release":null,
-                "observed_file_version":null,"installed_image_sha256":null,"active_installation_operation":null,
-                "cleanup":"running","first_useful_failure":null,"actions":[],"installer_choices":[],"details":{}}))
-                .unwrap()),
             |c| c.snapshot.system.service = "capacity unavailable".into(),
             |c| c.snapshot.system.cleanup_unconfirmed = true,
         ];
@@ -1638,7 +1615,6 @@ pub(super) mod tests {
     fn context_for_watched(m:&Manager, watched:BTreeMap<PathBuf,Option<FileStamp>>)
         -> CurrentOverviewContext {
         let pending=pending_transactions(m).unwrap();
-        let (workspaces,_)=daw_workspace::current_projection(m).unwrap();
         let artifact = Artifact {path:m.root.join("test-context-only"),sha256:"00".repeat(32)};
         let software = Software {manager:artifact.clone(),supervisor:artifact.clone(),
             ownership:artifact.clone(),host:artifact.clone(),source_manifest:artifact,
@@ -1649,7 +1625,7 @@ pub(super) mod tests {
                 managed_runtime_records:vec![],
                 system:system_from_capacity(None,pending,0),onboarding:vec![],
                 installer_setups:vec![],environment_installers:vec![],environments:vec![],vendor_applications:vec![],
-                products:vec![],workspaces,active_sessions:vec![],capture:Value::Null,
+                products:vec![],workspaces:vec![],active_sessions:vec![],capture:Value::Null,
                 recent_incidents:vec![],actions:vec![],operation:None,deleted_setups:vec![],uninstallers:vec![],
                 bridge:Default::default()},
             busy:None,profiles:vec![],revisions:BTreeMap::new(),
@@ -1916,7 +1892,7 @@ pub(super) mod tests {
         }
     }
     #[test]
-    fn current_watch_binds_setup_performance_workspace_and_pending_inputs() {
+    fn current_watch_binds_setup_performance_and_pending_inputs() {
         // Liveness reads reach this fixture's installer and selector units.
         // Model them rather than depending on the test host's user manager.
         let units=[onboarding::unit(&"12".repeat(16)).unwrap(),vendor_cli::unit(&"ab".repeat(32)).unwrap()];
@@ -1965,7 +1941,6 @@ pub(super) mod tests {
             let inventory=m.root.join("inventory").join(format!("{environment_id}.json"));
             private_dir(inventory.parent().unwrap()).unwrap();
             fs::write(&inventory,b"old scan").unwrap();
-            let workspace=m.root.join("daw-workspaces/fl-studio/workspace.json");
             let pending=m.root.join("transactions").join(format!("{}.pending.json","56".repeat(16)));
             private_dir(pending.parent().unwrap()).unwrap();
             fs::write(&pending,b"old pending").unwrap();
@@ -1986,7 +1961,7 @@ pub(super) mod tests {
             assert_ne!(stamp(&installer_path).unwrap(),before_mode);
             assert!(context.recheck(m).is_err());
             for path in [&vendor,&installer_record,&installer_path,&presentation,&onboarding_record,
-                &result,&private_report,&inventory,&pending,&performance,&workspace] {
+                &result,&private_report,&inventory,&pending,&performance] {
                 assert!(before.contains_key(path),"unwatched current input: {}",path.display());
                 let context=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
                 context.recheck(m).unwrap();
@@ -2015,6 +1990,18 @@ pub(super) mod tests {
             assert!(context.recheck(m).is_err());
             fs::remove_file(application).unwrap();
             fs::remove_dir(unregistered).unwrap();
+            // The retired FL Studio workspace (#504 E3) is no current input:
+            // its record can change, or go, without a refresh.
+            let workspace=m.root.join("daw-workspaces/fl-studio/workspace.json");
+            private_dir(&m.root.join("daw-workspaces")).unwrap();
+            private_dir(workspace.parent().unwrap()).unwrap();
+            fs::write(&workspace,b"{}").unwrap();
+            let context=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
+            assert!(!context.watched.contains_key(&workspace));
+            fs::write(&workspace,b"a changed retired record").unwrap();
+            context.recheck(m).unwrap();
+            fs::remove_dir_all(workspace.parent().unwrap()).unwrap();
+            context.recheck(m).unwrap();
             // A live installer needs recovery controls while its observations change.
             // The same file retains installation evidence after retirement, so that
             // file remains covered by the retired-input checks above.

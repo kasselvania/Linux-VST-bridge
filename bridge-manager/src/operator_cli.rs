@@ -122,7 +122,9 @@ fn token_with_registry(m: &Manager, registry: &Registry) -> Result<String> {
         &json!({"software":optional(&m.root.join("software.json"))?,"registry":registry,
             "managed_runtimes":managed_runtimes,
             "preparation":optional(&m.root.join("preparation/revision.json"))?,
-            "workspace":optional(&m.root.join("daw-workspaces/fl-studio/workspace.json"))?,
+            // The retired FL Studio workspace's record (#504 E3) is no input;
+            // its key stays, absent, until the schema-30 update.
+            "workspace":Value::Null,
             "terminal_summaries":capacity::terminal_summaries(m)?,
             "installer_presentations":installer_import::presentation_token(m)?,
             "environment_installations":environment_install::records(m)?,
@@ -510,7 +512,7 @@ fn activity_with_capacity(m: &Manager, cap: Option<&CapacityReadback>) -> Result
         system: system_from_capacity(cap, pending, stale),
         capture: capture_state(m)?,
         operation: automatic_install::current_operation(m)?,
-        workspace_product_install_ready: daw_workspace::serum2_install_finish_ready(m)?,
+        workspace_product_install_ready: false,
     })
 }
 fn stale_transports(cap: Option<&CapacityReadback>) -> Result<usize> {
@@ -554,10 +556,13 @@ fn activity(m: &Manager) -> Result<ui::Activity> {
     let cap = live_capacity(m).ok();
     activity_with_capacity(m, cap.as_ref())
 }
+/// The retired FL Studio workspace's record (#504 E3). Nothing reads it; the
+/// generation stamps it as absent until the schema-30 update.
+const RETIRED_WORKSPACE_RECORD: &str = "daw-workspaces/fl-studio/workspace.json";
 fn pulse_generation(m: &Manager) -> Result<String> {
     use std::os::unix::fs::MetadataExt;
     let paths = ["software.json", "registry.json", "preparation/revision.json",
-        "daw-workspaces/fl-studio/workspace.json", "operator/latest.json", "operator/resume.json",
+        RETIRED_WORKSPACE_RECORD, "operator/latest.json", "operator/resume.json",
         "installers", "onboarding", "inventory", "transactions", "performance",
         "runtime/leases", "runtime/owner.sock"];
     let runtime_records=linux_vst_bridge::runtime_delivery::record_paths(m);
@@ -567,6 +572,10 @@ fn pulse_generation(m: &Manager) -> Result<String> {
     let mut stamps = Vec::new();
     for path in paths {
         let relative = path.strip_prefix(&m.root)?;
+        if relative == Path::new(RETIRED_WORKSPACE_RECORD) {
+            stamps.push(json!([relative,"absent"]));
+            continue;
+        }
         match fs::symlink_metadata(&path) {
             Ok(meta) => stamps.push(json!([relative,meta.dev(),meta.ino(),meta.len(),
                 meta.mtime(),meta.mtime_nsec(),meta.ctime(),meta.ctime_nsec()])),
@@ -1482,10 +1491,6 @@ pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
         .chain(snapshot.products.iter().flat_map(|p| p.actions.iter()))
         .chain(snapshot.products.iter().flat_map(|p| p.compatibility.iter()
             .flat_map(|workflow| workflow.primary.iter().chain(workflow.alternatives.iter()))))
-        .chain(snapshot.workspaces.iter().flat_map(|w| w.actions.iter()))
-        .chain(snapshot.workspaces.iter().flat_map(|w| w.installer_choices.iter()))
-        .chain(snapshot.workspaces.iter().flat_map(|w| w.products.iter())
-            .flat_map(|p| p.actions.iter().chain(p.installer_choices.iter())))
         .chain(snapshot.environments.iter().flat_map(|p| p.actions.iter()))
         .chain(
             snapshot
@@ -1535,6 +1540,7 @@ fn validate_current_request(m: &Manager, request: &ui::Request) -> Result<()> {
 fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Result<()> {
     require(request.schema == ui::OPERATOR_SCHEMA,
         "operator_schema_mismatch_update_manager_frontend")?;
+    require(!workspace_action(&request.action), WORKSPACE_RETIRED)?;
     if matches!(request.action,ui::Action::PluginSetupFocus {..}|ui::Action::PluginSetupStop {..}) {
         return plugin_setup::validate_control(m,request);
     }
@@ -1612,6 +1618,23 @@ fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Resu
         return validate(request, &offered);
     }
     validate(request, &snapshot(m)?)
+}
+/// The bridge no longer manages the FL Studio workspace (#504 E3). Its
+/// actions are never offered, and a request for one, or one accepted before
+/// the update, is refused with this reason. Its files stay where they are.
+const WORKSPACE_RETIRED: &str = "workspace_retired";
+fn workspace_action(action: &ui::Action) -> bool {
+    matches!(action, ui::Action::WorkspaceSelectInstaller { .. }
+        | ui::Action::WorkspaceInstall {}
+        | ui::Action::WorkspaceFinishInstall {}
+        | ui::Action::WorkspaceLaunch {}
+        | ui::Action::WorkspaceUninstall {}
+        | ui::Action::WorkspaceFinishUninstall {}
+        | ui::Action::WorkspaceFocus {}
+        | ui::Action::WorkspaceStop {}
+        | ui::Action::WorkspaceSelectProductInstaller { .. }
+        | ui::Action::WorkspaceInstallProduct { .. }
+        | ui::Action::WorkspaceFinishProductInstall { .. })
 }
 fn scoped_product_action(action: &ui::Action) -> bool {
     matches!(action, ui::Action::OrdinaryRollback { .. }
@@ -2448,6 +2471,7 @@ fn execute_with_receipt_policy_progress(
     waits: &mut Vec<ui::LockFacts>,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Value> {
+    require(!workspace_action(a), WORKSPACE_RETIRED)?;
     if matches!(a,ui::Action::PluginFinishSetup {..}|ui::Action::PluginSetupFocus {..}|ui::Action::PluginSetupStop {..}) {
         return plugin_setup::execute(m,a,operation.ok_or("operator_operation_identity")?,capacity_read,timeout,waits);
     }
@@ -2605,7 +2629,7 @@ fn execute_with_receipt_policy_progress(
                 "operator_stale_request_refresh")?;
             readiness::export(m, &current)
         }
-        action @ (ui::Action::WorkspaceSelectInstaller { .. }
+        ui::Action::WorkspaceSelectInstaller { .. }
         | ui::Action::WorkspaceInstall {}
         | ui::Action::WorkspaceFinishInstall {}
         | ui::Action::WorkspaceLaunch {}
@@ -2615,10 +2639,7 @@ fn execute_with_receipt_policy_progress(
         | ui::Action::WorkspaceStop {}
         | ui::Action::WorkspaceSelectProductInstaller { .. }
         | ui::Action::WorkspaceInstallProduct { .. }
-        | ui::Action::WorkspaceFinishProductInstall { .. }) => {
-            drop(projection.take());
-            daw_workspace::execute_action(m, action, operation.ok_or("operator_operation_identity")?)
-        }
+        | ui::Action::WorkspaceFinishProductInstall { .. } => unreachable!(),
         ui::Action::PluginFinishSetup {..}|ui::Action::PluginSetupFocus {..}|ui::Action::PluginSetupStop {..}
         | ui::Action::CandidateHistoryComplete { .. }
         | ui::Action::CandidateGraphicsAssess { .. }
@@ -4323,8 +4344,7 @@ pub(super) fn answer_action(m: &Manager, request: ui::Request) -> contract::Repl
 /// other read, including the snapshot, which verifies artifact and runtime
 /// bytes the change watch does not cover, is composed for every read. A held
 /// page names the directories of every file its composing thread opened; its
-/// helper threads (census, units, workspace) read only records inside the
-/// watched trees.
+/// helper threads (census, units) read only records inside the watched trees.
 pub(super) fn view(m: &Manager, read: &contract::Read) -> Result<linux_vst_bridge::service::view::Composed> {
     use contract::{Read, Reply};
     use linux_vst_bridge::service::view::{Composed, Hold};
@@ -5322,94 +5342,45 @@ pub(crate) mod tests {
         assert!(saved["assessment"].get("support_export_action").is_none());
     }
     #[test]
-    fn workspace_selection_accepts_only_exact_offered_import_and_release_syntax() {
-        let installer = "ab".repeat(32);
-        let offered = action(
-            "Choose imported FL installer",
-            ui::Action::WorkspaceSelectInstaller {
-                installer: installer.clone(),
-                release: String::new(),
-            },
-            None,
-        );
-        let mut snapshot = view(
-            "current",
-            action("Refresh", ui::Action::CaptureDisarm {}, None),
-        );
-        snapshot.workspaces.push(ui::DawWorkspace {
-            id: "cd".repeat(16),
-            name: "FL Studio".into(),
-            state: "uninstalled".into(),
-            selected_installer: installer.clone(),
-            application_installers: vec![installer.clone()],
-            selected_release: "26.1.6.0".into(),
-            installed_advertised_release: None,
-            observed_file_version: None,
-            installed_image_sha256: None,
-            active_installation_operation: None,
-            cleanup: "confirmed".into(),
-            first_useful_failure: None,
-            actions: vec![],
-            installer_choices: vec![offered],
-            products: vec![],
-            details: Value::Null,
-        });
-        let mut request = ui::Request {
-            schema: ui::OPERATOR_SCHEMA,
-            state_token: "current".into(),
-            action: ui::Action::WorkspaceSelectInstaller {
-                installer: installer.clone(),
-                release: "27.0.0.0".into(),
-            },
-        };
-        validate(&request, &snapshot).unwrap();
-        if let ui::Action::WorkspaceSelectInstaller { release, .. } = &mut request.action {
-            *release = "27..0".into();
+    fn workspace_actions_are_never_offered_and_refused_as_retired() {
+        let (f, candidate) = preparation_cli::tests::projection_fixture();
+        atomic_json(&f.m.root.join("software.json"),
+            &preparation_cli::tests::projection_software(&candidate)).unwrap();
+        // A workspace an earlier build managed stays exactly as it was.
+        let workspace = f.m.root.join("daw-workspaces/fl-studio");
+        fs::create_dir_all(workspace.join("projects")).unwrap();
+        fs::write(workspace.join("workspace.json"), br#"{"schema":2,"session_operation":null}"#).unwrap();
+        fs::write(workspace.join("projects/song.flp"), b"song").unwrap();
+        for name in ["environment/compatdata/pfx/system.reg", "content/sound.wav",
+            "environment/compatdata/pfx/drive_c/Program Files/FL Studio/FL64.exe",
+            "sessions/old/result.json", "operations/uncertain/ownership.json"] {
+            let path = workspace.join(name);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, b"retained user or ownership fixture").unwrap();
         }
-        assert!(validate(&request, &snapshot).is_err());
-        request.action = ui::Action::WorkspaceSelectInstaller {
-            installer: "ef".repeat(32),
-            release: "27.0.0.0".into(),
-        };
-        assert!(validate(&request, &snapshot).is_err());
-        snapshot.workspaces[0].products.push(ui::DawWorkspaceProduct {
-            id: ui::WorkspaceProductId::Serum2,
-            name: "Serum 2".into(),
-            state: "not_selected".into(),
-            selected_release: None,
-            module_sha256: None,
-            current_failure: None,
-            actions: vec![action("Install Serum 2", ui::Action::WorkspaceInstallProduct {
-                product: ui::WorkspaceProductId::Serum2,
-            }, Some("Select exact installer first"))],
-            installer_choices: vec![action("Choose Serum 2", ui::Action::WorkspaceSelectProductInstaller {
-                product: ui::WorkspaceProductId::Serum2,
-                installer: "12".repeat(32),
-                release: String::new(),
-            }, None)],
-            details: Value::Null,
-        });
-        request.action = ui::Action::WorkspaceSelectProductInstaller {
-            product: ui::WorkspaceProductId::Serum2,
-            installer: "12".repeat(32),
-            release: "2.1.5".into(),
-        };
-        validate(&request, &snapshot).unwrap();
-        request.action = ui::Action::WorkspaceSelectProductInstaller {
-            product: ui::WorkspaceProductId::Serum2,
-            installer: "13".repeat(32),
-            release: "2.1.5".into(),
-        };
-        assert!(validate(&request, &snapshot).is_err());
-        request.action = ui::Action::WorkspaceInstallProduct { product: ui::WorkspaceProductId::Serum2 };
-        assert!(validate(&request, &snapshot).is_err(), "disabled product action must remain unavailable");
-        snapshot.workspaces[0].installer_choices[0].disabled_reason =
-            Some("FL session is active".into());
-        request.action = ui::Action::WorkspaceSelectInstaller {
-            installer,
-            release: "27.0.0.0".into(),
-        };
-        assert!(validate(&request, &snapshot).is_err());
+        let before = test_fixture::snapshot(&workspace);
+        let service = overview_service_reply(&f.m, capacity_json(false, 0, 0));
+        let current = current_overview(&f.m).unwrap().current;
+        service.join().unwrap();
+        assert!(current.workspaces.is_empty());
+        assert!(!available(&current).iter().any(|offer| workspace_action(&offer.action)));
+        let product = ui::WorkspaceProductId::Serum2;
+        let (installer, release) = ("ab".repeat(32), "26.1.6.0".to_owned());
+        for action in [ui::Action::WorkspaceSelectInstaller { installer: installer.clone(), release: release.clone() },
+            ui::Action::WorkspaceInstall {}, ui::Action::WorkspaceFinishInstall {}, ui::Action::WorkspaceLaunch {},
+            ui::Action::WorkspaceUninstall {}, ui::Action::WorkspaceFinishUninstall {},
+            ui::Action::WorkspaceFocus {}, ui::Action::WorkspaceStop {},
+            ui::Action::WorkspaceSelectProductInstaller { product, installer, release },
+            ui::Action::WorkspaceInstallProduct { product },
+            ui::Action::WorkspaceFinishProductInstall { product }] {
+            let request = ui::Request { schema: ui::OPERATOR_SCHEMA,
+                state_token: current.state_token.clone(), action: action.clone() };
+            assert_eq!(validate_current_request(&f.m, &request).unwrap_err().to_string(),
+                WORKSPACE_RETIRED, "{action:?}");
+            assert_eq!(execute_idle_test_action(&f.m, &action).unwrap_err().to_string(),
+                WORKSPACE_RETIRED, "{action:?}");
+        }
+        assert_eq!(test_fixture::snapshot(&workspace), before);
     }
     pub(super) fn capacity_json(blocked: bool, dsp: usize, maintenance: usize) -> Value {
         json!({"ok":true,"capacity":{"schema":1,"dsp":dsp,"maintenance":maintenance,"keepers":1,"cleanup_unconfirmed":blocked,"owners":[],"limits":{"global_dsp":6}}})
@@ -7247,7 +7218,7 @@ pub(crate) mod tests {
     fn new_setup_uses_exact_managed_recommendation_without_catalogue_default_authority() {
         let (f, _) = onboarding_worker_fixture();
         let rows = onboarding::projection(&f.m, None).unwrap();
-        let setups = onboarding::setup_projection(&f.m, &rows, &[], &Default::default()).unwrap();
+        let setups = onboarding::setup_projection(&f.m, &rows, &[]).unwrap();
         assert_eq!(setups.len(), 1);
         assert_eq!(setups[0].phase, ui::SetupPhase::Imported);
         assert_eq!(setups[0].history.len(), 1);
@@ -7275,7 +7246,7 @@ pub(crate) mod tests {
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         let rows = onboarding::projection(&f.m, None).unwrap();
         assert_eq!(rows[0].actions.len(),1);
-        let setups = onboarding::setup_projection(&f.m, &rows, &[], &Default::default()).unwrap();
+        let setups = onboarding::setup_projection(&f.m, &rows, &[]).unwrap();
         assert!(matches!(&setups[0].primary.as_ref().unwrap().action,
             ui::Action::InstallerEnvironmentCreate {runner,..} if *runner==onboarding::runner_key(&delivered).unwrap()));
     }
@@ -8210,7 +8181,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
     fn ui1_rename_requires_exact_offered_installer_and_changes_no_custody_record() {
         let (f, _) = onboarding_worker_fixture();
         let rows = onboarding::projection(&f.m, None).unwrap();
-        let setups = onboarding::setup_projection(&f.m, &rows, &[], &Default::default()).unwrap();
+        let setups = onboarding::setup_projection(&f.m, &rows, &[]).unwrap();
         let sha = setups[0].installer.clone();
         let record_path = f.m.root.join("installers").join(format!("{sha}.json"));
         let original = fs::read(&record_path).unwrap();
@@ -8229,17 +8200,6 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
             .unwrap().display_label, "Lunacy Audio");
     }
     #[test]
-    fn ui1_workspace_application_installer_is_not_a_plugin_setup() {
-        let (f, _) = onboarding_worker_fixture();
-        let rows = onboarding::projection(&f.m, None).unwrap();
-        let installer = rows[0].installer.clone();
-        let workspace_owned = std::collections::BTreeSet::from([installer.clone()]);
-        assert!(onboarding::setup_projection(&f.m, &rows, &[], &workspace_owned)
-            .unwrap().is_empty());
-        assert_eq!(onboarding::setup_projection(&f.m, &rows, &[], &Default::default())
-            .unwrap()[0].installer, installer);
-    }
-    #[test]
     fn ui1_one_card_tracks_setup_phases_and_exact_discovered_product() {
         let (f, _) = onboarding_worker_fixture();
         let imported = onboarding::projection(&f.m, None).unwrap().remove(0);
@@ -8251,7 +8211,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
             onboarding: environment.clone() }, None)];
         let mut rows = vec![imported, current.clone()];
         let project = |rows: &[ui::Onboarding], products: &[ui::Product]| {
-            let setups = onboarding::setup_projection(&f.m, rows, products, &Default::default()).unwrap();
+            let setups = onboarding::setup_projection(&f.m, rows, products).unwrap();
             assert_eq!(setups.len(), 1);
             assert_eq!(setups[0].history.len(), 2);
             setups.into_iter().next().unwrap()

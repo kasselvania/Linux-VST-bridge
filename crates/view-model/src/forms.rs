@@ -131,8 +131,6 @@ pub enum Route {
     /// Record what was observed: a test result, or the maintainer's
     /// observation or review.
     Record(Action),
-    /// Enter the exact release to select (Workspaces).
-    ChooseRelease(Action),
     /// Name the installer.
     Rename(Action),
     /// Confirm what the removal or deletion changes.
@@ -147,8 +145,6 @@ pub fn route(action: Action, daw: Option<DawChoice>) -> Route {
     match action {
         Action::CandidateObserve { .. } | Action::CandidateReview { .. } | Action::CompatibilityResult { .. } =>
             Route::Record(action),
-        Action::WorkspaceSelectInstaller { .. } | Action::WorkspaceSelectProductInstaller { .. } =>
-            Route::ChooseRelease(action),
         Action::InstallerRename { .. } => Route::Rename(action),
         _ if needs_confirmation(&action) => Route::Confirm(action),
         _ => Route::Send(action),

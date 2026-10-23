@@ -3474,12 +3474,11 @@ def vendor_compatibility(mode, app=None):
     return {'disable_windows_accessibility':mode in ('normal','accessibility_probe')}
 
 
-def vendor_process_metadata(scope, record, app, allow_missing=False, selected_image=None):
+def vendor_process_metadata(scope, record, app, selected_image=None):
     root=scope.proc_root/str(record['pid']);roles=[];exe=None
     try:exe=os.readlink(root/'exe')
     except (FileNotFoundError,ProcessLookupError):pass
-    # The closed ASC owner has two named helpers. A managed DAW has no
-    # predeclared helper binary; its exact cgroup and ancestry remain owned.
+    # The closed ASC owner has two named helpers.
     candidates=[('main',app['executable'])]
     if app.get('schema') in (2,3):
         if len(app['helpers'])>16:raise RuntimeError('registered helper bound')
@@ -3509,10 +3508,7 @@ def vendor_process_metadata(scope, record, app, allow_missing=False, selected_im
             m=os.fstat(selected_image.fd)
             if RendererImage.identity(m)[:4]!=selected_image.stamp[:4]:continue
         else:
-            try:m=pathlib.Path(path).stat()
-            except FileNotFoundError:
-                if allow_missing:continue # An owned vendor uninstaller may remove itself.
-                raise
+            m=pathlib.Path(path).stat()
         image_mapped=(os.major(m.st_dev),os.minor(m.st_dev),m.st_ino) in mapped
         if image_mapped or (selected_image is None and exe==path):
             roles.append({'role':role,'path':path,'sha256':artifact['sha256']})
@@ -5528,27 +5524,6 @@ def nad1_application(spec):
     return nad1_owned(spec)
 
 
-def daw_application_binding(app,is_uninstall):
-    if app.get('id')!='fl_studio' or app.get('helpers')!=[]:
-        raise RuntimeError('managed DAW identity unsupported')
-    directory=pathlib.Path(app['environment']['root']);workspace=directory.parent
-    for key in ('preferences','projects','exports'):
-        expected=workspace/key
-        if app.get(key)!=str(expected):raise RuntimeError('managed DAW workspace root changed')
-        private_directory(expected)
-    if is_uninstall:
-        prefix=directory/'compatdata/pfx/drive_c/Program Files/Image-Line'
-        installed=pathlib.Path(app['installed_image']['path'])
-        uninstaller=pathlib.Path(app['executable']['path'])
-        if (installed.name!='FL64.exe' or installed.parent.parent!=prefix
-            or not installed.parent.name.startswith('FL Studio ')
-            or uninstaller!=installed.parent/'uninstall.exe'):
-            raise RuntimeError('managed DAW uninstaller binding changed')
-        verify(app['installed_image'])
-    elif 'installed_image' in app:
-        raise RuntimeError('managed DAW launch fields changed')
-
-
 MANAGED_NATIVE_ACCESS_PROFILE_SHA256='dba4302039d2d0d780c8e31d373dd17a56384c5b60469bfa0adc7178a10fb186'
 
 # Profile-declared per-user registry defaults. The manager hands them over
@@ -5962,22 +5937,16 @@ def vendor_application(spec):
     if spec.get('kind')=='native_access_dependency':return nad1_application(spec)
     if spec.get('kind')=='renderer_application':return renderer_application(spec)
     if spec.get('managed') is not None:return managed_vendor_application(spec)
-    is_uninstall=spec.get('kind')=='daw_workspace_uninstall'
-    is_daw=spec.get('kind') in ('daw_workspace_application','daw_workspace_uninstall')
-    if spec.get('kind') not in (None,'daw_workspace_application','daw_workspace_uninstall'):
+    if spec.get('kind') is not None:
         raise RuntimeError('application owner kind unsupported')
     app=spec['application'];env=app['environment'];directory=pathlib.Path(env['root'])
     selector=None
-    if app.get('schema') in (2,3) and not is_daw:
+    if app.get('schema') in (2,3):
         if app.get('id')!='selected':raise RuntimeError('vendor application schema')
         binding={'environment':env['id'],'executable':app['executable'],'user_selection':app['user_selection']} if app['schema']==3 else {'environment':env['id'],'executable':app['executable'],'helpers':app['helpers'],'installer':app['installer_sha256'],'installation':app['installer_result']}
         selector=hashlib.sha256(json.dumps(binding,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
     report=pathlib.Path(spec['report']);stop=False;child=None;scope=None;clean=False;error=None;selected_image=None;launch_request=None
     mode=spec.get('mode','normal');diagnostic=mode!='normal';focus_result=None;close_result=None
-    if is_daw and mode!='normal':
-        raise RuntimeError('managed DAW identity unsupported')
-    if is_daw:
-        daw_application_binding(app,is_uninstall)
     writer=(report.parent/'writer.lock').open('a+b');fcntl.flock(writer,fcntl.LOCK_EX)
     if report.exists():
         previous=json.loads(report.read_text())
@@ -6015,10 +5984,10 @@ def vendor_application(spec):
                 'owned_live':live,'cleanup_confirmed':clean,'error':error,
                 'discarded_diagnostic_bytes':sum(c.discarded for c in captures.values()),
                 'retained_diagnostic_bytes':sum(c.retained for c in captures.values()),
-                'diagnostic_enabled':diagnostic,'windows_accessibility_disabled':False if is_daw else vendor_compatibility(mode,app)['disable_windows_accessibility'],
+                'diagnostic_enabled':diagnostic,'windows_accessibility_disabled':vendor_compatibility(mode,app)['disable_windows_accessibility'],
                 'account_posture':'unknown','close_result':close_result}
     try:
-        if app.get('schema')==2 and not is_daw:
+        if app.get('schema')==2:
             selected_installer_origin(pathlib.Path.home()/'.local/share/linux-vst-bridge/managed',app)
         if app.get('schema')==3:
             selected_image=RendererImage({'artifact':app['executable'],'size':pathlib.Path(app['executable']['path']).stat().st_size})
@@ -6030,15 +5999,12 @@ def vendor_application(spec):
             with os.fdopen(os.open(launch_request,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'wb') as request:
                 request.write(content.encode('utf-16le'));request.flush();os.fsync(request.fileno())
         for artifact in [app['executable'],*app['helpers'],*env['runner']['files']]:verify(artifact)
-        scope=CompanionCgroup(daw_operation=spec['operation_id']) if is_daw else CompanionCgroup(vendor_application=selector)
+        scope=CompanionCgroup(vendor_application=selector)
         if scope.members():raise RuntimeError('companion cgroup not initially empty')
         if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('companion subreaper unavailable')
-        reg={'environment':env,'compatibility':{'disable_windows_accessibility':False} if is_daw else vendor_compatibility(mode,app)}
+        reg={'environment':env,'compatibility':vendor_compatibility(mode,app)}
         argv,cwd=vendor_launch(spec,launch_request) if launch_request is not None else vendor_launch(spec)
         launch_env=vendor_diagnostic_environment(environment(reg),logs,diagnostic)
-        if is_daw:
-            home=directory/'home';private_directory(home);launch_env['HOME']=str(home)
-            launch_env['XDG_CONFIG_HOME']=app['preferences']
         if selected_image is not None:selected_image.check()
         child=subprocess.Popen(argv,cwd=cwd,env=launch_env,
                 stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
@@ -6056,7 +6022,7 @@ def vendor_application(spec):
                     observed[key]={'first_observed':now,'last_observed':now,'metadata':None}
                 item=observed[key];item['last_observed']=now
                 if item['metadata'] is None or now-item.get('metadata_time',0)>=1_000_000_000:
-                    metadata=vendor_process_metadata(scope,record,app,allow_missing=is_uninstall,selected_image=selected_image);after=scope.identity(record['pid'])
+                    metadata=vendor_process_metadata(scope,record,app,selected_image=selected_image);after=scope.identity(record['pid'])
                     if after is None or after['start_ticks']!=record['start_ticks']:continue
                     item['metadata_time']=now
                     if metadata!=item['metadata']:
@@ -6088,7 +6054,7 @@ def vendor_application(spec):
                     focus_result={'request':request['request'],'result':vendor_focus(scope,app,selected_image=selected_image)}
                 except Exception:
                     focus_result={'request':request_id,'result':'refused_exact_window_unavailable'}
-            if is_daw or app.get('schema')==3:
+            if app.get('schema')==3:
                 close_path=report.parent/'close.json'
                 if close_path.exists():
                     request_id=None
