@@ -245,7 +245,6 @@ mod tests {
     use crate::model::{AvailableAction, CompatibilityWorkflow, CompatibilityPhase};
     use crate::presentation;
     use crate::screen_model::offers;
-    use crate::widgets::action_buttons;
     use crate::screen_model::offers::{refusal as primary_refusal, setup_choice_label, visible_refusals};
     use crate::screen_model::product::{self, status};
     use crate::screen_model::{settings, Status, StatusClass};
@@ -983,7 +982,9 @@ mod tests {
                     egui::Event::PointerButton {pos:point,button:egui::PointerButton::Primary,
                         pressed,modifiers:egui::Modifiers::NONE}]).unwrap_or_default();
                 let mut output = ctx.run_ui(egui::RawInput {events,..Default::default()},|ui| {
-                    action_buttons(ui,std::slice::from_ref(&offer),busy,false,&mut chosen);
+                    crate::widgets::offer_row(ui,
+                        &offers::row(std::slice::from_ref(&offer), offers::Importance::Secondary, busy, false),
+                        &mut chosen);
                 });
                 if pressed.is_none() {
                     point = output.shapes.iter().find_map(|shape| position(&shape.shape)).unwrap();

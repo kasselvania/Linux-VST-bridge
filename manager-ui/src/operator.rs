@@ -856,15 +856,6 @@ impl Operator {
         self.refresh_after |= !changed;
         None
     }
-    fn buttons(
-        ui: &mut egui::Ui,
-        actions: &[AvailableAction],
-        busy: Option<&str>,
-        pending: bool,
-        chosen: &mut Option<Action>,
-    ) {
-        crate::widgets::action_buttons(ui, actions, busy, pending, chosen);
-    }
     fn resolve_import_route(&mut self, snapshot: &Snapshot) {
         let Some((installer, newly_imported, label)) = self.pending_import_route.take() else { return };
         match self.window.imported(snapshot, &installer, newly_imported, &label) {
@@ -1103,15 +1094,6 @@ impl Operator {
                 self.overview_renewing = false;
             }
         }
-    }
-    fn value(ui: &mut egui::Ui, v: &serde_json::Value) {
-        ui.add(
-            egui::Label::new(
-                egui::RichText::new(serde_json::to_string_pretty(v).unwrap_or_default())
-                    .monospace(),
-            )
-            .wrap(),
-        );
     }
 }
 
@@ -6147,11 +6129,14 @@ mod tests {
                     |ui| {
                         point = ui.next_widget_position() + egui::vec2(12.0, 12.0);
                         let projected = o.snapshot.as_ref().unwrap();
-                        Operator::buttons(
+                        crate::widgets::offer_row(
                             ui,
-                            &projected.onboarding[0].actions,
-                            projected.system.inactive_reason(),
-                            o.controls_pending(),
+                            &screen_model::offers::row(
+                                &projected.onboarding[0].actions,
+                                screen_model::offers::Importance::Secondary,
+                                projected.system.inactive_reason(),
+                                o.controls_pending(),
+                            ),
                             &mut chosen,
                         );
                     },
@@ -6213,11 +6198,14 @@ mod tests {
                     },
                     |ui| {
                         point = ui.next_widget_position() + egui::vec2(12.0, 12.0);
-                        Operator::buttons(
+                        crate::widgets::offer_row(
                             ui,
-                            &s.onboarding[0].actions,
-                            s.system.inactive_reason(),
-                            o.controls_pending(),
+                            &screen_model::offers::row(
+                                &s.onboarding[0].actions,
+                                screen_model::offers::Importance::Secondary,
+                                s.system.inactive_reason(),
+                                o.controls_pending(),
+                            ),
                             &mut chosen,
                         );
                     },
@@ -6284,11 +6272,14 @@ mod tests {
                     },
                     |ui| {
                         point = ui.next_widget_position() + egui::vec2(12.0, 12.0);
-                        Operator::buttons(
+                        crate::widgets::offer_row(
                             ui,
-                            &s.onboarding[0].actions,
-                            s.system.inactive_reason(),
-                            o.controls_pending(),
+                            &screen_model::offers::row(
+                                &s.onboarding[0].actions,
+                                screen_model::offers::Importance::Secondary,
+                                s.system.inactive_reason(),
+                                o.controls_pending(),
+                            ),
                             &mut chosen,
                         );
                     },
@@ -6697,15 +6688,14 @@ mod tests {
                 };
                 let mut output = ctx.run_ui(input, |ui| {
                     point = ui.next_widget_position() + egui::vec2(12.0, 12.0);
-                    Operator::buttons(
+                    crate::widgets::offer_row(
                         ui,
-                        &actions,
-                        None,
-                        if old_gate {
-                            o.pending
-                        } else {
-                            o.controls_pending()
-                        },
+                        &screen_model::offers::row(
+                            &actions,
+                            screen_model::offers::Importance::Secondary,
+                            None,
+                            if old_gate { o.pending } else { o.controls_pending() },
+                        ),
                         &mut chosen,
                     );
                 });
