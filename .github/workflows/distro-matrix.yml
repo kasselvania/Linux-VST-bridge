@@ -172,6 +172,10 @@ jobs:
     timeout-minutes: 10
     continue-on-error: true
     steps:
+      # Only the package helper is needed from the checkout.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          sparse-checkout: .github/scripts
       - name: Open /dev/kvm to the runner user
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
