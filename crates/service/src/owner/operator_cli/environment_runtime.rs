@@ -86,7 +86,7 @@ pub(super) fn change_and_scan(m:&Manager,environment:&str,runner:&str,expected:&
     mut registry_admission:impl FnMut()->Result<Lock>)->Result<Value> {
     let transition=select(m,environment,runner,expected,operation,&mut registry_admission)?;
     mark_executing(m,&transition)?;
-    let scanned=rescan_environment_admitted(m,transition.environment.clone(),None,&mut registry_admission)?;
+    let scanned=rescan_environment_admitted(m,transition.environment.clone(),None,operation,ScanBinding::Exact,&mut registry_admission)?;
     mark_scanned(m,&transition)?;
     Ok(json!({"environment":transition.environment,"scan":scanned,
         "fresh_preparation_required":true,"vendor_state_rollback":false}))
@@ -509,7 +509,9 @@ mod tests {
         fs::write(&script,format!("import json,pathlib,shutil,sys\njob=json.load(open(sys.argv[1]))\nwith open({report},'rb') as source,open(job['report'],'wb') as target: target.write(source.read())\nprint('LVO0 '+job['session']+' ready',flush=True)\nshutil.rmtree(job['directory'])\nprint('LVO1 '+job['session']+' retired',flush=True)\n")).unwrap();
         test_fixture::set_source_supervisor(&mut sw, &script);
         atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
-        let operation=job(&f.m,&before,&runner);let mut waits=vec![];let mut calls=0;
+        let operation=job(&f.m,&before,&runner);
+        maintenance::acquire(&f.m,&operation,None,Duration::from_secs(2),&mut vec![]).unwrap();
+        let mut waits=vec![];let mut calls=0;
         let mut remaining_wait=Duration::from_secs(2);
         std::thread::scope(|scope| {
             let result=change_and_scan(&f.m,&before.id,&onboarding::runner_key(&runner).unwrap(),

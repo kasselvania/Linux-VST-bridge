@@ -17,6 +17,8 @@ pub(super) mod environment_runtime;
 mod environment_refresh;
 mod renderer_continuation;
 mod setup_removal;
+#[cfg(test)]
+mod rescan_tests;
 pub(super) mod uninstall;
 const ASC: &str = "arturia-software-center";
 const SERVICE: &str = "linux-vst-bridge.service";
@@ -49,6 +51,7 @@ thread_local! {
     static PERFORMANCE_COMMIT_BARRIER: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = const { std::cell::RefCell::new(None) };
     static ENVIRONMENT_CREATION_PREPARED_BARRIER: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = const { std::cell::RefCell::new(None) };
     static RUNTIME_INSTALL_BARRIER: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = const { std::cell::RefCell::new(None) };
+    static SCAN_PREPARED_BARRIER: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = const { std::cell::RefCell::new(None) };
 }
 thread_local! {
     /// Set while a package gate finishes dead tasks; see `settle_dead_workers`.
@@ -935,7 +938,7 @@ fn managed_rescan_binding_with(m: &Manager, bindings: &[catalogue::EnvironmentBi
                 .into_iter().chain(std::iter::once(&replacement.operation)) {
                 require(!onboarding::live(operation)?,"operator_installer_active")?;
             }
-            env.runner.verify()?;
+            verify_rescan_runtime(&env)?;
         }
         return Ok(Some(env));
     }
@@ -953,8 +956,13 @@ fn managed_rescan_binding_with(m: &Manager, bindings: &[catalogue::EnvironmentBi
             }
         }
     }
-    if execution {env.runner.verify()?;}
+    if execution {verify_rescan_runtime(&env)?;}
     Ok(Some(env))
+}
+fn verify_rescan_runtime(environment: &Environment) -> Result<()> {
+    environment.runner.verify().map_err(|error| format!(
+        "The compatibility runtime recorded for this setup is unavailable or changed. The plug-in scan did not start: {error}"
+    ).into())
 }
 fn quarantined_retry_disabled(m: &Manager,
     bindings: &[linux_vst_bridge::catalogue::EnvironmentBinding],
@@ -2661,7 +2669,7 @@ fn execute_with_receipt_policy_progress(
             )?;
             let owner = operation.ok_or("operator_operation_identity")?;
             suspend(m, owner, None, timeout, waits)?;
-            let result = rescan_environment(m, r.environment);
+            let result = rescan_environment(m, r.environment, owner);
             let cleanup = resume_owned(m, owner);
             let value = result?;
             cleanup?;
@@ -2734,7 +2742,7 @@ fn execute_with_receipt_policy_progress(
             let result = uninstall::complete(m, owned, &mut uninstall::Hooks {
                 launch: &|_, _| Err("uninstaller_not_run_again".into()), is_live: &onboarding::live,
                 vendor_retired: &|| retirement.verify(m).map(|()| true), running: &mut || Ok(()), checking: &mut checking,
-                rescan: &rescan_environment, revalidate: &revalidate });
+                rescan: &|m, env| rescan_environment(m, env, owner), revalidate: &revalidate });
             let resumed = resume_owned(m, owner);
             let value = result?;
             resumed?;
@@ -2758,14 +2766,14 @@ fn execute_with_receipt_policy_progress(
             if let Some(bound)=vendor_maintenance::owned(m,owner)? {
                 require(bound.id==*environment,"vendor_maintenance_child_scope")?;
                 drop(projection.take());
-                return rescan_environment_scoped(m,bound,owner);
+                return rescan_environment(m,bound,owner);
             }
             let _environment = maintenance::action_lock(m, a)?;
             let owner = operation.ok_or("operator_operation_identity")?;
             let env = environment_install::target(m,environment)?;
             vendor_maintenance::observe_retired(m, &env)?.verify(m)?;
             suspend(m,owner,None,timeout,waits)?;
-            let scanned = rescan_environment(m,env);
+            let scanned = rescan_environment(m,env,owner);
             let resumed = resume_owned(m,owner);
             let value = scanned?;resumed?;Ok(value)
         }
@@ -2840,7 +2848,7 @@ fn execute_with_receipt_policy_progress(
                 preparation_cli::revalidate_in_place(m, class, current, work, &preparation_cli::supervised_inspection);
             let result = uninstall::execute(m, environment, registration, command_sha256, owner, &mut uninstall::Hooks {
                 launch: &uninstall::launch, is_live: &onboarding::live, vendor_retired: &vendor,
-                running: &mut running, checking: &mut checking, rescan: &rescan_environment, revalidate: &revalidate });
+                running: &mut running, checking: &mut checking, rescan: &|m, env| rescan_environment(m, env, owner), revalidate: &revalidate });
             // The bridge resumes once nothing of this uninstaller can still run;
             // otherwise the setup's card offers Stop uninstaller.
             let resumed = if uninstall::settled(m, owner)? { resume_owned(m, owner) } else { Ok(()) };
@@ -3121,7 +3129,7 @@ fn execute_with_receipt_policy_progress(
             let _environment = maintenance::action_lock(m, a)?;
             let owner = operation.ok_or("operator_operation_identity")?;
             suspend(m, owner, None, timeout, waits)?;
-            let result = rescan(m, environment);
+            let result = rescan(m, environment, owner);
             let cleanup = resume_owned(m, owner);
             let value = result?;
             cleanup?;
@@ -3131,13 +3139,13 @@ fn execute_with_receipt_policy_progress(
             module_sha256, report_sha256 } => {
             let owner = operation.ok_or("operator_operation_identity")?;
             if vendor_maintenance::owned(m,owner)?.is_some() {
-                return retry_quarantined_module_scoped(m,environment,scan,*module_index,
+                return retry_quarantined_module(m,environment,scan,*module_index,
                     module_sha256,report_sha256,owner);
             }
             let _environment = maintenance::action_lock(m, a)?;
             suspend(m, owner, None, timeout, waits)?;
             let result = retry_quarantined_module(m, environment, scan, *module_index,
-                module_sha256, report_sha256);
+                module_sha256, report_sha256, owner);
             let cleanup = resume_owned(m, owner);
             let value = result?;
             cleanup?;
@@ -3814,18 +3822,10 @@ fn restore_service(m: &Manager, saved: &ResumeRecord) -> Result<()> {
     }
     Ok(())
 }
-pub(super) fn rescan(m: &Manager, environment: &str) -> Result<Value> {
-    let _lock = m.lock("registry.lock")?;
-    capacity::require_environment_inactive(m, &environment_install::target(m, environment)?)?;
-    maintenance::require_publications_settled(m, &environment_install::target(m, environment)?)?;
-    let sw = software(m)?;
-    let db = m.registry()?;
-    // A scan discovers current vendor state. Retained ownership identifies its
-    // space; old DSP admission cannot authorize or veto that inspection.
-    let c = operator_catalogue_readback(m, &sw, &db)?;
-    let env = managed_rescan_binding(m, c.as_ref(), &db, environment)?
-        .ok_or("operator_environment_unmanaged")?;
-    rescan_environment_locked(m, env, sw, None)
+pub(super) fn rescan(m: &Manager, environment: &str, owner: &str) -> Result<Value> {
+    let env = environment_install::target_record(m, environment)?;
+    rescan_environment_admitted(m, env, None, owner, ScanBinding::Managed,
+        || m.lock("registry.lock"))
 }
 #[derive(Clone, Debug)]
 struct QuarantinedRetry {
@@ -3835,41 +3835,17 @@ struct QuarantinedRetry {
     report_sha256: String,
 }
 fn retry_quarantined_module(m: &Manager, environment: &str, scan: &str,
-    module_index: usize, module_sha256: &str, report_sha256: &str) -> Result<Value> {
-    let _lock = m.lock("registry.lock")?;
-    capacity::require_environment_inactive(m, &environment_install::target(m, environment)?)?;
-    let sw = software(m)?;
-    let db = m.registry()?;
-    let catalogue = operator_catalogue(m, &sw, &db)?;
-    let bindings = managed_environment_bindings(m, catalogue.as_ref(), &db)?;
-    let env = quarantined_retry_binding(m, &bindings, &db, environment, true)?
-        .ok_or("operator_environment_unmanaged")?;
-    rescan_environment_locked(m, env, sw, Some(QuarantinedRetry {
+    module_index: usize, module_sha256: &str, report_sha256: &str, owner: &str) -> Result<Value> {
+    let env = environment_install::target_record(m, environment)?;
+    rescan_environment_admitted(m, env, Some(QuarantinedRetry {
         scan: scan.into(), module_index, module_sha256: module_sha256.into(),
         report_sha256: report_sha256.into(),
-    }))
+    }), owner, ScanBinding::Retry, || m.lock("registry.lock"))
 }
-fn retry_quarantined_module_scoped(m:&Manager,environment:&str,scan:&str,
-    module_index:usize,module_sha256:&str,report_sha256:&str,owner:&str)->Result<Value> {
-    let lock=m.lock("registry.lock")?;
-    let env=vendor_maintenance::owned(m,owner)?.ok_or("vendor_maintenance_owner_missing")?;
-    require(env.id==environment,"vendor_maintenance_child_scope")?;
-    vendor_maintenance::require_inactive(m,&env)?;
-    let sw=software(m)?;
-    let db=m.registry()?;
-    let catalogue=operator_catalogue(m,&sw,&db)?;
-    let bindings=managed_environment_bindings(m,catalogue.as_ref(),&db)?;
-    require(quarantined_retry_binding(m,&bindings,&db,environment,true)?==Some(env.clone()),
-        "operator_environment_unmanaged")?;
-    drop(lock);
-    rescan_environment_work(m,env,sw,Some(QuarantinedRetry {
-        scan:scan.into(),module_index,module_sha256:module_sha256.into(),
-        report_sha256:report_sha256.into(),
-    }),Some(owner))
-}
-fn rescan_environment(m: &Manager, env: Environment) -> Result<Value> {
+fn rescan_environment(m: &Manager, env: Environment, owner: &str) -> Result<Value> {
     let id = env.id.clone();
-    let value = rescan_environment_with_retry(m, env, None)?;
+    let value = rescan_environment_admitted(m, env, None, owner, ScanBinding::Exact,
+        || m.lock("registry.lock"))?;
     // Keep the overview's uninstall index current; never needed for correctness.
     let _ = uninstall::refresh_index(m, &id);
     Ok(value)
@@ -3916,136 +3892,208 @@ fn exact_retry_target<'a>(prior: Option<&'a inventory::Scan>, env: &Environment,
     selected.report.verify()?;
     Ok(selected)
 }
-fn rescan_environment_with_retry(m: &Manager, env: Environment,
-    retry: Option<QuarantinedRetry>) -> Result<Value> {
-    rescan_environment_admitted(m,env,retry,||m.lock("registry.lock"))
+#[derive(Clone, Copy)]
+enum ScanBinding { Managed, Retry, Exact }
+impl ScanBinding {
+    fn verify(self, m: &Manager, env: &Environment, sw: &Software) -> Result<()> {
+        match self {
+            Self::Managed | Self::Retry => {
+                require(environment_install::target(m, &env.id)? == *env, "inventory_environment_changed")?;
+                let db = m.registry()?;
+                let catalogue = operator_catalogue_readback(m, sw, &db)?;
+                let current = match self {
+                    Self::Managed => managed_rescan_binding(m, catalogue.as_ref(), &db, &env.id)?,
+                    Self::Retry => quarantined_retry_binding(m,
+                        &managed_environment_bindings(m, catalogue.as_ref(), &db)?, &db, &env.id, true)?,
+                    Self::Exact => unreachable!(),
+                };
+                require(current.is_some(), "operator_environment_unmanaged")?;
+                require(current.as_ref() == Some(env), "inventory_environment_changed")?;
+            }
+            Self::Exact => verify_rescan_runtime(env)?,
+        }
+        Ok(())
+    }
 }
-fn rescan_environment_admitted(m:&Manager,env:Environment,retry:Option<QuarantinedRetry>,
-    registry_admission:impl FnOnce()->Result<Lock>)->Result<Value> {
-    let _lock = registry_admission()?;
-    _lock.require_registry(m)?;
-    capacity::require_environment_inactive(m, &env)?;
-    let sw = software(m)?;
-    rescan_environment_locked(m, env, sw, retry)
+/// The accepted operation keeps setup custody while the global registry is
+/// available to status reads and instances in unrelated setups.
+struct ScanScope {
+    owner: String,
+    environment: Environment,
+    classes: std::collections::BTreeMap<String, Entry>,
+    publications: std::collections::BTreeMap<String, Option<PathBuf>>,
+    prior: Option<Artifact>,
 }
-fn rescan_environment_scoped(m:&Manager,env:Environment,owner:&str)->Result<Value> {
-    let sw=software(m)?;
-    rescan_environment_work(m,env,sw,None,Some(owner))
+impl ScanScope {
+    fn require_owner(m: &Manager, owner: &str, env: &Environment) -> Result<()> {
+        let bound = if let Some(bound) = maintenance::owned(m, owner)? {
+            environment_install::current_environment(m, &bound)?
+        } else { vendor_maintenance::owned(m, owner)?.ok_or("setup_maintenance_owner_missing")? };
+        require(bound == *env, "setup_maintenance_scan_binding")?;
+        capacity::require_environment_inactive(m, env)?;
+        require(environment_install::target_record(m, &env.id)? == *env,
+            "inventory_environment_changed")?;
+        maintenance::require_publications_settled(m, env)
+    }
+    fn classes(m: &Manager, env: &Environment) -> Result<std::collections::BTreeMap<String, Entry>> {
+        Ok(m.registry()?.classes.into_iter().filter(|(_, entry)| {
+            let bound = &entry.registration.environment;
+            bound.id == env.id || bound.root == env.root
+        }).collect())
+    }
+    fn publications(m: &Manager, classes: &std::collections::BTreeMap<String, Entry>)
+        -> Result<std::collections::BTreeMap<String, Option<PathBuf>>> {
+        classes.keys().map(|class| Ok((class.clone(), publication::physical(&m.link(class))?))).collect()
+    }
+    fn capture(m: &Manager, env: Environment, owner: &str) -> Result<Self> {
+        Self::require_owner(m, owner, &env)?;
+        let classes = Self::classes(m, &env)?;
+        let publications = Self::publications(m, &classes)?;
+        let path = m.root.join("inventory").join(format!("{}.json", env.id));
+        let prior = if path.try_exists()? { Some(control_artifact(path)?) } else { None };
+        Ok(Self { owner: owner.into(), environment: env, classes, publications, prior })
+    }
+    fn recheck(&self, m: &Manager, sw: &Software) -> Result<()> {
+        Self::require_owner(m, &self.owner, &self.environment)?;
+        require(Self::classes(m, &self.environment)? == self.classes
+            && Self::publications(m, &self.classes)? == self.publications,
+            "inventory_publication_changed")?;
+        require(software_record(m)? == *sw, "inventory_software_changed")?;
+        let path = m.root.join("inventory").join(format!("{}.json", self.environment.id));
+        match &self.prior {
+            Some(prior) => { prior.record_bytes(16 * 1024 * 1024)?; }
+            None => require(!path.try_exists()?, "inventory_changed_during_scan")?,
+        }
+        Ok(())
+    }
 }
-fn rescan_environment_locked(
-    m: &Manager,
-    env: Environment,
-    sw: Software,
-    retry: Option<QuarantinedRetry>,
-) -> Result<Value> {
-    rescan_environment_work(m,env,sw,retry,None)
-}
-fn rescan_environment_work(m:&Manager,env:Environment,sw:Software,
-    retry:Option<QuarantinedRetry>,owner:Option<&str>)->Result<Value> {
-    let admit=||->Result<Option<Lock>> {
-        if let Some(owner)=owner {
-            let lock=m.lock("registry.lock")?;
-            require(vendor_maintenance::owned(m,owner)?==Some(env.clone()),"vendor_maintenance_child_scope")?;
-            vendor_maintenance::require_inactive(m,&env)?;
-            Ok(Some(lock))
-        } else {Ok(None)}
+fn rescan_environment_admitted(m: &Manager, env: Environment, retry: Option<QuarantinedRetry>,
+    owner: &str, binding: ScanBinding, registry_admission: impl FnOnce() -> Result<Lock>) -> Result<Value> {
+    let scope = {
+        let registry = registry_admission()?;
+        registry.require_registry(m)?;
+        ScanScope::capture(m, env, owner)?
     };
-    let environment = env.id.clone();
-    let modules = managed_cli::modules(&env)?;
-    require(modules.len() <= 64, "operator_scan_module_bound")?;
-    let prior_path = m.root.join("inventory").join(format!("{environment}.json"));
-    let initial=admit()?;
-    let prior_identity=if prior_path.try_exists()? {Some(digest(&prior_path)?)} else {None};
-    let prior = if prior_path.exists() {
-        Some(read_json::<inventory::Scan>(&prior_path)?)
-    } else {
-        None
+    let verification = LaunchVerification::default();
+    let deadline = Instant::now() + Duration::from_secs(600);
+    let ((sw, discovery, prior), mut verified) = verification.prepare(deadline, || {
+        let sw = software(m)?;
+        binding.verify(m, &scope.environment, &sw)?;
+        let discovery = managed_cli::module_discovery(&scope.environment)?;
+        require(discovery.modules.len() <= 64, "operator_scan_module_bound")?;
+        let prior = scope.prior.as_ref().map(|record| -> Result<inventory::Scan> {
+            Ok(serde_json::from_slice(&record.record_bytes(16 * 1024 * 1024)?)?)
+        }).transpose()?;
+        Ok((sw, discovery, prior))
+    })?;
+    let retry_target = retry.as_ref().map(|retry| exact_retry_target(prior.as_ref(), &scope.environment,
+        &sw.host, &sw.source_sha256, &discovery.modules, retry).map(|module| module.artifact.clone())).transpose()?;
+    let admit = |verified: &LaunchSnapshot, reports: &[inventory::Module]| -> Result<Lock> {
+        // The registry does not serialize external writes to immutable runtime
+        // files. Walk all prepared runtime/scan witnesses before acquiring it.
+        // Under the guard, only the small exact input set plus mutable owner,
+        // publication and inventory records are checked again.
+        verified.recheck()?;
+        discovery.recheck()?;
+        let (lock, _) = m.lock_bounded(ui::OperatorLock::Registry, ui::LockPurpose::ServiceRecovery,
+            Some(owner), Duration::from_secs(2))?;
+        scope.recheck(m, &sw)?;
+        verified.recheck_artifacts(scope.environment.runner.files.iter()
+            .chain([&sw.manager, &sw.supervisor, &sw.ownership, &sw.host, &sw.source_manifest])
+            .chain(discovery.modules.iter()).chain(reports.iter().map(|module| &module.report)))?;
+        Ok(lock)
     };
-    drop(initial);
-    let retry_target=retry.as_ref().map(|retry|exact_retry_target(prior.as_ref(),&env,
-        &sw.host,&sw.source_sha256,&modules,retry).map(|module|module.artifact.clone()))
-        .transpose()?;
+    #[cfg(test)]
+    SCAN_PREPARED_BARRIER.with(|barrier| {
+        if let Some(prepared) = barrier.borrow_mut().take() { prepared(); }
+    });
     let start = Instant::now();
     let mut found = Vec::new();
-    for module in modules {
-        if let Some(old)=reusable_scan_module(prior.as_ref(),&env,&sw.host,
-            &sw.source_sha256,&module,retry_target.as_ref())? {
+    for module in &discovery.modules {
+        if let Some(old) = reusable_scan_module(prior.as_ref(), &scope.environment, &sw.host,
+            &sw.source_sha256, module, retry_target.as_ref())? {
+            // A later module may need a new scanner. Its short admission phase
+            // must already have verified bytes for every report retained so far.
+            verified = verification.prepare(deadline, || old.report.verify())?.1;
             found.push(old.clone());
             continue;
         }
-        require(
-            start.elapsed() < Duration::from_secs(600),
-            "operator_scan_time_bound",
-        )?;
-        let stamp = observation::ModuleStamp::read(&module.path)?;
-        let reservation=admit()?;
-        let (job, path) = spec(
-            m,
-            HostBinding {
-                metadata: ClassSelection {
-                    class_id: String::new(),
-                },
-                environment: env.clone(),
-                module: module.clone(),
-                host: sw.host.clone(),
-                host_source_sha256: sw.source_sha256.clone(),
-                compatibility: Compatibility::default(),
-            },
-            true,
-            true,
-            false,
-        )?;
-        let pending =
-            PendingAdmission::new(job.lease.clone(), Arc::new(AdmissionCleanup::default()));
-        #[cfg(test)]
-        SCAN_SPAWN_COUNT.with(|count| count.set(count.get() + 1));
-        let child = spawn(m, &sw, &path, None)?;
-        drop(reservation);
-        if owner.is_some() {vendor_product_cli::finish_scan_with_registry(m,child,&job,&path,pending)?;}
-        else {vendor_product_cli::finish_scan(child,&job,&path,pending)?;}
-        module.verify()?;
-        require(
-            observation::ModuleStamp::read(&module.path)? == stamp,
-            "inventory_module_changed",
-        )?;
-        let report = Artifact {
-            sha256: digest(&job.report)?,
-            path: job.report,
+        require(start.elapsed() < Duration::from_secs(600), "operator_scan_time_bound")?;
+        // Prepare the unexposed session record outside the global lock. Its
+        // bounded setup/hive reads grant no lease or execution authority.
+        let (job, path) = spec(m, HostBinding {
+            metadata: ClassSelection { class_id: String::new() },
+            environment: scope.environment.clone(), module: module.clone(), host: sw.host.clone(),
+            host_source_sha256: sw.source_sha256.clone(), compatibility: Compatibility::default(),
+        }, true, true, false)?;
+        let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AdmissionCleanup::default()));
+        let launched = (|| {
+            let _registry = admit(&verified, &found)?;
+            #[cfg(test)]
+            SCAN_SPAWN_COUNT.with(|count| count.set(count.get() + 1));
+            verified.run_prepared(|| spawn(m, &sw, &path, None))
+        })();
+        let child = match launched {
+            Ok(child) => child,
+            Err(error) => {
+                // No child was launched. Remove only this exact, unexposed
+                // record and its now-empty directory; unknown contents stay.
+                drop(pending);
+                let cleanup = (|| -> Result<()> {
+                    require(!job.lease.try_exists()? && read_json::<Value>(&path)? == serde_json::to_value(&job)?,
+                        "unlaunched_scan_record_changed")?;
+                    fs::remove_file(&path)?;
+                    fs::remove_dir(&job.directory)?;
+                    Ok(())
+                })();
+                return Err(match cleanup {
+                    Ok(()) => error,
+                    Err(cleanup) => format!("{error}; unlaunched scan cleanup: {cleanup}").into(),
+                });
+            }
         };
+        // Neither readiness nor the supervised process wait owns registry.lock.
+        vendor_product_cli::finish_scan_with_registry(m, child, &job, &path, pending)?;
+        module.verify()?;
+        let report = Artifact { sha256: digest(&job.report)?, path: job.report };
         let raw: Value = read_json(&report.path)?;
         let (classes, quarantine_reason) = match inventory::classes(&raw) {
             Ok(c) => (c, None),
             Err(e) => (vec![], Some(e.to_string())),
         };
         found.push(inventory::Module {
-            artifact: module,
-            classes,
-            report,
-            quarantine_reason,
+            artifact: module.clone(), classes, report, quarantine_reason,
             inspection_error: raw["error"].as_str().map(|s| s.chars().take(256).collect()),
         });
+        // A runtime may gain/remove hard links during a supervised launch.
+        // Revalidate changed identities against the pinned bytes outside the
+        // registry guard; never turn a metadata change into stale authority.
+        verified = verification.prepare(deadline, || {
+            require(software(m)? == sw, "inventory_software_changed")?;
+            binding.verify(m, &scope.environment, &sw)?;
+            for module in &discovery.modules { module.verify()?; }
+            for module in &found { module.report.verify()?; }
+            discovery.recheck()
+        })?.1;
     }
-    let _commit=admit()?;
-    require((if prior_path.try_exists()? {Some(digest(&prior_path)?)} else {None})==prior_identity,
-        "inventory_changed_during_scan")?;
     let scan = inventory::Scan {
-        schema: 1,
-        id: random_id()?,
-        environment: env,
-        host: sw.host,
-        host_source_sha256: sw.source_sha256,
-        completed_at: observation::now()?,
-        changes: inventory::changes(prior.as_ref().map(|p| p.modules.as_slice()), &found),
-        modules: found,
+        schema: 1, id: random_id()?, environment: scope.environment.clone(), host: sw.host.clone(),
+        host_source_sha256: sw.source_sha256.clone(), completed_at: observation::now()?,
+        changes: inventory::changes(prior.as_ref().map(|p| p.modules.as_slice()), &found), modules: found,
     };
+    // This also covers a retry which reused every untouched module/report.
+    verified = verification.prepare(deadline, || {
+        require(software(m)? == sw, "inventory_software_changed")?;
+        binding.verify(m, &scope.environment, &sw)?;
+        for module in &scan.modules { module.artifact.verify()?; module.report.verify()?; }
+        discovery.recheck()
+    })?.1;
+    let _commit = admit(&verified, &scan.modules)?;
     let dir = m.root.join("inventory");
     private_dir(&dir)?;
     private_dir(&dir.join("history"))?;
-    atomic_json(
-        &dir.join("history").join(format!("{}.json", scan.id)),
-        &scan,
-    )?;
-    atomic_json(&dir.join(format!("{environment}.json")), &scan)?;
+    atomic_json(&dir.join("history").join(format!("{}.json", scan.id)), &scan)?;
+    atomic_json(&dir.join(format!("{}.json", scope.environment.id)), &scan)?;
     Ok(json!({"scan":scan.id,"modules":scan.modules.len(),"activation_permitted":false,
         "retry":retry.map(|retry|json!({"prior_scan":retry.scan,
             "module_index":retry.module_index,"module_sha256":retry.module_sha256,
@@ -4668,7 +4716,7 @@ pub(crate) mod tests {
                 || action.disabled_reason.is_some()));
         let before=fs::read(&inventory).unwrap();
         SCAN_SPAWN_COUNT.with(|count|count.set(0));
-        let error=retry_quarantined_module(&f.m,&environment.id,&scan.id,0,
+        let error=retry_quarantined_module_fixture(&f.m,&environment.id,&scan.id,0,
             &scan.modules[0].artifact.sha256,&scan.modules[0].report.sha256)
             .unwrap_err().to_string();
         assert_eq!(error,"operator_environment_unmanaged");
@@ -4744,7 +4792,7 @@ pub(crate) mod tests {
         let inventory=m.root.join("inventory").join(format!("{}.json",environment.id));
         let before=fs::read(&inventory).unwrap();
         SCAN_SPAWN_COUNT.with(|count|count.set(0));
-        let retry=||retry_quarantined_module(m,&environment.id,&scan.id,0,
+        let retry=||retry_quarantined_module_fixture(m,&environment.id,&scan.id,0,
             &scan.modules[0].artifact.sha256,&scan.modules[0].report.sha256);
         // An operation ID alone cannot authorize another Windows process.
         assert_eq!(retry().unwrap_err().to_string(),"installer_initial_retirement_required");
@@ -5106,7 +5154,7 @@ pub(crate) mod tests {
             let before_current = fs::read(&current).unwrap();
             let before_history = fs::read(&history).unwrap();
             SCAN_SPAWN_COUNT.with(|count| count.set(0));
-            assert!(retry_quarantined_module(m, &environment, &scan, module_index,
+            assert!(retry_quarantined_module_fixture(m, &environment, &scan, module_index,
                 &module_digest, &report_digest).is_err(), "{case}");
             assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get), 0, "{case}");
             assert_eq!(fs::read(&current).unwrap(), before_current, "{case}");
@@ -5835,6 +5883,32 @@ pub(crate) mod tests {
             optional(&f.m.root.join("operator/latest.json")).unwrap(),
             completed
         );
+    }
+    pub(super) fn reserve_test_scan(m: &Manager, action: ui::Action) -> Result<String> {
+        let owner = queued_test_action(m, action);
+        maintenance::acquire(m, &owner, None, Duration::from_secs(2), &mut vec![])?;
+        Ok(owner)
+    }
+    fn rescan_fixture(m: &Manager, environment: &str) -> Result<Value> {
+        let owner = reserve_test_scan(m, ui::Action::EnvironmentRescan { environment: environment.into() })?;
+        let result = rescan(m, environment, &owner);
+        let released = maintenance::release(m, &owner);
+        let value = result?;
+        released?;
+        Ok(value)
+    }
+    fn retry_quarantined_module_fixture(m: &Manager, environment: &str, scan: &str,
+        module_index: usize, module_sha256: &str, report_sha256: &str) -> Result<Value> {
+        let owner = reserve_test_scan(m, ui::Action::QuarantinedModuleRetry {
+            environment: environment.into(), scan: scan.into(), module_index,
+            module_sha256: module_sha256.into(), report_sha256: report_sha256.into(),
+        })?;
+        let result = retry_quarantined_module(m, environment, scan, module_index,
+            module_sha256, report_sha256, &owner);
+        let released = maintenance::release(m, &owner);
+        let value = result?;
+        released?;
+        Ok(value)
     }
     fn queued_test_action(m: &Manager, action: ui::Action) -> String {
         launch_queued(
@@ -6774,7 +6848,7 @@ pub(crate) mod tests {
         let request = ui::Request {schema:ui::OPERATOR_SCHEMA,
             state_token:current.state_token.clone(),action:offered.action.clone()};
         validate(&request,&current).unwrap();
-        let refreshed = rescan(&f.m,&scan.environment.id).unwrap();
+        let refreshed = rescan_fixture(&f.m,&scan.environment.id).unwrap();
         assert_eq!(refreshed["modules"],2);
         assert_eq!(refreshed["activation_permitted"],false);
         let after:inventory::Scan = read_json(&inventory_path).unwrap();
@@ -8544,7 +8618,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         // Interrupt again to exercise the ordinary pending-publication offer.
         f.m.rollback(class, &baseline.id,
             Some(linux_vst_bridge::publication::Boundary::Intent)).unwrap_err();
-        assert!(rescan(&f.m, &candidate.selection.environment.id).unwrap_err()
+        assert!(rescan_fixture(&f.m, &candidate.selection.environment.id).unwrap_err()
             .to_string().contains("operator_pending_transaction_reconcile"));
         let retired = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &read).unwrap();
         assert!(retired.system.capacity_available());
@@ -8702,6 +8776,48 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         assert!(!f.m.root.join("operator/resume.json").exists());
     }
     #[test]
+    fn managed_rescan_names_changed_target_runtime_without_scanning_or_rewriting_state() {
+        for missing in [false, true] {
+            let (f, _) = onboarding_worker_fixture();
+            let environment = &f.r.environment;
+            let sw = software(&f.m).unwrap();
+            let registry = f.m.registry().unwrap();
+            let catalogue = operator_catalogue_readback(&f.m, &sw, &registry).unwrap();
+            assert_eq!(managed_rescan_binding(&f.m, catalogue.as_ref(), &registry,
+                &environment.id).unwrap(), Some(environment.clone()));
+            let owner = reserve_test_scan(&f.m, ui::Action::EnvironmentRescan {
+                environment: environment.id.clone(),
+            }).unwrap();
+            let input = &environment.runner.files[0].path;
+            let original = fs::read(input).unwrap();
+            let permissions = fs::metadata(input).unwrap().permissions();
+            if missing { fs::remove_file(input).unwrap(); }
+            else {
+                fs::set_permissions(input, fs::Permissions::from_mode(0o600)).unwrap();
+                fs::write(input, b"changed target runtime").unwrap();
+                fs::set_permissions(input, permissions.clone()).unwrap();
+            }
+            // Passive scope remains readable; only execution verifies runtime bytes.
+            let bindings = managed_environment_bindings(&f.m, catalogue.as_ref(), &registry).unwrap();
+            assert_eq!(managed_rescan_binding_from(&f.m, &bindings, &registry,
+                &environment.id).unwrap(), Some(environment.clone()));
+            let retained = test_fixture::snapshot(&f.m.root);
+            let publications = test_fixture::snapshot(&f.m.publications);
+            SCAN_SPAWN_COUNT.with(|count| count.set(0));
+            let error = rescan(&f.m, &environment.id, &owner).unwrap_err().to_string();
+            assert!(error.starts_with("The compatibility runtime recorded for this setup is unavailable or changed."), "{error}");
+            assert!(error.contains("The plug-in scan did not start:"), "{error}");
+            assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get), 0);
+            assert_eq!(test_fixture::snapshot(&f.m.root), retained);
+            assert_eq!(test_fixture::snapshot(&f.m.publications), publications);
+            if !missing { fs::set_permissions(input, fs::Permissions::from_mode(0o600)).unwrap(); }
+            fs::write(input, original).unwrap();
+            fs::set_permissions(input, permissions).unwrap();
+            assert_eq!(managed_rescan_binding(&f.m, catalogue.as_ref(), &registry,
+                &environment.id).unwrap(), Some(environment.clone()));
+        }
+    }
+    #[test]
     fn managed_rescan_revalidates_authority_under_final_registry_custody() {
         let (f, owner) = onboarding_worker_fixture();
         let sw = software(&f.m).unwrap();
@@ -8783,7 +8899,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         let changed_registry = fs::read(&registry_path).unwrap();
 
         SCAN_SPAWN_COUNT.with(|count| count.set(0));
-        let error = rescan(&f.m, &environment).unwrap_err().to_string();
+        let error = rescan_fixture(&f.m, &environment).unwrap_err().to_string();
         assert_eq!(error, "installer_environment_binding_changed");
         assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get), 0);
 

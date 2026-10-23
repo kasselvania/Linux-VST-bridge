@@ -185,6 +185,7 @@ thread_local! {
     static SCOPED_DIGESTS: RefCell<Option<HashMap<PathBuf, (DigestFileIdentity, String)>>> =
         const { RefCell::new(None) };
     static FULL_BYTE_VERIFICATION: Cell<bool> = const { Cell::new(false) };
+    static PREPARED_BYTES_ONLY: Cell<bool> = const { Cell::new(false) };
 }
 /// Reuse exact digests only during one read-only projection. Every reuse
 /// reopens the path without following links and matches inode, size, owner,
@@ -269,6 +270,40 @@ impl LaunchVerification {
     }
 }
 impl LaunchSnapshot {
+    /// Recheck the complete prepared byte observation outside registry custody.
+    /// Runtime trees may contain tens of thousands of files. Short mutation
+    /// phases use `recheck_artifacts` for only their bounded consumed inputs.
+    pub(crate) fn recheck(&self) -> Result<()> {
+        for (path, (expected, _)) in &self.0 {
+            let opened = file(path)?;
+            require(DigestFileIdentity::from(&opened.metadata()?) == *expected
+                && DigestFileIdentity::from(&fs::symlink_metadata(path)?) == *expected,
+                "verified_scan_input_changed")?;
+        }
+        Ok(())
+    }
+    pub(crate) fn recheck_artifacts<'a>(&self, artifacts: impl IntoIterator<Item = &'a Artifact>) -> Result<()> {
+        for artifact in artifacts {
+            let (expected, hash) = self.0.get(&artifact.path).ok_or("scan_input_not_prepared")?;
+            let opened = file(&artifact.path)?;
+            require(hash == &artifact.sha256 && DigestFileIdentity::from(&opened.metadata()?) == *expected
+                && DigestFileIdentity::from(&fs::symlink_metadata(&artifact.path)?) == *expected,
+                "verified_scan_input_changed")?;
+        }
+        Ok(())
+    }
+    /// Consume prepared bytes at a short mutation boundary. Missing or changed
+    /// observations refuse instead of starting a payload hash under that guard.
+    pub(crate) fn run_prepared<T>(&self, admission: impl FnOnce() -> Result<T>) -> Result<T> {
+        struct Restore(bool);
+        impl Drop for Restore {
+            fn drop(&mut self) { PREPARED_BYTES_ONLY.with(|mode| mode.set(self.0)); }
+        }
+        self.run(|| {
+            let _restore = Restore(PREPARED_BYTES_ONLY.with(|mode| mode.replace(true)));
+            admission()
+        })
+    }
     /// Recheck exact observations throughout this admission, without retaining
     /// the shared preparation lock or allowing a disk readback cache to launch.
     pub fn run<T>(&self, admission: impl FnOnce() -> T) -> T {
@@ -328,6 +363,8 @@ fn digest_observed(p: &Path, mut observe: impl FnMut(DigestReadStep) -> Result<(
             .and_then(|records| records.get(p))
             .filter(|(identity, _)| *identity == before)
             .map(|(_, value)| value.clone()))).flatten();
+        require(!PREPARED_BYTES_ONLY.with(Cell::get) || cached.is_some(),
+            "verified_scan_input_changed")?;
         let value = if let Some(value) = cached { value } else {
             let mut h = Sha256::new();
             let mut b = [0u8; 65536];
@@ -1638,6 +1675,25 @@ mod tests {
             snapshot.run(|| assert!(!readback_digests_active()));
             assert!(readback_digests_active());
         });
+    }
+    #[test]
+    fn prepared_scan_payloads_never_hash_on_admission_cache_miss_or_change() {
+        let f = Fixture::new();
+        let path = f.outer.join("prepared-payload");
+        fs::write(&path, b"original").unwrap();
+        let artifact = Artifact {path:path.clone(), sha256:digest(&path).unwrap()};
+        let shared = LaunchVerification::default();
+        let (_, verified) = shared.prepare(std::time::Instant::now() + std::time::Duration::from_secs(2),
+            || artifact.verify()).unwrap();
+        for mode in ["unchanged", "unprepared", "changed"] {
+            if mode == "changed" { fs::write(&path, b"modified").unwrap(); }
+            let selected = if mode == "unprepared" { &f.r.host } else { &artifact };
+            let (result, reads) = with_opened_reads(|| verified.run_prepared(|| selected.verify()));
+            assert_eq!(result.is_ok(), mode == "unchanged", "{mode}");
+            assert_eq!(reads.unwrap().values().map(|(_, bytes)| bytes).sum::<u64>(), 0, "{mode}");
+        }
+        // The bounded scope restores ordinary full-byte verification.
+        assert_ne!(digest(&path).unwrap(), artifact.sha256);
     }
     #[test]
     fn shared_launch_preparation_wait_has_a_deadline() {

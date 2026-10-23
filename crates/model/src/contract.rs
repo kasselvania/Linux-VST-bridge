@@ -378,7 +378,7 @@ pub fn read_command_request(peer: &mut UnixStream) -> crate::Result<(Request, Op
 
 fn send_file(peer: &UnixStream, file: &File) -> io::Result<()> {
     use std::os::fd::AsRawFd;
-    let mut marker = [b'F'];
+    let mut marker = *b"F";
     let mut iov = libc::iovec { iov_base: marker.as_mut_ptr().cast(), iov_len: 1 };
     // usize storage gives cmsghdr the alignment it requires on both targets.
     let mut control = [0usize; 8];
@@ -428,7 +428,7 @@ fn receive_file(peer: &UnixStream) -> io::Result<File> {
             }
             header = libc::CMSG_NXTHDR(&message, header);
         }
-        if count != 1 || marker != [b'F'] || message.msg_flags & libc::MSG_CTRUNC != 0
+        if count != 1 || marker != *b"F" || message.msg_flags & libc::MSG_CTRUNC != 0
             || descriptors.len() != 1 {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "installer_descriptor_extent"));
         }
