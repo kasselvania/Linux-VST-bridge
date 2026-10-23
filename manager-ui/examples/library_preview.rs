@@ -7,9 +7,7 @@ use linux_vst_bridge::operator_model as model;
 #[path = "../src/presentation.rs"]
 #[allow(dead_code)]
 mod presentation;
-#[path = "../src/screen_model/mod.rs"]
-#[allow(dead_code)]
-mod screen_model;
+use lvb_view_model as screen_model;
 #[path = "../src/widgets.rs"]
 #[allow(dead_code)]
 mod widgets;

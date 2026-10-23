@@ -11,6 +11,9 @@ serde_json = "=1.0.150"
 rfd = { version = "=0.17.2", default-features = false, features = ["xdg-portal"] }
 libc = "=0.2.189"
 linux-vst-bridge = { path = "../bridge-manager" }
+lvb-view-model = { path = "../crates/view-model" }
 
 [dev-dependencies]
 png = "=0.18.1"
+# Previews and the render digests draw the named sample states.
+lvb-view-model = { path = "../crates/view-model", features = ["samples"] }

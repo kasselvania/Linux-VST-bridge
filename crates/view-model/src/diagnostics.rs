@@ -251,8 +251,8 @@ pub fn dependency_retirement_lines(v: &serde_json::Value) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::operator::Page;
-    use crate::preview_states::{self, STATES};
+    use crate::window::Page;
+    use crate::samples::{self, STATES};
 
     fn rows(details: &[Detail]) -> Vec<&OfferRow> {
         details.iter().flat_map(|detail| match detail {
@@ -266,7 +266,7 @@ mod tests {
     #[test]
     fn every_manager_action_is_listed_once_with_its_refusal() {
         for state in STATES {
-            let snapshot = preview_states::snapshot(Page::Diagnostics, Some(state));
+            let snapshot = samples::snapshot(Page::Diagnostics, Some(state));
             for pending in [false, true] {
                 let view = Diagnostics::build(&snapshot, pending, Some("Example Linux"));
                 let armed = snapshot.capture["armed"] == true;
@@ -289,7 +289,7 @@ mod tests {
 
     #[test]
     fn full_diagnostics_show_the_version_dependency_and_receipt_records() {
-        let snapshot = preview_states::snapshot(Page::Diagnostics, Some("diagnostics_full"));
+        let snapshot = samples::snapshot(Page::Diagnostics, Some("diagnostics_full"));
         let view = Diagnostics::build(&snapshot, false, Some("Example Linux"));
         assert_eq!(view.version.installed, "Installed: Linux VST Bridge 0.12.0preview");
         assert_eq!(view.version.setup.as_deref(), Some("Update ready in Setup: 0.12.0preview2"));

@@ -3,13 +3,17 @@
 //! version's Setup. The window's updater owns that work; this says where it
 //! is and what can be pressed. The link and its key are never shown.
 //! Versions are shown as the update feed names them (`display_version`).
-use linux_vst_bridge::update_feed::display_version;
+use lvb_model::wording::display_version;
 
 /// A plain line, with the manager's exact refusal kept for technical details.
 #[derive(Clone, Debug, PartialEq)]
 pub struct UpdateNotice {
     pub text: String,
     pub technical: Option<String>,
+}
+
+impl From<&str> for UpdateNotice {
+    fn from(text: &str) -> Self { Self { text: text.into(), technical: None } }
 }
 
 /// The heading over a notice's exact refusal.

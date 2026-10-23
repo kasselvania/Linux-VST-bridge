@@ -15,12 +15,8 @@ use linux_vst_bridge::operator_model as model;
 mod operator;
 #[path = "../src/presentation.rs"]
 mod presentation;
-#[path = "../src/preview_states.rs"]
-#[allow(dead_code)]
-mod preview_states;
-#[path = "../src/screen_model/mod.rs"]
-#[allow(dead_code)]
-mod screen_model;
+use lvb_view_model::samples;
+use lvb_view_model as screen_model;
 #[path = "../src/updates.rs"]
 #[allow(dead_code)]
 mod updates;
@@ -116,7 +112,7 @@ fn main() -> eframe::Result {
         other => panic!("unknown page: {other}"),
     };
     let state = args.get(3).map(String::as_str).unwrap_or("populated");
-    let mut snapshot = preview_states::snapshot(page, args.get(3).map(String::as_str));
+    let mut snapshot = samples::snapshot(page, args.get(3).map(String::as_str));
     if let Some(path) = args.get(6) {
         assert!(matches!(state,"recorded_current" | "recorded_expanded"),
             "External snapshots require a recorded preview state");
@@ -128,7 +124,7 @@ fn main() -> eframe::Result {
         "dark" => egui::Theme::Dark,
         other => panic!("unknown theme: {other}"),
     };
-    let readiness = preview_states::readiness(args.get(3).map(String::as_str), &snapshot);
+    let readiness = samples::readiness(args.get(3).map(String::as_str), &snapshot);
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([width,args.get(5).map(|height|height.parse::<f32>().expect("HEIGHT must be a number")).unwrap_or(720.0)])

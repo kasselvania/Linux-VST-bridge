@@ -54,11 +54,11 @@ pub fn continuation_offer(offers: &[AvailableAction]) -> Option<&AvailableAction
 /// A step that met a busy lock is repeated by the card's own continuation;
 /// the sentence names that button as the card shows it. Without one on the
 /// card, the manager's sentence ("run the same step again") stays. The busy
-/// test and sentence are the manager's own (`operator_lock`).
+/// test and sentence are the ones the manager writes (`lvb_model::wording`).
 pub fn failure_text(failure: &InstallationFailure, next: Option<&AvailableAction>) -> String {
     let reason = match next.and_then(|offer| continuation_offer(std::slice::from_ref(offer))) {
-        Some(offer) if linux_vst_bridge::operator_lock::is_busy_text(&failure.code) =>
-            linux_vst_bridge::operator_lock::busy_sentence_naming(&offers::action_label(offer)),
+        Some(offer) if lvb_model::wording::is_busy_text(&failure.code) =>
+            lvb_model::wording::busy_sentence_naming(&offers::action_label(offer)),
         _ => failure.reason.clone(),
     };
     let phase = match failure.stage {
@@ -146,7 +146,7 @@ mod tests {
 
     #[test]
     fn a_finished_journey_reads_each_plug_in_as_it_is_now() {
-        let mut snapshot: Snapshot = serde_json::from_str(include_str!("../../examples/library-preview.json")).unwrap();
+        let mut snapshot: Snapshot = crate::samples::base();
         let environment = snapshot.products[0].environment.clone();
         let finished = journey(InstallationPhase::Available, vec![
             plugin("Kontakt 8", &snapshot.products[0].class_id, InstallationPluginStage::Available)]);

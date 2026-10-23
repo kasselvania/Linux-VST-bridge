@@ -158,7 +158,7 @@ pub fn assessment(label: &str, result: &serde_json::Value) -> Vec<Detail> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::screen_model::TextRole;
+    use crate::TextRole;
 
     fn words(details: &[Detail], out: &mut Vec<String>) {
         for detail in details {
@@ -176,8 +176,7 @@ mod tests {
 
     #[test]
     fn same_callback_delivery_keeps_its_remembered_buffer_and_no_other_frames() {
-        let mut product: Product = serde_json::from_str::<crate::model::Snapshot>(
-            include_str!("../../examples/library-preview.json")).unwrap().products.remove(0);
+        let mut product: Product = crate::samples::base().products.remove(0);
         product.details = serde_json::json!({"configuration": {"buffering": {
             "added_frames":0,"remembered_frames":512,"delivery_mode":"same_callback",
             "source":"Explicit class preference"}}});

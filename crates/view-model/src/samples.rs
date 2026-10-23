@@ -1,6 +1,13 @@
-//! Named sample states for the operator preview and the screen-model tests.
-//! Clearly marked synthetic records; nothing here contacts the manager.
-use crate::{model, operator};
+//! Named sample states for previews, galleries and the screen-model tests.
+//! Clearly marked synthetic records; nothing here contacts the manager. Built
+//! for tests and with the `samples` feature only, so no release build of a
+//! window carries them.
+use crate::{model, window::Page};
+
+/// The recorded preview records every sample state starts from.
+pub fn base() -> model::Snapshot {
+    serde_json::from_str(include_str!("../../../manager-ui/examples/library-preview.json")).expect("preview fixture")
+}
 
 /// Every named state the preview accepts, other than recorded snapshots.
 pub const STATES: [&str; 39] = ["busy", "idle", "guided", "guided_new", "guided_pending", "pb0_ready",
@@ -18,13 +25,12 @@ const SCREEN_STATES: [&str; 11] = ["install_progress", "install_paused", "instal
     "incidents", "diagnostics_full", "pb0_step"];
 
 /// The sample records for one page and named state (`None` is the preview default).
-pub fn snapshot(page: operator::Page, requested: Option<&str>) -> model::Snapshot {
+pub fn snapshot(page: Page, requested: Option<&str>) -> model::Snapshot {
     let state = requested.unwrap_or("populated");
-    let mut snapshot: model::Snapshot =
-        serde_json::from_str(include_str!("../examples/library-preview.json")).expect("preview fixture");
+    let mut snapshot = base();
     snapshot.bridge = model::BridgeBuild { installed: Some("0.12.0preview".into()),
         setup: model::SetupPackage::Nothing };
-    if page == operator::Page::Plugins
+    if page == Page::Plugins
         && matches!(requested, Some("guided" | "guided_new" | "guided_pending")) {
         let mut beam = snapshot.products[0].clone();
         beam.name = "BEAM 2.3.1".into();
@@ -96,7 +102,7 @@ pub fn snapshot(page: operator::Page, requested: Option<&str>) -> model::Snapsho
             vec![bismuth]
         } else { vec![beam, bismuth] };
     }
-    if page == operator::Page::Setup {
+    if page == Page::Setup {
         let installer = "ab".repeat(32);
         let environment = "cd".repeat(16);
         let mut beam = snapshot.products[0].clone();
@@ -138,7 +144,7 @@ pub fn snapshot(page: operator::Page, requested: Option<&str>) -> model::Snapsho
             details: serde_json::json!({"installation":{"state":"completed","cleanup_confirmed":true},
                 "scan":{"id":"synthetic-scan","modules":2}}), actions: vec![] });
     }
-    if page == operator::Page::Workspaces {
+    if page == Page::Workspaces {
         snapshot.workspaces.push(model::DawWorkspace {
             id: "aa".repeat(16),
             name: "FL Studio".into(),

@@ -270,13 +270,13 @@ impl Next {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::operator::Page;
-    use crate::preview_states::{self, STATES};
-    use crate::screen_model::offers::Availability;
+    use crate::window::Page;
+    use crate::samples::{self, STATES};
+    use crate::offers::Availability;
 
     fn sample(state: &str) -> (Snapshot, Option<ReadinessAssessment>) {
-        let snapshot = preview_states::snapshot(Page::Home, Some(state));
-        let readiness = preview_states::readiness(Some(state), &snapshot);
+        let snapshot = samples::snapshot(Page::Home, Some(state));
+        let readiness = samples::readiness(Some(state), &snapshot);
         (snapshot, readiness)
     }
 

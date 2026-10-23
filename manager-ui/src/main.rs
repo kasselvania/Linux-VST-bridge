@@ -8,11 +8,9 @@ use linux_vst_bridge::operator_model as model;
 mod operator;
 mod presentation;
 #[cfg(test)]
-#[allow(dead_code)]
-mod preview_states;
-#[cfg(test)]
 mod render_digests;
-mod screen_model;
+// The window draws the toolkit-free screen model (crates/view-model).
+use lvb_view_model as screen_model;
 mod updates;
 mod widgets;
 struct DesktopFixture {

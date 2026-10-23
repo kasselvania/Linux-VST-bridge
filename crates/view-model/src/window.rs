@@ -266,7 +266,7 @@ mod tests {
     use super::*;
 
     fn system() -> System {
-        serde_json::from_str::<Snapshot>(include_str!("../../examples/library-preview.json")).unwrap().system
+        crate::samples::base().system
     }
 
     #[test]
