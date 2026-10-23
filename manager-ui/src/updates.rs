@@ -141,8 +141,9 @@ mod tests {
             let mut updates = Updates::sample(&sample);
             assert_eq!(updates.core.panel(), sample.panel());
             let ctx = egui::Context::default();
-            let output = ctx.run_ui(egui::RawInput::default(), |ui| updates.show(ui));
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| updates.show(ui));
             let rendered = format!("{:?}", output.shapes);
+            output.textures_delta.clear();
             assert!(!rendered.contains("s3cret") && !rendered.contains("pw="));
         }
     }

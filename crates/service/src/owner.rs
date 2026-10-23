@@ -2100,9 +2100,6 @@ fn inspection_failure_context(m:&Manager,job:&SessionSpec,result:&serde_json::Va
     };
     Ok(format!("inspection failed for {name} during {phase}. Retry this operation; the failed check is retained."))
 }
-/// Answer one client exchange (`service::contract`): a window read or
-/// request, its installer import, or the Native Access browser return.
-
 #[cfg(test)]
 mod tests {
     #[cfg(target_os="linux")]

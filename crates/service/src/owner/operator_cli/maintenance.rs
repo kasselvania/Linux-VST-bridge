@@ -88,7 +88,7 @@ pub(super) fn environment(m: &Manager, action: &ui::Action) -> Result<Option<Env
         | A::PluginAddBackToDaw { class_id, .. } | A::PluginRemoveFromDaw { class_id, .. }
         | A::BufferingSet { class_id, .. } | A::DeliverySet { class_id, .. } =>
             Some(m.registry()?.classes.get(class_id).ok_or("class not registered")?.registration.environment.clone()),
-        _ if preparation_cli::is_action(action) => preparation_cli::action_selection(m, &software_record(m)?, action)?
+        _ if preparation_cli::is_action(action) => preparation_cli::action_selection_record(m, &software_record(m)?, action)?
             .map(|selection| selection.environment),
         _ => None,
     };

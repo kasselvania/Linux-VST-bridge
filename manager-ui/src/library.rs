@@ -431,7 +431,7 @@ mod tests {
         let report = AvailableAction {
             label: "Record test result".into(),
             action: Action::CompatibilityResult {
-                candidate: candidate.clone(), expected_current,
+                candidate: candidate.clone(), expected_current: expected_current.clone(),
                 result: crate::model::TestResultKind::Worked, passed: vec![],
                 failed_area: None, note: String::new(),
             }, disabled_reason: None,
@@ -439,7 +439,17 @@ mod tests {
         assert_eq!(primary_refusal(&report, Some("Cleanup unconfirmed")), None);
         let mut target_busy = report.clone();
         target_busy.disabled_reason = Some("This plug-in has not retired".into());
-        assert_eq!(primary_refusal(&target_busy, Some("Cleanup unconfirmed")), None);
+        assert_eq!(primary_refusal(&target_busy, Some("Cleanup unconfirmed")),
+            Some("This plug-in has not retired"));
+        let problem = AvailableAction {
+            label: "Report a test problem".into(),
+            action: Action::CompatibilityResult {
+                candidate: candidate.clone(), expected_current,
+                result: crate::model::TestResultKind::Problem { category: crate::model::ProblemCategory::Other },
+                passed: vec![], failed_area: None, note: String::new(),
+            }, disabled_reason: None,
+        };
+        assert_eq!(primary_refusal(&problem, Some("Cleanup unconfirmed")), None);
         product.compatibility = Some(CompatibilityWorkflow {
             phase: CompatibilityPhase::AwaitingRetirement,
             summary: "Problem recorded. Close the DAW, then finish this result.".into(),
@@ -449,12 +459,15 @@ mod tests {
                 label: "Finish recording test result".into(),
                 action: Action::CompatibilityFinishResult { operation: "dd".repeat(16) },
                 disabled_reason: Some("Cleanup unconfirmed".into()),
-            }), alternatives: vec![],
+            }), alternatives: vec![problem.clone()],
         });
         assert_eq!(status(product).words, "Available in your DAW");
         // Finishing a recovery is the plug-in's lead step, not an optional test result.
         assert!(PluginCard::build(&snapshot, &snapshot.products[0], plugins::Context {
             busy: Some("Cleanup unconfirmed"), pending: false, expanded: false }).lead.is_some());
+        let card = PluginCard::build(&snapshot, &snapshot.products[0], plugins::Context {
+            busy: Some("Cleanup unconfirmed"), pending: false, expanded: false });
+        assert!(card.offers.offers.iter().any(|offer| offer.pressed() == Some(problem.action.clone())));
         let product = &snapshot.products[0];
         assert_eq!(primary_refusal(product.compatibility.as_ref().unwrap().primary.as_ref().unwrap(),
             Some("Cleanup unconfirmed")), Some("Cleanup unconfirmed"));
@@ -837,13 +850,14 @@ mod tests {
             let product = &mut snapshot.products[0];
             let report = Action::CompatibilityResult { candidate: "exact-selected-setup".into(),
                 expected_current: crate::model::PublicationIdentity { id: "exact-selection".into(), sha256: "exact-digest".into() },
-                result: crate::model::TestResultKind::Worked, passed: vec![], failed_area: None, note: String::new() };
+                result: crate::model::TestResultKind::Problem { category: crate::model::ProblemCategory::Other },
+                passed: vec![], failed_area: None, note: String::new() };
             product.actions.clear(); product.details = serde_json::json!({});
             product.compatibility = Some(CompatibilityWorkflow { phase: CompatibilityPhase::AvailableForTest,
                 summary: "Selected setup; audio check retained".into(), established: vec!["Audio passed".into()],
                 remaining: vec!["Saved-project recall".into()], current_inspection: None, current_candidate: None,
-                primary: Some(AvailableAction { label: "Old primary label".into(), action: report.clone(),
-                    disabled_reason: Some("Successful result needs clean retirement".into()) }), alternatives: vec![] });
+                primary: Some(AvailableAction { label: "Report a test problem".into(), action: report.clone(),
+                    disabled_reason: None }), alternatives: vec![] });
             let mut library = PluginsView::default(); library.focus_product(ProductKey::from(&*product));
             let ctx = egui::Context::default(); presentation::configure_style(&ctx);
             ctx.global_style_mut(|style| style.animation_time = 0.0);
@@ -902,7 +916,8 @@ mod tests {
         assert_eq!(s.vendor_applications[0].state,"closed");
         for width in [960.0,560.0] {
             for (refusal,dsp,clickable) in [
-                (None,0,true), (Some("Vendor application is active"),0,false), (None,1,false),
+                (None,0,true), (Some("Vendor application is active"),0,false), (None,1,true),
+                (Some("This setup is in use"),1,false),
             ] {
                 s.environments[0].actions[0].disabled_reason = refusal.map(str::to_owned);
                 s.system.dsp = dsp;

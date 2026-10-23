@@ -43,12 +43,16 @@ fn offer(actions: &[ui::AvailableAction], wanted: impl Fn(&ui::Action) -> bool) 
     actions.iter().find(|offer| wanted(&offer.action)).cloned()
 }
 fn dsp_lease(m: &Manager, environment: &Environment, class: &str) -> PathBuf {
+    retained_lease(m, environment, class, false)
+}
+fn retained_lease(m: &Manager, environment: &Environment, class: &str, keeper: bool) -> PathBuf {
     let sid = random_id().unwrap();
-    let report = m.root.join("runtime/results").join(format!("windows-{sid}.json"));
+    let report = m.root.join("runtime/results").join(format!("{}-{sid}.json", if keeper {"environment"} else {"windows"}));
     private_dir(report.parent().unwrap()).unwrap();
     let owner = environment.root.join("compatdata/pfx/drive_c/bridge/sessions").join(&sid).join("owner.json");
     private_dir(owner.parent().unwrap()).unwrap();
-    atomic_json(&owner, &json!({"session":sid,"report":report,"keeper":false,"inspect":false,
+    atomic_json(&owner, &json!({"session":sid,"report":report,"keeper":keeper,"inspect":keeper,
+        "lease":m.root.join("runtime/leases").join(format!("{sid}.json")),
         "registration":{"metadata":{"class_id":class},"environment":environment}})).unwrap();
     m.retain_lease_owner(&owner).unwrap();
     let leases = m.root.join("runtime/leases");
@@ -517,12 +521,9 @@ fn deletion_never_crosses_a_mount() {
 fn an_idle_bridge_host_is_explained_and_waited_for() {
     let (f, environment, installer) = created_setup();
     let bound = onboarding::history_records(&f.m).unwrap().into_iter().find(|r| r.id == environment).unwrap();
-    let lease = dsp_lease(&f.m, &bound.environment, &"0e".repeat(16));
+    let lease = retained_lease(&f.m, &bound.environment, &"0e".repeat(16), true);
     let sid = lease.file_stem().unwrap().to_str().unwrap().to_owned();
     let owner = bound.environment.root.join("compatdata/pfx/drive_c/bridge/sessions").join(&sid).join("owner.json");
-    let mut value: Value = read_json(&owner).unwrap();
-    value["keeper"] = true.into();
-    atomic_json(&owner, &value).unwrap();
     assert_eq!(delete_setup_with(&f.m, &installer, &environment, false, &"aa".repeat(16), &mut |_| Ok(false),
         Duration::ZERO).unwrap_err().to_string(), KEEPER_CLOSING);
     // It retires while the deletion waits; the deletion then proceeds.
@@ -970,11 +971,16 @@ fn delete_accepted_beside_a_retry_removes_only_the_reviewed_setup() {
         let attempts = || onboarding::history_records(&f.m).unwrap().into_iter()
             .filter(|record| record.installer == installer).collect::<Vec<_>>();
         assert_eq!(attempts().len(), 2);
+        let history_bytes: Vec<_> = attempts().iter().map(|record| {
+            let path = onboarding::directory(&f.m, &record.id).unwrap().join("record.json");
+            let bytes = fs::read(&path).unwrap(); (path, bytes)
+        }).collect();
         worker_with_capacity(&f.m, &delete, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
         let deleted = result(&delete);
         assert_eq!(deleted["state"], "completed", "{deleted}");
         assert_eq!(deleted["result"]["environments"], 1);
-        assert_eq!(attempts().len(), 2, "both history records remain");
+        assert_eq!(attempts().len(), 1, "only the undeleted setup is current");
+        for (path, bytes) in history_bytes { assert_eq!(fs::read(path).unwrap(), bytes); }
         let tombstone = deleted_setup::load(&f.m, &environment).unwrap().unwrap();
         assert_eq!(tombstone.environments.len(), 1);
         assert_eq!(tombstone.environments[0].id, environment);

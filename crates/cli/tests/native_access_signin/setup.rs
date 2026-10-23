@@ -21,8 +21,8 @@ use std::{
 use crate::report::Report;
 
 const MANAGER: &str = env!("CARGO_BIN_EXE_linux-vst-bridge");
-const SUPERVISOR: &[u8] = include_bytes!("../../runtime/session.py");
-const OWNERSHIP: &[u8] = include_bytes!("../../runtime/ownership.py");
+const SUPERVISOR: &[u8] = include_bytes!("../../../../bridge-manager/runtime/session.py");
+const OWNERSHIP: &[u8] = include_bytes!("../../../../bridge-manager/runtime/ownership.py");
 /// Where Native Access installs itself; its profile locates files from here.
 pub const APP_DIRECTORY: &str = "Program Files/Native Instruments/Native Access";
 /// The stand-in's own fixture directory in the prefix (`C:\LVBStandIn`).

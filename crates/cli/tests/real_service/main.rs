@@ -225,7 +225,8 @@ fn service_reads_follow_every_writer() {
     let class = p.class_id.clone();
     let both = |read: Read| -> Value {
         let request = Request::Read(read);
-        let held = service.service().exchange(&request, None).unwrap();
+        let held = service.service().exchange(&request, None)
+            .unwrap_or_else(|error| panic!("service {request:?}: {error:?}"));
         let composed = service.manager_command(None).exchange(&request, None).unwrap();
         assert_eq!(String::from_utf8_lossy(&held), String::from_utf8_lossy(&composed), "{request:?}");
         serde_json::from_slice(&held).unwrap()
@@ -272,6 +273,28 @@ fn service_reads_follow_every_writer() {
     fs::write(&proton, b"changed runtime bytes").unwrap();
     assert_eq!(runner_valid(), false);
     both(Read::CurrentOverview);
+    // Readable retained identity never authorizes executing damaged runtime
+    // bytes. An offered inspection reaches the owner and refuses before it
+    // creates a scan or changes inspection/publication records.
+    let manager = &service.published.fixture.m;
+    let candidates = preparation::retained_candidates(manager).unwrap();
+    let selection = &candidates[0].selection;
+    let inspections = preparation::inspections(manager, selection).unwrap();
+    let registry = fs::read(manager.root.join("registry.json")).unwrap();
+    let reports = || fs::read_dir(manager.root.join("runtime/results")).unwrap()
+        .map(|entry| entry.unwrap().path()).collect::<std::collections::BTreeSet<_>>();
+    let prior_reports = reports();
+    let detail = both(Read::Product(p.key()));
+    let action = offered_action(&detail, "plugin_reinspect");
+    let receipt = service.request(&json!({"schema":29,"state_token":detail["state_token"],"action":action}));
+    assert_eq!(receipt["accepted"], true, "{receipt:#}");
+    let refused = service.finished_operation(receipt["operation"].as_str().unwrap());
+    assert_eq!(refused["state"], "refused", "{refused:#}");
+    assert_eq!(refused["reason"], "Operator action: artifact missing or changed", "{refused:#}");
+    assert_eq!(reports(), prior_reports, "no inspection supervisor was started");
+    assert_eq!(preparation::inspections(manager, selection).unwrap(), inspections);
+    assert_eq!(preparation::retained_candidates(manager).unwrap(), candidates);
+    assert_eq!(fs::read(manager.root.join("registry.json")).unwrap(), registry);
     fs::write(&proton, &original).unwrap();
     assert_eq!(runner_valid(), true);
 

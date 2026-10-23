@@ -632,6 +632,7 @@ pub fn download_and_stage_checked(home: &Path, link: &BetaLink, trust: &Trust, c
         crate::portable_package::expose_setup)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn download_and_stage_admitted(home: &Path, link: &BetaLink, trust: &Trust, current: &str,
     offer: &Offer, progress: &mut dyn FnMut(u64, u64), available: &dyn Fn(&Path) -> Option<u64>,
     admission: &dyn Fn() -> std::result::Result<(), UpdateError>,
