@@ -18,7 +18,7 @@ class FrontendNotices(unittest.TestCase):
             root = Path(tmp)
             bridge, private, output = root / "bridge", root / "private", root / "output"
             output.mkdir()
-            for name in ("crates/cli", "native-vst3-proxy/backend"):
+            for name in ("crates/cli", "native-vst3-proxy/backend", "crates/window"):
                 path = bridge / name
                 path.mkdir(parents=True)
                 (path / "Cargo.toml").write_text("fixture")
@@ -62,20 +62,31 @@ class FrontendNotices(unittest.TestCase):
             public_metadata = {"packages": [dict(id="public", name="public", source=None,
                 manifest_path=str(bridge / "crates/cli/Cargo.toml"))],
                 "resolve": {"root": "public", "nodes": [dict(id="public", deps=[])]}}
+            (bridge / "crates/window/Cargo.lock").write_text((private / "app/Cargo.lock").read_text())
+            packages.append(dict(id="window", name="lvb-window", source=None,
+                                 manifest_path=str(bridge / "crates/window/Cargo.toml")))
+            nodes.append(dict(id="window", features=["live"], deps=[
+                {"pkg": "app", "dep_kinds": [{"kind": None}]}]))
+            metadata["resolve"]["root"] = "window"
             commit(bridge)
             commit(private)
             identity = rust_notices.qualification.source_identity(private)
             record = {"bridge_source": rust_notices.qualification.source_identity(bridge),
-                      "frontend_source": {**identity, "manifest": "app/Cargo.toml"}}
+                      "frontend_source": {**rust_notices.qualification.source_identity(bridge),
+                                          "manifest": "crates/window/Cargo.toml"}}
             original_check_output = rust_notices.subprocess.check_output
 
             def cargo_metadata(manifest, **_):
-                materialized = Path(manifest).parent.parent
+                materialized = Path(manifest).parents[3] / "frontend"
                 result = copy.deepcopy(metadata)
                 for package in result["packages"]:
                     path = Path(package["manifest_path"])
                     if path.is_relative_to(private):
                         package["manifest_path"] = str(materialized / path.relative_to(private))
+                        head = rust_notices.qualification.source_identity(private)["head"]
+                        package["source"] = "git+" + rust_notices.qualification.TOOLKIT_REPOSITORY + ".git?rev=" + head + "#" + head
+                    elif path.is_relative_to(bridge):
+                        package["manifest_path"] = str(Path(manifest).parents[2] / path.relative_to(bridge))
                 return result
 
             def check_output(command, **kwargs):
@@ -110,12 +121,10 @@ class FrontendNotices(unittest.TestCase):
                 self.assertNotIn(text, (output / "Rust-Dependency-Notices.txt").read_text())
             vendor_license.unlink()
             commit(private)
-            record["frontend_source"].update(rust_notices.qualification.source_identity(private))
             with self.assertRaisesRegex(ValueError, "Missing exact-source license"):
                 capture()
             vendor_license.write_text("Vendored exact license")
             commit(private)
-            record["frontend_source"].update(rust_notices.qualification.source_identity(private))
             archive.write_bytes(b"changed archive")
             with self.assertRaisesRegex(ValueError, "Registry archive differs"):
                 capture()

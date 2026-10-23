@@ -1,4 +1,4 @@
-"""Exact source and live-only qualification frontend build boundaries."""
+"""Bridge application ownership and exact private toolkit build boundaries."""
 import copy
 import hashlib
 import json
@@ -31,18 +31,27 @@ class FrontendBuild(unittest.TestCase):
             path = self.bridge / name / "Cargo.toml"
             path.parent.mkdir()
             path.write_text("fixture")
-        commit(self.bridge)
-        self.manifest = self.ui / "app/Cargo.toml"
-        self.manifest.parent.mkdir()
-        self.manifest.write_text("fixture manifest")
-        self.manifest.with_name("Cargo.lock").write_text("fixture lock")
+        self.private_manifest = self.ui / "Cargo.toml"
+        self.private_manifest.write_text("fixture toolkit manifest")
+        self.private_manifest.with_name("Cargo.lock").write_text("fixture lock")
+        for name in frontend.TOOLKIT_CRATES:
+            path = self.ui / name / "Cargo.toml"
+            path.parent.mkdir()
+            path.write_text("fixture")
         commit(self.ui)
-        public = frontend.source_identity(self.bridge)
-        source = "git+" + frontend.BRIDGE_REPOSITORY + ".git?rev=" + public["head"] + "#" + public["head"]
-        packages = [{"id": name, "name": name, "source": source,
+        self.manifest = self.bridge / frontend.WINDOW_MANIFEST
+        self.manifest.parent.mkdir(parents=True)
+        self.manifest.with_name("Cargo.lock").write_text("fixture window lock")
+        self.pin_toolkit()
+        private = frontend.source_identity(self.ui)
+        source = "git+" + frontend.TOOLKIT_REPOSITORY + ".git?rev=" + private["head"] + "#" + private["head"]
+        packages = [{"id": name, "name": name, "source": None,
                      "manifest_path": str(self.bridge / name / "Cargo.toml")}
                     for name in sorted(frontend.BRIDGE_CRATES)]
-        packages.append({"id": "root", "name": "makepad-app", "source": None,
+        packages += [{"id": name, "name": name, "source": source,
+                      "manifest_path": str(self.ui / name / "Cargo.toml")}
+                     for name in sorted(frontend.TOOLKIT_CRATES)]
+        packages.append({"id": "root", "name": "lvb-window", "source": None,
                          "manifest_path": str(self.manifest),
                          "targets": [{"name": frontend.BINARY, "kind": ["bin"]}]})
         nodes = [{"id": p["id"], "features": [], "deps": []} for p in packages[:-1]]
@@ -51,22 +60,44 @@ class FrontendBuild(unittest.TestCase):
         self.metadata = {"workspace_root": str(self.manifest.parent), "packages": packages,
                          "resolve": {"root": "root", "nodes": nodes}}
 
-    def describe(self, metadata=None):
-        with patch.object(frontend, "release_metadata", return_value=metadata or self.metadata):
-            return frontend.describe_sources(self.bridge, self.ui, "app/Cargo.toml", "a" * 64, "internal_test")
+    def pin_toolkit(self):
+        head = frontend.source_identity(self.ui)["head"]
+        self.manifest.write_text('[dependencies]\n' + '\n'.join(
+            f'{name} = {{ git = "{frontend.TOOLKIT_REPOSITORY}.git", rev = "{head}" }}'
+            for name in sorted(frontend.TOOLKIT_CRATES)))
+        commit(self.bridge)
 
-    def test_two_distinct_source_identities_and_exact_lock_are_retained(self):
+    def describe(self, metadata=None):
+        with patch.object(frontend, "release_metadata", return_value=metadata or self.metadata) as cargo:
+            record = frontend.describe_sources(self.bridge, self.ui, frontend.WINDOW_MANIFEST.as_posix(), "a" * 64, "internal_test")
+            self.assertEqual(cargo.call_args.args[0], self.manifest.resolve())
+            return record
+
+    def test_application_identity_and_lock_keep_existing_package_contract(self):
         record = self.describe()
         self.assertEqual(record["bridge_source"], frontend.source_identity(self.bridge))
-        self.assertNotEqual(record["bridge_source"]["head"], record["frontend_source"]["head"])
+        self.assertEqual(record["bridge_source"]["head"], record["frontend_source"]["head"])
         self.assertEqual(record["frontend_source"]["cargo_lock_sha256"],
                          frontend.sha(self.manifest.with_name("Cargo.lock")))
         self.assertNotIn(str(self.root), json.dumps(record))
+        # The existing package validator accepts this unchanged schema.
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pkg0"))
+        from assemble import validate_frontend_build
+        public = record["bridge_source"]
+        validate_frontend_build({**record, "artifact_sha256": "c" * 64},
+                                public["head"], public["tree"], "c" * 64)
 
-    def test_different_public_revision_or_tree_refuses(self):
+    def test_old_private_application_route_refuses(self):
+        with self.assertRaisesRegex(ValueError, "application is crates/window"):
+            frontend.describe_sources(self.bridge, self.ui, "apps/bridge-pilot/Cargo.toml",
+                                      "a" * 64, "internal_test")
+
+    def test_different_private_revision_or_tree_refuses(self):
         metadata = copy.deepcopy(self.metadata)
-        metadata["packages"][0]["source"] = metadata["packages"][0]["source"].split("#")[0] + "#" + "b" * 40
-        with self.assertRaisesRegex(ValueError, "exact public Bridge revision"):
+        package = next(p for p in metadata["packages"] if p["name"] == "makepad-widgets")
+        package["source"] = package["source"].split("#")[0] + "#" + "b" * 40
+        with self.assertRaisesRegex(ValueError, "exact private toolkit revision"):
             self.describe(metadata)
         original = frontend.git_identity
         calls = 0
@@ -78,29 +109,40 @@ class FrontendBuild(unittest.TestCase):
             return {**result, "tree": "f" * 40} if calls > 2 else result
 
         with patch.object(frontend, "git_identity", side_effect=changed_tree):
-            with self.assertRaisesRegex(ValueError, "resolved Bridge source tree differs"):
+            with self.assertRaisesRegex(ValueError, "resolved toolkit source tree differs"):
                 self.describe()
 
-    def test_dirty_private_source_and_sample_feature_refuse(self):
-        self.manifest.write_text("changed manifest")
+    def test_dirty_source_and_sample_features_refuse(self):
+        original = self.private_manifest.read_text()
+        self.private_manifest.write_text("changed manifest")
         with self.assertRaisesRegex(ValueError, "commit exact"):
             self.describe()
-        self.manifest.write_text("fixture manifest")
-        metadata = copy.deepcopy(self.metadata)
-        next(n for n in metadata["resolve"]["nodes"] if n["id"] == "lvb-view-model")["features"] = ["samples"]
-        with self.assertRaisesRegex(ValueError, "sample fixtures"):
-            self.describe(metadata)
+        self.private_manifest.write_text(original)
+        for name in ("root", "lvb-view-model"):
+            metadata = copy.deepcopy(self.metadata)
+            next(n for n in metadata["resolve"]["nodes"] if n["id"] == name)["features"].append("samples")
+            with self.assertRaisesRegex(ValueError, "only the live feature|sample fixtures"):
+                self.describe(metadata)
 
-    def test_missing_client_and_foreign_path_dependency_refuse(self):
+    def test_missing_client_or_toolkit_and_foreign_path_dependency_refuse(self):
+        for name, error in (("lvb-client", "model, view model and client"),
+                            ("makepad-widgets", "both exact private toolkit crates")):
+            metadata = copy.deepcopy(self.metadata)
+            metadata["resolve"]["nodes"][-1]["deps"] = [
+                d for d in metadata["resolve"]["nodes"][-1]["deps"] if d["pkg"] != name]
+            with self.assertRaisesRegex(ValueError, error):
+                self.describe(metadata)
         metadata = copy.deepcopy(self.metadata)
-        metadata["resolve"]["nodes"][-1]["deps"] = [
-            d for d in metadata["resolve"]["nodes"][-1]["deps"] if d["pkg"] != "lvb-client"]
-        with self.assertRaisesRegex(ValueError, "model, view model and client"):
-            self.describe(metadata)
-        metadata = copy.deepcopy(self.metadata)
-        metadata["packages"][0]["source"] = None
+        package = next(p for p in metadata["packages"] if p["name"] == "makepad-widgets")
+        package["source"] = None
         with self.assertRaisesRegex(ValueError, "path dependency escapes"):
             self.describe(metadata)
+
+    def test_manifest_pin_must_match_recorded_toolkit(self):
+        self.manifest.write_text(self.manifest.read_text().replace(frontend.source_identity(self.ui)["head"], "b" * 40))
+        commit(self.bridge)
+        with self.assertRaisesRegex(ValueError, "pin both private toolkit crates"):
+            self.describe()
 
     def test_changed_binary_or_embedded_identity_refuses(self):
         metadata = self.describe()
@@ -117,34 +159,34 @@ class FrontendBuild(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "sources or artifact changed"):
                 frontend.verify_record(record, self.bridge, self.ui, binary)
 
-    def test_ignored_path_dependency_cannot_share_a_recorded_tree_identity(self):
-        (self.ui / ".gitignore").write_text("ignored/\n")
-        commit(self.ui)
-        dependency = self.ui / "ignored/Cargo.toml"
+    def test_ignored_application_dependency_cannot_share_recorded_identity(self):
+        (self.bridge / ".gitignore").write_text("ignored/\n")
+        commit(self.bridge)
+        dependency = self.bridge / "ignored/Cargo.toml"
         dependency.parent.mkdir()
         metadata = copy.deepcopy(self.metadata)
         metadata["packages"].append(dict(id="ignored", name="ignored", source=None,
                                          manifest_path=str(dependency)))
-        metadata["resolve"]["nodes"].append(dict(id="ignored", features=[], deps=[]))
-        metadata["resolve"]["nodes"][-2]["deps"].append(
+        metadata["resolve"]["nodes"][-1]["deps"].append(
             {"pkg": "ignored", "dep_kinds": [{"kind": None}]})
-        identity = frontend.source_identity(self.ui)
+        metadata["resolve"]["nodes"].append(dict(id="ignored", features=[], deps=[]))
+        identity = frontend.source_identity(self.bridge)
         for contents in ("first unrecorded dependency", "different unrecorded dependency"):
             dependency.write_text(contents)
-            self.assertEqual(frontend.source_identity(self.ui), identity)
+            self.assertEqual(frontend.source_identity(self.bridge), identity)
             with self.assertRaisesRegex(ValueError, "not a tracked regular file"):
                 self.describe(metadata)
 
     def test_fresh_materializations_exclude_ignored_sources_and_cargo_sentinels(self):
-        (self.ui / ".gitignore").write_text("app/ignored.rs\n")
+        (self.ui / ".gitignore").write_text("ignored.rs\n")
         commit(self.ui)
-        (self.ui / "app/ignored.rs").write_text("unrecorded source")
+        (self.ui / "ignored.rs").write_text("unrecorded source")
         (self.bridge / ".git/info/exclude").write_text(".cargo-ok\n")
         (self.bridge / ".cargo-ok").write_text("Cargo sentinel")
         with patch.dict(os.environ, {"CARGO_HOME": str(self.root / "empty-cache")}):
             with frontend.recorded_sources(self.bridge, self.ui) as (public, private, env):
                 self.assertNotEqual(private, self.ui)
-                self.assertFalse((private / "app/ignored.rs").exists())
+                self.assertFalse((private / "ignored.rs").exists())
                 self.assertFalse((public / ".cargo-ok").exists())
                 self.assertEqual(frontend.source_identity(private), frontend.source_identity(self.ui))
                 self.assertEqual(frontend.source_identity(public), frontend.source_identity(self.bridge))
@@ -153,18 +195,19 @@ class FrontendBuild(unittest.TestCase):
             self.assertFalse(private.exists())
 
     def test_cargo_sentinel_does_not_relax_tracked_source_identity(self):
-        checkout = self.root / "cargo/git/checkouts/bridge/pinned"
-        subprocess.run(["git", "clone", "-q", str(self.bridge), str(checkout)], check=True)
+        checkout = self.root / "cargo/git/checkouts/makepad/pinned"
+        subprocess.run(["git", "clone", "-q", str(self.ui), str(checkout)], check=True)
         (checkout / ".cargo-ok").write_text("Cargo extraction complete")
         metadata = copy.deepcopy(self.metadata)
-        for package in metadata["packages"][:-1]:
-            package["manifest_path"] = str(checkout / package["name"] / "Cargo.toml")
+        for package in metadata["packages"]:
+            if package["name"] in frontend.TOOLKIT_CRATES:
+                package["manifest_path"] = str(checkout / package["name"] / "Cargo.toml")
         with patch.object(frontend, "release_metadata", return_value=metadata):
-            args = (self.bridge, self.ui, "app/Cargo.toml", "a" * 64, "internal_test")
+            args = (self.bridge, self.ui, frontend.WINDOW_MANIFEST.as_posix(), "a" * 64, "internal_test")
             env = {"CARGO_HOME": str(self.root / "cargo")}
             frontend.describe_sources(*args, env)
-            (checkout / "lvb-client/Cargo.toml").write_text("unrecorded tracked edit")
-            with self.assertRaisesRegex(ValueError, "resolved Bridge source tree differs"):
+            (checkout / "makepad-widgets/Cargo.toml").write_text("unrecorded tracked edit")
+            with self.assertRaisesRegex(ValueError, "resolved toolkit source tree differs"):
                 frontend.describe_sources(*args, env)
 
     def test_only_locked_registry_archive_bytes_enter_the_fresh_cache(self):
@@ -176,7 +219,7 @@ class FrontendBuild(unittest.TestCase):
         self.manifest.with_name("Cargo.lock").write_text(
             '[[package]]\nname="fixture"\nversion="1.0"\nsource="registry+https://example.invalid"\n'
             f'checksum="{hashlib.sha256(data).hexdigest()}"\n')
-        commit(self.ui)
+        commit(self.bridge)
         with patch.dict(os.environ, {"CARGO_HOME": str(cache)}):
             with frontend.recorded_sources(self.bridge, self.ui) as (_, _, env):
                 copied = Path(env["CARGO_HOME"]) / archive.relative_to(cache)

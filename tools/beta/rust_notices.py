@@ -72,11 +72,14 @@ def capture_sources(source, output, target="x86_64-unknown-linux-gnu", *,
     frontend_manifest = None
     if frontend_build is not None:
         frontend_source = Path(frontend_source).resolve()
-        identity = frontend_build["frontend_source"]
-        if (qualification.source_identity(frontend_source) != {k: identity[k] for k in ("head", "tree")}
-                or qualification.source_identity(source) != frontend_build["bridge_source"]):
+        application = frontend_build["frontend_source"]
+        identity = qualification.source_identity(frontend_source)
+        public = qualification.source_identity(source)
+        if (public != {k: application[k] for k in ("head", "tree")}
+                or public != frontend_build["bridge_source"]
+                or application["manifest"] != qualification.WINDOW_MANIFEST.as_posix()):
             raise ValueError("notice sources differ from frontend build")
-        frontend_manifest = frontend_source / identity["manifest"]
+        frontend_manifest = source / qualification.WINDOW_MANIFEST
         tracked = qualification.tracked_files(frontend_source)
         manifests = [source / "crates/cli/Cargo.toml", manifests[1], frontend_manifest]
     for manifest in manifests:
@@ -98,15 +101,21 @@ def capture_sources(source, output, target="x86_64-unknown-linux-gnu", *,
             if origin and origin.startswith("registry+"):
                 packages[package["id"]] = package
             elif (frontend_build is not None and origin
-                  and qualification.bridge_dependency(origin, frontend_build["bridge_source"]["head"])):
-                continue  # First-party Bridge crates; the package already includes COPYRIGHT.md.
+                  and qualification.toolkit_dependency(origin, identity["head"])):
+                checkout = Path(qualification.git(root, "rev-parse", "--show-toplevel")).resolve()
+                if (qualification.git_identity(checkout) != {k: identity[k] for k in ("head", "tree")}
+                        or qualification.git(checkout, "diff", "HEAD", "--name-only")):
+                    raise ValueError("notice toolkit source differs from frontend build")
+                relative = root.relative_to(checkout)
+                qualification.tracked_blob(frontend_source, relative / "Cargo.toml")
+                # Read notices from the recorded private commit, never the
+                # Cargo checkout's ignored or generated files.
+                packages[package["id"]] = {**package,
+                    "manifest_path": str(frontend_source / relative / "Cargo.toml")}
+                origins[package["id"]] = {"kind": "git", "head": identity["head"],
+                    "tree": identity["tree"], "path": relative.as_posix()}
             elif origin:
                 raise ValueError("Uninventoried non-registry Rust dependency")
-            elif frontend_build is not None and root.is_relative_to(frontend_source):
-                qualification.tracked_blob(frontend_source, (root / "Cargo.toml").relative_to(frontend_source))
-                packages[package["id"]] = package
-                origins[package["id"]] = {"kind": "git", "head": identity["head"],
-                    "tree": identity["tree"], "path": root.relative_to(frontend_source).as_posix()}
             elif not root.is_relative_to(source):
                 raise ValueError("Uninventoried path Rust dependency")
     inventory, texts, upstream = [], [], {}

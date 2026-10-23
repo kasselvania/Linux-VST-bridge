@@ -4,47 +4,54 @@ These tools load the delivered product. They are maintainer instrumentation;
 customers do not need compilers, the SDK, or these scripts. Source and frontend
 qualification remain distinct from these installed development checks.
 
-## Private frontend qualification package
+## Bridge-owned native frontend qualification package
 
-`frontend_build.py` builds the standard `linux-audio-compatibility-manager`
-executable from a clean private frontend checkout and the exact clean public
-Bridge checkout used for the package. The frontend must have its own Cargo
-workspace/lockfile and use Git dependencies pinned to that public revision for
-`lvb-model`, `lvb-view-model` and `lvb-client`. It must declare a `live` feature;
-the build disables defaults and refuses compiled sample fixtures. All other
-non-registry dependencies must live in the exact private source tree.
-Metadata and compilation run from disposable checkouts of the recorded commits,
-with fresh Cargo dependency sources and outputs outside the source trees.
-Ignored path dependencies cannot contribute to a build. Existing registry
-archives may be copied only when their bytes match recorded lockfile checksums.
-Private notices are read from tracked Git blobs, never ignored files.
+`frontend_build.py` builds `crates/window` in the exact clean public Bridge
+checkout, using an exact clean private Makepad toolkit checkout. Both direct
+Makepad dependencies must pin that private commit. Bridge's model, view model
+and client are local path dependencies. The application has its own locked
+workspace; the build enables only `live` and refuses compiled sample fixtures.
+Every non-registry dependency must be either tracked public Bridge source or
+Git source at the exact private toolkit commit.
+
+Metadata and compilation run from disposable committed sources, with fresh
+Cargo dependency sources and outputs outside the source trees. The toolkit is
+fetched from its clean local materialization; no credentials enter that build.
+Existing registry archives are copied only if their bytes match a recorded
+lockfile checksum. Notices come from tracked private Git blobs.
 
 On the bounded Linux build machine, with the existing public signing identity:
 
 ```sh
 python3 tools/beta/frontend_build.py \
-  --bridge-source /src --frontend-source /frontend \
-  --frontend-manifest apps/bridge-pilot/Cargo.toml \
+  --bridge-source /src --frontend-source /makepad \
+  --frontend-manifest crates/window/Cargo.toml \
   --target-dir /build/frontend --output /out/frontend \
   --public-key "$LVB_PORTABLE_ED25519_PUBLIC_KEY"
 ```
 
-The helper passes `LVB_FRONTEND_PACKAGE_INFO` at compile time. The frontend's
-`--package-info` route must print that JSON and exit before initializing the
-native UI, and refuse when the compile-time value is absent. The record binds
-both source head/tree pairs, the frontend manifest and lockfile hashes, target,
-live feature, standard executable name and internal public trust identity. The
-helper checks the executable's reply and retains its hash in
-`frontend-build.json`. No private signing key is used for this build.
+The existing schema-1 build declaration is unchanged: `bridge_source` binds
+Bridge's head/tree; `frontend_source` now binds the same public tree plus the
+actual `crates/window/Cargo.toml` and `Cargo.lock` hashes. That lockfile records
+every private dependency's exact Makepad Git revision. The helper verifies each
+resolved private checkout's commit/tree against the supplied clean toolkit
+checkout, and both direct Makepad pins must match it. No synthetic toolkit
+lockfile or new package-authority format is introduced. The old private
+application manifest is refused; it is no longer a supported build route.
+
+`LVB_FRONTEND_PACKAGE_INFO` embeds this declaration. `--package-info` prints it
+before native startup and refuses when absent. Target, live-only features,
+standard executable name, internal public trust identity and artifact hash
+retain their existing checks. No private signing key is needed for this build.
 
 Supply `--frontend-build /out/frontend/frontend-build.json --frontend-source
-/frontend` to the existing `candidate_inputs.py` invocation. It rechecks the
-sources and embedded record, inventories the live dependency closure, and puts
-the composite source record into the existing signed compliance file. Registry
-archives retain their lockfile digests. Private-tree crates retain their exact
-Git identities and license texts; vendored crates cannot inherit Makepad's root
-license. The normal manager, installer, preparation kit and package wrapper
-remain part of the package. Default same-source frontend inputs are unchanged.
+/makepad` to `candidate_inputs.py`. It rechecks sources and the embedded record,
+inventories live dependencies and places the declaration into the existing
+signed compliance file. Toolkit crates retain exact Git identities and license
+texts; vendored crates cannot inherit Makepad's root license. The signed
+manager/frontend pair and installed generation selection are unchanged. The
+retained egui same-source inputs remain available until replacement qualification.
+See [private deploy-key wiring](../../crates/window/README.md#private-ci-access).
 
 Use a new numbered test version for each qualification package. Release and
 adoption schemas remain unchanged: selection and rollback still bind the exact
