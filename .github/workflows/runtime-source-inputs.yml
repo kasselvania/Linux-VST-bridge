@@ -9,6 +9,7 @@ on:
       - 'tools/runtime-msi-reader/**'
       - 'tools/runtime-touch/**'
       - '.github/workflows/runtime-source-inputs.yml'
+      - '.github/scripts/apt-install.sh'
   workflow_dispatch:
 
 permissions:
@@ -63,14 +64,15 @@ jobs:
 
   mechanism-fixtures:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Windows cross compilers
+        timeout-minutes: 9
+        run: bash .github/scripts/apt-install.sh --no-install-recommends gcc-mingw-w64-i686 gcc-mingw-w64-x86-64
       - name: Build original Win32 regression fixtures in both architectures
         shell: bash
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends gcc-mingw-w64-i686 gcc-mingw-w64-x86-64
           mkdir "$RUNNER_TEMP/runtime-mechanism-fixtures"
           for arch in i686 x86_64; do
             compiler="$arch-w64-mingw32-gcc"

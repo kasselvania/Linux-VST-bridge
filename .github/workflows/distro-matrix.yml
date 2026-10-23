@@ -170,6 +170,10 @@ jobs:
     timeout-minutes: 10
     continue-on-error: true
     steps:
+      # Only the package helper is needed from the checkout.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          sparse-checkout: .github/scripts
       - name: Open /dev/kvm to the runner user
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
@@ -177,9 +181,8 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Install QEMU and kvm-ok
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends qemu-system-x86 cpu-checker >/dev/null
+        timeout-minutes: 9
+        run: bash .github/scripts/apt-install.sh --no-install-recommends qemu-system-x86 cpu-checker
       # Starts a guest under KVM and reads its firmware's debug console: the
       # guest ran on the accelerator if SeaBIOS printed and QEMU reports KVM.
       - name: Probe KVM with a throwaway guest
