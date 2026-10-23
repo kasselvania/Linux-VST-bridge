@@ -9,6 +9,7 @@ import argparse,datetime,hashlib,json,re,shutil,subprocess,zipfile,sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'pkg0'))
 from assemble import declared_operator_schema, public_launch_kit, verify_prebuilt_kit
 from rust_notices import capture as capture_rust_notices
+import frontend_build
 parser=argparse.ArgumentParser()
 parser.add_argument('--build-root',type=Path,required=True)
 parser.add_argument('--source',type=Path,default=Path(__file__).resolve().parents[2])
@@ -18,6 +19,10 @@ parser.add_argument('--fixture',type=Path,required=True)
 parser.add_argument('--reference-directory',type=Path)
 parser.add_argument('--version',required=True)
 parser.add_argument('--epoch',type=int,required=True)
+parser.add_argument('--frontend-build',type=Path,
+                    help='Verified frontend-build.json produced by frontend_build.py')
+parser.add_argument('--frontend-source',type=Path,
+                    help='Exact clean private checkout used for that frontend build')
 a=parser.parse_args()
 assert re.fullmatch(r'[0-9][A-Za-z0-9.]{0,79}',a.version)
 b=a.build_root.resolve();s=a.source.resolve();version=a.version
@@ -27,7 +32,14 @@ git=lambda *a:subprocess.check_output(['git','-C',str(s),*a],text=True).strip()
 head,tree=git('rev-parse','HEAD'),git('rev-parse','HEAD^{tree}')
 assert not git('status','--porcelain'), 'Commit the exact candidate inputs first'
 operator_schema=declared_operator_schema(s)
-copies={s/'bridge-manager/target/x86_64-unknown-linux-gnu/release/linux-vst-bridge':'linux-vst-bridge',s/'manager-ui/target/x86_64-unknown-linux-gnu/release/linux-audio-compatibility-manager':'linux-audio-compatibility-manager',a.windows_package/'wf0-factory-probe.exe':'host.exe',a.windows_package/'host-source-manifest.json':'host-source-manifest.json',a.kit:'preparation-kit.zip',s/'compatibility/arturia-pure-lofi.json':'profile.json',s/'COPYRIGHT.md':'LVB-Proprietary.txt',a.fixture:'fixture.vst3'}
+if bool(a.frontend_build) != bool(a.frontend_source):
+ raise ValueError('--frontend-build and --frontend-source must be supplied together')
+frontend=s/'manager-ui/target/x86_64-unknown-linux-gnu/release/linux-audio-compatibility-manager'
+frontend_record=None
+if a.frontend_build:
+ frontend=a.frontend_build.resolve().with_name(frontend_build.BINARY)
+ frontend_record=frontend_build.verify_record(json.loads(a.frontend_build.read_bytes()),s,a.frontend_source,frontend)
+copies={s/'bridge-manager/target/x86_64-unknown-linux-gnu/release/linux-vst-bridge':'linux-vst-bridge',frontend:'linux-audio-compatibility-manager',a.windows_package/'wf0-factory-probe.exe':'host.exe',a.windows_package/'host-source-manifest.json':'host-source-manifest.json',a.kit:'preparation-kit.zip',s/'compatibility/arturia-pure-lofi.json':'profile.json',s/'COPYRIGHT.md':'LVB-Proprietary.txt',a.fixture:'fixture.vst3'}
 for source,name in copies.items():shutil.copyfile(source,p/name)
 (p/'preparation-kit.zip').write_bytes(public_launch_kit((p/'preparation-kit.zip').read_bytes()))
 for name in ('session','ownership'):
@@ -41,6 +53,10 @@ with zipfile.ZipFile(p/'preparation-kit.zip') as z:
 (p/'START_HERE.html').write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>Internal test</title><h1>Windows plug-ins in your Linux DAW</h1><p>Internal test only. Open this signed package and complete the manager\'s application setup. In Linux Audio Compatibility Manager, open Setup, choose your vendor\'s Windows installer and the Linux DAW you use, then choose Install and connect to your DAW. Complete the vendor\'s requests in its own window. After the managed installer safely finishes, the manager automatically finds, inspects and connects all newly installed VST3 plug-ins. Each result stays visible; a failed step offers its specific continuation.</p><p>Available plug-ins appear as native VST3s. Rescan VST3s in your DAW if needed, then add the plug-in to a track. Vendor authorization may be required during installation or first use. Accounts and authorization stay with you and the vendor. Optional experience reports and checks are under Help and testing.</p><p>This build continues automatically from a managed Windows installer. When Setup offers Add plug-ins through a vendor application, choose it to use the same installation. Finish the vendor requests and close the application normally. The manager waits for its remaining helpers to finish, then automatically finds and connects new plug-ins. Unchanged plug-ins in the same installation are checked again before their DAW connections return. Updates and retained bridge recovery use the manager\'s offered controls.</p><p>This build is not a customer release. The manager acquires its own Windows compatibility runtime. Compatibility, sound and saved-project recall require actual use.</p></html>')
 (p/'THIRD_PARTY_NOTICES.txt').write_text('INTERNAL TEST ONLY\nVST3 SDK 3.8.1 MIT notices are retained as separate license files and in preparation-kit.zip. Fixed GE-Proton11-7 and Valve SLR 4.0.20260805.254769 are acquired directly from upstream through explicit setup; all upstream files and notices are preserved. The managed r7 runtime also acquires the exact-base x64 Wine UIA correction from https://github.com/kasselvania/Linux-VST-bridge/releases/download/runtime-uia-r4/uia-guard.tar.gz and the exact-base x86/x64 Wine MSI table-reader correction from https://github.com/kasselvania/Linux-VST-bridge/releases/download/runtime-msi-r5/msi-reader.tar.gz, plus the GE-based x64 X11 touch correction from https://github.com/kasselvania/Linux-VST-bridge/releases/download/runtime-touch-r7/x11-touch.tar.gz. Those bundles retain complete corresponding patched Wine source, the build recipes and patches, LGPL text and notices (plus the UIA API regression test) under uia-guard, msi-reader and x11-touch; composition preserves this material in the sealed runtime. No runtime, proprietary installer, commercial plug-in, license material or preset is redistributed in this app package. Complete customer SBOM/notices and customer signing are still unselected. The included open test module is first-party AP10 instrumentation.\n')
 (p/'COMPLIANCE_MANIFEST.json').write_text(json.dumps(dict(schema=1,classification='internal_test_only',package_version=version,source_head=head,release_authorized=False,third_party_notice_archive_complete=False,customer_signing_key_selected=False,external_proton_slr_required=False,vendor_plugins_or_licenses_included=False,physical_plugin_or_audio_claim=False),sort_keys=True))
+if frontend_record:
+ compliance=json.loads((p/'COMPLIANCE_MANIFEST.json').read_text())
+ compliance['frontend_build']=frontend_record
+ (p/'COMPLIANCE_MANIFEST.json').write_text(json.dumps(compliance,sort_keys=True))
 rows=[('usr/bin/linux-vst-bridge','linux-vst-bridge','manager'),('usr/bin/linux-audio-compatibility-manager','linux-audio-compatibility-manager','frontend'),('usr/lib/linux-vst-bridge/supervisor/session.py','session.py','supervisor'),('usr/lib/linux-vst-bridge/supervisor/ownership.py','ownership.py','ownership'),('usr/lib/linux-vst-bridge/host/bridge-host.exe','host.exe','windows_host'),('usr/lib/linux-vst-bridge/host/source-manifest.json','host-source-manifest.json','host_source'),('usr/lib/linux-vst-bridge/preparation/preparation-kit.zip','preparation-kit.zip','preparation_kit'),('usr/lib/linux-vst-bridge/proxy/ReusableEngine.so','proxy.so','proxy'),('usr/lib/linux-vst-bridge/self-test/ap10-return-fixture.vst3','fixture.vst3','fixture'),('usr/lib/linux-vst-bridge/profiles/arturia-pure-lofi.json','profile.json','profile')]
 if a.reference_directory is not None:
  reference=json.loads((a.reference_directory/'LVB_REFERENCE_MANIFEST.json').read_text())
@@ -55,18 +71,27 @@ if a.reference_directory is not None:
  rows.append(('usr/lib/linux-vst-bridge/self-test/LVB_REFERENCE_MANIFEST.json','LVB_REFERENCE_MANIFEST.json','fixture_resource'))
  (p/'START_HERE.html').write_text((p/'START_HERE.html').read_text()+'<p>First-party development fixtures are included in the application\'s <a href="../../../lib/linux-vst-bridge/self-test/">self-test folder</a>. Import LVB_Reference_Plugins_1_0_0.exe through Setup for the stateful instrument/effect journey. The Recovery installer deliberately holds a window for Focus/Stop; Partial deliberately holds after installing the instrument. These fixtures require no vendor sign-in and do not qualify commercial software.</p>')
  (p/'THIRD_PARTY_NOTICES.txt').write_text((p/'THIRD_PARTY_NOTICES.txt').read_text()+'The additional LVB Reference instrument, effect and three installers are first-party test instrumentation. Their exact modules, including the MIT SDK boundary, are inventoried by digest.\n')
-rust_packages=capture_rust_notices(s,p)
+rust_packages=(capture_rust_notices(s,p,frontend_source=a.frontend_source,frontend_build=frontend_record)
+               if frontend_record else capture_rust_notices(s,p))
 rows += [('usr/share/doc/linux-vst-bridge-beta/licenses/'+name,name,'license') for name in ('LVB-Proprietary.txt','vst3sdk.txt','base.txt','pluginterfaces.txt','public.sdk.txt','Rust-Dependency-Notices.txt','Rust-Dependency-Inventory.json')]
 (p/'THIRD_PARTY_NOTICES.txt').write_text((p/'THIRD_PARTY_NOTICES.txt').read_text()+'Resolved Rust release dependencies, including the signature verifier, are inventoried by exact registry archive digest with upstream license declarations and full license texts in licenses/Rust-Dependency-Inventory.json and licenses/Rust-Dependency-Notices.txt. Development-only dependencies are excluded. This inventory does not select customer release authority.\n')
 rows += [('usr/share/doc/linux-vst-bridge-beta/'+name,name,kind) for name,kind in [('START_HERE.html','guide'),('THIRD_PARTY_NOTICES.txt','notices'),('COMPLIANCE_MANIFEST.json','compliance')]]
 sbom=dict(spdxVersion='SPDX-2.3',dataLicense='CC0-1.0',SPDXID='SPDXRef-DOCUMENT',name='Internal self-service test inventory',documentNamespace='https://github.com/kasselvania/Linux-VST-bridge/spdx/internal/'+head,creationInfo={'created':datetime.datetime.fromtimestamp(a.epoch,datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),'creators':['Tool: internal test inventory']},files=[dict(SPDXID='SPDXRef-File-'+str(n),fileName='/'+dest,checksums=[{'algorithm':'SHA256','checksumValue':sha((p/name).read_bytes())}],licenseConcluded='NOASSERTION',copyrightText='NOASSERTION') for n,(dest,name,kind) in enumerate(rows,1)])
-sbom['packages']=[dict(SPDXID='SPDXRef-Rust-'+str(n),name=item['name'],versionInfo=item['version'],downloadLocation='https://crates.io/api/v1/crates/'+item['name']+'/'+item['version']+'/download',filesAnalyzed=False,licenseDeclared=item['license_declared'],licenseConcluded='NOASSERTION',copyrightText='NOASSERTION',checksums=[dict(algorithm='SHA256',checksumValue=item['registry_archive_sha256'])]) for n,item in enumerate(rust_packages,1)]
+sbom['packages']=[]
+for n,item in enumerate(rust_packages,1):
+ package=dict(SPDXID='SPDXRef-Rust-'+str(n),name=item['name'],versionInfo=item['version'],downloadLocation='NOASSERTION',filesAnalyzed=False,licenseDeclared=item['license_declared'],licenseConcluded='NOASSERTION',copyrightText='NOASSERTION')
+ if 'registry_archive_sha256' in item:
+  package.update(downloadLocation='https://crates.io/api/v1/crates/'+item['name']+'/'+item['version']+'/download',checksums=[dict(algorithm='SHA256',checksumValue=item['registry_archive_sha256'])])
+ else:
+  package['sourceInfo']='Exact frontend Git tree '+item['source']['tree']+'; '+item['source']['path']
+ sbom['packages'].append(package)
 sbom['relationships']=[dict(spdxElementId='SPDXRef-DOCUMENT',relationshipType='DESCRIBES',relatedSpdxElement=pkg['SPDXID']) for pkg in sbom['packages']]
 (p/'SBOM.spdx.json').write_text(json.dumps(sbom,sort_keys=True));rows.append(('usr/share/doc/linux-vst-bridge-beta/SBOM.spdx.json','SBOM.spdx.json','sbom'))
 files=[]
 for dest,name,kind in rows:
  item=dict(destination=dest,source=str(p/name),sha256=sha((p/name).read_bytes()),kind=kind,component='self-service-'+kind,mode='0555' if kind in ('manager','frontend','proxy') else '0444')
- if kind in ('manager','frontend'):item.update(build_head=head,build_tree=tree)
+ if kind=='frontend' and frontend_record:item['frontend_build']=frontend_record
+ elif kind in ('manager','frontend'):item.update(build_head=head,build_tree=tree)
  files.append(item)
 spec=dict(schema=3,version=version,source_head=head,source_tree=tree,operator_schema=operator_schema,external_runtime={'id':'managed-ge-proton11-7-slr4-20260805-r7','manifest_sha256':sha(b'c5448b76a230384e2d7bc6beb5ccb97bafb7e2c3b6c527cb03a1a546bbcb00a0\n3226d8234e7c0542ee767837832bfb1dad5e5e2dc944ec97eb221b437f6b9349\n988fb967608a8c116022c27822647b7a7eda50a283a9e53ee2f22fe299b60f6c\n4ca51dec54f6085bd2050d8714018c3ba95bae7c00277de31e66d2c3ec7c9058\nca86baa047d98504faae52af1118403ff4860cf4aae039bdce68113f18360bf3\n')},files=files)
 (b/('package-spec-'+version+'.json')).write_text(json.dumps(spec,sort_keys=True,indent=2))
