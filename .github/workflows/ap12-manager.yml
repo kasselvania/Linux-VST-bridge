@@ -25,6 +25,7 @@ on:
       - 'plugin-descriptor/**'
       - 'compatibility/**'
       - '.github/workflows/ap12-manager.yml'
+      - '.github/scripts/apt-install.sh'
       - 'tools/ap8_descriptor.py'
       - 'tools/test_ap10_descriptor.py'
       - 'tools/frg1/**'
@@ -65,6 +66,7 @@ on:
       - 'plugin-descriptor/**'
       - 'compatibility/**'
       - '.github/workflows/ap12-manager.yml'
+      - '.github/scripts/apt-install.sh'
       - 'tools/ap8_descriptor.py'
       - 'tools/test_ap10_descriptor.py'
       - 'tools/frg1/**'
@@ -138,8 +140,10 @@ jobs:
         python: ['3.13', '3.14', '3.15']
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - run: sudo apt-get update
-      - run: sudo apt-get install -y xvfb libxtst6 libxcomposite1 libxi6 libarchive-tools gnupg
+      # All but bsdtar (libarchive-tools) are already on the runner image.
+      - name: System packages
+        timeout-minutes: 9
+        run: bash .github/scripts/apt-install.sh xvfb libxtst6 libxcomposite1 libxi6 libarchive-tools gnupg
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
