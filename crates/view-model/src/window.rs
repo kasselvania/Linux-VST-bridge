@@ -24,6 +24,22 @@ impl Page {
     pub const ALL: [Self; 6] = [Self::Home, Self::Plugins, Self::Workspaces, Self::Activity, Self::Setup,
         Self::Diagnostics];
 
+    /// A short stable name, for previews and their sample lists.
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Home => "home",
+            Self::Plugins => "plugins",
+            Self::Workspaces => "workspaces",
+            Self::Activity => "activity",
+            Self::Setup => "setup",
+            Self::Diagnostics => "diagnostics",
+        }
+    }
+
+    pub fn from_key(key: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|page| page.key() == key)
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             Self::Home => "Home",
