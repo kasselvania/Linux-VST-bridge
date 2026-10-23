@@ -722,6 +722,40 @@ def verify_kit_backend(data, source_root):
                         raise ValueError("prebuilt native rebuild differs")
 
 
+def validate_frontend_build(record, source_head, source_tree, artifact_sha256):
+    """The package's Bridge source and the additional UI source stay distinct.
+
+    This is build provenance, not a second runtime selection mechanism. The
+    signed adoption record continues to bind the actual manager/frontend pair.
+    """
+    expected = {"schema", "bridge_source", "frontend_source", "target", "binary", "features",
+                "portable_public_key", "portable_key_class", "artifact_sha256"}
+    if not isinstance(record, dict) or set(record) != expected or record["schema"] != 1:
+        raise ValueError("composite frontend build schema")
+    if record["bridge_source"] != {"head": source_head, "tree": source_tree}:
+        raise ValueError("paired composite frontend Bridge generation differs")
+    private = record["frontend_source"]
+    if (not isinstance(private, dict)
+            or set(private) != {"head", "tree", "manifest", "manifest_sha256", "cargo_lock_sha256"}
+            or any(not isinstance(private[k], str) or not re.fullmatch(r"[0-9a-f]{40}", private[k])
+                   for k in ("head", "tree"))
+            or any(not isinstance(private[k], str) or not re.fullmatch(r"[0-9a-f]{64}", private[k])
+                   for k in ("manifest_sha256", "cargo_lock_sha256"))):
+        raise ValueError("composite frontend source identity")
+    name = private["manifest"]
+    if (not isinstance(name, str) or len(name) > 256 or "\\" in name
+            or PurePosixPath(name).is_absolute() or ".." in PurePosixPath(name).parts
+            or PurePosixPath(name).as_posix() != name or PurePosixPath(name).name != "Cargo.toml"):
+        raise ValueError("composite frontend manifest name")
+    if (record["target"] != "x86_64-unknown-linux-gnu"
+            or record["binary"] != "linux-audio-compatibility-manager"
+            or record["features"] != ["live"] or record["portable_key_class"] != "internal_test"
+            or not isinstance(record["portable_public_key"], str)
+            or not re.fullmatch(r"[0-9a-f]{64}", record["portable_public_key"])
+            or record["artifact_sha256"] != artifact_sha256):
+        raise ValueError("composite frontend artifact/build identity")
+
+
 def validate(spec, source_root=None):
     base = {"schema", "version", "source_head", "source_tree", "operator_schema",
             "external_runtime", "files"}
@@ -744,7 +778,11 @@ def validate(spec, source_root=None):
     seen = {}
     for item in spec["files"]:
         expected = {"destination", "source", "sha256", "kind", "component", "mode"}
-        if item.get("kind") in ("manager", "frontend"):
+        if item.get("kind") == "frontend" and "frontend_build" in item:
+            expected.add("frontend_build")
+            validate_frontend_build(item["frontend_build"], spec["source_head"],
+                                    spec["source_tree"], item["sha256"])
+        elif item.get("kind") in ("manager", "frontend"):
             expected |= {"build_head", "build_tree"}
             if ((item.get("build_head"), item.get("build_tree"))
                     != (spec["source_head"], spec["source_tree"])):
@@ -773,6 +811,14 @@ def validate(spec, source_root=None):
         raise ValueError("supported profile absent")
     if not any(x["kind"] == "license" for x in spec["files"]):
         raise ValueError("third-party license text absent")
+    composite = seen["usr/bin/linux-audio-compatibility-manager"].get("frontend_build")
+    if composite is not None:
+        compliance = json.loads(file_bytes(seen[
+            "usr/share/doc/linux-vst-bridge-beta/COMPLIANCE_MANIFEST.json"]))
+        if (compliance.get("frontend_build") != composite
+                or compliance.get("classification") != "internal_test_only"
+                or compliance.get("release_authorized") is not False):
+            raise ValueError("composite frontend provenance not bound by signed compliance file")
     return seen
 
 

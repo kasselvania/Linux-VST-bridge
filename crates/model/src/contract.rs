@@ -70,6 +70,8 @@ pub enum Read {
     Activity,
     /// The cheap change signal an idle window polls.
     Pulse,
+    /// The retained result of this exact receipted operation.
+    Operation(String),
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -101,6 +103,7 @@ pub enum Reply {
     Snapshot(Box<ui::Snapshot>),
     Activity(ui::Activity),
     Pulse(ui::Pulse),
+    Operation(ui::OperationReadback),
     Receipt(ui::Receipt),
     Imported(ui::InstallerImportResult),
     /// The browser return reached its sign-in.
@@ -130,6 +133,7 @@ impl Request {
             ["operator", "snapshot"] => Self::Read(Read::Snapshot),
             ["operator", "activity"] => Self::Read(Read::Activity),
             ["operator", "pulse"] => Self::Read(Read::Pulse),
+            ["operator", "operation", operation] => Self::Read(Read::Operation(operation.into())),
             ["operator", "request"] => return Some(read_action(input).map(Self::Action)),
             ["import-installer", name] => Self::ImportInstaller { name: name.into() },
             ["native-access-callback", url] => Self::BrowserReturn(url.into()),
@@ -149,6 +153,7 @@ impl Request {
             Self::Read(Read::Snapshot) => operator(&["snapshot"]),
             Self::Read(Read::Activity) => operator(&["activity"]),
             Self::Read(Read::Pulse) => operator(&["pulse"]),
+            Self::Read(Read::Operation(operation)) => operator(&["operation", operation]),
             Self::Action(_) => operator(&["request"]),
             Self::ImportInstaller { name } => vec!["import-installer".into(), name.clone()],
             Self::BrowserReturn(url) => vec!["native-access-callback".into(), url.clone()],
@@ -184,6 +189,7 @@ impl Reply {
             Self::Snapshot(value) => serde_json::to_string(value),
             Self::Activity(value) => serde_json::to_string(value),
             Self::Pulse(value) => serde_json::to_string(value),
+            Self::Operation(value) => serde_json::to_string(value),
             Self::Receipt(value) => serde_json::to_string(value),
             Self::Imported(value) => serde_json::to_string(value),
             Self::Delivered => return Ok(None),
@@ -214,12 +220,20 @@ pub fn decode(request: &Request, data: &[u8]) -> Result<Reply, String> {
     };
     let envelope: serde_json::Value =
         serde_json::from_slice(data).map_err(|_| "Invalid manager response")?;
-    // Paired overview and product readbacks carry their own envelope.
-    if matches!(read, Read::Overview | Read::CurrentOverview | Read::Product(_))
+    // Paired owner readbacks carry their own envelope.
+    if matches!(read, Read::Overview | Read::CurrentOverview | Read::Product(_) | Read::Operation(_))
         && (envelope["schema"] != 1 || envelope["operator_schema"] != ui::OPERATOR_SCHEMA) {
         return Err(paired_model_required());
     }
     match read {
+        Read::Operation(operation) => {
+            let value: ui::OperationReadback = serde_json::from_slice(data)
+                .map_err(|_| "Invalid manager operation readback")?;
+            if !value.matches(operation) {
+                return Err("Manager operation readback does not match the requested operation".into());
+            }
+            Ok(Reply::Operation(value))
+        }
         Read::CurrentOverview => {
             let overview: ui::CurrentOverview = serde_json::from_slice(data)
                 .map_err(|_| "Incompatible manager current overview; update the frontend and manager together")?;
@@ -613,6 +627,7 @@ mod tests {
             class_id: "cd".repeat(16) };
         let requests = [Request::Read(Read::Overview), Request::Read(Read::CurrentOverview), product(&key),
             Request::Read(Read::Snapshot), Request::Read(Read::Activity), Request::Read(Read::Pulse),
+            Request::Read(Read::Operation("ab".repeat(16))),
             action(), Request::ImportInstaller { name: "Setup.exe".into() },
             Request::BrowserReturn("native-access://auth?code=secret".into())];
         for request in requests {
@@ -633,6 +648,30 @@ mod tests {
         assert_eq!(Request::from_command(&args("request"), oversized.as_slice()).unwrap()
             .unwrap_err().to_string(), "operator_request_bound");
         assert!(Request::from_command(&args("request"), &b"{}"[..]).unwrap().is_err());
+    }
+
+    #[test]
+    fn operation_readback_requires_the_requested_identity_and_supported_envelope() {
+        let id = "ab".repeat(16);
+        let request = Request::Read(Read::Operation(id.clone()));
+        let record = serde_json::json!({"schema":1,"operation":id,"state":"completed",
+            "result":{"export":"cd".repeat(16),"sha256":"ef".repeat(32)}});
+        let value = serde_json::to_value(ui::OperationReadback { schema: 1,
+            operator_schema: ui::OPERATOR_SCHEMA, operation: id.clone(), record }).unwrap();
+        assert!(matches!(decode(&request, &bytes(&value)), Ok(Reply::Operation(_))));
+        let mut older = value.clone(); older["record"]["schema"] = 2.into();
+        assert!(matches!(decode(&request, &bytes(&older)), Ok(Reply::Operation(_))));
+        for field in ["schema", "operator_schema", "operation", "record"] {
+            let mut changed = value.clone(); changed[field] = serde_json::Value::Null;
+            assert!(decode(&request, &bytes(&changed)).is_err(), "{field}");
+        }
+        for (field, changed_value) in [("schema", serde_json::json!(3)),
+            ("operation", serde_json::json!("cd".repeat(16))), ("state", serde_json::json!(""))] {
+            let mut changed = value.clone(); changed["record"][field] = changed_value;
+            assert!(decode(&request, &bytes(&changed)).is_err(), "record.{field}");
+        }
+        assert!(decode(&Request::Read(Read::Operation("cd".repeat(16))), &bytes(&value)).is_err());
+        assert!(decode(&Request::Read(Read::Operation("../latest".into())), &bytes(&value)).is_err());
     }
 
     #[test]
@@ -804,6 +843,20 @@ mod tests {
         });
         assert_eq!(installed(&socket).exchange(&pulse, None).unwrap(), b"held pulse\n");
         current.join().unwrap();
+        let exact = serve(1, |peer| {
+            let mut greeting = [0; 5]; peer.read_exact(&mut greeting).unwrap();
+            assert_eq!(&greeting, VIEW_GREETING);
+            let id = "ab".repeat(16);
+            assert_eq!(read_view_request(peer).unwrap(), Read::Operation(id.clone()));
+            let reply = Reply::Operation(ui::OperationReadback { schema: 1,
+                operator_schema: ui::OPERATOR_SCHEMA, operation: id.clone(),
+                record: serde_json::json!({"schema":1,"operation":id,"state":"completed"}) });
+            write_view_reply(peer, Ok(&reply.written().unwrap())).unwrap();
+        });
+        assert!(matches!(Client::new(installed(&socket)).call(
+            &Request::Read(Read::Operation("ab".repeat(16))), None),
+            Ok(Reply::Operation(value)) if value.record["state"] == "completed"));
+        exact.join().unwrap();
         // A read the service dropped is asked once more.
         let restarting = listener.try_clone().unwrap();
         let restarted = std::thread::spawn(move || for answered in [false, true] {

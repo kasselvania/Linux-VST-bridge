@@ -698,6 +698,63 @@ class PackageAssembly(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "paired"):
             assemble.validate(self.spec)
 
+    def composite_frontend(self):
+        self.source_pair()
+        row = next(row for row in self.files if row["kind"] == "frontend")
+        del row["build_head"], row["build_tree"]
+        record = {"schema": 1,
+            "bridge_source": {"head": self.spec["source_head"], "tree": self.spec["source_tree"]},
+            "frontend_source": {"head": "d" * 40, "tree": "e" * 40,
+                "manifest": "apps/bridge/Cargo.toml", "manifest_sha256": "1" * 64,
+                "cargo_lock_sha256": "2" * 64},
+            "target": "x86_64-unknown-linux-gnu", "binary": "linux-audio-compatibility-manager",
+            "features": ["live"], "portable_public_key": "3" * 64,
+            "portable_key_class": "internal_test", "artifact_sha256": row["sha256"]}
+        row["frontend_build"] = record
+        compliance = next(row for row in self.files if row["kind"] == "compliance")
+        data = assemble.canonical({"classification": "internal_test_only", "release_authorized": False,
+                                   "frontend_build": record})
+        pathlib.Path(compliance["source"]).write_bytes(data)
+        compliance["sha256"] = assemble.sha(data)
+        return record, compliance
+
+    def test_composite_frontend_provenance_is_in_existing_signed_roster(self):
+        record, compliance = self.composite_frontend()
+        output = self.root / "composite"
+        release = assemble.build(self.spec, output, 1234567890)
+        self.assertEqual(release["schema"], 1)
+        self.assertEqual(release["source_head"], "a" * 40)
+        with tarfile.open(output / "payload.tar") as archive:
+            data = archive.extractfile(compliance["destination"]).read()
+            self.assertEqual(json.loads(data)["frontend_build"], record)
+            signed_row = next(row for row in release["files"] if row["kind"] == "compliance")
+            self.assertEqual(signed_row["sha256"], assemble.sha(data))
+            adopted = json.loads(archive.extractfile(assemble.ADOPTION_MANIFEST).read())
+            self.assertEqual(adopted["schema"], 3)
+            selected_frontend = next(row for row in adopted["files"]
+                                     if row["name"] == "linux-audio-compatibility-manager")
+            self.assertEqual(selected_frontend["sha256"], record["artifact_sha256"])
+            self.assertNotIn("frontend_build", adopted)
+        package = package_archive(output, self.root / "composite.pkg.tar.zst")
+        self.assertEqual(verify_package.verify(package, release, True)["files"], len(self.files) + 2)
+
+    def test_composite_frontend_cannot_drift_or_omit_signed_provenance(self):
+        record, compliance = self.composite_frontend()
+        for key, value in (("bridge_source", {"head": "f" * 40, "tree": "b" * 40}),
+                           ("artifact_sha256", "0" * 64), ("features", ["live", "samples"]),
+                           ("portable_key_class", "release")):
+            with self.subTest(key=key):
+                old = record[key]
+                record[key] = value
+                with self.assertRaises(ValueError):
+                    assemble.validate(self.spec)
+                record[key] = old
+        data = assemble.canonical({"classification": "internal_test_only", "release_authorized": False})
+        pathlib.Path(compliance["source"]).write_bytes(data)
+        compliance["sha256"] = assemble.sha(data)
+        with self.assertRaisesRegex(ValueError, "not bound by signed compliance"):
+            assemble.validate(self.spec)
+
     def test_fixture_resources_are_packaged_without_executable_claim(self):
         out = self.root / "resources"
         manifest = assemble.build(self.spec, out, 1234567890)

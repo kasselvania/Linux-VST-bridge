@@ -18,6 +18,7 @@ on:
       - 'bridge-manager/**'
       - 'crates/model/**'
       - 'crates/view-model/**'
+      - 'crates/client/**'
       # Read by problem.rs's explanation-completeness test.
       - 'windows-factory-probe/source/inspect_module.cpp'
       - 'windows-factory-probe/source/ap8_state.h'
@@ -60,6 +61,7 @@ on:
       - 'bridge-manager/**'
       - 'crates/model/**'
       - 'crates/view-model/**'
+      - 'crates/client/**'
       # Read by problem.rs's explanation-completeness test.
       - 'windows-factory-probe/source/inspect_module.cpp'
       - 'windows-factory-probe/source/ap8_state.h'
@@ -132,6 +134,10 @@ jobs:
       - run: rustup toolchain install 1.95.0 --profile minimal --component clippy
       - run: cargo +1.95.0 test --manifest-path manager-ui/Cargo.toml --locked
       - run: cargo +1.95.0 clippy --manifest-path manager-ui/Cargo.toml --locked --all-targets -- -D warnings
+      # Shared request/custody behavior moved out of the frontend; dependency
+      # tests are not run by cargo test on the frontend itself.
+      - run: cargo +1.95.0 test --manifest-path crates/client/Cargo.toml --locked --all-features
+      - run: cargo +1.95.0 clippy --manifest-path crates/client/Cargo.toml --locked --all-targets --all-features -- -D warnings
       # The window's screen model, built on its own with nothing but the wire model.
       - run: cargo +1.95.0 test --manifest-path crates/view-model/Cargo.toml --locked
       - run: cargo +1.95.0 clippy --manifest-path crates/view-model/Cargo.toml --locked --all-targets --all-features -- -D warnings

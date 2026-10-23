@@ -17,10 +17,11 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / 'pkg0'))
 import assemble
 import rust_notices
+import frontend_build
 
 
 class CandidateInputs(unittest.TestCase):
-    def test_reusable_kit_reaches_package_roster_without_any_exact_plugin_entry(self):
+    def exercise_candidate(self, composite=False):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             source = root / 'source'
@@ -79,7 +80,25 @@ class CandidateInputs(unittest.TestCase):
             build = root / 'build'
             build.mkdir()
 
-            def notices(_source, output):
+            frontend_record = None
+            frontend_output = root / 'frontend-build'
+            if composite:
+                frontend_output.mkdir()
+                (frontend_output / frontend_build.BINARY).write_bytes(b'\x7fELFqualified-live-frontend')
+                frontend_record = dict(schema=1,
+                    bridge_source=dict(head=git('rev-parse','HEAD'),tree=git('rev-parse','HEAD^{tree}')),
+                    frontend_source=dict(head='a'*40,tree='b'*40,manifest='app/Cargo.toml',
+                        manifest_sha256='c'*64,cargo_lock_sha256='d'*64),
+                    target=frontend_build.TARGET,binary=frontend_build.BINARY,features=['live'],
+                    portable_public_key='e'*64,portable_key_class='internal_test',
+                    artifact_sha256=sha((frontend_output/frontend_build.BINARY).read_bytes()))
+                (frontend_output/'frontend-build.json').write_text(json.dumps(frontend_record))
+
+            def notices(_source, output, **kwargs):
+                if composite:
+                    self.assertEqual(kwargs,dict(frontend_source=root/'private',frontend_build=frontend_record))
+                else:
+                    self.assertEqual(kwargs,{})
                 for name in ('Rust-Dependency-Notices.txt', 'Rust-Dependency-Inventory.json'):
                     (output / name).write_text('fixture')
                 return []
@@ -88,11 +107,26 @@ class CandidateInputs(unittest.TestCase):
                 '--source', str(source), '--windows-package', str(windows),
                 '--kit', str(kit), '--fixture', str(fixture), '--version', '0.12.0fixture',
                 '--epoch', '1']
+            if composite:
+                argv += ['--frontend-build',str(frontend_output/'frontend-build.json'),
+                         '--frontend-source',str(root/'private')]
             with patch.object(sys, 'argv', argv), patch.object(rust_notices, 'capture', notices), \
+                    patch.object(frontend_build,'verify_record',return_value=frontend_record) as verified, \
                     contextlib.redirect_stdout(io.StringIO()):
                 runpy.run_path(argv[0], run_name='__main__')
             spec = json.loads((build / 'package-spec-0.12.0fixture.json').read_text())
             assemble.validate(spec, source)
+            frontend_row=next(row for row in spec['files'] if row['kind']=='frontend')
+            if composite:
+                verified.assert_called_once()
+                self.assertEqual(frontend_row['frontend_build'],frontend_record)
+                self.assertNotIn('build_head',frontend_row)
+                self.assertEqual(pathlib.Path(frontend_row['source']).read_bytes(),b'\x7fELFqualified-live-frontend')
+                compliance=json.loads((build/'inputs-0.12.0fixture/COMPLIANCE_MANIFEST.json').read_text())
+                self.assertEqual(compliance['frontend_build'],frontend_record)
+            else:
+                verified.assert_not_called()
+                self.assertEqual(frontend_row['build_head'],git('rev-parse','HEAD'))
             proxies = [row for row in spec['files'] if row['kind'] == 'proxy']
             self.assertEqual(len(proxies), 1)
             self.assertEqual(proxies[0]['destination'], 'usr/lib/linux-vst-bridge/proxy/ReusableEngine.so')
@@ -119,6 +153,12 @@ class CandidateInputs(unittest.TestCase):
             self.assertNotIn('automatic continuation from it is not included', guide)
             self.assertNotIn('inside a vendor application is still a missing integration', guide)
             self.assertEqual(git('status', '--porcelain'), '')
+
+    def test_reusable_kit_reaches_package_roster_without_any_exact_plugin_entry(self):
+        self.exercise_candidate()
+
+    def test_qualified_frontend_uses_standard_role_with_both_source_inputs(self):
+        self.exercise_candidate(composite=True)
 
 
 if __name__ == '__main__':

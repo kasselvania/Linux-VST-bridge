@@ -11,10 +11,11 @@ import subprocess
 import tomllib
 import urllib.parse
 import urllib.request
+import frontend_build as qualification
 
 
 def license_name(name):
-    return re.match(r"^(LICENSE|LICENCE|NOTICE|COPYING|COPYRIGHT)([._-]|$)",
+    return re.match(r"^(LICENSE|LICENCE|NOTICE|COPYING|COPYRIGHT|OFL|UNLICENSE)([._-]|$)",
                     name, re.IGNORECASE) is not None
 
 
@@ -54,75 +55,124 @@ def upstream_root_licenses(package, root, cache):
     return cache[key]
 
 
-def capture(source, output, target="x86_64-unknown-linux-gnu"):
-    packages, locked = {}, {}
-    for manifest in ("manager-ui/Cargo.toml", "native-vst3-proxy/backend/Cargo.toml"):
-        lock = tomllib.loads((source / manifest).with_name("Cargo.lock").read_text())
+def capture(source, output, target="x86_64-unknown-linux-gnu", *,
+            frontend_source=None, frontend_build=None):
+    if frontend_build is not None:
+        with qualification.recorded_sources(source, frontend_source) as (public, private, env):
+            return capture_sources(public, output, target, frontend_source=private,
+                                   frontend_build=frontend_build, cargo_env=env)
+    return capture_sources(source, output, target)
+
+
+def capture_sources(source, output, target="x86_64-unknown-linux-gnu", *,
+                    frontend_source=None, frontend_build=None, cargo_env=None):
+    source, output = Path(source).resolve(), Path(output)
+    packages, locked, origins = {}, {}, {}
+    manifests = [source / "manager-ui/Cargo.toml", source / "native-vst3-proxy/backend/Cargo.toml"]
+    frontend_manifest = None
+    if frontend_build is not None:
+        frontend_source = Path(frontend_source).resolve()
+        identity = frontend_build["frontend_source"]
+        if (qualification.source_identity(frontend_source) != {k: identity[k] for k in ("head", "tree")}
+                or qualification.source_identity(source) != frontend_build["bridge_source"]):
+            raise ValueError("notice sources differ from frontend build")
+        frontend_manifest = frontend_source / identity["manifest"]
+        tracked = qualification.tracked_files(frontend_source)
+        manifests = [source / "bridge-manager/Cargo.toml", manifests[1], frontend_manifest]
+    for manifest in manifests:
+        lock = tomllib.loads(manifest.with_name("Cargo.lock").read_text())
         for item in lock["package"]:
             if item.get("source", "").startswith("registry+"):
                 key = (item["name"], item["version"])
                 if key in locked and locked[key] != item["checksum"]:
                     raise ValueError("Conflicting locked dependency archives")
                 locked[key] = item["checksum"]
-        metadata = json.loads(subprocess.check_output([
-            "cargo", "metadata", "--locked", "--format-version", "1",
-            "--filter-platform", target, "--manifest-path", str(source / manifest)]))
-        nodes = {node["id"]: node for node in metadata["resolve"]["nodes"]}
-        todo = [metadata["resolve"]["root"]]
-        seen = set()
-        while todo:
-            identity = todo.pop()
-            if identity in seen:
-                continue
-            seen.add(identity)
-            todo.extend(dep["pkg"] for dep in nodes[identity]["deps"]
-                        if any(kind["kind"] != "dev" for kind in dep["dep_kinds"]))
-        for package in metadata["packages"]:
-            if package["id"] in seen and package.get("source"):
-                if not package["source"].startswith("registry+"):
-                    raise ValueError("Uninventoried non-registry Rust dependency")
+        metadata = (qualification.release_metadata(manifest, env=cargo_env) if manifest == frontend_manifest else
+                    json.loads(subprocess.check_output([
+                        "cargo", "metadata", "--locked", "--format-version", "1",
+                        "--filter-platform", target, "--manifest-path", str(manifest)],
+                        cwd=manifest.parent, env=cargo_env)))
+        for package in qualification.release_packages(metadata):
+            origin = package.get("source")
+            root = Path(package["manifest_path"]).resolve().parent
+            if origin and origin.startswith("registry+"):
                 packages[package["id"]] = package
+            elif (frontend_build is not None and origin
+                  and qualification.bridge_dependency(origin, frontend_build["bridge_source"]["head"])):
+                continue  # First-party Bridge crates; the package already includes COPYRIGHT.md.
+            elif origin:
+                raise ValueError("Uninventoried non-registry Rust dependency")
+            elif frontend_build is not None and root.is_relative_to(frontend_source):
+                qualification.tracked_blob(frontend_source, (root / "Cargo.toml").relative_to(frontend_source))
+                packages[package["id"]] = package
+                origins[package["id"]] = {"kind": "git", "head": identity["head"],
+                    "tree": identity["tree"], "path": root.relative_to(frontend_source).as_posix()}
+            elif not root.is_relative_to(source):
+                raise ValueError("Uninventoried path Rust dependency")
     inventory, texts, upstream = [], [], {}
     for package in sorted(packages.values(), key=lambda p: (p["name"], p["version"])):
-        root = Path(package["manifest_path"]).parent
-        files = sorted(path for path in root.rglob("*") if path.is_file()
-                       and (license_name(path.name)
+        root = Path(package["manifest_path"]).resolve().parent
+        origin = origins.get(package["id"])
+        candidates = ([frontend_source / name for name in tracked
+                       if (frontend_source / name).is_relative_to(root)] if origin else
+                      [path for path in root.rglob("*") if path.is_file()])
+        files = sorted(path for path in candidates
+                       if (license_name(path.name)
                             or ("fonts" in path.relative_to(root).parts and path.suffix == ".txt")))
         if package.get("license_file"):
             declared = root / package["license_file"]
-            if declared.resolve().is_relative_to(root.resolve()) and declared.is_file():
-                files = sorted(set(files) | {declared})
+            boundary = frontend_source if origin else root.resolve()
+            if origin:
+                if not declared.resolve().is_relative_to(boundary):
+                    raise ValueError("License text escapes recorded source")
+                qualification.tracked_blob(frontend_source, declared.resolve().relative_to(frontend_source))
+            if declared.resolve().is_relative_to(boundary) and declared.is_file():
+                files = sorted(set(files) | {declared.resolve()})
         if not package.get("license"):
             raise ValueError(f"Missing declared license/text: {package['name']} {package['version']}")
         missing_root = not any(path.parent == root and license_name(path.name) for path in files)
-        additional = upstream_root_licenses(package, root, upstream) if missing_root else []
-        checksum = locked[(package["name"], package["version"])]
-        if not isinstance(checksum, str) or not re.fullmatch(r"[0-9a-f]{64}", checksum):
-            raise ValueError("Registry package checksum absent")
-        archive = root.parents[2] / "cache" / root.parent.name / (root.name + ".crate")
-        if hashlib.sha256(archive.read_bytes()).hexdigest() != checksum:
-            raise ValueError("Registry archive differs from the locked dependency")
+        if origin:
+            # Makepad's own crates share its root MIT license. Vendored crates
+            # must bring their own texts; a foreign crate cannot inherit it.
+            if missing_root and package["name"].startswith("makepad-"):
+                files += sorted(frontend_source / name for name in tracked
+                                if name.parent == Path(".") and license_name(name.name))
+            if not any(license_name(path.name) for path in files):
+                raise ValueError(f"Missing exact-source license text: {package['name']}")
+            additional, checksum = [], None
+        else:
+            additional = upstream_root_licenses(package, root, upstream) if missing_root else []
+            checksum = locked[(package["name"], package["version"])]
+            if not isinstance(checksum, str) or not re.fullmatch(r"[0-9a-f]{64}", checksum):
+                raise ValueError("Registry package checksum absent")
+            archive = root.parents[2] / "cache" / root.parent.name / (root.name + ".crate")
+            if hashlib.sha256(archive.read_bytes()).hexdigest() != checksum:
+                raise ValueError("Registry archive differs from the locked dependency")
         captured = []
         texts.append(f"\n=== {package['name']} {package['version']} ({package['license']}) ===\n")
         for path in files:
-            if path.is_symlink() or path.stat().st_size > 2_000_000:
+            if path.is_symlink() or (not origin and path.stat().st_size > 2_000_000):
                 raise ValueError("License text custody/extent")
-            data = path.read_bytes()
+            data = (qualification.tracked_blob(frontend_source, path.relative_to(frontend_source))
+                    if origin else path.read_bytes())
+            if len(data) > 2_000_000:
+                raise ValueError("License text custody/extent")
             text = data.decode("utf-8")
-            name = path.relative_to(root).as_posix()
+            name = path.relative_to(frontend_source if origin else root).as_posix()
             captured.append({"file": name, "sha256": hashlib.sha256(data).hexdigest(),
-                             "source": "registry_archive"})
+                             "source": "frontend_source" if origin else "registry_archive"})
             texts.append(f"--- {name} ---\n{text}\n")
         for name, data, url in additional:
             captured.append({"file": name, "sha256": hashlib.sha256(data).hexdigest(),
                              "source": "upstream_revision", "url": url})
             texts.append(f"--- {url} ---\n{data.decode('utf-8')}\n")
-        inventory.append({"name": package["name"], "version": package["version"],
-                          "license_declared": package["license"],
-                          "registry_archive_sha256": checksum, "license_texts": captured})
+        item = {"name": package["name"], "version": package["version"],
+                "license_declared": package["license"], "license_texts": captured}
+        item.update({"source": origin} if origin else {"registry_archive_sha256": checksum})
+        inventory.append(item)
     (output / "Rust-Dependency-Notices.txt").write_text(
         "Resolved Linux release dependencies; upstream declarations and texts.\n" + "".join(texts))
     (output / "Rust-Dependency-Inventory.json").write_text(json.dumps(
-        {"schema": 1, "target": target, "dev_dependencies_included": False,
+        {"schema": 2 if frontend_build else 1, "target": target, "dev_dependencies_included": False,
          "packages": inventory}, sort_keys=True, indent=2) + "\n")
     return inventory
