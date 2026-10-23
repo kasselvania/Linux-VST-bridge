@@ -370,19 +370,29 @@ pub fn read_json_identity<T: for<'de> Deserialize<'de>>(p: &Path) -> Result<(T, 
 fn read_control_bytes(p: &Path, limit: usize) -> Result<Vec<u8>> {
     read_control_bytes_with(p, limit, || Ok(()))
 }
-fn read_control_bytes_with(p: &Path, limit: usize, after_open: impl FnOnce() -> Result<()>) -> Result<Vec<u8>> {
-    let mut held = file(p)?;
-    let before = DigestFileIdentity::from(&held.metadata()?);
-    require(before.length <= limit as u64, "control_record_bound")?;
-    after_open()?;
-    let mut bytes = Vec::new();
-    std::io::Read::by_ref(&mut held).take(limit as u64 + 1).read_to_end(&mut bytes)?;
-    record_opened(p, 0, bytes.len() as u64);
-    require(bytes.len() <= limit && bytes.len() as u64 == before.length
-        && DigestFileIdentity::from(&held.metadata()?) == before
-        && DigestFileIdentity::from(&fs::symlink_metadata(p)?) == before,
-        "control_record_changed_during_read")?;
-    Ok(bytes)
+/// Reads of one record before it refuses as changing (#382). A live
+/// supervisor replaces its receipt twice a second; a read that overlaps a
+/// replacement reads the replacement.
+const CONTROL_READ_ATTEMPTS: usize = 3;
+/// One control record's bytes, all from one file that did not change while it
+/// was read and that its path still names. A record replaced or rewritten
+/// during the read is read again; one that changes during every read refuses.
+fn read_control_bytes_with(p: &Path, limit: usize, mut after_open: impl FnMut() -> Result<()>) -> Result<Vec<u8>> {
+    for _ in 0..CONTROL_READ_ATTEMPTS {
+        let mut held = file(p)?;
+        let before = DigestFileIdentity::from(&held.metadata()?);
+        require(before.length <= limit as u64, "control_record_bound")?;
+        after_open()?;
+        let mut bytes = Vec::new();
+        std::io::Read::by_ref(&mut held).take(limit as u64 + 1).read_to_end(&mut bytes)?;
+        record_opened(p, 0, bytes.len() as u64);
+        if bytes.len() <= limit && bytes.len() as u64 == before.length
+            && DigestFileIdentity::from(&held.metadata()?) == before
+            && DigestFileIdentity::from(&fs::symlink_metadata(p)?) == before {
+            return Ok(bytes);
+        }
+    }
+    Err("control_record_changed_during_read".into())
 }
 pub fn atomic_json<T: Serialize>(p: &Path, data: &T) -> Result<()> {
     let temp = p.with_extension(format!("tmp-{}", random_id()?));
@@ -1432,16 +1442,29 @@ mod tests {
             .unwrap_err().to_string();
         assert_eq!(error, "control_record_bound");
         assert!(unopened.get(), "oversized records must refuse before the read seam");
+        // Rewritten in place while read: read again, so the bound applies to
+        // what the record now is.
         fs::write(&path, b"{}\n").unwrap();
         assert_eq!(read_control_bytes_with(&path, 32, || {
             fs::write(&path, vec![b'x';33])?; Ok(())
-        }).unwrap_err().to_string(), "control_record_changed_during_read");
-        fs::write(&path, b"{}\n").unwrap();
-        assert_eq!(read_control_bytes_with(&path, 32, || {
+        }).unwrap_err().to_string(), "control_record_bound");
+        let replace = |bytes: &[u8]| -> Result<()> {
             let replacement = path.with_extension("replacement");
-            fs::write(&replacement, b"[]\n")?;
+            fs::write(&replacement, bytes)?;
             fs::rename(replacement, &path)?; Ok(())
-        }).unwrap_err().to_string(), "control_record_changed_during_read");
+        };
+        // Replaced once while read, as a supervisor's receipt is: the
+        // replacement is read, whole (#382).
+        fs::write(&path, b"{}\n").unwrap();
+        let replaced = Cell::new(false);
+        assert_eq!(read_control_bytes_with(&path, 32, || {
+            if !replaced.replace(true) { replace(b"[1]\n")?; }
+            Ok(())
+        }).unwrap(), b"[1]\n");
+        // Replaced during every read: it refuses.
+        fs::write(&path, b"{}\n").unwrap();
+        assert_eq!(read_control_bytes_with(&path, 32, || replace(b"[]\n"))
+            .unwrap_err().to_string(), "control_record_changed_during_read");
         assert_eq!(record.read_record::<serde_json::Value>(32).unwrap_err().to_string(),
             "control_record_digest_changed");
     }

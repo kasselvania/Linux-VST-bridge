@@ -6911,6 +6911,64 @@ pub(crate) mod tests {
         });
         IdleService(Some(stop), Some(thread))
     }
+    /// #382: while an installer runs, its supervisor replaces its receipt
+    /// (twice a second, more often while the prefix starts) and its private
+    /// records beside it. Home, the interactive overview and Diagnostics are
+    /// read again and again meanwhile; on the Deck a read takes seconds, so
+    /// reads overlap these writes, here made continuously. No read may be
+    /// refused for them.
+    fn status_reads_while_an_installer_writes_progress(initial: bool) {
+        let (f, _) = preparation_cli::tests::projection_fixture();
+        // A setup's first installer runs before any other run in it.
+        let operations = test_fixture::retained_history(&f, test_fixture::Changes::Installers, 1,
+            if initial { 0 } else { 1 }, 0);
+        let (running, finished) = (operations.last().unwrap(), &operations[0]);
+        let record = onboarding::history_records(&f.m).unwrap().remove(0);
+        let directory = if initial { onboarding::directory(&f.m, &record.id).unwrap() } else { job_dir(&f.m, running).unwrap() };
+        let receipt = directory.join(if initial { format!("{running}-result.json") } else { "installation-result.json".into() });
+        let ledger = directory.join(format!("{running}-ledger.private.json"));
+        let observation = directory.join(format!("{running}-transaction-private.json"));
+        let progress = |live: u64| json!({"schema":2,"operation":running,"state":"running",
+            "cleanup_confirmed":false,"owned_live":live});
+        atomic_json(&receipt, &progress(1)).unwrap();
+        let _service = idle_service(&f.m);
+        let finished: Vec<_> = (finished != running).then(|| onboarding::unit(finished).unwrap()).into_iter().collect();
+        readiness::with_unit_state_fixture(&finished, "inactive", || {
+        readiness::with_unit_state_fixture(&[onboarding::unit(running).unwrap()], "active", || {
+            let stop = std::sync::atomic::AtomicBool::new(false);
+            let (reads, refused) = std::thread::scope(|scope| {
+                scope.spawn(|| {
+                    let mut beat = 0u64;
+                    while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+                        beat += 1;
+                        atomic_json(&receipt, &progress(1 + beat % 2)).unwrap();
+                        atomic_json(&ledger, &json!({"schema":1,"operation":running,"beat":beat})).unwrap();
+                        atomic_json(&observation, &json!({"schema":1,"operation":running,"beat":beat})).unwrap();
+                        std::thread::yield_now();
+                    }
+                });
+                let mut refused = Vec::new();
+                let mut reads = 0;
+                for _ in 0..12 {
+                    reads += 3;
+                    if let Err(error) = current_overview(&f.m) { refused.push(format!("home: {error}")); }
+                    if let Err(error) = overview(&f.m) { refused.push(format!("overview: {error}")); }
+                    if let Err(error) = snapshot(&f.m) { refused.push(format!("diagnostics: {error}")); }
+                }
+                stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                (reads, refused)
+            });
+            assert!(refused.is_empty(), "{} of {reads} reads refused: {refused:#?}", refused.len());
+        })});
+    }
+    #[test]
+    fn status_reads_answer_while_an_installer_in_a_setup_writes_progress() {
+        status_reads_while_an_installer_writes_progress(false);
+    }
+    #[test]
+    fn status_reads_answer_while_a_setups_first_installer_writes_progress() {
+        status_reads_while_an_installer_writes_progress(true);
+    }
     #[test]
     fn a_setup_card_whose_installer_did_not_confirm_closing_offers_the_check() {
         // Every action that waits for this installer says to use "Check that

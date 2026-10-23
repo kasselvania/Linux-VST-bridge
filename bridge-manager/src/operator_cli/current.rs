@@ -223,6 +223,9 @@ pub(super) struct CurrentOverviewContext {
     owners: Vec<capacity::Owner>,
     watched: BTreeMap<PathBuf,Option<FileStamp>>,
     installer_live: BTreeMap<String,bool>,
+    /// Native Access sessions an install-and-connect journey owns whose
+    /// report said they were running, and whether each was live.
+    renderer_live: BTreeMap<String,bool>,
     vendor_progress: Option<vendor_application::Operation>,
     vendor_retired: bool,
     all_vendor_retired: bool,
@@ -273,6 +276,14 @@ impl CurrentOverviewContext {
                 paths.insert(dir.clone(),vec![dir.join("installation-result.json")]);
             }
         }
+        // A live Native Access session replaces its report twice a second
+        // (#382). A terminal report settles the journey's connection, so it
+        // requires a refresh; the session's other records stay watched.
+        for (owner, _) in self.renderer_live.iter().filter(|(_, live)| **live) {
+            require(renderer_session_running(m, owner)?, "operator_vendor_state_changed_refresh")?;
+            let session = linux_vst_bridge::renderer_session::operation_dir(m, owner)?;
+            paths.insert(session.clone(), vec![session.join("result.json")]);
+        }
         Ok(paths)
     }
     fn recheck_external(&self, m: &Manager) -> Result<()> {
@@ -298,6 +309,7 @@ impl CurrentOverviewContext {
                 let operations = self.installer_live.keys().cloned().collect::<Vec<_>>();
                 (installer_liveness(&operations), at.elapsed().as_millis())
             });
+            let renderer = linux_vst_bridge::spawn_recorded(scope, || renderer_liveness(self.renderer_live.keys()));
             let (vendor_result, vendor_ms) = vendor.join()
                 .map_err(|_| "operator_vendor_probe_failed")?;
             let (workspace_result, workspace_ms) = workspace.join()
@@ -312,6 +324,7 @@ impl CurrentOverviewContext {
             };
             let (installer_result, installer_ms) = installer.join()
                 .map_err(|_| "operator_installer_probe_failed")?;
+            let renderer_result = renderer.join().map_err(|_| "operator_vendor_probe_failed")?;
             require(self.vendor_retired == vendor_result.0?
                 && self.vendor_progress == vendor_result.1?,
                 "operator_vendor_state_changed_refresh")?;
@@ -321,6 +334,7 @@ impl CurrentOverviewContext {
             }
             require(installer_result? == self.installer_live,
                 "operator_installer_state_changed_refresh")?;
+            require(renderer_result? == self.renderer_live, "operator_vendor_state_changed_refresh")?;
             let (workspaces, _) = workspace_result?;
             #[cfg(feature = "pb0-c0-audit")]
             eprintln!("PB0_PHASE {}",json!({"external_vendor_ms":vendor_ms,
@@ -402,6 +416,7 @@ impl CurrentOverviewContext {
             .is_some_and(|state| WORKER_OWNED_STATES.contains(&state));
         let quiescent = self.all_vendor_retired && self.vendor_progress.is_none()
             && !self.installer_live.values().any(|live| *live) && !operation_live
+            && !self.renderer_live.values().any(|live| *live)
             && !self.snapshot.workspaces.iter().any(|workspace| workspace.state == "running")
             && self.snapshot.system.capacity_available() && !self.snapshot.system.cleanup_unconfirmed;
         let mut directories = BTreeSet::new();
@@ -494,6 +509,21 @@ fn installer_liveness(operations: &[String]) -> Result<BTreeMap<String, bool>> {
         }
         Ok(states)
     })
+}
+
+/// Whether a Native Access session's report says it is still running.
+fn renderer_session_running(m: &Manager, owner: &str) -> Result<bool> {
+    let session = linux_vst_bridge::renderer_session::operation_dir(m, owner)?;
+    if session.join("recovery-result.json").try_exists()? { return Ok(false); }
+    let report = session.join("result.json");
+    if !report.try_exists()? { return Ok(false); }
+    require(file(&report)?.metadata()?.len() <= 65536, "renderer_result_bound")?;
+    let current: Value = read_json(&report)?;
+    Ok(current["operation"] == owner && matches!(current["state"].as_str(), Some("starting" | "running" | "unknown"))
+        && current["cleanup_confirmed"] != true)
+}
+fn renderer_liveness<'a>(owners: impl Iterator<Item = &'a String>) -> Result<BTreeMap<String, bool>> {
+    owners.map(|owner| Ok((owner.clone(), renderer_cli::live(owner)?))).collect()
 }
 
 #[derive(Default)]
@@ -909,6 +939,14 @@ fn compose_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->Result<boo
     let preparation = if diagnostics { preparation::RecordReadback::capture_unwatched(m)? }
         else { preparation::RecordReadback::capture_watched(m)? };
     let mut watched = if diagnostics { BTreeMap::new() } else { watch_paths(m, &sw, &db)? };
+    // After the stamps: a session that ends meanwhile is found terminal again.
+    let mut renderer_live = BTreeMap::new();
+    if !diagnostics {
+        for retained in renderer_continuation::records(m)? {
+            let owner = &retained.intent.owner;
+            if renderer_session_running(m, owner)? { renderer_live.insert(owner.clone(), renderer_cli::live(owner)?); }
+        }
+    }
     let catalogue = operator_catalogue_records(m, &sw, &db, &preparation)?;
     for path in preparation.watched_paths()? { watched.insert(path.clone(), stamp(&path)?); }
     require(watched.len() <= 4096, "operator_current_watch_bound")?;
@@ -1120,7 +1158,7 @@ fn compose_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->Result<boo
         bridge:crate::package_authority::bridge_build(m,&sw)};
     Ok(CurrentOverviewContext {snapshot,busy,profiles,revisions,owners,watched,current_generation,
         software:sw,registry:db,preparation,bindings:managed_bindings,
-        installer_live,vendor_progress,vendor_retired:vendor,all_vendor_retired:retired,cleanup_seen,
+        installer_live,renderer_live,vendor_progress,vendor_retired:vendor,all_vendor_retired:retired,cleanup_seen,
         #[cfg(feature = "pb0-c0-audit")]
         captured_at:started})
     })
@@ -1615,7 +1653,7 @@ pub(super) mod tests {
             software,registry:m.registry().unwrap(),preparation:preparation::RecordReadback::capture_watched(m).unwrap(),
             bindings:vec![],
             owners:capacity::owners(m).unwrap(),watched,installer_live:BTreeMap::new(),
-            vendor_progress:None,
+            renderer_live:BTreeMap::new(),vendor_progress:None,
             vendor_retired:vendor_retired_with(m,||Ok(false)).unwrap(),all_vendor_retired:true,cleanup_seen:None,
             #[cfg(feature = "pb0-c0-audit")]
             captured_at:Instant::now(),

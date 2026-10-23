@@ -521,6 +521,44 @@ pub(super) fn finish(m:&Manager,operation:&str,action:&ui::Action)->Result<()> {
         let saved=load(&f.m,&owner).unwrap();assert_eq!(saved.intent.active_operation,resume);assert_eq!(saved.intent.journey.daw,ui::DawChoice::Bitwig);
         assert_eq!(current_journey(&f.m,&saved).unwrap().phase,ui::InstallationPhase::AwaitingApplication);
     }
+    #[test] fn status_reads_answer_while_native_access_writes_its_session_progress() {
+        // #382 (Deck/Test216): while Native Access is open for an install
+        // and connection, its supervisor replaces the session's report twice
+        // a second. Home is read again and again meanwhile.
+        let (f,retained)=fixture();
+        let report=renderer_session::operation_dir(&f.m,&retained.intent.owner).unwrap().join("result.json");
+        let mut running=optional(&report).unwrap();
+        running["state"]=json!("running");running["cleanup_confirmed"]=json!(false);running["owned_live"]=json!(1);
+        atomic_json(&report,&running).unwrap();
+        let _service=crate::operator_cli::tests::idle_service(&f.m);
+        let stop=std::sync::atomic::AtomicBool::new(false);
+        let refused=std::thread::scope(|scope| {
+            scope.spawn(|| {
+                let mut beat=0u64;let mut progress=running.clone();
+                while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+                    beat+=1;progress["owned_live"]=json!(1+beat%2);
+                    atomic_json(&report,&progress).unwrap();
+                    std::thread::yield_now();
+                }
+            });
+            let refused:Vec<String>=(0..12).filter_map(|_|current_overview(&f.m).err().map(|error|error.to_string())).collect();
+            stop.store(true,std::sync::atomic::Ordering::Relaxed);
+            refused
+        });
+        assert!(refused.is_empty(),"{} of 12 reads refused: {refused:#?}",refused.len());
+        // Its other records stay watched while it runs.
+        let spec=report.with_file_name("spec.json");
+        let captured=super::current::capture(&f.m).unwrap();
+        let mut changed=optional(&spec).unwrap();changed["renderer_policy"]=json!("changed");
+        atomic_json(&spec,&changed).unwrap();
+        assert_eq!(captured.recheck(&f.m).unwrap_err().to_string(),"operator_current_artifact_changed_refresh");
+        // A session that ends while Home is read is not shown running.
+        let captured=super::current::capture(&f.m).unwrap();
+        let mut ended=running.clone();
+        ended["state"]=json!("completed");ended["cleanup_confirmed"]=json!(true);ended["owned_live"]=json!(0);
+        atomic_json(&report,&ended).unwrap();
+        assert_eq!(captured.recheck(&f.m).unwrap_err().to_string(),"operator_vendor_state_changed_refresh");
+    }
     #[test] fn connection_after_native_access_waits_out_a_status_read_instead_of_refusing() {
         use linux_vst_bridge::operator_lock::{with_operator_registry_wait,LockBusy};
         let (f,retained)=fixture();
