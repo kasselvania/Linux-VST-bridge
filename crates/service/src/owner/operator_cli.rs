@@ -935,7 +935,7 @@ fn managed_rescan_binding_with(m: &Manager, bindings: &[catalogue::EnvironmentBi
                 .into_iter().chain(std::iter::once(&replacement.operation)) {
                 require(!onboarding::live(operation)?,"operator_installer_active")?;
             }
-            env.runner.verify()?;
+            verify_rescan_runtime(&env)?;
         }
         return Ok(Some(env));
     }
@@ -953,8 +953,13 @@ fn managed_rescan_binding_with(m: &Manager, bindings: &[catalogue::EnvironmentBi
             }
         }
     }
-    if execution {env.runner.verify()?;}
+    if execution {verify_rescan_runtime(&env)?;}
     Ok(Some(env))
+}
+fn verify_rescan_runtime(environment: &Environment) -> Result<()> {
+    environment.runner.verify().map_err(|error| format!(
+        "The compatibility runtime recorded for this setup is unavailable or changed. The plug-in scan did not start: {error}"
+    ).into())
 }
 fn quarantined_retry_disabled(m: &Manager,
     bindings: &[linux_vst_bridge::catalogue::EnvironmentBinding],
@@ -8700,6 +8705,45 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         }
         assert_eq!(restores.get(), 1);
         assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    #[test]
+    fn managed_rescan_names_changed_target_runtime_without_scanning_or_rewriting_state() {
+        for missing in [false, true] {
+            let (f, _) = onboarding_worker_fixture();
+            let environment = &f.r.environment;
+            let sw = software(&f.m).unwrap();
+            let registry = f.m.registry().unwrap();
+            let catalogue = operator_catalogue_readback(&f.m, &sw, &registry).unwrap();
+            assert_eq!(managed_rescan_binding(&f.m, catalogue.as_ref(), &registry,
+                &environment.id).unwrap(), Some(environment.clone()));
+            let input = &environment.runner.files[0].path;
+            let original = fs::read(input).unwrap();
+            let permissions = fs::metadata(input).unwrap().permissions();
+            if missing { fs::remove_file(input).unwrap(); }
+            else {
+                fs::set_permissions(input, fs::Permissions::from_mode(0o600)).unwrap();
+                fs::write(input, b"changed target runtime").unwrap();
+                fs::set_permissions(input, permissions.clone()).unwrap();
+            }
+            // Passive scope remains readable; only execution verifies runtime bytes.
+            let bindings = managed_environment_bindings(&f.m, catalogue.as_ref(), &registry).unwrap();
+            assert_eq!(managed_rescan_binding_from(&f.m, &bindings, &registry,
+                &environment.id).unwrap(), Some(environment.clone()));
+            let retained = test_fixture::snapshot(&f.m.root);
+            let publications = test_fixture::snapshot(&f.m.publications);
+            SCAN_SPAWN_COUNT.with(|count| count.set(0));
+            let error = rescan(&f.m, &environment.id).unwrap_err().to_string();
+            assert!(error.starts_with("The compatibility runtime recorded for this setup is unavailable or changed."), "{error}");
+            assert!(error.contains("The plug-in scan did not start:"), "{error}");
+            assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get), 0);
+            assert_eq!(test_fixture::snapshot(&f.m.root), retained);
+            assert_eq!(test_fixture::snapshot(&f.m.publications), publications);
+            if !missing { fs::set_permissions(input, fs::Permissions::from_mode(0o600)).unwrap(); }
+            fs::write(input, original).unwrap();
+            fs::set_permissions(input, permissions).unwrap();
+            assert_eq!(managed_rescan_binding(&f.m, catalogue.as_ref(), &registry,
+                &environment.id).unwrap(), Some(environment.clone()));
+        }
     }
     #[test]
     fn managed_rescan_revalidates_authority_under_final_registry_custody() {
