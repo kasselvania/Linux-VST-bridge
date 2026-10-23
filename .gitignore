@@ -69,3 +69,5 @@ core.*
 /plugin-descriptor/target/
 
 /crates/model/target/
+
+/crates/view-model/target/

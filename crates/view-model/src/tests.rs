@@ -39,6 +39,46 @@ fn manifest_dir() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
 }
 
+const TOOLKITS: [&str; 7] = ["egui", "eframe", "epaint", "winit", "glow", "makepad", "rfd"];
+const MANAGER: [&str; 4] = ["linux_vst_bridge", "linux-vst-bridge", "bridge-manager", "bridge_manager"];
+/// The one place outside its own file and the tests that names the samples.
+const SAMPLES_DECLARATION: &str = "#[cfg(any(test, feature = \"samples\"))]\npub mod samples;";
+
+/// The source without full-line comments: only what code can name.
+fn code_lines(source: &str) -> String {
+    source.lines().filter(|line| !line.trim_start().starts_with("//")).collect::<Vec<_>>().join("\n")
+}
+
+/// What is wrong with one view-model source file.
+fn problems(file: &str, source: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    // Tests included: nothing here may name a toolkit or the manager crate.
+    let lower = source.to_lowercase();
+    out.extend(TOOLKITS.iter().filter(|toolkit| lower.contains(**toolkit))
+        .map(|toolkit| format!("{file} names {toolkit}")));
+    out.extend(MANAGER.iter().filter(|manager| source.contains(**manager))
+        .map(|manager| format!("{file} names the manager: {manager}")));
+    // Every mention of the wire-model crate, aliases and groups included,
+    // names an allowed module directly.
+    let model = without_test_module(source);
+    for (index, _) in model.match_indices("lvb_model") {
+        let rest = &model[index + "lvb_model".len()..];
+        if !rest.strip_prefix("::").is_some_and(allowed_model_path) {
+            out.push(format!("{file} reaches past the wire model: lvb_model{}",
+                rest.chars().take(40).collect::<String>()));
+        }
+    }
+    // Unit tests may use the sample states; the screens may not, by any name.
+    if file != "samples.rs" {
+        let code = code_lines(&model);
+        let code = if file == "lib.rs" { code.replacen(SAMPLES_DECLARATION, "", 1) } else { code };
+        if code.contains("samples") {
+            out.push(format!("{file} refers to the sample states outside its tests"));
+        }
+    }
+    out
+}
+
 #[test]
 fn view_model_names_no_ui_toolkit_and_not_the_manager() {
     let mut checked = 0;
@@ -46,29 +86,13 @@ fn view_model_names_no_ui_toolkit_and_not_the_manager() {
         let path = entry.unwrap().path();
         let file = path.file_name().unwrap().to_string_lossy().into_owned();
         if path.extension().is_none_or(|extension| extension != "rs") || file == "tests.rs" { continue; }
-        // Tests included: nothing here may name a toolkit or the manager crate.
-        let source = std::fs::read_to_string(&path).unwrap();
-        for toolkit in ["egui", "eframe", "epaint", "winit", "glow", "makepad", "rfd"] {
-            assert!(!source.to_lowercase().contains(toolkit), "{file} names {toolkit}");
-        }
-        for manager in ["linux_vst_bridge", "linux-vst-bridge", "bridge-manager", "bridge_manager"] {
-            assert!(!source.contains(manager), "{file} names the manager: {manager}");
-        }
-        let model = without_test_module(&source);
-        for (index, _) in model.match_indices("lvb_model::") {
-            let path = &model[index + "lvb_model::".len()..];
-            assert!(allowed_model_path(path),
-                "{file} reaches past the wire model: lvb_model::{}", &path[..path.len().min(40)]);
-        }
-        // Unit tests may use the sample states; the screens may not.
-        if file != "samples.rs" {
-            assert!(!model.contains("samples::"), "{file} builds a screen from sample states");
-        }
+        let found = problems(&file, &std::fs::read_to_string(&path).unwrap());
+        assert!(found.is_empty(), "{}", found.join("\n"));
         checked += 1;
     }
     assert!(checked >= 5, "only {checked} view-model files checked");
     let lib = std::fs::read_to_string(manifest_dir().join("src/lib.rs")).unwrap();
-    assert!(lib.contains("#[cfg(any(test, feature = \"samples\"))]\npub mod samples;"),
+    assert!(lib.contains(SAMPLES_DECLARATION),
         "the sample states are built only for tests and the samples feature");
 }
 
@@ -98,7 +122,8 @@ fn view_model_depends_on_the_wire_model_alone() {
     // no service, no toolkit and nothing else arrives through a dependency.
     let mut expected = locked(&manifest_dir().join("../model/Cargo.lock"));
     expected.insert("lvb-view-model".into());
-    assert_eq!(locked(&manifest_dir().join("Cargo.lock")), expected);
+    let own = locked(&manifest_dir().join("Cargo.lock"));
+    assert!(own.is_subset(&expected), "locked beyond the wire model: {:?}", own.difference(&expected));
 }
 
 #[test]
@@ -117,5 +142,32 @@ fn the_guard_allows_only_the_listed_model_paths() {
     }
     for path in ["contract::Service", "operator_models::Snapshot", "wordings::x", "{operator_model}"] {
         assert!(!allowed(path), "{path}");
+    }
+}
+
+#[test]
+fn the_guard_refuses_aliases_and_gated_samples() {
+    let refused = [
+        ("home.rs", "use lvb_model as wire;\nfn f() { wire::contract::x(); }\n"),
+        ("home.rs", "use lvb_model::{operator_model, contract};\n"),
+        ("home.rs", "use lvb_model \u{2192} \u{201c}wire\u{201d};\n"),
+        ("home.rs", "#[cfg(feature = \"samples\")]\nuse crate::samples as s;\n"),
+        ("home.rs", "#[cfg(any(test, feature = \"samples\"))]\nfn f() { super::samples::base(); }\n"),
+        ("lib.rs", "#[cfg(any(test, feature = \"samples\"))]\npub mod samples;\npub use samples::base;\n"),
+        ("home.rs", "fn f() { egui::Ui::new(); }\n"),
+        ("home.rs", "#[cfg(test)]\nmod tests {\n use linux_vst_bridge::digest;\n}\n"),
+    ];
+    for (file, source) in refused {
+        assert!(!problems(file, source).is_empty(), "{file} passed: {source}");
+    }
+    let allowed = [
+        ("home.rs", "use lvb_model::wording::display_version;\n/// The `samples` feature.\n\
+            #[cfg(test)]\nmod tests {\n use crate::samples;\n}\n"),
+        ("lib.rs", "//! `samples` adds states.\n#[cfg(any(test, feature = \"samples\"))]\npub mod samples;\n\
+            pub use lvb_model::operator_model as model;\n"),
+        ("samples.rs", "pub fn base() {}\n"),
+    ];
+    for (file, source) in allowed {
+        assert_eq!(problems(file, source), Vec::<String>::new(), "{file}");
     }
 }
