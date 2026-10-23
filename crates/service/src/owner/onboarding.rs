@@ -66,7 +66,7 @@ fn load_record(m: &Manager, id: &str) -> Result<Record> {
 /// compatibility runtime are unavailable. This grants no execution admission.
 pub fn control_record(m: &Manager, id: &str) -> Result<Record> {
     let record = load_record_binding(m, id)?;
-    require(!m.registry()?.classes.values().any(|entry|
+    require(!m.composed_registry()?.classes.values().any(|entry|
         entry.registration.environment.id == id), "onboarding_environment_qualified")?;
     Ok(record)
 }

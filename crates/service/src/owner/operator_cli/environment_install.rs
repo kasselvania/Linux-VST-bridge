@@ -84,20 +84,35 @@ pub(crate) fn all_retired(m: &Manager) -> Result<bool> {
 pub(crate) fn target(m: &Manager, environment: &str) -> Result<Environment> {
     target_with_application(m,environment,registered_application_target)
 }
-fn registered_application_target(m: &Manager, environment: &str) -> Result<Option<Environment>> {
+/// Passive maintenance scope uses retained ownership, even when execution inputs
+/// changed. Mutation owners still use `target` and verify their execution assets.
+pub(crate) fn target_record(m: &Manager, environment: &str) -> Result<Environment> {
+    m.derive_once(&format!("maintenance_target:{environment}"), ||
+        target_from_registry(m,environment,m.composed_registry()?.as_ref(),|m,id|
+            Ok(registered_application_record(m,id)?.map(|app|app.environment))))
+}
+fn registered_application_record(m: &Manager, environment: &str) -> Result<Option<vendor_application::Application>> {
     for selector in vendor_cli::selectors(m)? {
         let original:vendor_application::Application=read_json(
             &vendor_cli::directory(m,&selector)?.join("application.json"))?;
         if original.environment.id != environment {continue;}
         let app=vendor_cli::application(m,&selector)?;
-        app.verify(&m.root)?;
-        return Ok(Some(app.environment));
+        app.validate_record(&m.root)?;
+        return Ok(Some(app));
     }
     Ok(None)
 }
+fn registered_application_target(m: &Manager, environment: &str) -> Result<Option<Environment>> {
+    let app=registered_application_record(m,environment)?;
+    if let Some(app)=&app {app.verify(&m.root)?;}
+    Ok(app.map(|app|app.environment))
+}
 fn target_with_application(m: &Manager, environment: &str,
     verified:impl FnOnce(&Manager,&str)->Result<Option<Environment>>) -> Result<Environment> {
-    let db = m.registry()?;
+    target_from_registry(m,environment,&m.registry()?,verified)
+}
+fn target_from_registry(m: &Manager, environment: &str, db: &Registry,
+    verified:impl FnOnce(&Manager,&str)->Result<Option<Environment>>) -> Result<Environment> {
     if let Some(r) = onboarding::retained_environment_record(m,environment)? {
         require(r.installation_operation.is_none()
             || onboarding::retired(&onboarding::result(m,&r)?),
@@ -464,6 +479,38 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
 mod tests {
     use super::*;
     #[test]
+    fn changed_application_inputs_preserve_scope_but_not_execution_authority() {
+        let (f, _) = preparation_cli::tests::projection_fixture();
+        assert!(f.m.registry().unwrap().classes.is_empty());
+        assert!(onboarding::history_records(&f.m).unwrap().is_empty());
+        let image=f.r.environment.root.join("chosen.exe");
+        fs::write(&image,b"first-party selected program fixture").unwrap();
+        let app=vendor_application::Application {schema:3,id:vendor_application::ApplicationId::Selected,
+            environment:f.r.environment.clone(),executable:Artifact {sha256:digest(&image).unwrap(),path:image.clone()},
+            helpers:vec![],installer_sha256:None,installer_result:None,observed_installer_version:String::new(),
+            user_selection:Some(vendor_application::ProgramSelection {working_directory:f.r.environment.root.clone(),
+                arguments:vec![],previous:None})};
+        let selector=app.selector().unwrap();
+        let record=vendor_cli::directory(&f.m,&selector).unwrap().join("application.json");
+        private_dir(record.parent().unwrap()).unwrap();
+        atomic_json(&record,&app).unwrap();
+        assert_eq!(target(&f.m,&app.environment.id).unwrap(),app.environment);
+        let original=fs::read(&record).unwrap();
+        for path in [&image,&app.environment.runner.entry_point] {
+            let bytes=fs::read(path).unwrap();
+            fs::write(path,b"changed input").unwrap();
+            assert_eq!(target_record(&f.m,&app.environment.id).unwrap(),app.environment);
+            assert_eq!(maintenance::environment(&f.m,&ui::Action::EnvironmentRescan {
+                environment:app.environment.id.clone()}).unwrap(),Some(app.environment.clone()));
+            assert_eq!(target(&f.m,&app.environment.id).unwrap_err().to_string(),"artifact missing or changed");
+            assert_eq!(fs::read(&record).unwrap(),original);
+            fs::write(path,bytes).unwrap();
+        }
+        let mut invalid=app.clone();invalid.executable.sha256="00".repeat(32);
+        atomic_json(&record,&invalid).unwrap();
+        assert!(target_record(&f.m,&app.environment.id).is_err(),"exact selector still binds its record");
+    }
+    #[test]
     fn verified_application_owns_a_target_without_onboarding_or_published_classes() {
         let f=test_fixture::Fixture::new();
         assert!(f.m.registry().unwrap().classes.is_empty());
@@ -623,7 +670,7 @@ mod tests {
         assert!(projection(&f.m,&[],None,|_|Ok(false)).unwrap().iter()
             .all(|target| target.environment != initial.id));
         assert_eq!(reserve_with(&f.m,&initial.id,&right.id,&op,||Ok(true),|_|Ok(false))
-            .unwrap_err().to_string(),"operator_installer_active");
+            .unwrap_err().to_string(),"installer_initial_retirement_required");
         // A stopped replacement with a live owner is also excluded; Retry must
         // keep that replacement's bytes after its owner actually retires.
         unresolved["cleanup_confirmed"] = true.into();unresolved["owned_live"] = 0.into();
@@ -819,7 +866,9 @@ mod tests {
             &f.m.registry().unwrap(),Some("installer active")).unwrap();
         assert_eq!(rows[0].revision,2);
         let second=job(&f.m,&env.id,&installer.id);
-        assert!(reserve_with(&f.m,&env.id,&installer.id,&second,||Ok(true),|_|Ok(false)).is_err());
+        assert_eq!(reserve_with(&f.m,&env.id,&installer.id,&second,
+            || vendor_maintenance::observe_retired(&f.m,&target(&f.m,&env.id)?).map(|_|true),
+            |_|Ok(false)).unwrap_err().to_string(),"setup_installer_cleanup_unconfirmed");
         complete(&f.m,&r,"cancelled");
         assert!(onboarding::all_retired(&f.m).unwrap());
         let next=reserve_with(&f.m,&env.id,&installer.id,&second,||Ok(true),|_|Ok(false)).unwrap();

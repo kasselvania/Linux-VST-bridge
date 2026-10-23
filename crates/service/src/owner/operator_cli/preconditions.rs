@@ -31,8 +31,7 @@ pub(super) enum Fact {
     Plugin,
     /// A setup's environment record.
     Setup,
-    /// The plug-ins registered from a setup: from every attempt made from
-    /// its installer, as Delete and Remove from DAW act on them all.
+    /// The plug-ins registered from the exact setup an action changes.
     SetupPlugins,
     /// A setup's creation record, which names its first installer run.
     SetupCreation,
@@ -381,21 +380,38 @@ mod tests {
         for id in [rollback, restore] { refused_for(&f.m, &id, "plugin"); }
     }
     #[test]
-    fn removing_a_setup_from_the_daw_is_refused_when_another_attempt_gained_a_plugin() {
-        // Remove from DAW acts on every attempt made from the setup's installer.
-        let (f, class, environment) = published();
-        attempt(&f.m, &environment);
-        let mut other = environment.clone();
-        other.id = "5a".repeat(16);
-        other.root = f.m.root.join("environments").join(&other.id);
-        attempt(&f.m, &other);
-        let removal = accepted(&f.m, ui::Action::SetupRemoveFromDaw { environment: environment.id.clone() });
-        let mut db = f.m.registry().unwrap();
-        let mut entry = db.classes[&class].clone();
-        entry.registration.environment = other;
-        db.classes.insert("5B".repeat(16), entry);
-        atomic_json(&f.m.root.join("registry.json"), &db).unwrap();
-        refused_for(&f.m, &removal, "setup_plugins");
+    fn removing_a_setup_rechecks_its_plugins_and_preserves_other_attempts() {
+        for same_setup in [false, true] {
+            let (f, class, environment) = published();
+            attempt(&f.m, &environment);
+            let mut other = environment.clone();
+            other.id = "5a".repeat(16);
+            other.root = f.m.root.join("environments").join(&other.id);
+            attempt(&f.m, &other);
+            let removal = accepted(&f.m, ui::Action::SetupRemoveFromDaw { environment: environment.id.clone() });
+            let mut db = f.m.registry().unwrap();
+            let sibling = "5B".repeat(16);
+            let mut entry = db.classes[&class].clone();
+            entry.registration.metadata.class_id = sibling.clone();
+            entry.registration.environment = if same_setup { environment.clone() } else { other };
+            entry.publication = Publication::Removed;
+            entry.managed_revision = None;
+            db.classes.insert(sibling.clone(), entry);
+            atomic_json(&f.m.root.join("registry.json"), &db).unwrap();
+            let before = fs::read(f.m.root.join("registry.json")).unwrap();
+            if same_setup {
+                refused_for(&f.m, &removal, "setup_plugins");
+                assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), before);
+            } else {
+                worker_with_capacity(&f.m, &removal, OPERATOR_WAIT, &idle_capacity_test).unwrap();
+                let result: Value = read_json(&job_dir(&f.m, &removal).unwrap().join("result.json")).unwrap();
+                assert_eq!(result["state"], "completed", "{result}");
+                let after = f.m.registry().unwrap();
+                assert_eq!(after.classes[&class].publication, Publication::Removed);
+                assert_eq!(serde_json::to_value(&after.classes[&sibling]).unwrap(),
+                    serde_json::to_value(&db.classes[&sibling]).unwrap());
+            }
+        }
     }
     #[test]
     fn an_uninstall_is_refused_when_its_setup_was_scanned_again() {

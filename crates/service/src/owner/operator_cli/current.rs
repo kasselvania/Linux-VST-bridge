@@ -2330,20 +2330,17 @@ pub(super) mod tests {
     fn deriving_each_fact_once_changes_nothing_a_page_shows() {
         let (f, candidates, units) = retained_history();
         readiness::with_unit_state_fixture(&units, "inactive", || {
-            let server = overview_service_reply_with_counts(&f.m, capacity_json(false,0,0), (2,6));
+            let _service = crate::owner::operator_cli::tests::idle_service(&f.m);
             let every_use = capture(&f.m).unwrap();
             let once = capture(&f.m.composing()).unwrap();
             every_use.recheck(&f.m).unwrap();
             once.recheck(&f.m).unwrap();
-            server.join().unwrap();
             assert_eq!(serde_json::to_string(&once.snapshot).unwrap(),
                 serde_json::to_string(&every_use.snapshot).unwrap());
             assert_eq!(once.current_generation, every_use.current_generation);
             let s = &candidates[0].selection;
-            let server = overview_service_reply_with_counts(&f.m, capacity_json(false,0,0), (2,6));
             let every_use = product_detail_readonly(&f.m, &s.environment.id, &s.module.sha256, &s.class.id);
             let once = product_detail(&f.m, &s.environment.id, &s.module.sha256, &s.class.id);
-            server.join().unwrap();
             assert_eq!(serde_json::to_string(&once.unwrap()).unwrap(),
                 serde_json::to_string(&every_use.unwrap()).unwrap());
         });

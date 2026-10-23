@@ -28,6 +28,9 @@ pub(super) fn read(m: &Manager, operation: &str) -> Result<Option<Reservation>> 
     Ok(Some(record))
 }
 pub(super) fn held(m: &Manager) -> Result<Vec<Reservation>> {
+    m.derive_once("setup_maintenance_held", || read_held(m))
+}
+fn read_held(m: &Manager) -> Result<Vec<Reservation>> {
     let directory = m.root.join("operator");
     if !directory.try_exists()? { return Ok(vec![]); }
     let mut records = Vec::new();
@@ -49,12 +52,14 @@ pub(crate) fn owned(m: &Manager, operation: &str) -> Result<Option<Environment>>
 }
 
 /// Resolve scope from the accepted action's existing owner records. A display
-/// name, arbitrary path, or a client's claimed process is never a scope.
+/// name, arbitrary path, or a client's claimed process is never a scope. This
+/// also serves passive views; execution owners verify inputs before mutation.
 pub(super) fn environment(m: &Manager, action: &ui::Action) -> Result<Option<Environment>> {
     use ui::Action as A;
     let resolved = match action {
         A::InstallerStart { onboarding } | A::InstallerStartWithPolicy { onboarding, .. }
-        | A::InstallerScan { onboarding } => Some(onboarding::load(m, onboarding)?.environment),
+        | A::InstallerScan { onboarding } => Some(m.derive_once(&format!("maintenance_onboarding:{onboarding}"),
+            || Ok(onboarding::control_record(m, onboarding)?.environment))?),
         A::EnvironmentInstallerStart { environment, .. }
         | A::EnvironmentInstallerStartWithPolicy { environment, .. }
         | A::EnvironmentInstallerScan { environment } | A::EnvironmentRuntimeSelect { environment, .. }
@@ -62,7 +67,7 @@ pub(super) fn environment(m: &Manager, action: &ui::Action) -> Result<Option<Env
         | A::PluginFinishSetup { environment, .. } | A::QuarantinedModuleRetry { environment, .. }
         | A::ProductUninstall { environment, .. } | A::SetupRemoveFromDaw { environment }
         | A::SetupDelete { environment, .. }
-        | A::ProgramChoose { environment, .. } => Some(environment_install::target(m, environment)?),
+        | A::ProgramChoose { environment, .. } => Some(environment_install::target_record(m, environment)?),
         A::VendorSoftwareInstall { application, .. } | A::VendorApplicationOpen { application }
         | A::ProgramAdopt { application, .. } => Some(vendor_cli::application(m, application)?.environment),
         A::RendererDiscover {} => {
@@ -87,7 +92,7 @@ pub(super) fn environment(m: &Manager, action: &ui::Action) -> Result<Option<Env
         A::OrdinaryRollback { class_id, .. } | A::OrdinaryRestoreRecommended { class_id }
         | A::PluginAddBackToDaw { class_id, .. } | A::PluginRemoveFromDaw { class_id, .. }
         | A::BufferingSet { class_id, .. } | A::DeliverySet { class_id, .. } =>
-            Some(m.registry()?.classes.get(class_id).ok_or("class not registered")?.registration.environment.clone()),
+            Some(m.composed_registry()?.classes.get(class_id).ok_or("class not registered")?.registration.environment.clone()),
         _ if preparation_cli::is_action(action) => preparation_cli::action_selection_record(m, &software_record(m)?, action)?
             .map(|selection| selection.environment),
         _ => None,
@@ -235,7 +240,7 @@ pub(super) fn offer_refusal(m: &Manager, action: &ui::Action) -> Result<Option<S
         if let Err(error) = vendor_maintenance::observe_retired(m, &environment) {
             return Ok(Some(format!("This setup's previous operation has not retired: {error}")));
         }
-        for (class, entry) in &m.registry()?.classes {
+        for (class, entry) in &m.composed_registry()?.classes {
             if same_setup(&entry.registration.environment, &environment) && m.publication_pending(class)? {
                 return Ok(Some("Reconcile this setup's interrupted publication first".into()));
             }
@@ -243,12 +248,18 @@ pub(super) fn offer_refusal(m: &Manager, action: &ui::Action) -> Result<Option<S
         Ok(None)
     })?;
     if setup_reason.is_some() { return Ok(setup_reason); }
-    let inactive = match action {
+    let class = match action {
         A::BufferingSet {class_id,..} | A::DeliverySet {class_id,..} | A::PluginRemoveFromDaw {class_id,..}
-            => m.require_inactive(Some(class_id)),
-        _ => capacity::require_environment_inactive(m, &environment),
+            => Some(class_id.as_str()),
+        _ => None,
     };
-    Ok(inactive.err().map(|error|format!("Close this setup's affected plug-in or application before changing it: {error}")))
+    m.derive_once(&format!("setup_inactive:{}:{}",environment.id,class.unwrap_or("")), || {
+        let inactive = match class {
+            Some(class) => m.require_inactive(Some(class)),
+            None => capacity::require_environment_inactive(m, &environment),
+        };
+        Ok(inactive.err().map(|error|format!("Close this setup's affected plug-in or application before changing it: {error}")))
+    })
 }
 pub(super) fn apply_offer(m: &Manager, offer: &mut ui::AvailableAction) -> Result<()> {
     if offer.disabled_reason.is_none() { offer.disabled_reason = offer_refusal(m, &offer.action)?; }
@@ -281,6 +292,61 @@ pub(super) fn apply_snapshot(m: &Manager, snapshot: &mut ui::Snapshot) -> Result
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn changed_installer_runtime_preserves_unrelated_views_but_refuses_execution() {
+        for started in [false, true] {
+            let (f, mut record) = onboarding::tests::close_policy_unstarted_fixture();
+            let (f, candidate) = test_fixture::projection_candidate_in(f, false);
+            preparation::record_candidate(&f.m, &candidate).unwrap();
+            preparation::enable(&f.m, &candidate, false).unwrap();
+            let operation = "cd".repeat(16);
+            if started {
+                record = onboarding::reserve(&f.m, &record.id, &operation).unwrap();
+                atomic_json(&onboarding::directory(&f.m, &record.id).unwrap().join(format!("{operation}-result.json")),
+                    &json!({"schema":2,"operation":operation,"state":"completed",
+                        "cleanup_confirmed":true,"owned_live":0})).unwrap();
+            }
+            let _service = super::super::tests::idle_service(&f.m);
+            readiness::with_unit_state_fixture(&[onboarding::unit(&operation).unwrap()], "inactive", || {
+                let assert_readable = || {
+                    let overview = current_overview(&f.m).unwrap();
+                    assert!(overview.current.products.iter().any(|p|p.environment == f.r.environment.id));
+                    let detail = product_detail(&f.m, &f.r.environment.id, &f.r.module.sha256,
+                        &f.r.metadata.class_id).unwrap();
+                    assert_eq!(detail.product.environment, f.r.environment.id);
+                    let diagnostics = snapshot_idle_test(&f.m).unwrap();
+                    assert!(diagnostics.products.iter().any(|p|p.environment == f.r.environment.id));
+                };
+                assert_readable();
+                let input = &record.environment.runner.entry_point;
+                fs::set_permissions(input, fs::Permissions::from_mode(0o600)).unwrap();
+                fs::write(input, b"changed historical runtime").unwrap();
+                fs::set_permissions(input, fs::Permissions::from_mode(0o400)).unwrap();
+                assert_readable();
+                let actions = if started {
+                    vec![ui::Action::InstallerScan {onboarding:record.id.clone()}]
+                } else { vec![ui::Action::InstallerStart {onboarding:record.id.clone()},
+                    ui::Action::InstallerStartWithPolicy {onboarding:record.id.clone(),powershell:ui::Powershell::Inherited}] };
+                for action in actions {
+                    assert_eq!(environment(&f.m, &action).unwrap(), Some(record.environment.clone()));
+                    let retained = ["onboarding", "environments", "inventory", "preparation", "installers"]
+                        .into_iter().map(|name|f.m.root.join(name)).filter(|path|path.exists())
+                        .map(|path| {let before=test_fixture::snapshot(&path); (path,before)}).collect::<Vec<_>>();
+                    let registry = f.m.registry().unwrap();
+                    let error = execute_with_receipt_policy(&f.m, &action, Some(&"ef".repeat(16)),
+                        &idle_capacity_test, Duration::from_secs(1), &mut vec![]).unwrap_err();
+                    assert_eq!(error.to_string(), "artifact missing or changed");
+                    assert_eq!(serde_json::to_value(f.m.registry().unwrap()).unwrap(), serde_json::to_value(&registry).unwrap());
+                    for (path,before) in retained {assert_eq!(test_fixture::snapshot(&path), before);}
+                    assert!(!job_dir(&f.m, &"ef".repeat(16)).unwrap().exists(), "no reservation, scan or launch");
+                }
+                let mut invalid = record.clone(); invalid.environment.id = "00".repeat(16);
+                atomic_json(&onboarding::directory(&f.m, &record.id).unwrap().join("record.json"), &invalid).unwrap();
+                assert!(environment(&f.m, &ui::Action::InstallerScan {onboarding:record.id.clone()}).is_err());
+            });
+        }
+    }
 
     fn request(m: &Manager, environment: &Environment) -> String {
         begin_request(m, &ui::Request { schema:ui::OPERATOR_SCHEMA,

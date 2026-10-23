@@ -3733,23 +3733,25 @@ with zipfile.ZipFile(kit,'w') as z:
                 "The exact-runner attempt stays in technical history");
             let launched=readiness::with_unit_state_fixture(&idle(&f),"inactive",||test_submit_offered(&f.m,&retry.action)).unwrap();
             let mut units=idle(&f);units.push(onboarding::unit(&launched).unwrap());
-            let observed=std::cell::Cell::new(false);
-            let capacity=||{
-                if !observed.replace(true) {
-                    // Before the new attempt exists the card shows this request's
-                    // progress, not the earlier failure or a second Retry.
-                    let mut projected=card.clone();
-                    project_from(&f.m,std::slice::from_mut(&mut projected),None,
-                        &onboarding::history_records(&f.m).unwrap()).unwrap();
+            let observed=std::rc::Rc::new(std::cell::Cell::new(false));
+            let reached=observed.clone();
+            let m=Manager::new(f.m.root.clone(),f.m.publications.clone());
+            let card=card.clone();
+            ENVIRONMENT_CREATION_PREPARED_BARRIER.with(|hook| {
+                *hook.borrow_mut()=Some(Box::new(move || {
+                    // Before the new attempt exists, show this request's progress.
+                    let mut projected=card;
+                    project_from(&m,std::slice::from_mut(&mut projected),None,
+                        &onboarding::history_records(&m).unwrap()).unwrap();
                     assert_eq!(projected.journey.unwrap().phase,ui::InstallationPhase::PreparingEnvironment);
                     assert_eq!(projected.status,"Getting ready to install.");
                     assert!(projected.primary.is_none() && projected.secondary.is_empty());
-                }
-                idle_capacity_test()
-            };
+                    reached.set(true);
+                }));
+            });
             let error=readiness::with_unit_state_fixture(&units,"inactive",||
                 onboarding::with_installer_unit_refusal(||execute(&f.m,&retry.action,&launched,
-                    &capacity,Duration::from_secs(1),&mut vec![]))).unwrap_err();
+                    &idle_capacity_test,Duration::from_secs(1),&mut vec![]))).unwrap_err();
             assert!(error.to_string().contains("fixture_installer_unit_refusal"),"{error}");
             assert!(observed.get());
 
@@ -3771,15 +3773,22 @@ with zipfile.ZipFile(kit,'w') as z:
         let path=onboarding::directory(&f.m,&id).unwrap().join("record.json");let before=fs::read(&path).unwrap();
         let install=ui::Action::software_install_action(installer.id.clone(),ui::DawChoice::Reaper,None);
         let operation=test_submit_offered(&f.m,&install).unwrap();
-        let reached=std::cell::Cell::new(false);
-        let capacity=||{
-            // The runtime owner's admission runs before this setup changes.
-            assert_eq!(fs::read(&path).unwrap(),before);
-            assert_eq!(onboarding::history_records(&f.m).unwrap().len(),1);
-            reached.set(true);None
-        };
-        let error=execute(&f.m,&install,&operation,&capacity,Duration::from_millis(20),&mut vec![]).unwrap_err();
+        let reached=std::rc::Rc::new(std::cell::Cell::new(false));
+        let observed=reached.clone();
+        let m=Manager::new(f.m.root.clone(),f.m.publications.clone());
+        let retained_path=path.clone();let retained_bytes=before.clone();
+        RUNTIME_INSTALL_BARRIER.with(|hook| {
+            *hook.borrow_mut()=Some(Box::new(move || {
+                assert_eq!(fs::read(&retained_path).unwrap(),retained_bytes);
+                assert_eq!(onboarding::history_records(&m).unwrap().len(),1);
+                observed.set(true);
+            }));
+        });
+        let guard=f.m.lock("runtime-delivery.lock").unwrap();
+        let error=execute(&f.m,&install,&operation,&idle_capacity_test,Duration::from_millis(20),&mut vec![]).unwrap_err();
+        drop(guard);
         assert!(reached.get(),"The runtime acquisition must be requested first: {error}");
+        assert!(linux_vst_bridge::operator_lock::is_busy(error.as_ref()),"{error}");
         assert_eq!(fs::read(&path).unwrap(),before);
         assert_eq!(onboarding::history_records(&f.m).unwrap().len(),1);
         assert_eq!(worker_receipt(&f.m,&operation)["journey"]["failure"]["stage"],"environment_preparation");
@@ -3830,18 +3839,25 @@ with zipfile.ZipFile(kit,'w') as z:
         let (failed,_)=failed_automatic_attempt(&f,&installer.id,&older,None);
         let unstarted=unstarted_after(&f,&failed,&older);
         let before=(setup_files(&f,&failed.id),setup_files(&f,&unstarted.id));
-        // Capacity unavailable, then an active DAW: both refuse creation admission.
-        for active in [false,true] {
-            let install=ui::Action::software_install_action(installer.id.clone(),ui::DawChoice::Reaper,None);
-            let operation=random_id().unwrap();private_dir(&job_dir(&f.m,&operation).unwrap()).unwrap();
-            let read=||active.then(||serde_json::from_value::<CapacityReadback>(json!({"schema":1,"dsp":1,
-                "maintenance":0,"keepers":0,"cleanup_unconfirmed":false,"owners":[],"limits":{"global_dsp":6}})).unwrap());
-            let error=readiness::with_unit_state_fixture(&installer_units(&f.m),"inactive",||execute(&f.m,&install,
-                &operation,&read,Duration::from_millis(20),&mut vec![])).unwrap_err();
-            assert_ne!(error.to_string(),"automatic_installation_existing_attempt_requires_resume");
-            assert_eq!(onboarding::history_records(&f.m).unwrap().len(),2,"{error}");
-            assert_eq!((setup_files(&f,&failed.id),setup_files(&f,&unstarted.id)),before,"{error}");
-        }
+        let install=ui::Action::software_install_action(installer.id.clone(),ui::DawChoice::Reaper,None);
+        let operation=random_id().unwrap();private_dir(&job_dir(&f.m,&operation).unwrap()).unwrap();
+        let held=std::rc::Rc::new(std::cell::RefCell::new(None));
+        let retain=held.clone();
+        let m=Manager::new(f.m.root.clone(),f.m.publications.clone());
+        ENVIRONMENT_CREATION_PREPARED_BARRIER.with(|hook| {
+            *hook.borrow_mut()=Some(Box::new(move || {
+                *retain.borrow_mut()=Some(m.lock("registry.lock").unwrap());
+            }));
+        });
+        let mut waits=vec![];
+        let error=readiness::with_unit_state_fixture(&installer_units(&f.m),"inactive",||execute(&f.m,&install,
+            &operation,&idle_capacity_test,Duration::from_millis(20),&mut waits)).unwrap_err();
+        drop(held.borrow_mut().take());
+        let failure=error.downcast_ref::<linux_vst_bridge::operator_lock::AcquisitionFailure>().unwrap();
+        assert_eq!(failure.facts.purpose,ui::LockPurpose::EnvironmentCreationAdmission);
+        assert_eq!(failure.facts.outcome,ui::LockOutcome::Timeout);
+        assert_eq!(onboarding::history_records(&f.m).unwrap().len(),2);
+        assert_eq!((setup_files(&f,&failed.id),setup_files(&f,&unstarted.id)),before);
     }
     #[test]
     fn saved_unstarted_request_on_older_runtime_retries_in_a_new_setup_instead_of_resuming() {
@@ -4086,14 +4102,19 @@ with zipfile.ZipFile(kit,'w') as z:
         };
         validate(&request, &snapshot).unwrap();
         let operation = begin_request(&f.m, &request).unwrap();
-        let observed = std::cell::Cell::new(false);
-        let capacity = || {
-            let receipt = worker_receipt(&f.m, &operation);
+        let observed = std::rc::Rc::new(std::cell::Cell::new(false));
+        let reached = observed.clone();
+        let m = Manager::new(f.m.root.clone(), f.m.publications.clone());
+        let pending = operation.clone();
+        let initial_card = card.clone();
+        RUNTIME_INSTALL_BARRIER.with(|hook| {
+            *hook.borrow_mut() = Some(Box::new(move || {
+            let receipt = worker_receipt(&m, &pending);
             assert_eq!(receipt["journey"]["phase"], "preparing_environment");
             assert_eq!(receipt["journey"]["daw"], "reaper");
             assert!(receipt.get("onboarding").is_none());
-            let mut projected = card.clone();
-            project_from(&f.m, std::slice::from_mut(&mut projected), None, &[]).unwrap();
+            let mut projected = initial_card;
+            project_from(&m, std::slice::from_mut(&mut projected), None, &[]).unwrap();
             assert_eq!(
                 projected.journey.unwrap().phase,
                 ui::InstallationPhase::PreparingEnvironment
@@ -4103,22 +4124,22 @@ with zipfile.ZipFile(kit,'w') as z:
                 projected.primary.is_none(),
                 "No duplicate install while acquiring runtime"
             );
-            observed.set(true);
-            None
-        };
+            reached.set(true);
+            }));
+        });
+        let guard = f.m.lock("runtime-delivery.lock").unwrap();
         let error = execute(
             &f.m,
             &request.action,
             &operation,
-            &capacity,
+            &idle_capacity_test,
             Duration::from_millis(20),
             &mut vec![],
         )
         .unwrap_err();
-        assert!(
-            observed.get(),
-            "The actual runtime owner must reach its capacity check"
-        );
+        drop(guard);
+        assert!(observed.get(), "The actual runtime owner must be reached");
+        assert!(linux_vst_bridge::operator_lock::is_busy(error.as_ref()), "{error}");
         let failed = worker_receipt(&f.m, &operation);
         assert_eq!(failed["journey"]["phase"], "needs_attention");
         assert_eq!(
@@ -4406,7 +4427,7 @@ try:
  assert request['action']==expected
  fixture.write(directory/'request.json',request)
  with patch.object(session,'renderer_run',return_value=True) as run:
-  assert session.vendor_application(operation)
+  assert session.vendor_application(operation), pathlib.Path(operation['report']).read_text()
  assert run.call_args.kwargs['managed_contract']==operation['managed']['capabilities']
 finally:
  fixture.tearDown()

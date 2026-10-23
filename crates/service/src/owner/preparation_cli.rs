@@ -3140,12 +3140,29 @@ pub(crate) mod tests {
     #[test]
     fn ui2_interrupted_checks_resume_through_fresh_offered_operator_requests() {
         use std::{cell::Cell, panic::{catch_unwind, AssertUnwindSafe}, rc::Rc};
-        for boundary in ["inspection", "candidate"] {
+        for (boundary, legacy) in [("inspection", false), ("candidate", false), ("candidate", true)] {
             let (f, c, _sw, check) = guided_fixture();
             let before = fs::read(f.m.root.join("registry.json")).unwrap();
             let inspections = Rc::new(Cell::new(0));
             let builds = Rc::new(Cell::new(0));
-            let source = operator_cli::test_submit_offered(&f.m, &check).unwrap();
+            let source = if legacy {
+                // Model the schema-11 producer before scoped reservations
+                // existed. Never rewrite an already owned modern request.
+                let source = random_id().unwrap();
+                let dir = operator_cli::job_dir(&f.m, &source).unwrap();
+                private_dir(&dir).unwrap();
+                atomic_json(&dir.join("request.json"), &ui::Request {
+                    schema: 11, state_token: "historical".into(), action: check.clone(),
+                }).unwrap();
+                atomic_json(&dir.join("result.json"), &json!({
+                    "schema": 1, "operation": source, "state": "running", "action": check,
+                })).unwrap();
+                source
+            } else {
+                operator_cli::test_submit_offered(&f.m, &check).unwrap()
+            };
+            let request_path = operator_cli::job_dir(&f.m, &source).unwrap().join("request.json");
+            let original_request = fs::read(&request_path).unwrap();
             let mut owned = c.clone();
             relocate_probed_native(&mut owned, f.m.root.join("preparation/work")
                 .join(&source).join("native.so"));
@@ -3155,20 +3172,18 @@ pub(crate) mod tests {
                 interrupt_after: Some(boundary), inspections: inspections.clone(),
                 builds: builds.clone(),
             }));
-            assert!(catch_unwind(AssertUnwindSafe(||
-                operator_cli::test_run_offered_worker(&f.m, &source).unwrap())).is_err());
+            assert!(catch_unwind(AssertUnwindSafe(|| {
+                if legacy {
+                    execute(&f.m, &check, &source, || f.m.lock("registry.lock")).unwrap()
+                } else {
+                    operator_cli::test_run_offered_worker(&f.m, &source).unwrap()
+                }
+            })).is_err());
             let old = operator_cli::test_finalize_interrupted_worker(&f.m, &source).unwrap();
             assert_eq!(old["state"], "refused");
             assert_eq!(inspections.get(), 1);
             assert_eq!(builds.get(), usize::from(boundary == "candidate"));
-            if boundary == "candidate" {
-                // The installed private UI2 generation retained schema-11
-                // requests. Only the new continuation uses current schema 10.
-                let request_path = f.m.root.join("operator").join(&source).join("request.json");
-                let mut historical: ui::Request = read_json(&request_path).unwrap();
-                historical.schema = 11;
-                atomic_json(&request_path, &historical).unwrap();
-            }
+            assert_eq!(fs::read(&request_path).unwrap(), original_request);
             if boundary == "candidate" {
                 assert!(owned.native.artifact.path.exists(),
                     "retirement must preserve the checkpointed native output");
@@ -3194,6 +3209,7 @@ pub(crate) mod tests {
             assert_eq!(prep::publication_state(&f.m, &owned).unwrap(), "unpublished");
             assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), before);
             assert_eq!(operator_cli::test_finalize_interrupted_worker(&f.m, &source).unwrap(), old);
+            assert_eq!(fs::read(&request_path).unwrap(), original_request);
             GUIDED_CHECK_PROBE.with(|slot| *slot.borrow_mut() = None);
         }
     }

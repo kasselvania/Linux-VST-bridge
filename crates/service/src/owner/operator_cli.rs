@@ -47,6 +47,8 @@ thread_local! {
     // Synchronize an ordinary readback in the gap between admission and the
     // final mutation. This hook is absent from product builds.
     static PERFORMANCE_COMMIT_BARRIER: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = const { std::cell::RefCell::new(None) };
+    static ENVIRONMENT_CREATION_PREPARED_BARRIER: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = const { std::cell::RefCell::new(None) };
+    static RUNTIME_INSTALL_BARRIER: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = const { std::cell::RefCell::new(None) };
 }
 thread_local! {
     /// Set while a package gate finishes dead tasks; see `settle_dead_workers`.
@@ -658,12 +660,19 @@ fn inactive_reason(
 /// replaces it with the plug-in's own name.
 pub(super) const CLASS_LOADED: &str = "Close instances of this plug-in before changing its configuration";
 // Publication and per-class preferences do not mutate a shared environment.
-// Unknown custody and maintenance still block them; independent DSP does not.
+// Unknown custody still blocks them. Exact setup maintenance and pending
+// publications are checked by maintenance::apply_offer; unrelated work does not.
 fn class_inactive_reason(
     system: &ui::System, owners: &[capacity::Owner], _vendor_retired: bool, class: &str,
 ) -> Option<&'static str> {
     if !system.capacity_available() {
         Some("Service capacity unavailable; actions requiring inactivity are unsafe")
+    } else if system.cleanup_unconfirmed {
+        Some("Previous instance cleanup is unconfirmed")
+    } else if system.dsp != owners.iter().filter(|owner| owner.kind == capacity::Kind::Dsp).count()
+        || system.maintenance != owners.iter().filter(|owner| matches!(owner.kind,
+            capacity::Kind::Inspection | capacity::Kind::VendorAccess)).count() {
+        Some("Service capacity owner census changed; refresh before this action")
     } else if owners.iter().any(|owner| owner.kind == capacity::Kind::Dsp
         && owner.class_id.eq_ignore_ascii_case(class)) {
         Some(CLASS_LOADED)
@@ -2290,10 +2299,6 @@ fn dispatch(m: &Manager, request: ui::Request) -> Result<ui::Receipt> {
 }
 
 #[cfg(test)]
-fn execute(m: &Manager, a: &ui::Action) -> Result<Value> {
-    execute_with_receipt(m, a, None)
-}
-#[cfg(test)]
 fn execute_with_receipt(m: &Manager, a: &ui::Action, operation: Option<&str>) -> Result<Value> {
     execute_with_receipt_capacity(m, a, operation, &|| live_capacity(m).ok())
 }
@@ -2348,6 +2353,10 @@ fn create_environment_prepared(
     prepare: impl FnOnce() -> Result<onboarding::PreparedCreation>,
 ) -> Result<Value> {
     let prepared = prepare()?;
+    #[cfg(test)]
+    if let Some(run) = ENVIRONMENT_CREATION_PREPARED_BARRIER.with(|hook| hook.borrow_mut().take()) {
+        run();
+    }
     // Exactly one registry acquisition for the mutation. No owner below this
     // point reacquires it, hashes an installer/runner, or queries systemd.
     let guard = match m.lock_bounded(
@@ -2534,6 +2543,8 @@ fn execute_with_receipt_policy_progress(
         ui::Action::SoftwareInstall { .. } | ui::Action::SoftwareInstallWithPolicy {..} | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. } => unreachable!(),
         ui::Action::RuntimeInstall {} => {
             drop(projection.take());
+            #[cfg(test)]
+            if let Some(run) = RUNTIME_INSTALL_BARRIER.with(|hook| hook.borrow_mut().take()) { run(); }
             let runner = linux_vst_bridge::runtime_delivery::install(m)?;
             Ok(json!({"runtime":runner.id,"runner_key":catalogue::runner_key(&runner)?,
                 "installed":true,"plugin_support":"not_qualified_by_runtime_installation"}))
@@ -4415,7 +4426,7 @@ pub(crate) mod tests {
         assert!(!f.m.root.join("performance").exists());
     }
     #[test]
-    fn class_controls_preserve_siblings_but_refuse_maintenance_and_unknown_custody() {
+    fn class_controls_refuse_unknown_custody_without_blocking_unrelated_setup_work() {
         let target = "01".repeat(16);
         let sibling = capacity::Owner { session:"ab".repeat(16), class_id:"02".repeat(16),
             kind:capacity::Kind::Dsp, terminal:None };
@@ -4430,17 +4441,18 @@ pub(crate) mod tests {
             .unwrap().contains("cleanup"));
         system.cleanup_unconfirmed = false;
         system.pending_transactions = 1;
-        assert!(class_inactive_reason(&system, std::slice::from_ref(&sibling), true, &target)
-            .unwrap().contains("Reconcile"));
+        assert_eq!(class_inactive_reason(&system, std::slice::from_ref(&sibling), true, &target), None,
+            "the setup owner checks which publication is interrupted");
         system.pending_transactions = 0;
-        assert!(class_inactive_reason(&system, std::slice::from_ref(&sibling), false, &target)
-            .unwrap().contains("vendor"));
+        assert_eq!(class_inactive_reason(&system, std::slice::from_ref(&sibling), false, &target), None,
+            "an unrelated vendor operation does not block this class");
         for kind in [capacity::Kind::Inspection, capacity::Kind::VendorAccess] {
             system.dsp = 0;
             system.maintenance = 1;
             let owner = capacity::Owner {kind, ..sibling.clone()};
-            assert!(class_inactive_reason(&system, &[owner], true, &target)
-                .unwrap().contains("maintenance"));
+            assert_eq!(class_inactive_reason(&system, &[owner], true, &target), None,
+                "the setup owner determines whether known maintenance affects this class");
+            assert!(class_inactive_reason(&system, &[], true, &target).unwrap().contains("census"));
         }
     }
     #[test]
@@ -4735,7 +4747,7 @@ pub(crate) mod tests {
         let retry=||retry_quarantined_module(m,&environment.id,&scan.id,0,
             &scan.modules[0].artifact.sha256,&scan.modules[0].report.sha256);
         // An operation ID alone cannot authorize another Windows process.
-        assert_eq!(retry().unwrap_err().to_string(),"installer_retirement_required");
+        assert_eq!(retry().unwrap_err().to_string(),"installer_initial_retirement_required");
         assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get),0);
         assert_eq!(fs::read(&inventory).unwrap(),before);
         atomic_json(&directory.join(format!("{operation}-result.json")),&json!({
@@ -5538,54 +5550,55 @@ pub(crate) mod tests {
         assert!(job.lease.exists());
     }
     #[test]
-    fn crafted_inactive_actions_refuse_each_live_boundary_before_any_mutation() {
-        let f = test_fixture::Fixture::new();
-        atomic_json(&f.m.root.join("sentinel.json"), &json!({"unchanged":true})).unwrap();
+    fn crafted_setup_actions_refuse_exact_live_owners_without_blocking_other_setups() {
+        let (f, id) = onboarding_worker_fixture();
+        let request: ui::Request = read_json(&job_dir(&f.m, &id).unwrap().join("request.json")).unwrap();
+        let created = execute_with_receipt_capacity(&f.m, &request.action, Some(&id),
+            &|| capacity_fixture(&f.m)).unwrap();
+        let record = onboarding::load(&f.m, created["onboarding"].as_str().unwrap()).unwrap();
+        let before = fs::read(f.m.root.join("registry.json")).unwrap();
         let actions = [
-            ui::Action::InstallerStart {
-                onboarding: "ef".repeat(16),
-            },
-            ui::Action::InstallerScan {
-                onboarding: "ef".repeat(16),
-            },
-            ui::Action::EnvironmentRescan {
-                environment: f.r.environment.id.clone(),
-            },
-            ui::Action::QuarantinedModuleRetry {
-                environment: f.r.environment.id.clone(),
-                scan: "ab".repeat(16),
-                module_index: 0,
-                module_sha256: "cd".repeat(32),
-                report_sha256: "ef".repeat(32),
-            },
-            ui::Action::OrdinaryRollback {
-                class_id: f.r.key(),
-                publication: "a".repeat(32),
-            },
-            ui::Action::OrdinaryRestoreRecommended {
-                class_id: f.r.key(),
-            },
+            ui::Action::InstallerStart { onboarding: record.id.clone() },
+            ui::Action::InstallerScan { onboarding: record.id.clone() },
+            ui::Action::EnvironmentRescan { environment: f.r.environment.id.clone() },
+            ui::Action::QuarantinedModuleRetry { environment: f.r.environment.id.clone(),
+                scan: "ab".repeat(16), module_index: 0, module_sha256: "cd".repeat(32),
+                report_sha256: "ef".repeat(32) },
+            ui::Action::OrdinaryRollback { class_id: f.r.key(), publication: "a".repeat(32) },
+            ui::Action::OrdinaryRestoreRecommended { class_id: f.r.key() },
         ];
         for action in &actions {
-            for (blocked, dsp, maintenance) in [(true, 0, 0), (false, 1, 0), (false, 0, 1)] {
-                let server = service_reply(&f.m, capacity_json(blocked, dsp, maintenance));
-                let e = execute(&f.m, action).unwrap_err().to_string();
-                server.join().unwrap();
-                assert!(e.contains("cleanup") || e.contains("active bridged")
-                    || e.contains("owner census") || e.contains("maintenance"), "{e}");
-            }
-            let cap: CapacityReadback =
-                serde_json::from_value(capacity_json(false, 0, 0)["capacity"].clone()).unwrap();
-            assert!(inactive_reason(Some(&cap), false, 0, false)
-                .unwrap()
-                .contains("Check that it closed"));
-            if !matches!(action, ui::Action::TransactionReconcile {}) {
-                assert!(inactive_reason(Some(&cap), true, 1, false)
-                    .unwrap()
-                    .contains("Reconcile"));
+            let target = maintenance::environment(&f.m, action).unwrap().unwrap();
+            for (same_setup, inspect) in [(false, false), (true, false), (true, true)] {
+                let mut environment = target.clone();
+                if !same_setup {
+                    environment.id = random_id().unwrap();
+                    environment.root = f.m.root.join("environments").join(&environment.id);
+                }
+                let session = random_id().unwrap();
+                let report = f.m.root.join("runtime/results").join(format!("windows-{session}.json"));
+                let lease = f.m.root.join("runtime/leases").join(format!("{session}.json"));
+                let owner = environment.root.join("compatdata/pfx/drive_c/bridge/sessions")
+                    .join(&session).join("owner.json");
+                private_dir(owner.parent().unwrap()).unwrap();
+                private_dir(report.parent().unwrap()).unwrap();
+                private_dir(lease.parent().unwrap()).unwrap();
+                atomic_json(&owner, &json!({"session":session,"report":report,"lease":lease,
+                    "keeper":false,"inspect":inspect,"vendor_access":false,
+                    "registration":{"metadata":{"class_id":f.r.key()},"environment":environment}})).unwrap();
+                atomic_json(&lease, &report).unwrap();
+                let result = require_operator_inactive_with(&f.m, action,
+                    &|| panic!("Global capacity cannot decide setup exclusivity"), None,
+                    Duration::from_secs(1), &mut vec![]);
+                if same_setup {
+                    assert_eq!(result.unwrap_err().to_string(),
+                        if inspect { "active_maintenance_lease" } else { "active_device_lease" }, "{action:?}");
+                } else { result.unwrap(); }
+                assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), before);
+                fs::remove_file(owner).unwrap();
+                fs::remove_file(lease).unwrap();
             }
         }
-        assert!(!f.m.root.join("registry.json").exists());
         assert!(!f.m.root.join("operator/resume.json").exists());
     }
     #[test]
@@ -5616,25 +5629,24 @@ pub(crate) mod tests {
         }
     }
     #[test]
-    fn environment_creation_rechecks_live_capacity_at_mutation() {
-        for (blocked, dsp, maintenance) in [(true, 0, 0), (false, 1, 0), (false, 0, 1)] {
-            let (f, id) = onboarding_worker_fixture();
-            let request: ui::Request =
-                read_json(&job_dir(&f.m, &id).unwrap().join("request.json")).unwrap();
-            let e = execute_with_receipt_capacity(&f.m, &request.action, Some(&id), &|| {
-                let mut cap = capacity_fixture(&f.m).unwrap();
-                cap.cleanup_unconfirmed = blocked;
-                cap.dsp = dsp;
-                cap.maintenance = maintenance;
-                Some(cap)
-            })
-            .unwrap_err()
-            .to_string();
-            assert!(e.contains("cleanup") || e.contains("active bridged")
-                    || e.contains("owner census") || e.contains("maintenance"), "{e}");
-            assert!(!f.m.root.join("onboarding").exists());
-            assert!(!f.m.root.join("operator/resume.json").exists());
-        }
+    fn new_setup_creation_preserves_unrelated_live_work() {
+        let (f, id) = onboarding_worker_fixture();
+        let request: ui::Request =
+            read_json(&job_dir(&f.m, &id).unwrap().join("request.json")).unwrap();
+        let (job, owner) = spec(&f.m, f.r.clone().into(), true, false, false).unwrap();
+        f.m.retain_lease_owner(&owner).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        let lease_before = fs::read(&job.lease).unwrap();
+        let registry_before = fs::read(f.m.root.join("registry.json")).ok();
+        let result = execute_with_receipt_capacity(&f.m, &request.action, Some(&id),
+            &|| panic!("New setup creation does not acquire an unrelated live setup")).unwrap();
+        let created = onboarding::load(&f.m, result["onboarding"].as_str().unwrap()).unwrap();
+        assert_ne!(created.environment.id, f.r.environment.id);
+        assert_eq!(created.creation_operation, id);
+        assert!(created.installation_operation.is_none());
+        assert_eq!(fs::read(&job.lease).unwrap(), lease_before);
+        assert_eq!(fs::read(f.m.root.join("registry.json")).ok(), registry_before);
+        assert!(!f.m.root.join("operator/resume.json").exists());
     }
     #[test]
     fn mutation_owners_recheck_global_inactivity_under_their_registry_lock() {
@@ -6440,8 +6452,7 @@ pub(crate) mod tests {
             } else {
                 let reason = match mismatch {
                     "wrong_action" => "operator_vendor_open_owner_mismatch",
-                    "wrong_launch" => "operator_vendor_open_binding_changed",
-                    "missing_launch_binding" => "operator_vendor_open_binding_absent",
+                    "wrong_launch" | "missing_launch_binding" => "operator_vendor_open_owner_absent",
                     "changed_vendor_result" => "vendor_application_operation_changed",
                     _ => unreachable!(),
                 };
@@ -6502,9 +6513,7 @@ pub(crate) mod tests {
         let action = ui::Action::OrdinaryRollback {
             class_id: key.clone(), publication: first.id.clone() };
         let owner = queued_test_action(&f.m, action.clone());
-        let server = service_reply(&f.m, capacity_json(false, 0, 0));
         execute_with_receipt(&f.m, &action, Some(&owner)).unwrap();
-        server.join().unwrap();
         assert_eq!(
             f.m.registry().unwrap().classes[&key].managed_revision,
             Some(first.clone())
@@ -6830,10 +6839,9 @@ pub(crate) mod tests {
             warm[12], warm[23], warm[24]);
     }
     #[test]
-    fn an_unconfirmed_installer_keeps_its_close_check_while_other_work_waits_for_it() {
-        // An installer whose cleanup is unconfirmed holds back other work, and
-        // the reason says to use Check that it closed on its card. That check
-        // is how the wait ends, so Home offers it, as Diagnostics does.
+    fn an_unconfirmed_installer_keeps_its_close_check_without_blocking_new_runtime_storage() {
+        // Retiring this setup remains actionable on Home and Diagnostics.
+        // Acquiring immutable runtime storage does not mutate its installation.
         let (f, _) = preparation_cli::tests::projection_fixture();
         let operation = test_fixture::retained_history(&f, test_fixture::Changes::Installers, 1, 0, 0).remove(0);
         let record = onboarding::history_records(&f.m).unwrap().remove(0);
@@ -6849,8 +6857,9 @@ pub(crate) mod tests {
             let home = current_overview(&f.m).unwrap().current;
             server.join().unwrap();
             assert!(home.actions.iter().any(|offer| matches!(offer.action, ui::Action::RuntimeInstall {})
-                && offer.disabled_reason.as_deref().is_some_and(|reason| reason.contains("Check that it closed"))),
-                "{:#?}", home.actions);
+                && offer.disabled_reason.is_none()), "{:#?}", home.actions);
+            assert!(!onboarding::all_retired(&f.m).unwrap(),
+                "Acquiring another runtime cannot certify this setup as retired");
             assert_eq!(close_check(&home.onboarding).disabled_reason, None);
             let diagnostics = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![],
                 &|| capacity_fixture(&f.m)).unwrap();
@@ -8127,14 +8136,17 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         request.schema = 11;
         assert_eq!(validate_current_request(&fixture.m,&request).unwrap_err().to_string(),
             "operator_schema_mismatch_update_manager_frontend");
-        // A missing service is a fresh, different capture even when product
-        // and generation identities have not changed.
+        // Missing global capacity telemetry remains visible, but cannot
+        // replace the owner's exact setup admission with a global refusal.
         let unavailable = product_detail(&fixture.m, &selection.environment.id,
             &selection.module.sha256, &selection.class.id).unwrap();
         assert!(!unavailable.system.capacity_available());
-        let refused = unavailable.product.actions.iter().find(|offer|
+        let offered = unavailable.product.actions.iter().find(|offer|
             matches!(offer.action, ui::Action::PluginReinspect { .. })).unwrap();
-        assert!(refused.disabled_reason.as_deref().unwrap().contains("unavailable"));
+        assert!(offered.disabled_reason.is_none());
+        require_operator_inactive_with(&fixture.m, &offered.action,
+            &|| panic!("Global capacity cannot decide setup exclusivity"), None,
+            Duration::from_secs(1), &mut vec![]).unwrap();
     }
     #[test]
     fn scoped_ordinary_product_keeps_exact_rollback_offer() {
@@ -8594,6 +8606,36 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
     fn idle_test_capacity() -> Option<CapacityReadback> {
         Some(serde_json::from_value(capacity_json(false, 0, 0)["capacity"].clone()).unwrap())
     }
+    fn renderer_preflight_fixture() -> (test_fixture::Fixture, ui::Action) {
+        use linux_vst_bridge::renderer_application as renderer;
+        let (f, _) = onboarding_worker_fixture();
+        let mut environment = f.r.environment.clone();
+        environment.id = renderer::ENVIRONMENT.into();
+        environment.root = f.m.root.join("environments").join(&environment.id);
+        private_dir(&environment.root).unwrap();
+        atomic_json(&environment.root.join("environment.json"), &environment).unwrap();
+        // Retained public metadata establishes the real setup scope. No vendor
+        // image is present and this fixture cannot authorize an application launch.
+        let observation: Value = serde_json::from_slice(renderer::OBSERVATION).unwrap();
+        let observation = &observation["result"];
+        let image_root = environment.root.join("compatdata/pfx/drive_c/Program Files/Source fixture");
+        let files = observation["identity"]["files"].as_object().unwrap().iter().map(|(name, value)|
+            (name.clone(), renderer::Image { artifact: Artifact { path: image_root.join(name),
+                sha256: value["sha256"].as_str().unwrap().into() }, size: value["size"].as_u64().unwrap() })).collect();
+        let application = renderer::Application { schema: 1, id: renderer::ID.into(), environment, files,
+            installation: Artifact { path: f.m.root.join("onboarding").join(renderer::ENVIRONMENT)
+                .join(format!("{}-result.json", renderer::INSTALLATION)),
+                sha256: observation["input"]["result_sha256"].as_str().unwrap().into() },
+            observation_sha256: hex(&sha2::Sha256::digest(renderer::OBSERVATION)), source_seal_sha256: renderer::SEAL.into() };
+        application.validate_record(&f.m.root).unwrap();
+        assert!(application.verify(&f.m.root).is_err());
+        let directory = renderer_cli::directory(&f.m);
+        private_dir(&directory).unwrap();
+        atomic_json(&directory.join("application.json"), &application).unwrap();
+        let action = ui::Action::RendererOpen { application: application.identity().unwrap(),
+            policy: renderer::RendererPolicy::SoftwareRendering };
+        (f, action)
+    }
     #[test]
     fn preparation_inspection_admission_waits_for_polling_registry() {
         let f = test_fixture::Fixture::new();
@@ -8628,10 +8670,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
     }
     #[test]
     fn renderer_preflight_and_suspension_wait_for_polling_then_restore_once() {
-        let (f, _) = onboarding_worker_fixture();
-        let action = ui::Action::RendererOpen {
-            application: "ab".repeat(32), policy: renderer_application::RendererPolicy::SoftwareRendering,
-        };
+        let (f, action) = renderer_preflight_fixture();
         let owner = queued_test_action(&f.m, action.clone());
         let mut waits = vec![];
         contended_registry(&f.m, |entered| {
@@ -8745,7 +8784,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
 
         SCAN_SPAWN_COUNT.with(|count| count.set(0));
         let error = rescan(&f.m, &environment).unwrap_err().to_string();
-        assert_eq!(error, "operator_managed_environment_mismatch");
+        assert_eq!(error, "installer_environment_binding_changed");
         assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get), 0);
 
         let restores = std::cell::Cell::new(0);
@@ -8802,11 +8841,9 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
     }
     #[test]
     fn renderer_preflight_contention_timeout_never_stops_or_reserves() {
-        let (f, owner) = onboarding_worker_fixture();
+        let (f, action) = renderer_preflight_fixture();
+        let owner = queued_test_action(&f.m, action.clone());
         let held = f.m.lock("registry.lock").unwrap();
-        let action = ui::Action::RendererOpen {
-            application: "ab".repeat(32), policy: renderer_application::RendererPolicy::SoftwareRendering,
-        };
         let mut waits = vec![];
         let error = require_operator_inactive_with(&f.m, &action, &idle_test_capacity,
             Some(&owner), Duration::from_millis(20), &mut waits).unwrap_err();
@@ -8822,25 +8859,27 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
     }
     #[test]
     fn renderer_preflight_rechecks_durable_owners_after_contention() {
-        let (f, owner) = onboarding_worker_fixture();
+        let (f, action) = renderer_preflight_fixture();
+        let owner = queued_test_action(&f.m, action.clone());
+        let environment = renderer_cli::current_application(&f.m).unwrap().environment;
         let sid = "cd".repeat(16);
         let report = f.m.root.join("runtime/results").join(format!("windows-{sid}.json"));
-        let spec = f.r.environment.root.join("compatdata/pfx/drive_c/bridge/sessions").join(&sid).join("owner.json");
+        let lease = f.m.root.join("runtime/leases").join(format!("{sid}.json"));
+        let spec = environment.root.join("compatdata/pfx/drive_c/bridge/sessions").join(&sid).join("owner.json");
         private_dir(spec.parent().unwrap()).unwrap();
-        atomic_json(&spec, &json!({"session":sid,"report":report,"keeper":false,"inspect":false,
-            "registration":{"metadata":{"class_id":f.r.key()}}})).unwrap();
-        private_dir(&f.m.root.join("runtime/leases")).unwrap();
-        atomic_json(&f.m.root.join("runtime/leases").join(format!("{sid}.json")), &report).unwrap();
-        let action = ui::Action::RendererOpen {
-            application: "ab".repeat(32), policy: renderer_application::RendererPolicy::SoftwareRendering,
-        };
+        private_dir(report.parent().unwrap()).unwrap();
+        private_dir(lease.parent().unwrap()).unwrap();
+        atomic_json(&spec, &json!({"session":sid,"report":report,"lease":lease,
+            "keeper":false,"inspect":false,"vendor_access":false,
+            "registration":{"metadata":{"class_id":f.r.key()},"environment":environment}})).unwrap();
+        atomic_json(&lease, &report).unwrap();
         let mut waits = vec![];
         let error = contended_registry(&f.m, |entered| {
             entered.send(()).unwrap();
             require_operator_inactive_with(&f.m, &action, &idle_test_capacity,
                 Some(&owner), Duration::from_secs(2), &mut waits)
         }).unwrap_err();
-        assert_eq!(error.to_string(), "operator_owners_changed");
+        assert_eq!(error.to_string(), "active_device_lease");
         let error = contended_registry(&f.m, |entered| {
             entered.send(()).unwrap();
             suspend_with(&f.m, &owner, Some(owner.clone()), Duration::from_secs(2), &mut waits,
@@ -9025,15 +9064,15 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
                 "runner" => linux_vst_bridge::runtime_delivery::installed_identity_record(&f.m).unwrap().unwrap().proton,
                 _ => software(&f.m).unwrap().native_catalogue.unwrap().path,
             };
-            let e = execute_with_receipt_capacity(&f.m, &request.action, Some(&id), &|| {
-                let cap = capacity_fixture(&f.m);
-                let replacement = path.with_extension("replacement");
-                fs::copy(&path, &replacement).unwrap();
-                fs::rename(replacement, &path).unwrap();
-                cap
-            })
-            .unwrap_err()
-            .to_string();
+            ENVIRONMENT_CREATION_PREPARED_BARRIER.with(|hook| {
+                *hook.borrow_mut() = Some(Box::new(move || {
+                    let replacement = path.with_extension("replacement");
+                    fs::copy(&path, &replacement).unwrap();
+                    fs::rename(replacement, &path).unwrap();
+                }));
+            });
+            let e = execute_with_receipt_capacity(&f.m, &request.action, Some(&id),
+                &|| capacity_fixture(&f.m)).unwrap_err().to_string();
             assert_eq!(e, "onboarding_verified_file_changed");
             assert!(!f.m.root.join("onboarding").exists());
             assert!(!f.m.root.join("operator/resume.json").exists());
@@ -9043,36 +9082,28 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         let (f, id) = onboarding_worker_fixture();
         let m = Manager::new(f.m.root.clone(), f.m.publications.clone());
         let op = id.clone();
-        let (sampled, arrival) = std::sync::mpsc::channel();
+        let (prepared, arrival) = std::sync::mpsc::channel();
         let (locked, barrier) = std::sync::mpsc::channel();
+        let (busy, observed) = std::sync::mpsc::channel();
         let thread = std::thread::spawn(move || {
-            let count = std::cell::Cell::new(0);
-            worker_with_capacity(
-                &m,
-                &op,
-                if timeout {
-                    Duration::from_millis(50)
-                } else {
-                    Duration::from_secs(2)
-                },
-                &|| {
-                    let cap = capacity_fixture(&m);
-                    count.set(count.get() + 1);
-                    // Validation completed. Sample the real capacity owner, then
-                    // arrange independent registry contention before mutation.
-                    if count.get() == 2 {
-                        sampled.send(()).unwrap();
-                        barrier.recv_timeout(Duration::from_secs(3)).unwrap();
-                    }
-                    cap
-                },
-            )
+            ENVIRONMENT_CREATION_PREPARED_BARRIER.with(|hook| {
+                *hook.borrow_mut() = Some(Box::new(move || {
+                    prepared.send(()).unwrap();
+                    barrier.recv_timeout(Duration::from_secs(3)).unwrap();
+                    linux_vst_bridge::operator_lock::BUSY_OBSERVER.with(|observer| {
+                        *observer.borrow_mut() = Some(Box::new(move || busy.send(()).unwrap()));
+                    });
+                }));
+            });
+            worker_with_capacity(&m, &op,
+                if timeout { Duration::from_millis(50) } else { Duration::from_secs(2) },
+                &|| capacity_fixture(&m))
         });
         arrival.recv_timeout(Duration::from_secs(3)).unwrap();
         let guard = f.m.lock("registry.lock").unwrap();
         locked.send(()).unwrap();
+        observed.recv_timeout(Duration::from_secs(3)).unwrap();
         if !timeout {
-            std::thread::sleep(Duration::from_millis(40));
             drop(guard);
             thread.join().unwrap().unwrap();
         } else {
