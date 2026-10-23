@@ -104,6 +104,7 @@ class CompletionLoopTests(unittest.TestCase):
                     'format':'pe_executable','report':str(root/'result.json')}
                 real_popen=subprocess.Popen;children=[];real_clock=time.monotonic;offset=[0];transactions=[]
                 real_transaction=session.InstallerTransaction;real_harvest=session.InstallerLedger.harvest
+                released=root/'stand-in-released'
                 def transaction(*args):
                     tx=real_transaction(*args);transactions.append(tx);return tx
                 def launch(args,**kwargs):
@@ -118,13 +119,21 @@ class CompletionLoopTests(unittest.TestCase):
                         if mode!='missing':trace+=f'IS2_EXIT_V1 {common} 10000 11000 0\n'
                         if mode=='conflicting':trace+=f'IS2_EXIT_V1 {common} 10000 11000 23\n'
                         code=f'import sys,time;sys.stderr.write({trace!r});sys.stderr.flush();time.sleep(.15)'
+                        if mode in ('cancelled','deadline'):
+                            # The root's exit is reported, but the stand-in stays
+                            # until the test has cancelled or passed the bound: a
+                            # slow runner must not see it exit first (#502).
+                            code=(f'import os,sys,time;sys.stderr.write({trace!r});sys.stderr.flush();'
+                                f'end=time.monotonic()+30\nwhile not os.path.exists({str(released)!r}):\n'
+                                ' if time.monotonic()>end:sys.exit(73)\n time.sleep(.005)')
                     child=real_popen([sys.executable,'-c',code],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
                     children.append(child);return child
                 def harvest(ledger):
                     live=real_harvest(ledger)
-                    if transactions and transactions[0].windows_trace.handle_exit is not None and not offset[0]:
+                    if mode in ('cancelled','deadline') and transactions and transactions[0].windows_trace.handle_exit is not None and not offset[0]:
                         if mode=='cancelled':os.kill(os.getpid(),signal.SIGTERM);offset[0]=.001
                         if mode=='deadline':offset[0]=3601
+                        released.touch()
                     return live
                 old=[signal.getsignal(s) for s in (signal.SIGTERM,signal.SIGINT)]
                 try:
