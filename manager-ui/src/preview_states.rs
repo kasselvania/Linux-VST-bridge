@@ -3,13 +3,13 @@
 use crate::{model, operator};
 
 /// Every named state the preview accepts, other than recorded snapshots.
-pub const STATES: [&str; 38] = ["busy", "idle", "guided", "guided_new", "guided_pending", "pb0_ready",
+pub const STATES: [&str; 39] = ["busy", "idle", "guided", "guided_new", "guided_pending", "pb0_ready",
     "pb0_action", "pb0_unsupported", "pb0_unknown", "populated", "available", "first_use", "setup_many",
     "install_running", "pending", "recoverable", "plugin_ready", "plugin_action", "plugin_details",
     "retained_installation", "plugin_history", "plugin_history_open", "current_loading", "stale",
     "unavailable", "cleanup", "shared", "install_progress", "install_paused", "install_attention",
     "install_app", "install_complete", "existing_setup", "setup_removal", "service_problem",
-    "incidents", "diagnostics_full", "pb0_step"];
+    "incidents", "diagnostics_full", "pb0_step", "plugin_technical"];
 
 /// States that add records for the screens beyond the plug-in list: install
 /// progress, apps, existing setups, removal, service problems and incidents.
@@ -202,7 +202,8 @@ pub fn snapshot(page: operator::Page, requested: Option<&str>) -> model::Snapsho
         | "pb0_ready" | "pb0_action" | "pb0_unsupported" | "pb0_unknown"
         | "populated" | "available" | "first_use" | "setup_many" | "install_running"
         | "pending" | "recoverable" | "plugin_ready" | "plugin_action" | "plugin_details"
-        | "retained_installation" | "plugin_history" | "plugin_history_open" | "current_loading" | "stale" => {
+        | "retained_installation" | "plugin_history" | "plugin_history_open" | "current_loading" | "stale"
+        | "plugin_technical" => {
             snapshot.system.dsp = 0;
             snapshot.active_sessions.retain(|row| row["recent"] == true);
             snapshot.operation = None;
@@ -338,6 +339,32 @@ pub fn snapshot(page: operator::Page, requested: Option<&str>) -> model::Snapsho
             product.details["configuration"]=serde_json::json!({"choices":[],"launch":{"runtime":"managed runtime", "environment":"exact installed setup"},
                 "qualification":"Recorded tests remain unchanged","buffering":{"added_frames":512}});
         }
+    }
+    if state == "plugin_technical" {
+        let product = &mut snapshot.products[0];
+        product.limitations = vec!["editor_not_yet_assessed".into()];
+        product.active_revision = Some(3);
+        product.recommended_revision = Some(2);
+        product.history = vec![model::History { revision: 2, claim: "ordinary".into(), publication: "61".repeat(16),
+            active: false, rollback_allowed: true, description: "Version 8.13 · default graphics".into(),
+            rollback_unavailable: Some("Installed files changed since this setup".into()) }];
+        product.details = serde_json::json!({"preparation": {
+            "selection": "62".repeat(32), "publication": "ordinary", "inspection": "inspected",
+            "preparation": "prepared", "origin": "retained_sv1",
+            "recovery": "The previous preparation stopped; prepare again.",
+            "build_prerequisite": "The native bridge for this layout is built.",
+            "controller": {"reason": "Controller separated from processor."},
+            "candidates": [{"id": "63".repeat(16), "disposition": "accepted", "publication": "selected",
+                "publication_acceptance_sealed": true, "unmet_requirements": ["Saved-project recall on this computer"]},
+                {"id": "64".repeat(16), "disposition": "superseded", "publication": "retired"}],
+            "inspections": [{"id": "65".repeat(16), "result": "passed"}],
+            "preliminary": {"parameter_count": 412, "cleanup_confirmed": true,
+                "editor_interface": {"created": true, "hwnd_result": 0}},
+            "operation": {"state": "failed", "reason": "The bridge build was interrupted.",
+                "preparation_failure": {"attempted_stage": "native_build", "recovery": "Prepare this setup again."}},
+            "evidence": [{"area": "audio", "status": "passed", "witness": "operator", "detail": "Played a chord"},
+                {"area": "editor", "status": "failed", "witness": "operator", "detail": "Blank editor"}],
+            "unmet_requirements": ["Saved-project recall on this computer"]}});
     }
     snapshot
 }

@@ -60,7 +60,8 @@ impl eframe::App for Preview {
                     });
                 if self.diagnostics {
                     ui.add_space(16.0);
-                    library::diagnostics(ui, &self.snapshot, false, &mut selected, true);
+                    widgets::disclosure(ui, &screen_model::diagnostics::system_status(&self.snapshot, false, true),
+                        &mut selected);
                 }
             });
         });

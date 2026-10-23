@@ -168,6 +168,7 @@ mod tests {
                 Detail::Offers(row) | Detail::Held { row, .. } => out.extend(row.offers.iter().map(|offer| offer.label.clone())
                     .chain(row.notes.iter().cloned())),
                 Detail::Choice(choice) => out.push(choice.offer.label.clone()),
+                Detail::Group(inner) => words(inner, out),
                 Detail::Divider => {}
             }
         }

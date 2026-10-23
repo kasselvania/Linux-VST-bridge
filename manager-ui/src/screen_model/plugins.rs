@@ -6,7 +6,7 @@ use super::product::{self, daw_guidance, installation_progress, last_load_text, 
     product_daw, product_issue, recovery_pending, vendor_install_consequence};
 use super::settings::{self, settings_actions};
 use super::setup::SetupControls;
-use super::{Detail, Disclosure, Fact, ProductKey, Status, StatusClass, Text};
+use super::{record, Detail, Disclosure, Fact, ProductKey, Status, StatusClass, Text};
 use crate::model::{Action, AvailableAction, CompatibilityPhase, Product, Snapshot};
 
 pub const HEADING: &str = "Plug-ins";
@@ -517,6 +517,96 @@ impl LoadingList {
     }
 }
 
+/// The retained technical records under a plug-in's technical details: its
+/// limitations, preparation, published revision and history.
+pub fn technical_records(product: &Product) -> Vec<Detail> {
+    let mut details: Vec<Detail> = product.limitations.iter().map(|limit| Text::body(limit.replace('_', " ")).into()).collect();
+    if let Some(preparation) = product.details.get("preparation") {
+        details.extend(preparation_records(preparation));
+    }
+    if let Some(revision) = product.active_revision {
+        details.push(Text::body(format!("Published revision: {revision} · Recommended: {}",
+            product.recommended_revision.map(|value| value.to_string()).unwrap_or_else(|| "none".into()))).into());
+    }
+    for history in &product.history {
+        details.push(Text::body(format!("{} · {}{}", history.description, history.claim,
+            if history.active { " · active" } else { "" })).into());
+        if let Some(reason) = &history.rollback_unavailable { details.push(Text::body(reason).into()); }
+    }
+    details.push(Detail::Disclosure(Disclosure::new("Technical product details", vec![
+        Text::body(format!("Status: {}\nClass: {}\nModule SHA-256: {}\nEnvironment: {}\nRunner: {}",
+            product.disposition, product.class_id, product.module_sha256, product.environment, product.runner)).into(),
+        record(&product.details),
+    ])));
+    details
+}
+
+/// How a plug-in was inspected and prepared, and what each check recorded.
+fn preparation_records(v: &serde_json::Value) -> Vec<Detail> {
+    let mut details: Vec<Detail> = Vec::new();
+    if v["publication"] == "ordinary" { details.push(Text::strong("Ordinarily published").into()); }
+    if let Some(history) = v["candidates"].as_array() {
+        details.push(Detail::Disclosure(Disclosure { start_open: history.len() > 1, ..Disclosure::new(
+            "Candidate generations and their own results", history.iter().map(|candidate| {
+                let mut group = vec![Text::body(format!("Candidate {} · {} · {}", candidate["id"].as_str().unwrap_or("?"),
+                    candidate["disposition"].as_str().unwrap_or("?"), candidate["publication"].as_str().unwrap_or("?"))).into()];
+                if candidate["publication_acceptance_sealed"] == true
+                    && candidate["unmet_requirements"].as_array().is_some_and(|rows| !rows.is_empty()) {
+                    group.push(Text::alert("This publication retains its original acceptance. New evidence needs review; use Withdraw to disable it.").into());
+                }
+                group.push(record(candidate));
+                Detail::Group(group)
+            }).collect()) }));
+    }
+    if let Some(reason) = v["recovery"].as_str() { details.push(Text::alert(reason).into()); }
+    if let Some(reason) = v["build_prerequisite"].as_str() { details.push(Text::body(reason).into()); }
+    details.push(Detail::Disclosure(Disclosure::new("Inspection generations", vec![record(&v["inspections"])])));
+    details.push(Text::body(format!("Inspection: {} · Preparation: {} · Publication: {}",
+        v["inspection"].as_str().unwrap_or("unknown"), v["preparation"].as_str().unwrap_or("unknown"),
+        v["publication"].as_str().unwrap_or("unknown"))).into());
+    details.push(Text::detail("Preliminary inspection is not a guarantee of DAW audio, editor, automation, or state recall.").into());
+    if v["origin"] == "retained_sv1" {
+        details.push(Text::detail("Adopted exact SV1 work; originally prepared through the engineering CLI.").into());
+    }
+    if let Some(reason) = v["controller"]["reason"].as_str() { details.push(Text::detail(reason).into()); }
+    if !v["preliminary"].is_null() {
+        let f = &v["preliminary"];
+        details.push(Detail::Disclosure(Disclosure::new("Preliminary compatibility details", vec![
+            Text::body(format!("Parameters: {} · Positive inspection cleanup: {}", f["parameter_count"], f["cleanup_confirmed"])).into(),
+            Text::body(if f["editor_interface"].is_null() { "Editor interface: no assessment recorded".into() } else {
+                format!("Editor created: {} · HWND interface result: {} · Not attached",
+                    f["editor_interface"]["created"], f["editor_interface"]["hwnd_result"]) }).into(),
+            Text::code(serde_json::to_string_pretty(f).unwrap_or_default()).into(),
+        ])));
+    }
+    if let Some(operation) = v.get("operation").filter(|operation| !operation.is_null()) {
+        details.push(Text::body(format!("This product's operation: {}", operation["state"].as_str().unwrap_or("unknown"))).into());
+        if let Some(stage) = operation["preparation_failure"]["attempted_stage"].as_str() {
+            details.push(Text::body(format!("Stopped during {}", stage.replace('_', " "))).into());
+        }
+        if let Some(reason) = operation["reason"].as_str() { details.push(Text::alert(reason).into()); }
+        if let Some(recovery) = operation["preparation_failure"]["recovery"].as_str() {
+            details.push(Text::detail(recovery).into());
+        }
+    }
+    let mut tests: Vec<Detail> = Vec::new();
+    for area in ["daw_load", "midi", "audio", "editor", "parameters", "automation", "state_recall",
+        "processing_restart", "retirement"] {
+        let latest = v["evidence"].as_array().and_then(|rows| rows.iter().rev().find(|row| row["area"] == area));
+        tests.push(Text::body(format!("{}: {}", area.replace('_', " "),
+            latest.and_then(|row| row["status"].as_str()).unwrap_or("not tested"))).into());
+        if let Some(row) = latest {
+            tests.push(Text::detail(format!("{} · {}", row["witness"].as_str().unwrap_or("unavailable"),
+                row["detail"].as_str().unwrap_or(""))).into());
+        }
+    }
+    if let Some(rows) = v["unmet_requirements"].as_array() {
+        tests.extend(rows.iter().filter_map(|row| row.as_str()).map(|text| Text::detail(text).into()));
+    }
+    details.push(Detail::Disclosure(Disclosure::new("Recorded tests and remaining qualification", tests)));
+    details
+}
+
 fn optional_test_result(product: &Product, action: &Action) -> bool {
     matches!(action, Action::CompatibilityResult { .. })
         || (matches!(action, Action::CompatibilityFinishResult { .. }) && !recovery_pending(product))
@@ -835,6 +925,7 @@ mod tests {
                     Detail::Choice(choice) => out.push((&choice.offer,
                         choice.notes.iter().map(String::as_str).collect())),
                     Detail::Disclosure(inner) => details(&inner.content, out),
+                    Detail::Group(inner) => details(inner, out),
                     Detail::Text(_) | Detail::Divider => {}
                 }
             }
@@ -1045,5 +1136,37 @@ mod tests {
         assert!(stale.rows.iter().all(|row| row.status.is_none()));
         let failed = LoadingList::build(&snapshot, &all, true, true);
         assert_eq!(failed.retry, Some("Load plug-in controls again"));
+    }
+
+    #[test]
+    fn technical_records_keep_every_retained_preparation_fact() {
+        let snapshot = sample(Page::Plugins, "plugin_technical");
+        let records = technical_records(&snapshot.products[0]);
+        let mut lines = Vec::new();
+        fn walk<'a>(details: &'a [Detail], out: &mut Vec<&'a str>) {
+            for detail in details {
+                match detail {
+                    Detail::Text(text) => out.push(&text.words),
+                    Detail::Disclosure(inner) => { out.push(&inner.title); walk(&inner.content, out); }
+                    Detail::Group(inner) => walk(inner, out),
+                    _ => {}
+                }
+            }
+        }
+        walk(&records, &mut lines);
+        for expected in ["editor not yet assessed", "Ordinarily published", "Candidate generations and their own results",
+            "This publication retains its original acceptance. New evidence needs review; use Withdraw to disable it.",
+            "The previous preparation stopped; prepare again.", "Inspection: inspected · Preparation: prepared · Publication: ordinary",
+            "Adopted exact SV1 work; originally prepared through the engineering CLI.", "Parameters: 412 · Positive inspection cleanup: true",
+            "This product's operation: failed", "Stopped during native build", "audio: passed", "operator · Played a chord",
+            "editor: failed", "midi: not tested", "Published revision: 3 · Recommended: 2",
+            "Version 8.13 · default graphics · ordinary", "Installed files changed since this setup", "Technical product details"] {
+            assert!(lines.contains(&expected), "{expected} missing: {lines:?}");
+        }
+        let candidates = records.iter().find_map(|detail| match detail {
+            Detail::Disclosure(inner) if inner.title == "Candidate generations and their own results" => Some(inner),
+            _ => None }).unwrap();
+        assert!(candidates.start_open, "several generations start open");
+        assert!(candidates.content.iter().all(|detail| matches!(detail, Detail::Group(_))));
     }
 }

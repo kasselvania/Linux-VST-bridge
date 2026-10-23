@@ -147,7 +147,7 @@ fn operator(page: Page, state: &str) -> Operator {
     let readiness = preview_states::readiness(Some(state), &snapshot);
     Operator::preview_current(snapshot, readiness, page,
         page == Page::Plugins && state != "current_loading", state == "pending",
-        matches!(state, "plugin_details" | "plugin_history_open"), state == "stale")
+        matches!(state, "plugin_details" | "plugin_history_open" | "plugin_technical"), state == "stale")
 }
 
 #[test]
@@ -162,6 +162,18 @@ fn render_digests() {
             if only.as_deref().is_some_and(|prefix| !name.starts_with(prefix)) { continue; }
             cases(&name, &mut out, || {
                 let mut window = operator(page, state);
+                let mut frame = eframe::Frame::_new_kittest();
+                Box::new(move |ui: &mut egui::Ui| eframe::App::ui(&mut window, ui, &mut frame))
+            });
+        }
+    }
+    // The request bar and window states, over two pages.
+    for sample in Operator::REQUEST_SAMPLES {
+        for (page, page_name, state) in [(Page::Home, "home", "populated"), (Page::Plugins, "plugins", "plugin_ready")] {
+            let name = format!("frame/{sample}/{page_name}");
+            if only.as_deref().is_some_and(|prefix| !name.starts_with(prefix)) { continue; }
+            cases(&name, &mut out, || {
+                let mut window = operator(page, state).with_request_sample(sample);
                 let mut frame = eframe::Frame::_new_kittest();
                 Box::new(move |ui: &mut egui::Ui| eframe::App::ui(&mut window, ui, &mut frame))
             });

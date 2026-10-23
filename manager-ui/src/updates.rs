@@ -25,9 +25,7 @@ enum Event {
     Staged(Result<PathBuf, UpdateError>),
 }
 
-/// A plain line, with the manager's exact refusal kept for technical details.
-#[derive(Clone, Debug, PartialEq)]
-struct Notice { text: String, technical: Option<String> }
+use crate::screen_model::updates::{self as panel, Block, Link, Panel, Phase, Step, UpdateNotice as Notice};
 impl From<UpdateError> for Notice {
     fn from(error: UpdateError) -> Self {
         Self { technical: error.technical().map(str::to_owned), text: error.to_string() }
@@ -92,8 +90,6 @@ pub struct Updates {
     handover: Option<Handover>,
 }
 
-fn version(text: &str) -> String { feed::display_version(text) }
-
 impl Updates {
     pub fn new() -> Self {
         let home = std::env::var_os("HOME").map(PathBuf::from);
@@ -156,12 +152,29 @@ impl Updates {
     fn waiting(&self) -> bool { matches!(self.status, Status::WaitingForDaw { .. }) }
     /// An update is available or under way; Home shows one line for it.
     pub fn headline(&self) -> Option<String> {
+        panel::headline(&self.phase())
+    }
+    /// Where the updater is, for the panel.
+    fn phase(&self) -> Phase {
         match &self.status {
-            Status::Available(offer) => Some(format!("Update available: {}", version(&offer.version))),
-            Status::Downloading { offer, .. } => Some(format!("Downloading the update to {}…", version(&offer.version))),
-            Status::WaitingForDaw { offer, .. } => Some(format!("Close your DAW to finish updating to {}.", version(&offer.version))),
-            _ => None,
+            Status::Idle => Phase::Idle,
+            Status::Checking => Phase::Checking,
+            Status::Failed(notice) => Phase::Failed(notice.clone()),
+            Status::UpToDate(installed) => Phase::UpToDate(installed.clone()),
+            Status::NoPackage(latest) => Phase::NoPackage(latest.clone()),
+            Status::Manual(latest) => Phase::Manual(latest.clone()),
+            Status::Available(offer) => Phase::Available { version: offer.version.clone(), notes: offer.notes.clone() },
+            Status::Downloading { offer, done, total } =>
+                Phase::Downloading { version: offer.version.clone(), done: *done, total: *total },
+            Status::WaitingForDaw { offer, since, observed, .. } => Phase::Waiting { version: offer.version.clone(),
+                observed: *observed, long: since.elapsed() >= READING_GRACE },
+            Status::HandingOver(_) => Phase::HandingOver,
+            Status::HandedOver => Phase::HandedOver,
         }
+    }
+    fn panel(&self) -> Panel {
+        Panel::build(self.link.is_some(), self.editing, self.busy(), self.link_message.as_deref(),
+            &self.phase(), self.notice.as_ref())
     }
 
     /// Runs every frame: collects results, starts the start-up and daily
@@ -337,103 +350,107 @@ impl Updates {
         }
     }
 
-    /// Setup's "Beta updates" group.
+    /// Setup's "Beta updates" group, drawn from its screen model. A link
+    /// change applies at once; the update's own controls apply at the end.
     pub fn show(&mut self, ui: &mut egui::Ui) {
         egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
             ui.set_min_width((ui.available_width() - 1.0).max(0.0));
-            ui.label(egui::RichText::new("Beta updates").size(18.0).strong());
-            if self.link.is_none() || self.editing {
-                ui.label("Paste the beta link from your invitation. You only need to do this once.");
-                ui.horizontal_wrapped(|ui| {
-                    let field = ui.add(egui::TextEdit::singleline(&mut self.draft)
-                        .password(true).hint_text("Paste your beta link").desired_width(360.0));
-                    let entered = field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-                    if ui.add_enabled(!self.draft.trim().is_empty(),
-                        crate::presentation::primary_button("Save beta link", ui)).clicked() || entered {
-                        self.save_draft();
-                    }
-                    if self.link.is_some() && ui.button("Cancel").clicked() {
-                        self.editing = false;
-                        self.draft.clear();
-                        self.link_message = None;
-                    }
-                });
-                ui.small("The link's key is stored privately on this computer and is never shown or sent anywhere else.");
-            } else {
-                let busy = self.busy();
-                ui.horizontal_wrapped(|ui| {
-                    ui.label("The manager checks your beta link for new builds.");
-                    if !busy && ui.button("Paste a new link").clicked() {
-                        self.editing = true;
-                        self.link_message = None;
-                    }
-                });
+            let mut view = self.panel();
+            ui.label(egui::RichText::new(view.title).size(18.0).strong());
+            let mut link_step = None;
+            match &view.link {
+                Link::Entry { prompt, hint, save, keep, privacy } => {
+                    ui.label(*prompt);
+                    ui.horizontal_wrapped(|ui| {
+                        let field = ui.add(egui::TextEdit::singleline(&mut self.draft)
+                            .password(true).hint_text(*hint).desired_width(360.0));
+                        let entered = field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                        if ui.add_enabled(panel::can_save(&self.draft),
+                            crate::presentation::primary_button(*save, ui)).clicked() || entered {
+                            self.save_draft();
+                            link_step = Some(Step::SaveLink);
+                        }
+                        if let Some(keep) = keep {
+                            if ui.button(keep.label).clicked() {
+                                self.editing = false;
+                                self.draft.clear();
+                                self.link_message = None;
+                                link_step = Some(keep.does);
+                            }
+                        }
+                    });
+                    ui.small(*privacy);
+                }
+                Link::Saved { line, change } => {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(*line);
+                        if let Some(change) = change {
+                            if ui.button(change.label).clicked() {
+                                self.editing = true;
+                                self.link_message = None;
+                                link_step = Some(change.does);
+                            }
+                        }
+                    });
+                }
             }
-            if let Some(message) = &self.link_message {
+            if link_step.is_some() { view = self.panel(); }
+            if let Some(message) = &view.message {
                 ui.colored_label(warning(ui), message);
             }
-            if self.link.is_none() { return; }
+            let Some(status) = &view.status else { return };
             ui.add_space(4.0);
             let ctx = ui.ctx().clone();
-            let mut download = None;
-            let mut cancel = false;
-            let mut proceed = false;
-            match &self.status {
-                Status::Idle => {}
-                Status::Checking => { ui.horizontal(|ui| { ui.spinner(); ui.label("Checking for updates…"); }); }
-                Status::Failed(notice) => notice_line(ui, notice, false),
-                Status::UpToDate(installed) => { ui.label(format!("You have the latest version ({}).", version(installed))); }
-                Status::NoPackage(latest) => {
-                    ui.label(format!("{} is published, but not for this system. Tell the maintainer which Linux you use.", version(latest)));
-                }
-                Status::Manual(latest) => {
-                    ui.label(match latest {
-                        Some(latest) => format!("{} can't be applied from this version inside the app. Download its installer from your beta link and run it once; later updates then work from here.", version(latest)),
-                        None => "A newer build is published that this version can't apply inside the app. Download its installer from your beta link and run it once; later updates then work from here.".into(),
-                    });
-                }
-                Status::Available(offer) => {
-                    ui.label(egui::RichText::new(format!("Update available: {}", version(&offer.version))).strong());
-                    if !offer.notes.trim().is_empty() {
-                        egui::CollapsingHeader::new("What's new").default_open(false)
-                            .show(ui, |ui| { ui.label(plain_notes(&offer.notes)); });
+            let mut step = None;
+            match status {
+                Block::Idle => {}
+                Block::Working(words) => { ui.horizontal(|ui| { ui.spinner(); ui.label(*words); }); }
+                Block::Line(line) => { ui.label(line); }
+                Block::Notice { notice, warn } => notice_line(ui, notice, *warn),
+                Block::Available { headline, notes, notice, advice, download } => {
+                    ui.label(egui::RichText::new(headline).strong());
+                    if let Some((title, notes)) = notes {
+                        egui::CollapsingHeader::new(*title).default_open(false)
+                            .show(ui, |ui| { ui.label(plain_notes(notes)); });
                     }
-                    if let Some(notice) = &self.notice { notice_line(ui, notice, true); }
-                    ui.label("Close your DAW before updating. Your plug-ins, projects and settings are kept, and Restore previous setup can bring back this version.");
-                    if ui.add(crate::presentation::primary_button("Download and update", ui)).clicked() {
-                        download = Some(offer.clone());
+                    if let Some(notice) = notice { notice_line(ui, notice, true); }
+                    ui.label(*advice);
+                    if ui.add(crate::presentation::primary_button(download.label, ui)).clicked() {
+                        step = Some(download.does);
                     }
                 }
-                Status::Downloading { offer, done, total } => {
-                    ui.label(format!("Downloading {}…", version(&offer.version)));
-                    let fraction = if *total == 0 { 0.0 } else { *done as f32 / *total as f32 };
-                    ui.add(egui::ProgressBar::new(fraction.clamp(0.0, 1.0)).show_percentage()
-                        .text(format!("{:.0} of {:.0} MB", *done as f64 / 1e6, *total as f64 / 1e6)));
-                    ui.small("The download is checked against the signed update before anything is installed.");
+                Block::Downloading { line, fraction, progress, note } => {
+                    ui.label(line);
+                    ui.add(egui::ProgressBar::new(fraction.clamp(0.0, 1.0)).show_percentage().text(progress));
+                    ui.small(*note);
                 }
-                Status::WaitingForDaw { offer, since, observed, .. } => {
-                    ui.label(egui::RichText::new(format!("{} is downloaded and checked.", version(&offer.version))).strong());
-                    ui.colored_label(warning(ui), "The update continues by itself once no DAW is using bridged plug-ins. If your DAW is open, save your project and close it.");
+                Block::Waiting { headline, warning: caution, continue_anyway, cancel, recheck } => {
+                    ui.label(egui::RichText::new(headline).strong());
+                    ui.colored_label(warning(ui), *caution);
                     ui.horizontal_wrapped(|ui| {
-                        if !*observed && since.elapsed() >= READING_GRACE && ui.button("Continue anyway").clicked() {
-                            proceed = true;
+                        if let Some(proceed) = continue_anyway {
+                            if ui.button(proceed.label).clicked() { step = Some(proceed.does); }
                         }
-                        if ui.button("Cancel").clicked() { cancel = true; }
+                        if ui.button(cancel.label).clicked() { step = Some(cancel.does); }
                     });
-                    if !*observed && since.elapsed() >= READING_GRACE {
-                        ui.small("Setup will check again that no plug-ins are in use.");
-                    }
+                    if let Some(recheck) = recheck { ui.small(*recheck); }
                 }
-                Status::HandingOver(_) => { ui.horizontal(|ui| { ui.spinner(); ui.label("Opening Setup to finish the update…"); }); }
-                Status::HandedOver => { ui.label("Setup is finishing the update."); }
             }
-            if !self.busy() && ui.add_enabled(self.link.is_some(),
-                egui::Button::new("Check for updates").min_size(egui::vec2(0.0, 44.0))).clicked() {
-                self.start_check(&ctx);
+            if let Some(check) = &view.check {
+                if ui.add_enabled(check.enabled, egui::Button::new(check.label)
+                    .min_size(egui::vec2(0.0, 44.0))).clicked() {
+                    self.start_check(&ctx);
+                }
             }
-            if cancel { self.cancel_wait(); }
-            if proceed { self.continue_anyway(); }
-            if let Some(offer) = download { self.start_download(&ctx, offer); }
+            match step {
+                Some(Step::CancelWait) => self.cancel_wait(),
+                Some(Step::ContinueAnyway) => self.continue_anyway(),
+                Some(Step::Download) => if let Status::Available(offer) = &self.status {
+                    let offer = offer.clone();
+                    self.start_download(&ctx, offer);
+                },
+                _ => {}
+            }
         });
     }
 
@@ -456,16 +473,16 @@ impl Updates {
     }
 }
 
+/// The notes as plain text in the window's font, which has no arrow glyphs.
+fn plain_notes(notes: &str) -> String {
+    notes.replace('\r', "").replace('→', "->").replace('←', "<-")
+}
+
 fn notice_line(ui: &mut egui::Ui, notice: &Notice, warn: bool) {
     if warn { ui.colored_label(warning(ui), &notice.text); } else { ui.label(&notice.text); }
     if let Some(technical) = &notice.technical {
-        egui::CollapsingHeader::new("Technical details").show(ui, |ui| { ui.small(technical); });
+        egui::CollapsingHeader::new(panel::TECHNICAL).show(ui, |ui| { ui.small(technical); });
     }
-}
-
-/// The notes as plain text in the manager's font, which has no arrow glyphs.
-fn plain_notes(notes: &str) -> String {
-    notes.replace('\r', "").replace('→', "->").replace('←', "<-")
 }
 
 fn warning(ui: &egui::Ui) -> egui::Color32 {
