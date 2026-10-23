@@ -372,12 +372,19 @@ impl AppMain for App {
         }
         self.match_event(cx, event);
         self.ui.handle_event(cx, event, &mut Scope::empty());
-        if let Some(controller) = self.controller.as_mut() {
-            let changed = controller.pump();
-            if let Some(text) = controller.take_clipboard() { cx.copy_to_clipboard(&text); }
-            let close = controller.take_close_request();
-            if close { self.ui.window(cx, ids!(main_window)).close(cx); }
-            if changed { self.show(cx); }
+        // Makepad intentionally ignores ordinary area redraw requests during
+        // Draw. Consuming a worker reply here after the widget tree drew would
+        // replace its nodes without scheduling another frame. Leave replies in
+        // the channel until the UI signal or service timer, where show() can
+        // invalidate the page normally. No worker work depends on drawing.
+        if !matches!(event, Event::Draw(_)) {
+            if let Some(controller) = self.controller.as_mut() {
+                let changed = controller.pump();
+                if let Some(text) = controller.take_clipboard() { cx.copy_to_clipboard(&text); }
+                let close = controller.take_close_request();
+                if close { self.ui.window(cx, ids!(main_window)).close(cx); }
+                if changed { self.show(cx); }
+            }
         }
         if let Event::Draw(_) = event {
             self.frames += 1;
