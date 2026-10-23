@@ -15,8 +15,8 @@ export RUSTC=$(rustup which --toolchain 1.95.0 rustc)
 unset RUSTFLAGS
 export CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$MF1_ROOT=."
 if [ "${MF1_AUDIT:-0}" = 1 ]; then
-    rustup run 1.95.0 cargo build --manifest-path "$MF1_ROOT/bridge-manager/Cargo.toml" --locked --release --target "$MF1_TARGET" --bin linux-vst-bridge --features pb0-c0-audit
+    rustup run 1.95.0 cargo build --manifest-path "$MF1_ROOT/crates/cli/Cargo.toml" --locked --release --target "$MF1_TARGET" --bin linux-vst-bridge --features pb0-c0-audit
 else
-    rustup run 1.95.0 cargo build --manifest-path "$MF1_ROOT/bridge-manager/Cargo.toml" --locked --release --target "$MF1_TARGET" --bin linux-vst-bridge
+    rustup run 1.95.0 cargo build --manifest-path "$MF1_ROOT/crates/cli/Cargo.toml" --locked --release --target "$MF1_TARGET" --bin linux-vst-bridge
 fi
 rustup run 1.95.0 cargo build --manifest-path "$MF1_ROOT/manager-ui/Cargo.toml" --locked --release --target "$MF1_TARGET"

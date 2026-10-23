@@ -144,7 +144,7 @@ class PackageAssembly(unittest.TestCase):
         declared = f"CPython >={low},<{ceiling}"
         self.assertIn(f'"supervisor requires host {declared}"', bootstrap)
         self.assertIn(f'pub const SOURCE_PYTHON_RANGE: &str = "{declared}";',
-                      (root / "bridge-manager/src/supervisor.rs").read_text())
+                      (root / "crates/service/src/supervisor.rs").read_text())
         self.assertEqual(assemble.source_python_bounds(assemble.SOURCE_PYTHON_RANGE), (low, ceiling))
         self.assertEqual(assemble.package_dependencies(assemble.SOURCE_PYTHON_RANGE)[-2:],
                          (f"python>={low}", f"python<{ceiling}"))

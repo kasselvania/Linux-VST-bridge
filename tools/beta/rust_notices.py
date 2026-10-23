@@ -78,7 +78,7 @@ def capture_sources(source, output, target="x86_64-unknown-linux-gnu", *,
             raise ValueError("notice sources differ from frontend build")
         frontend_manifest = frontend_source / identity["manifest"]
         tracked = qualification.tracked_files(frontend_source)
-        manifests = [source / "bridge-manager/Cargo.toml", manifests[1], frontend_manifest]
+        manifests = [source / "crates/cli/Cargo.toml", manifests[1], frontend_manifest]
     for manifest in manifests:
         lock = tomllib.loads(manifest.with_name("Cargo.lock").read_text())
         for item in lock["package"]:

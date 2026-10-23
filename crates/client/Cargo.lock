@@ -299,24 +299,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
 
 [[package]]
-name = "linux-vst-bridge"
-version = "0.12.0"
-dependencies = [
- "ap1-native-client",
- "ed25519-dalek",
- "flate2",
- "libc",
- "lvb-model",
- "lvb-plugin-descriptor",
- "serde",
- "serde_json",
- "sha1",
- "sha2",
- "tar",
- "xz2",
-]
-
-[[package]]
 name = "log"
 version = "0.4.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -327,10 +309,11 @@ name = "lvb-client"
 version = "0.1.0"
 dependencies = [
  "libc",
- "linux-vst-bridge",
  "lvb-model",
+ "lvb-service",
  "lvb-view-model",
  "rfd",
+ "serde",
  "serde_json",
 ]
 
@@ -350,6 +333,24 @@ dependencies = [
  "serde",
  "serde_json",
  "sha1",
+]
+
+[[package]]
+name = "lvb-service"
+version = "0.12.0"
+dependencies = [
+ "ap1-native-client",
+ "ed25519-dalek",
+ "flate2",
+ "libc",
+ "lvb-model",
+ "lvb-plugin-descriptor",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "tar",
+ "xz2",
 ]
 
 [[package]]
@@ -725,9 +726,9 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.27"
+version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
+checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
 
 [[package]]
 name = "version_check"

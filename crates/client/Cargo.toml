@@ -3,14 +3,19 @@ name = "lvb-client"
 version = "0.1.0"
 edition = "2021"
 [features]
+samples = ["lvb-view-model/samples"]
 # The native dialog implementation is separate from request and custody logic.
 native-dialogs = ["dep:rfd"]
 [dependencies]
 lvb-model = { path = "../model" }
 lvb-view-model = { path = "../view-model" }
 serde_json = "=1.0.150"
+serde = { version = "=1.0.228", features = ["derive"] }
 [target.'cfg(target_os = "linux")'.dependencies]
 # Retained filesystem/artifact/catalogue helpers; no manager policy is copied.
-linux-vst-bridge = { path = "../../bridge-manager" }
+linux-vst-bridge = { package = "lvb-service", path = "../service" }
 libc = "=0.2.189"
 rfd = { version = "=0.17.2", default-features = false, features = ["xdg-portal"], optional = true }
+
+[dev-dependencies]
+lvb-view-model = { path = "../view-model", features = ["samples"] }

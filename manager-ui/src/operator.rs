@@ -2,7 +2,7 @@ use crate::{
     client::{self, Query, Reply},
     model::*,
     presentation,
-    screen_model::{self, forms, journey, screen::{Frame, Reading, Records, Screen},
+    screen_model::{self, forms, screen::{Frame, Reading, Records, Screen},
         setup, state::{Effect, Imported, PageFocus, State}, Local, ProductKey},
     widgets,
 };
@@ -20,49 +20,14 @@ thread_local! {
     /// mean equal intents.
     pub static PREVIEW_INTENT: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
 }
-fn runtime_verification_label(op: &serde_json::Value) -> Option<String> {
-    let checked = op["runtime_verification"]["checked"].as_u64()?;
-    let total = op["runtime_verification"]["total"].as_u64()?;
-    (total > 0 && total <= 40000 && checked <= total).then(|| format!(
-        "Checking compatibility files: {checked} of {total}. This can take longer after a restart."))
-}
-
 pub use crate::screen_model::window::Page;
-
-#[derive(Clone, Debug)]
-struct RequestFeedback {
-    action: Action,
-    operation: Option<String>,
-    text: String,
-    terminal: bool,
-    blocking: bool,
-    release_after_snapshot: bool,
-    acknowledgment_uncertain: bool,
-    journey: Option<InstallationJourney>,
-    transitions: Vec<String>,
-    report: Option<client::SupportReport>,
-    report_save_started: bool,
-}
-impl RequestFeedback {
-    fn captured(action: Action) -> Self {
-        Self {
-            action,
-            operation: None,
-            text: screen_model::window::CAPTURED.into(),
-            terminal: false,
-            blocking: true,
-            release_after_snapshot: false,
-            acknowledgment_uncertain: false,
-            journey: None,
-            transitions: vec!["captured".into()],
-            report: None,
-            report_save_started: false,
-        }
-    }
+use crate::screen_model::request::RequestFeedback;
+#[cfg(test)]
+use crate::screen_model::request::runtime_verification_label;
     /// The window's feedback for a sample request record.
-    #[cfg(test)]
-    fn sample(record: &screen_model::samples::RequestRecord) -> Self {
-        Self {
+#[cfg(test)]
+fn sample_feedback(record: &screen_model::samples::RequestRecord) -> RequestFeedback {
+        RequestFeedback {
             action: record.action.clone(),
             operation: record.operation.clone(),
             text: record.text.clone(),
@@ -76,318 +41,7 @@ impl RequestFeedback {
             report_save_started: false,
         }
     }
-    fn transition(&mut self, state: &str) {
-        if self.transitions.last().is_none_or(|s| s != state) {
-            if self.transitions.len() == 12 {
-                self.transitions.remove(0);
-            }
-            self.transitions.push(state.into());
-        }
-    }
-    fn receipt(&mut self, r: &Receipt) {
-        self.acknowledgment_uncertain = r.accepted && r.operation.is_none();
-        self.transition(if r.accepted { "accepted" } else { "refused" });
-        self.operation = r.operation.clone();
-        self.terminal = !r.accepted;
-        self.release_after_snapshot = !r.accepted;
-        self.text = if r.accepted {
-            "Request accepted. Waiting for its result.".into()
-        } else {
-            format!(
-                "This request was refused: {}",
-                r.refusal.as_deref().unwrap_or("reason unavailable")
-            )
-        };
-    }
-    fn observe(&mut self, op: &serde_json::Value) {
-        if self.operation.is_some() && self.operation.as_deref() == op["operation"].as_str()
-            && (matches!(self.action,Action::SoftwareInstall { .. } | Action::SoftwareInstallWithPolicy {..} | Action::VendorSoftwareInstall { .. }
-                | Action::SoftwareInstallResume { .. } | Action::RendererSoftwareInstall { .. })
-                || matches!(&self.action,Action::EnvironmentRefreshResume {operation}
-                    if op["renderer_owner"].as_str()==Some(operation.as_str()))) {
-            if let Ok(journey)=serde_json::from_value::<InstallationJourney>(op["journey"].clone()) {
-                if journey.phase == InstallationPhase::AwaitingApplication && journey.failure.is_none() {
-                    self.journey=Some(journey);self.transition("awaiting_application");
-                    self.terminal=true;self.blocking=false;self.release_after_snapshot=false;
-                    self.text="The app is installed. Open it below to install your instruments and effects.".into();
-                    return;
-                }
-            }
-        }
-        if self.terminal
-            || self.operation.as_deref() != op["operation"].as_str()
-            || self.operation.is_none()
-        {
-            return;
-        }
-        if let Ok(journey) = serde_json::from_value::<InstallationJourney>(op["journey"].clone()) {
-            self.journey = Some(journey);
-        }
-        if let Some(
-            state @ ("refused"
-            | "completed"
-            | "waiting"
-            | "validating"
-            | "vendor_running"
-            | "queued"
-            | "running"
-            | "submission_uncertain"),
-        ) = op["state"].as_str()
-        {
-            self.transition(state);
-        }
-        let verification = runtime_verification_label(op);
-        self.text = match op["state"].as_str() {
-            Some("refused") => {
-                self.terminal = true;
-                self.release_after_snapshot = true;
-                format!(
-                    "This request was refused: {}",
-                    op["reason"].as_str().unwrap_or("reason unavailable")
-                )
-            }
-            Some("completed") => {
-                self.terminal = true;
-                self.release_after_snapshot = true;
-                if matches!(self.action,Action::SupportExport {}) {
-                    self.report = op["result"]["export"].as_str().zip(op["result"]["sha256"].as_str())
-                        .filter(|(id,sha)|linux_vst_bridge::valid_hex(id,32)
-                            && linux_vst_bridge::valid_hex(sha,64))
-                        .map(|(id,sha256)|client::SupportReport {id:id.into(),sha256:sha256.into()});
-                    if self.report.is_some() {
-                        "Problem report created. Choose where to save the file to send.".into()
-                    } else { "The report's file identity is unavailable. Create a new problem report.".into() }
-                } else if let Some(message) = op["result"]["message"].as_str().filter(|_| matches!(self.action,
-                    Action::PluginRemoveFromDaw { .. } | Action::PluginAddBackToDaw { .. }
-                    | Action::SetupRemoveFromDaw { .. } | Action::ProductUninstall { .. }
-                    | Action::InstallerCloseCheck { .. })) {
-                    message.into()
-                } else if self.journey.as_ref().is_some_and(|journey|
-                    journey.phase == InstallationPhase::NeedsAttention) {
-                    "Installation or DAW connection needs attention. Refreshing its results…".into()
-                } else { "This operation completed. Refreshing its result…".into() }
-            }
-            Some("waiting" | "running") if verification.is_some() =>
-                verification.unwrap_or_default(),
-            Some("waiting" | "validating") => {
-                "This operation is validating manager state. Do not click again.".into()
-            }
-            Some("submission_uncertain") => {
-                self.release_after_snapshot = true;
-                "Launch acknowledgment is uncertain. Use the exact Stop / reconcile control; no launch was resubmitted.".into()
-            }
-            Some("vendor_running") if matches!(self.action, Action::PluginFinishSetup { .. }) => {
-                self.release_after_snapshot = true;
-                "Finish setup in the plug-in window, then close it. The bridge will check it again automatically.".into()
-            }
-            Some("vendor_running") if matches!(self.action, Action::ProductUninstall { .. }) => {
-                self.release_after_snapshot = true;
-                "The vendor's uninstaller is running. Follow its window to finish.".into()
-            }
-            Some("vendor_running") => {
-                if self.blocking {
-                    self.release_after_snapshot = true;
-                    "Vendor operation is running. Refreshing its controls…".into()
-                } else {
-                    "The operation is supervised and running. Use its exact Focus or Stop control below.".into()
-                }
-            }
-            Some("queued") => "This operation is queued. Do not click again.".into(),
-            Some("running") => match &self.action {
-                Action::SoftwareInstall { .. } | Action::SoftwareInstallWithPolicy {..} | Action::VendorSoftwareInstall { .. }
-                    | Action::SoftwareInstallResume { .. } | Action::RendererSoftwareInstall {..} | Action::EnvironmentRefresh { .. }
-                    | Action::EnvironmentRefreshResume { .. } =>
-                    self.journey.as_ref().map(journey::phase_label)
-                        .unwrap_or("Installing and connecting your plug-ins").into(),
-                Action::RuntimeInstall {} =>
-                    "Downloading and preparing the compatibility runtime. This may take several minutes.".into(),
-                Action::EnvironmentRescan { .. } =>
-                    "Checking the installed products. The bridge will resume when this finishes.".into(),
-                Action::EnvironmentRuntimeSelect { .. } =>
-                    "Changing the setup's runtime and checking its installed plug-ins. Next, choose Prepare for your DAW for each plug-in.".into(),
-                Action::CompatibilityCheck { .. } | Action::CompatibilityResumeCheck { .. } =>
-                    "Checking this plug-in and preparing its matching bridge.".into(),
-                Action::PluginPrepare { .. } => "Preparing this plug-in's matching bridge.".into(),
-                Action::CandidateGraphicsAssess { .. } => "Assessing graphics in this plug-in's selected runtime.".into(),
-                Action::CandidateGraphicsPrepare { .. } => "Preparing a reversible graphics settings trial.".into(),
-                Action::CandidateSettingsPrepare { .. } => "Preparing a reversible compatibility settings trial. Your current selection stays in place.".into(),
-                Action::CompatibilityPublishTest { .. } => "Selecting this plug-in's prepared bridge.".into(),
-                Action::PluginRemoveFromDaw { .. } => "Removing this plug-in from your DAW.".into(),
-                Action::PluginAddBackToDaw { .. } => "Adding this plug-in back to your DAW.".into(),
-                Action::SetupRemoveFromDaw { .. } => "Removing this setup's plug-ins from your DAW.".into(),
-                Action::SetupDelete { .. } => "Deleting this setup's Windows files. A large setup can take a minute.".into(),
-                // Once the uninstaller closed, the setup's own progress.
-                Action::ProductUninstall { .. } | Action::InstallerCloseCheck { .. }
-                    if op["progress"].as_str().is_some() => op["progress"].as_str().unwrap_or_default().into(),
-                Action::ProductUninstall { .. } =>
-                    "Taking the affected plug-ins out of your DAW and starting the uninstaller.".into(),
-                Action::InstallerCloseCheck { .. } => "Checking that it closed.".into(),
-                _ => "This operation is in progress. Do not click again.".into(),
-            },
-            _ => return,
-        };
-    }
-    fn refreshed(&mut self) {
-        if self.release_after_snapshot {
-            self.blocking = false;
-            self.release_after_snapshot = false;
-            if self.text == "This operation completed. Refreshing its result…" {
-                self.text = "This operation completed. Its current result is shown below.".into();
-            } else if self.text == "Installation or DAW connection needs attention. Refreshing its results…" {
-                self.text = "Installation or DAW connection needs attention. Its results and continuation are shown below.".into();
-            } else if self.text == "Vendor operation is running. Refreshing its controls…" {
-                self.text = "The operation is supervised and running. Use its exact Focus or Stop control below.".into();
-            }
-        }
-    }
-    fn reconcile_snapshot(&mut self, s: &Snapshot) {
-        // A lost acknowledgment is not a failed operation. Only exact canonical
-        // onboarding ownership plus its offered recovery action can resolve it.
-        if self.acknowledgment_uncertain && self.operation.is_none() {
-            if let Action::InstallerStart { onboarding }
-            | Action::InstallerStartWithPolicy { onboarding, .. } = &self.action
-            {
-                let owners: Vec<_> = s.onboarding.iter().filter(|r| r.environment.as_ref() == Some(onboarding))
-                    .filter_map(|r| {
-                        let op = r.details["installation"]["operation"].as_str()?;
-                        let exact = r.actions.iter().any(|a| matches!(&a.action,
-                            Action::InstallerStop { onboarding: id, operation } if id == onboarding && operation == op));
-                        (exact && matches!(r.details["installation"]["state"].as_str().unwrap_or(r.state.as_str()), "starting" | "running" | "unknown")).then_some(op.to_owned())
-                    }).collect();
-                if owners.len() == 1 {
-                    self.operation = Some(owners[0].clone());
-                    self.transition("live_owner_reconciled");
-                    self.release_after_snapshot = true;
-                    self.text = "Submission acknowledgment was unavailable. The manager confirms this exact live installer; recovery controls are available. No request was resubmitted.".into();
-                }
-            }
-        }
-        let mut renderer_recovery = false;
-        if let Action::RendererOpen {application,policy}
-            | Action::RendererSoftwareInstall {application,policy,..}=self.action.clone()
-        {
-            for app in &s.vendor_applications {
-                if app.details["application_identity"].as_str() == Some(application.as_str()) {
-                    if self.acknowledgment_uncertain
-                        && self.operation.is_none()
-                        && app.details["requested"] == serde_json::to_value(policy).unwrap()
-                        && matches!(
-                            app.details["manager_operation"]["state"].as_str(),
-                            Some("vendor_running" | "submission_uncertain")
-                        )
-                    {
-                        if let Some(op) = app.details["operation"].as_str() {
-                            if app.actions.iter().any(|a|matches!(&a.action,Action::RendererStop{operation} if operation==op)) {
-                                self.operation=Some(op.into());self.release_after_snapshot=true;
-                            }
-                        }
-                    }
-                    if let Some(op) = app.details.get("manager_operation") {
-                        // RendererOpen ends with its session; automatic installation
-                        // continues into discovery/connection under the operator owner.
-                        // A retired renderer child cannot complete that larger job.
-                        if matches!(self.action,Action::RendererOpen { .. })
-                            || matches!(op["state"].as_str(),Some("vendor_running"|"submission_uncertain")) {
-                            renderer_recovery = self.operation.is_some()
-                                && op["operation"].as_str() == self.operation.as_deref();
-                            self.observe(op);
-                        }
-                    }
-                }
-            }
-        }
-        if matches!(self.action, Action::DependencyPrepare {}) {
-            for app in &s.vendor_applications {
-                if app.id != "native-access" {
-                    continue;
-                }
-                let record = &app.details["dependency_manager_operation"];
-                if let Some(op) = record["operation"].as_str() {
-                    let exact = app.actions.iter().any(
-                        |a| matches!(&a.action,Action::DependencyStop{operation} if operation==op),
-                    );
-                    if exact
-                        && self.acknowledgment_uncertain
-                        && self.operation.is_none()
-                        && matches!(
-                            record["state"].as_str(),
-                            Some("submission_uncertain" | "vendor_running")
-                        )
-                    {
-                        self.operation = Some(op.into());
-                        self.release_after_snapshot = true;
-                    }
-                    if exact && self.operation.as_deref() == Some(op) {
-                        renderer_recovery = true;
-                        self.observe(record);
-                    }
-                }
-            }
-        }
-        let matching_operation = self.operation.is_some()
-            && s.operation
-                .as_ref()
-                .is_some_and(|op| op["operation"].as_str() == self.operation.as_deref());
-        if let Some((environment,installer,_)) = self.action.environment_installer_start() {
-            if let Some(target) = s.environment_installers.iter().find(|row|
-                row.environment == environment && row.operation.as_deref() == self.operation.as_deref()) {
-                self.observe(&target.result);
-            } else if self.acknowledgment_uncertain && self.operation.is_none() {
-                let owners:Vec<_> = s.environment_installers.iter().filter(|row|row.environment == environment
-                    && row.installer.as_deref() == Some(installer))
-                    .filter_map(|row|row.operation.as_ref().filter(|op|row.actions.iter().any(|offer|
-                        matches!(&offer.action,Action::EnvironmentInstallerStop {operation} if operation == *op))))
-                    .cloned().collect();
-                if owners.len() == 1 {
-                    // The exact start request in the live owner is checked by the
-                    // manager. Never infer ownership from a display name.
-                    self.operation = Some(owners[0].clone());
-                    self.release_after_snapshot = true;
-                }
-            }
-        }
-        let exact_recovery = if let Action::InstallerStart { onboarding }
-        | Action::InstallerStartWithPolicy { onboarding, .. } = &self.action
-        {
-            s.onboarding.iter().any(|r| {
-                r.environment.as_ref() == Some(onboarding)
-                    && r.actions.iter().any(|a| {
-                        matches!(&a.action, Action::InstallerStop{onboarding:id,operation}
-                    if id==onboarding && Some(operation.as_str())==self.operation.as_deref())
-                    })
-            })
-        } else if let Some((environment,_,_)) = self.action.environment_installer_start() {
-            s.environment_installers.iter().any(|row|row.environment == environment
-                && row.actions.iter().any(|offer|matches!(&offer.action,
-                    Action::EnvironmentInstallerStop {operation} if Some(operation.as_str()) == self.operation.as_deref())))
-        } else {
-            false
-        };
-        if exact_recovery && self.action.environment_installer_start().is_some() {
-            self.release_after_snapshot = true;
-            self.text = "The installer is running in this setup. Show or stop its window below.".into();
-        }
-        for product in &s.products {
-            if let Some(op) = product.details["preparation"].get("operation") {
-                self.observe(op);
-            }
-            if let Some(rows) = product.details["preparation"]["candidates"].as_array() {
-                for row in rows {
-                    if let Some(op) = row.get("operation") {
-                        self.observe(op);
-                    }
-                }
-            }
-        }
-        if let Some(op) = &s.operation {
-            self.observe(op);
-        }
-        if self.terminal || matching_operation || exact_recovery || renderer_recovery {
-            self.refreshed();
-        }
-    }
 
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum RequestOrigin {
@@ -434,6 +88,7 @@ pub struct Operator {
     overview_fresh: bool,
     // Age expiry keeps the last observed display; a failed or changed readback does not.
     overview_renewing: bool,
+    current_read_error: Option<String>,
     details_attempted: bool,
     sender: mpsc::Sender<Reply>,
     receiver: mpsc::Receiver<Reply>,
@@ -525,6 +180,7 @@ impl Operator {
             product_attempted: None,
             overview_fresh: false,
             overview_renewing: false,
+            current_read_error: None,
             details_attempted: false,
             sender,
             receiver,
@@ -568,6 +224,7 @@ impl Operator {
             product_attempted: None,
             overview_fresh: false,
             overview_renewing: false,
+            current_read_error: None,
             details_attempted: false,
             sender,
             receiver,
@@ -647,7 +304,7 @@ impl Operator {
         let case = &sample.case;
         let mut preview = Self::preview_current(sample.snapshot.clone(), sample.readiness.clone(), sample.state(),
             case.plugin_open, case.pending, case.stale);
-        preview.feedback = sample.request.as_ref().map(RequestFeedback::sample);
+        preview.feedback = sample.request.as_ref().map(sample_feedback);
         preview.message = sample.message.clone();
         preview.queued_import = sample.importing;
         preview.frontend_superseded = sample.superseded;
@@ -739,6 +396,7 @@ impl Operator {
         } else { Query::CurrentOverview }
     }
     fn apply_current_overview(&mut self, mut bundle: CurrentOverview) {
+        self.current_read_error = None;
         if bundle.current.system.capacity_available() {
             self.cleanup_failure_observed = bundle.current.system.cleanup_unconfirmed;
         }
@@ -878,6 +536,7 @@ impl Operator {
         self.background_poll = false;
         self.action_inflight = false;
         match reply {
+            Reply::CurrentManagerOpened => { self.message = "The current manager was opened.".into(); }
             Reply::FrontendSuperseded => {
                 // Keep drafts, queued actions and operation feedback intact.
                 // Nothing is resubmitted or cancelled during the handoff.
@@ -1060,6 +719,10 @@ impl Operator {
                     return;
                 }
                 let deferred = readback_deferred(&e);
+                if matches!(origin, RequestOrigin::InitialSnapshot | RequestOrigin::ExplicitRefresh
+                    | RequestOrigin::SilentPostMutationRefresh | RequestOrigin::BackgroundActivity) && !deferred {
+                    self.current_read_error = Some(e.clone());
+                }
                 if origin == RequestOrigin::ProductDetail {
                     self.product_detail = None;
                     return;
@@ -1080,7 +743,7 @@ impl Operator {
                         self.refresh_after = true;
                     }
                 }
-                if origin.foreground() || matches!(origin, RequestOrigin::InitialSnapshot | RequestOrigin::ExplicitRefresh) {
+                if origin.foreground() {
                     self.message = e;
                 }
                 // Background readback errors stay quiet as requests, but the
@@ -1216,7 +879,7 @@ fn next_step(ui: &mut egui::Ui, next: &screen_model::home::Next, chosen: &mut Op
             if let Some(blocker) = blocker { ui.colored_label(warning_color(ui), blocker); }
             if ui.button(review.label).clicked() { *local = Some(review.does.clone()); }
         }
-        Next::Go { title, detail, open } => {
+        Next::Recovery { title, detail, open } | Next::Go { title, detail, open } => {
             ui.strong(title);
             if let Some(detail) = detail { ui.label(detail); }
             if control_button(ui, open) { *local = Some(open.does.clone()); }
@@ -1722,6 +1385,7 @@ impl Operator {
         let reading = Reading {
             fresh: self.overview_fresh,
             renewing: self.overview_renewing,
+            current_unavailable: self.current_read_error.is_some(),
             health_renewing: self.health_refreshing(),
             owned_pause: self.current_owned_pause(),
             controls_pending,
@@ -1738,7 +1402,7 @@ impl Operator {
             request: self.feedback.as_ref().map(|feedback| screen_model::window::Request {
                 text: &feedback.text, journey: feedback.journey.as_ref(), operation: feedback.operation.as_deref(),
                 transitions: &feedback.transitions, report: feedback.report.is_some(), blocking: feedback.blocking }),
-            message: &self.message,
+            message: self.current_read_error.as_deref().unwrap_or(&self.message),
         };
         (records, reading)
     }
@@ -1873,9 +1537,14 @@ impl eframe::App for Operator {
                     },
                     Screen::Activity(view) => Self::activity_page(ui, &view, &mut self.window, &mut chosen),
                     Screen::Diagnostics(view) => Self::diagnostics_page(ui, &view, &mut chosen),
-                    Screen::Checking { heading, words } => {
+                    Screen::Checking { heading, words, retry } => {
                         ui.heading(heading);
                         ui.label(words);
+                        if let Some(retry) = retry {
+                            if ui.add_enabled(retry.enabled, egui::Button::new(retry.label)).clicked() {
+                                refresh = true;
+                            }
+                        }
                     }
                     Screen::LoadingDetails { words, retry } => {
                         ui.label(words);
@@ -3352,6 +3021,7 @@ mod tests {
             product_attempted: None,
             overview_fresh: false,
             overview_renewing: false,
+            current_read_error: None,
             details_attempted: false,
             sender,
             receiver,
@@ -5035,6 +4705,23 @@ mod tests {
         assert!(operator.queued_action.is_none());
     }
     #[test]
+    fn initial_status_failure_offers_retry_until_actual_status_arrives() {
+        let mut operator = state_fixture();
+        operator.origin = Some(RequestOrigin::InitialSnapshot);
+        operator.handle_reply(Reply::Error("status unavailable".into()));
+        assert!(matches!(operator.screen_view(None, false, false),
+            Screen::Checking { retry: Some(ref retry), .. } if retry.enabled));
+        operator.origin = Some(RequestOrigin::BackgroundActivity);
+        operator.handle_reply(Reply::Pulse(pulse_fixture(false)));
+        assert!(operator.current_read_error.is_some(), "A pulse is not the missing overview");
+        operator.origin = Some(RequestOrigin::SilentPostMutationRefresh);
+        operator.handle_reply(Reply::Overview(Box::new(overview_fixture())));
+        assert!(operator.current_read_error.is_none());
+        assert!(operator.frame_view(None, false, false).request.is_none());
+        assert!(matches!(operator.screen_view(None, false, false), Screen::Home(_)));
+    }
+
+    #[test]
     fn repeated_readback_errors_have_bounded_retry_and_no_action_authority() {
         let mut operator=state_fixture();
         operator.overview=Some(overview_fixture().into());
@@ -5566,6 +5253,8 @@ mod tests {
         let asked = removal_confirmation(Some(&overview.current), &uninstall.action);
         assert_eq!(asked.title, "Uninstall?");
         assert!(asked.body.iter().any(|line| line.contains(&product.name) && line.contains("removed from your DAW")),
+            "{:?}", asked.body);
+        assert!(asked.body.iter().any(|line| line.contains("This setup stays unavailable until the check finishes")),
             "{:?}", asked.body);
         assert_eq!(asked.offer.as_ref().map(|offer| &offer.action), Ok(&uninstall.action));
         let sent = confirmed(uninstall.action.clone());
@@ -6526,12 +6215,12 @@ mod tests {
         let mut feedback=RequestFeedback::captured(Action::EnvironmentRescan {environment:"ab".repeat(16)});
         feedback.operation=Some("scan".into());
         feedback.observe(&serde_json::json!({"operation":"scan","state":"running"}));
-        assert!(feedback.text.contains("Checking the installed products"));
+        assert_eq!(feedback.text, "Checking this setup's installed plug-ins.");
         assert!(!feedback.text.contains("Downloading"));
     }
     #[test]
     fn an_uninstall_shows_its_setup_being_checked_once_the_uninstaller_closed() {
-        let progress = "Checking this setup's plug-ins (2 of 3)… The bridge is paused for all your setups until this finishes.";
+        let progress = "Checking this setup's plug-ins (2 of 3)…";
         for action in [Action::ProductUninstall {environment:"ab".repeat(16),registration:"cd".repeat(32),
             command_sha256:"ef".repeat(32),confirmed:true}, Action::InstallerCloseCheck {operation:"ab".repeat(16)}] {
             let mut feedback=RequestFeedback::captured(action);

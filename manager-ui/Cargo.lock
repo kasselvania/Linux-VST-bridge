@@ -1220,7 +1220,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "libc",
- "linux-vst-bridge",
+ "lvb-service",
  "lvb-client",
  "lvb-view-model",
  "png",
@@ -1241,7 +1241,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
 
 [[package]]
-name = "linux-vst-bridge"
+name = "lvb-service"
 version = "0.12.0"
 dependencies = [
  "ap1-native-client",
@@ -1284,10 +1284,11 @@ name = "lvb-client"
 version = "0.1.0"
 dependencies = [
  "libc",
- "linux-vst-bridge",
+ "lvb-service",
  "lvb-model",
  "lvb-view-model",
  "rfd",
+ "serde",
  "serde_json",
 ]
 

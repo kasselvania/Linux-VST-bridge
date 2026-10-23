@@ -1023,6 +1023,7 @@ impl Sample {
         crate::screen::Reading {
             fresh: self.fresh(),
             renewing: self.renewing,
+            current_unavailable: false,
             health_renewing: !self.superseded && self.renewing,
             owned_pause: self.current() && crate::service::owned_service_pause(self.snapshot.operation.as_ref()),
             controls_pending: self.superseded || self.importing || in_flight

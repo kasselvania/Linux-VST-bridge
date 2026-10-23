@@ -195,6 +195,8 @@ pub struct PluginCard {
     pub name: String,
     pub status: Status,
     pub facts: Vec<Fact>,
+    /// Distinct observed stages; DAW publication does not prove sound or recall.
+    pub readiness: Vec<ReadinessStep>,
     /// Posture, session problems and retained explanations, in reading order.
     pub notes: Vec<Text>,
     /// The one everyday next step, when there is one.
@@ -209,6 +211,46 @@ pub struct PluginCard {
     pub shared_setup: Option<SharedSetup>,
     /// Technical details; the caller adds the retained technical records.
     pub technical: Disclosure,
+}
+
+/// One stage in the Console readiness ladder, composed from owner observations.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReadinessStep {
+    pub title: String,
+    pub detail: String,
+    pub class: StatusClass,
+}
+
+pub fn readiness(product: &Product) -> Vec<ReadinessStep> {
+    let mut steps = vec![];
+    let installed = product.disposition != "uninstalled" && !product.environment.is_empty();
+    steps.push(ReadinessStep { title: "Installed".into(),
+        detail: if installed { "Retained in its managed setup" } else { "No current installation" }.into(),
+        class: if installed { StatusClass::Ready } else { StatusClass::Unknown } });
+    let (class, detail) = match &product.availability {
+        Some(a) if a.available => (StatusClass::Ready, "The native Linux plug-in connection is published".into()),
+        Some(a) => (StatusClass::NeedsYou, a.reason.clone().unwrap_or_else(|| "Not connected yet".into())),
+        None => (StatusClass::Unknown, "Connection has not been checked".into()),
+    };
+    steps.push(ReadinessStep { title: "In your DAW’s folder".into(), detail, class });
+    if let Some(workflow) = &product.compatibility {
+        for area in &workflow.established {
+            steps.push(ReadinessStep { title: product::check_area_label(area).into(),
+                detail: "Observed with this setup".into(), class: StatusClass::Ready });
+        }
+        for area in &workflow.remaining {
+            steps.push(ReadinessStep { title: product::check_area_label(area).into(),
+                detail: "Not yet checked".into(), class: StatusClass::Unknown });
+        }
+        if workflow.established.is_empty() && workflow.remaining.is_empty() {
+            steps.push(ReadinessStep { title: "Tried on this computer".into(),
+                detail: workflow.summary.clone(), class: StatusClass::Unknown });
+        }
+    } else {
+        steps.push(ReadinessStep { title: "Tried on this computer".into(),
+            detail: "No retained test result for this setup".into(), class: StatusClass::Unknown });
+    }
+    steps
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -293,6 +335,12 @@ impl PluginCard {
         }
         if let Some(refused) = last_load_text(p) {
             notes.push(Text::caution(refused));
+        }
+        for limit in &p.limitations {
+            let words = limit.replace('_', " ");
+            if !notes.iter().any(|note| note.words == words) {
+                notes.push(Text::caution(words));
+            }
         }
 
         let lead = everyday_primary.as_ref().map(|action| LeadOffer {
@@ -402,10 +450,12 @@ impl PluginCard {
             name: p.name.clone(),
             status: progress.map(|words| Status { words, class: StatusClass::Working }).unwrap_or(status),
             facts: vec![
+                Fact { label: "Vendor", value: Some(product::vendor(p).into()), missing: "Vendor unavailable" },
                 Fact { label: "Type", value: Some(product::role(p).into()), missing: "Type unavailable" },
                 Fact { label: "Version", value: (!p.version.trim().is_empty()).then(|| p.version.clone()),
                     missing: "Version unavailable" },
             ],
+            readiness: readiness(p),
             notes,
             lead,
             offers: everyday,
@@ -448,6 +498,7 @@ pub struct LoadingRow {
     pub facts: Vec<Fact>,
     /// Current availability; withheld when status could not be loaded.
     pub status: Option<&'static str>,
+    pub status_class: StatusClass,
     pub notes: Vec<Text>,
     /// Opens this exact plug-in, when several are listed.
     pub manage: Option<&'static str>,
@@ -457,7 +508,7 @@ impl LoadingList {
     pub fn build(snapshot: &Snapshot, query: &Query, fresh: bool, details_attempted: bool) -> Self {
         let single = query.single();
         let (notice, retry) = if !fresh {
-            (Text::caution("Current plug-in status could not be loaded. Refresh on Home before continuing."), None)
+            (Text::caution("Current plug-in status could not be loaded. Try loading it again before continuing."), Some("Load plug-in controls again"))
         } else if details_attempted {
             (Text::caution("Plug-in controls could not be loaded. The last plug-in summary is shown below."),
                 Some("Load plug-in controls again"))
@@ -507,6 +558,9 @@ impl LoadingList {
                     ],
                     status: fresh.then(|| installation_progress(snapshot, product)
                         .unwrap_or_else(|| product::status(product).words)),
+                    status_class: if !fresh { StatusClass::Unknown }
+                        else if installation_progress(snapshot, product).is_some() { StatusClass::Working }
+                        else { product::status(product).class },
                     notes,
                     // A Setup discovery may focus several exact classes. Each
                     // row must still let the user select one current detail.
@@ -518,9 +572,10 @@ impl LoadingList {
 }
 
 /// The retained technical records under a plug-in's technical details: its
-/// limitations, preparation, published revision and history.
+/// preparation, published revision and history. Supplied limitations are
+/// musician-facing notes on the card, not hidden technical records.
 pub fn technical_records(product: &Product) -> Vec<Detail> {
-    let mut details: Vec<Detail> = product.limitations.iter().map(|limit| Text::body(limit.replace('_', " ")).into()).collect();
+    let mut details = Vec::new();
     if let Some(preparation) = product.details.get("preparation") {
         details.extend(preparation_records(preparation));
     }
@@ -679,7 +734,7 @@ fn routine_rank(action: &Action) -> Option<u8> {
 fn emphasized_action(
     product: &Product,
     related: &[AvailableAction],
-    busy: Option<&str>,
+    _busy: Option<&str>,
 ) -> Option<AvailableAction> {
     let published = matches!(product.disposition.as_str(), "ready" | "experimental");
     product
@@ -687,8 +742,7 @@ fn emphasized_action(
         .iter()
         .chain(related)
         .filter(|offer| {
-            // Duplicate of the manager's shared-resource rule; see `offers::refusal`.
-            offer.disabled_reason.is_none() && !(busy.is_some() && offer.action.requires_global_inactive())
+            offer.disabled_reason.is_none()
         })
         .filter_map(|offer| {
             routine_rank(&offer.action).map(|rank| {
@@ -827,11 +881,13 @@ mod tests {
             disabled_reason: Some("Current manager work blocks this scan".into()),
         };
         product.actions.push(retry.clone());
-        assert!(emphasized_action(product, &related, Some("Busy")).is_none());
+        let enabled_related = emphasized_action(product, &related, Some("Busy")).unwrap();
+        assert_ne!(enabled_related.action, retry.action);
+        assert_eq!(enabled_related.disabled_reason, None);
         assert_eq!(product.actions.len(), 1);
         assert_eq!(product.actions[0].action, retry.action);
         product.actions[0].disabled_reason = None;
-        let selected = emphasized_action(product, &related, None).unwrap();
+        let selected = emphasized_action(product, &related, Some("Unrelated setup is busy")).unwrap();
         assert_eq!(selected.action, retry.action);
         assert_eq!(product.actions.len(), 1);
         assert_eq!(selected.disabled_reason, None);
@@ -978,11 +1034,6 @@ mod tests {
                             if pending {
                                 assert!(!offer.availability.enabled(), "{state}: {} pressable while pending", offer.label);
                             }
-                            let shared = offer.intent.requires_global_inactive()
-                                && !matches!(offer.intent, Action::CompatibilityResult { .. });
-                            if shared && snapshot.system.inactive_reason().is_some() {
-                                assert!(!offer.availability.enabled(), "{state}: shared {} ignores busy service", offer.label);
-                            }
                             checked += 1;
                         }
                     }
@@ -1046,7 +1097,7 @@ mod tests {
             let card = card(&snapshot, 0, false, false);
             assert_eq!(card.status, Status { words: "Available in your DAW", class: StatusClass::Ready }, "{state}");
             assert_eq!(card.notes[0], Text::body(daw_guidance(None)), "{state}");
-            assert_eq!(crate::fact_line(&card.facts), "Instrument · 8.13.1");
+            assert_eq!(crate::fact_line(&card.facts), "Native Instruments · Instrument · 8.13.1");
         }
         let snapshot = sample(Page::Plugins, "plugin_ready");
         assert!(card(&snapshot, 0, false, false).lead.is_none());
@@ -1055,6 +1106,44 @@ mod tests {
         assert_eq!(matching(&snapshot, &available).len(), snapshot.products.len());
         let attention = Query { status: StatusFilter::NeedsAttention, ..query("") };
         assert!(matching(&snapshot, &attention).is_empty());
+    }
+
+    #[test]
+    fn available_product_supplies_limitations_as_visible_notes_only_once() {
+        let mut snapshot = sample(Page::Plugins, "plugin_ready");
+        snapshot.products[0].limitations = vec!["Saved-project recall has not been checked.".into()];
+        let card = card(&snapshot, 0, false, false);
+        assert_eq!(card.status.class, StatusClass::Ready);
+        assert_eq!(card.notes.iter().filter(|note|
+            note.words == "Saved-project recall has not been checked.").count(), 1);
+        assert!(!format!("{:?}", technical_records(&snapshot.products[0]))
+            .contains("Saved-project recall has not been checked."));
+        let product = &mut snapshot.products[0];
+        product.disposition = "needs_attention".into();
+        product.availability = None;
+        product.compatibility = None;
+        product.details = serde_json::json!({});
+        product.limitations.push("The editor has not been checked.".into());
+        let card = self::card(&snapshot, 0, false, false);
+        assert!(card.status.class.needs_attention());
+        for limitation in &snapshot.products[0].limitations {
+            assert_eq!(card.notes.iter().filter(|note| note.words == *limitation).count(), 1,
+                "the first limitation may already be the product's issue; retain every distinct limitation once");
+        }
+    }
+
+    #[test]
+    fn publication_does_not_invent_a_passed_sound_or_recall_check() {
+        let mut snapshot = sample(Page::Plugins, "plugin_ready");
+        let product = &mut snapshot.products[0];
+        product.compatibility = None;
+        product.availability = Some(crate::model::NativeAvailability { available: true, reason: None });
+        let steps = readiness(product);
+        assert_eq!(steps[1].class, StatusClass::Ready);
+        assert_eq!(steps[2].class, StatusClass::Unknown);
+        assert!(steps[2].detail.contains("No retained test result"));
+        product.availability = None;
+        assert_eq!(readiness(product)[1].class, StatusClass::Unknown);
     }
 
     #[test]
@@ -1132,7 +1221,7 @@ mod tests {
         let snapshot = sample(Page::Plugins, "stale");
         let stale = LoadingList::build(&snapshot, &all, false, false);
         assert_eq!(stale.notice, Text::caution(
-            "Current plug-in status could not be loaded. Refresh on Home before continuing."));
+            "Current plug-in status could not be loaded. Try loading it again before continuing."));
         assert!(stale.rows.iter().all(|row| row.status.is_none()));
         let failed = LoadingList::build(&snapshot, &all, true, true);
         assert_eq!(failed.retry, Some("Load plug-in controls again"));
@@ -1154,7 +1243,9 @@ mod tests {
             }
         }
         walk(&records, &mut lines);
-        for expected in ["editor not yet assessed", "Ordinarily published", "Candidate generations and their own results",
+        assert!(card(&snapshot, 0, false, false).notes.contains(&Text::caution("editor not yet assessed")));
+        assert!(!lines.contains(&"editor not yet assessed"), "the visible limitation is not duplicated in technical records");
+        for expected in ["Ordinarily published", "Candidate generations and their own results",
             "This publication retains its original acceptance. New evidence needs review; use Withdraw to disable it.",
             "The previous preparation stopped; prepare again.", "Inspection: inspected · Preparation: prepared · Publication: ordinary",
             "Adopted exact SV1 work; originally prepared through the engineering CLI.", "Parameters: 412 · Positive inspection cleanup: true",

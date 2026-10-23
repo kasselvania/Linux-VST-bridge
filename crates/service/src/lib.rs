@@ -1,0 +1,2142 @@
+//! Product state mechanisms and their control-service owner.
+extern crate self as linux_vst_bridge;
+pub mod owner;
+pub mod preparation;
+pub mod environment_revision;
+pub mod runtime_delivery;
+pub mod acceptance;
+pub mod capacity;
+pub mod transport_storage;
+pub mod mapped_file;
+pub mod catalogue;
+pub mod crash_capture;
+pub mod deleted_setup;
+#[cfg(test)]
+mod managed_tests;
+pub mod observation;
+pub use lvb_model::operator_model;
+use operator_lock::LockFile as _;
+pub mod installer_policy;
+pub mod graphics;
+pub mod operator_lock;
+pub mod inventory;
+pub mod problem;
+pub mod frg1;
+pub mod profiles;
+pub mod pigments;
+pub mod publication;
+pub mod qualification;
+pub mod readback;
+pub mod service;
+#[cfg(test)]
+mod test_fixture;
+pub mod vendor_application;
+pub mod vendor_profile;
+pub mod renderer_application;
+pub mod renderer_session;
+pub mod native_access_callback;
+pub mod ui_observation;
+pub mod uninstall_entry;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::{
+    cell::{Cell, RefCell},
+    collections::{BTreeMap, HashMap},
+    fs::{self, File, OpenOptions},
+    io::{Read, Write},
+    os::unix::fs::{symlink, MetadataExt, OpenOptionsExt, PermissionsExt},
+    path::{Path, PathBuf},
+};
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+pub fn require(ok: bool, why: &str) -> Result<()> {
+    if ok {
+        Ok(())
+    } else {
+        Err(why.into())
+    }
+}
+pub fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+pub fn valid_hex(s: &str, n: usize) -> bool {
+    s.len() == n && s.bytes().all(|c| c.is_ascii_hexdigit())
+}
+pub fn random_id() -> Result<String> {
+    let mut b = [0u8; 16];
+    File::open("/dev/urandom")?.read_exact(&mut b)?;
+    Ok(hex(&b))
+}
+pub fn private_dir(p: &Path) -> Result<()> {
+    fs::DirBuilder::new().recursive(true).create(p)?;
+    let m = fs::symlink_metadata(p)?;
+    require(
+        m.is_dir() && m.uid() == unsafe { libc::getuid() },
+        "directory ownership/type differs",
+    )?;
+    // Creation callers use umask 077; never chmod an existing public directory.
+    require(m.mode() & 0o077 == 0, "directory must be private")
+}
+/// More files than this, and a composition's opened files are not named.
+const OPENED_LIMIT: usize = 65536;
+/// Each file opened: how many times, and how many bytes were read from it.
+pub type OpenedReads = BTreeMap<PathBuf, (u32, u64)>;
+type OpenedSet = std::sync::Arc<std::sync::Mutex<OpenedReads>>;
+thread_local! {
+    static OPENED: RefCell<Option<OpenedSet>> = const { RefCell::new(None) };
+}
+/// The recorder of the files a composition opens through [`file`]. Its
+/// helper threads carry it ([`spawn_recorded`]), so what they open is named too.
+#[derive(Clone, Default)]
+pub struct OpenedFiles(Option<OpenedSet>);
+impl OpenedFiles {
+    /// The recorder of the composition running on this thread, if any.
+    pub fn here() -> Self {
+        Self(OPENED.with(|opened| opened.borrow().clone()))
+    }
+    /// Run `work` on this thread, recording into the same set.
+    pub fn record<T>(&self, work: impl FnOnce() -> T) -> T {
+        struct Restore(Option<OpenedSet>);
+        impl Drop for Restore {
+            fn drop(&mut self) { OPENED.with(|opened| *opened.borrow_mut() = self.0.take()); }
+        }
+        let _restore = Restore(OPENED.with(|opened| opened.replace(self.0.clone())));
+        work()
+    }
+}
+/// A composition helper thread that records what it opens with the
+/// composition that started it.
+pub fn spawn_recorded<'scope, T: Send + 'scope>(scope: &'scope std::thread::Scope<'scope, '_>,
+    work: impl FnOnce() -> T + Send + 'scope) -> std::thread::ScopedJoinHandle<'scope, T> {
+    let recorder = OpenedFiles::here();
+    scope.spawn(move || recorder.record(work))
+}
+/// Files opened through [`file`] while `read` runs, on this thread and the
+/// helper threads it starts with [`spawn_recorded`]: every record read and
+/// every artifact checked. `None` past a bound, when they are too many to name.
+pub fn with_opened_files<T>(read: impl FnOnce() -> T) -> (T, Option<std::collections::BTreeSet<PathBuf>>) {
+    let (value, opened) = with_opened_counts(read);
+    (value, opened.map(|opened| opened.into_keys().collect()))
+}
+/// As [`with_opened_files`], with how many times each file was opened.
+pub fn with_opened_counts<T>(read: impl FnOnce() -> T) -> (T, Option<BTreeMap<PathBuf, u32>>) {
+    let (value, opened) = with_opened_reads(read);
+    (value, opened.map(|opened| opened.into_iter().map(|(path, (opens, _))| (path, opens)).collect()))
+}
+/// As [`with_opened_counts`], with the bytes read from each file as a
+/// record ([`read_json`]) or to hash it ([`digest`]).
+pub fn with_opened_reads<T>(read: impl FnOnce() -> T) -> (T, Option<OpenedReads>) {
+    let set = OpenedSet::default();
+    let value = OpenedFiles(Some(set.clone())).record(read);
+    let opened = std::mem::take(&mut *set.lock().unwrap_or_else(|poisoned| poisoned.into_inner()));
+    (value, (opened.len() <= OPENED_LIMIT).then_some(opened))
+}
+/// Count `bytes` read from `p` (and `opens` openings) for the composition
+/// running on this thread ([`with_opened_reads`]); a reader that does not
+/// use [`read_json`] says what it read.
+pub fn record_opened(p: &Path, opens: u32, bytes: u64) {
+    OPENED.with(|opened| if let Some(set) = opened.borrow().as_ref() {
+        let mut set = set.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some((count, read)) = set.get_mut(p) {
+            *count = count.saturating_add(opens);
+            *read = read.saturating_add(bytes);
+        } else if set.len() <= OPENED_LIMIT {
+            set.insert(p.to_path_buf(), (opens, bytes));
+        }
+    });
+}
+pub fn file(p: &Path) -> Result<File> {
+    record_opened(p, 1, 0);
+    let f = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(p)?;
+    let m = f.metadata()?;
+    require(
+        m.is_file() && m.uid() == unsafe { libc::getuid() },
+        "file ownership/type differs",
+    )?;
+    Ok(f)
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct DigestFileIdentity {
+    device: u64,
+    inode: u64,
+    length: u64,
+    mode: u32,
+    uid: u32,
+    mtime: i64,
+    mtime_ns: i64,
+    ctime: i64,
+    ctime_ns: i64,
+}
+impl From<&fs::Metadata> for DigestFileIdentity {
+    fn from(m: &fs::Metadata) -> Self {
+        Self {device:m.dev(), inode:m.ino(), length:m.len(), mode:m.mode(), uid:m.uid(),
+            mtime:m.mtime(), mtime_ns:m.mtime_nsec(), ctime:m.ctime(), ctime_ns:m.ctime_nsec()}
+    }
+}
+impl DigestFileIdentity {
+    fn matches_except_ctime(self, other: Self) -> bool {
+        Self { ctime: other.ctime, ctime_ns: other.ctime_ns, ..self } == other
+    }
+}
+thread_local! {
+    static SCOPED_DIGESTS: RefCell<Option<HashMap<PathBuf, (DigestFileIdentity, String)>>> =
+        const { RefCell::new(None) };
+    static FULL_BYTE_VERIFICATION: Cell<bool> = const { Cell::new(false) };
+    static PREPARED_BYTES_ONLY: Cell<bool> = const { Cell::new(false) };
+}
+/// Reuse exact digests only during one read-only projection. Every reuse
+/// reopens the path without following links and matches inode, size, owner,
+/// mode, modification and change times. Nested projections share the same
+/// observations; no cache survives the outermost projection.
+pub fn with_readback_digests<T>(readback: impl FnOnce() -> T) -> T {
+    if SCOPED_DIGESTS.with(|cache| cache.borrow().is_some()) {
+        return readback();
+    }
+    with_scoped_digests(readback)
+}
+/// An isolated launch hashes every runtime byte afresh. Repeated authority
+/// checks in that same admission reuse only bytes already read in this scope,
+/// after reopening and matching the complete file identity. Persisted runtime
+/// observations cannot authorize execution, even in a nested readback scope.
+pub fn with_launch_verification<T>(admission: impl FnOnce() -> T) -> T {
+    // Nested stages of the same operation already own byte observations.
+    // Preserve those observations, but never inherit a readback-only scope.
+    if FULL_BYTE_VERIFICATION.with(Cell::get) {
+        return admission();
+    }
+    struct Restore(bool);
+    impl Drop for Restore {
+        fn drop(&mut self) { FULL_BYTE_VERIFICATION.with(|mode| mode.set(self.0)); }
+    }
+    let _restore = Restore(FULL_BYTE_VERIFICATION.with(|mode| mode.replace(true)));
+    with_scoped_digests(admission)
+}
+
+/// Process-owned byte observations shared by one running manager's launch
+/// preparation. Unlike the persisted readback cache, these entries can only
+/// originate from bytes this process read. Every reuse still reopens and checks
+/// the complete file identity; a changed file is hashed again and validated by
+/// its ordinary owner. Never put this cache or its mutex on an audio path.
+#[derive(Default)]
+pub struct LaunchVerification {
+    records: std::sync::Mutex<HashMap<PathBuf, (DigestFileIdentity, String)>>,
+}
+pub struct LaunchSnapshot(HashMap<PathBuf, (DigestFileIdentity, String)>);
+impl LaunchVerification {
+    /// Serialize shared byte preparation only. Process creation, keeper waiting
+    /// and processing admission occur after this lock has been released.
+    pub fn prepare<T>(&self, deadline: std::time::Instant,
+        prepare: impl FnOnce() -> Result<T>) -> Result<(T, LaunchSnapshot)> {
+        let observed = self.observe(deadline, prepare)?;
+        // Late byte preparation remains useful, but cannot authorize this
+        // caller's execution after its existing admission boundary.
+        require(std::time::Instant::now() < deadline, "launch_verification_deadline")?;
+        Ok(observed)
+    }
+    /// Background preparation launches nothing. Its deadline bounds waiting
+    /// for another preparer, not reading the selected runtime from cold storage.
+    /// Execution must still use `prepare` and its own admission deadline.
+    pub fn warm(&self, wait_deadline: std::time::Instant,
+        verify: impl FnOnce() -> Result<()>) -> Result<()> {
+        self.observe(wait_deadline, verify).map(|_| ())
+    }
+    fn observe<T>(&self, deadline: std::time::Instant,
+        prepare: impl FnOnce() -> Result<T>) -> Result<(T, LaunchSnapshot)> {
+        let mut records = loop {
+            match self.records.try_lock() {
+                Ok(records) => break records,
+                Err(std::sync::TryLockError::Poisoned(_)) => return Err("launch_verification_poisoned".into()),
+                Err(std::sync::TryLockError::WouldBlock) => {
+                    let now = std::time::Instant::now();
+                    require(now < deadline, "launch_verification_deadline")?;
+                    std::thread::sleep(std::time::Duration::from_millis(10).min(deadline-now));
+                }
+            }
+        };
+        require(std::time::Instant::now() < deadline, "launch_verification_deadline")?;
+        let snapshot = LaunchSnapshot(records.clone());
+        let (result, observed) = snapshot.run(|| {
+            let result = prepare();
+            let observed = SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().clone());
+            (result, observed)
+        });
+        let value = result?;
+        require(observed.len() <= 200_000, "launch_verification_extent")?;
+        *records = observed.clone();
+        Ok((value, LaunchSnapshot(observed)))
+    }
+}
+impl LaunchSnapshot {
+    /// Recheck the complete prepared byte observation outside registry custody.
+    /// Runtime trees may contain tens of thousands of files. Short mutation
+    /// phases use `recheck_artifacts` for only their bounded consumed inputs.
+    pub(crate) fn recheck(&self) -> Result<()> {
+        for (path, (expected, _)) in &self.0 {
+            let opened = file(path)?;
+            require(DigestFileIdentity::from(&opened.metadata()?) == *expected
+                && DigestFileIdentity::from(&fs::symlink_metadata(path)?) == *expected,
+                "verified_scan_input_changed")?;
+        }
+        Ok(())
+    }
+    pub(crate) fn recheck_artifacts<'a>(&self, artifacts: impl IntoIterator<Item = &'a Artifact>) -> Result<()> {
+        for artifact in artifacts {
+            let (expected, hash) = self.0.get(&artifact.path).ok_or("scan_input_not_prepared")?;
+            let opened = file(&artifact.path)?;
+            require(hash == &artifact.sha256 && DigestFileIdentity::from(&opened.metadata()?) == *expected
+                && DigestFileIdentity::from(&fs::symlink_metadata(&artifact.path)?) == *expected,
+                "verified_scan_input_changed")?;
+        }
+        Ok(())
+    }
+    /// Consume prepared bytes at a short mutation boundary. Missing or changed
+    /// observations refuse instead of starting a payload hash under that guard.
+    pub(crate) fn run_prepared<T>(&self, admission: impl FnOnce() -> Result<T>) -> Result<T> {
+        struct Restore(bool);
+        impl Drop for Restore {
+            fn drop(&mut self) { PREPARED_BYTES_ONLY.with(|mode| mode.set(self.0)); }
+        }
+        self.run(|| {
+            let _restore = Restore(PREPARED_BYTES_ONLY.with(|mode| mode.replace(true)));
+            admission()
+        })
+    }
+    /// Recheck exact observations throughout this admission, without retaining
+    /// the shared preparation lock or allowing a disk readback cache to launch.
+    pub fn run<T>(&self, admission: impl FnOnce() -> T) -> T {
+        struct Restore {
+            records: Option<HashMap<PathBuf, (DigestFileIdentity, String)>>,
+            full: bool,
+        }
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                SCOPED_DIGESTS.with(|cache| *cache.borrow_mut() = self.records.take());
+                FULL_BYTE_VERIFICATION.with(|mode| mode.set(self.full));
+            }
+        }
+        let _restore = Restore {
+            records: SCOPED_DIGESTS.with(|cache| cache.replace(Some(self.0.clone()))),
+            full: FULL_BYTE_VERIFICATION.with(|mode| mode.replace(true)),
+        };
+        admission()
+    }
+}
+fn with_scoped_digests<T>(readback: impl FnOnce() -> T) -> T {
+    struct Restore(Option<HashMap<PathBuf, (DigestFileIdentity, String)>>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            SCOPED_DIGESTS.with(|cache| *cache.borrow_mut() = self.0.take());
+        }
+    }
+    let previous = SCOPED_DIGESTS.with(|cache| cache.replace(Some(HashMap::new())));
+    let _restore = Restore(previous);
+    readback()
+}
+fn readback_digests_active() -> bool {
+    SCOPED_DIGESTS.with(|cache| cache.borrow().is_some())
+        && !FULL_BYTE_VERIFICATION.with(Cell::get)
+}
+pub fn digest(p: &Path) -> Result<String> {
+    Ok(digest_identity(p)?.0)
+}
+fn digest_identity(p: &Path) -> Result<(String, DigestFileIdentity)> {
+    digest_observed(p, |_| Ok(()))
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DigestReadStep { Opened(u8), BeforeReread }
+fn digest_observed(p: &Path, mut observe: impl FnMut(DigestReadStep) -> Result<()>)
+    -> Result<(String, DigestFileIdentity)> {
+    let mut original = None;
+    for attempt in 0..2 {
+        let mut f = file(p)?;
+        let before = DigestFileIdentity::from(&f.metadata()?);
+        if let Some(original) = original {
+            require(before.matches_except_ctime(original), "artifact_changed_during_verification")?;
+        }
+        observe(DigestReadStep::Opened(attempt))?;
+        // Only the first observation may reuse process-owned bytes. The one
+        // reread below always reopens and hashes the entire file from byte zero.
+        let cached = (attempt == 0).then(|| SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref()
+            .and_then(|records| records.get(p))
+            .filter(|(identity, _)| *identity == before)
+            .map(|(_, value)| value.clone()))).flatten();
+        require(!PREPARED_BYTES_ONLY.with(Cell::get) || cached.is_some(),
+            "verified_scan_input_changed")?;
+        let value = if let Some(value) = cached { value } else {
+            let mut h = Sha256::new();
+            let mut b = [0u8; 65536];
+            let mut read = 0;
+            loop {
+                let n = f.read(&mut b)?;
+                if n == 0 { break; }
+                h.update(&b[..n]);
+                read += n as u64;
+            }
+            record_opened(p, 0, read);
+            hex(&h.finalize())
+        };
+        let fd_after = DigestFileIdentity::from(&f.metadata()?);
+        let path_after = DigestFileIdentity::from(&fs::symlink_metadata(p)?);
+        if fd_after != before || path_after != before {
+            // Pressure-vessel creates/removes runtime hard links during another
+            // setup's startup. A ctime-only race invalidates this observation;
+            // it never authorizes cached bytes or a different file object.
+            require(attempt == 0 && before.matches_except_ctime(fd_after)
+                && before.matches_except_ctime(path_after), "artifact_changed_during_verification")?;
+            original = Some(before);
+            observe(DigestReadStep::BeforeReread)?;
+            continue;
+        }
+        SCOPED_DIGESTS.with(|cache| {
+            if let Some(records) = cache.borrow_mut().as_mut() {
+                records.insert(p.to_path_buf(), (before, value.clone()));
+            }
+        });
+        return Ok((value, before));
+    }
+    unreachable!("the second unstable observation refuses")
+}
+pub fn read_json<T: for<'de> Deserialize<'de>>(p: &Path) -> Result<T> {
+    Ok(serde_json::from_slice(&read_control_bytes(p, 8 * 1024 * 1024)?)?)
+}
+pub fn read_json_identity<T: for<'de> Deserialize<'de>>(p: &Path) -> Result<(T, String)> {
+    let bytes = read_control_bytes(p, 8 * 1024 * 1024)?;
+    Ok((serde_json::from_slice(&bytes)?, hex(&Sha256::digest(&bytes))))
+}
+fn read_control_bytes(p: &Path, limit: usize) -> Result<Vec<u8>> {
+    read_control_bytes_with(p, limit, || Ok(()))
+}
+/// Reads of one record before it refuses as changing (#382). A live
+/// supervisor replaces its receipt twice a second; a read that overlaps a
+/// replacement reads the replacement.
+const CONTROL_READ_ATTEMPTS: usize = 3;
+/// One control record's bytes, all from one file that did not change while it
+/// was read and that its path still names. A record replaced or rewritten
+/// during the read is read again; one that changes during every read refuses.
+fn read_control_bytes_with(p: &Path, limit: usize, mut after_open: impl FnMut() -> Result<()>) -> Result<Vec<u8>> {
+    for _ in 0..CONTROL_READ_ATTEMPTS {
+        let mut held = file(p)?;
+        let before = DigestFileIdentity::from(&held.metadata()?);
+        require(before.length <= limit as u64, "control_record_bound")?;
+        after_open()?;
+        let mut bytes = Vec::new();
+        std::io::Read::by_ref(&mut held).take(limit as u64 + 1).read_to_end(&mut bytes)?;
+        record_opened(p, 0, bytes.len() as u64);
+        if bytes.len() <= limit && bytes.len() as u64 == before.length
+            && DigestFileIdentity::from(&held.metadata()?) == before
+            && DigestFileIdentity::from(&fs::symlink_metadata(p)?) == before {
+            return Ok(bytes);
+        }
+    }
+    Err("control_record_changed_during_read".into())
+}
+pub fn atomic_json<T: Serialize>(p: &Path, data: &T) -> Result<()> {
+    let temp = p.with_extension(format!("tmp-{}", random_id()?));
+    let mut f = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&temp)?;
+    let result = (|| {
+        serde_json::to_writer(&mut f, data)?;
+        f.write_all(b"\n")?;
+        f.sync_all()?;
+        fs::rename(&temp, p)?;
+        File::open(p.parent().ok_or("parent absent")?)?.sync_all()?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(temp);
+    }
+    result
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Artifact {
+    pub path: PathBuf,
+    pub sha256: String,
+}
+impl Artifact {
+    /// Read/hash/parse one bounded control record through the same held file.
+    /// Replaced, oversized or growing records cannot become projection authority.
+    pub fn read_record<T: serde::de::DeserializeOwned>(&self, limit: usize) -> Result<T> {
+        serde_json::from_slice(&self.record_bytes(limit)?).map_err(Into::into)
+    }
+    pub fn record_bytes(&self, limit: usize) -> Result<Vec<u8>> {
+        require(self.path.is_absolute() && valid_hex(&self.sha256, 64),
+            "artifact identity syntax")?;
+        require(self.path.canonicalize()? == self.path, "record path traverses symlink")?;
+        let bytes = read_control_bytes(&self.path, limit)?;
+        require(hex(&Sha256::digest(&bytes)) == self.sha256, "control_record_digest_changed")?;
+        Ok(bytes)
+    }
+    /// Validate the recorded identity and current location/custody. This reads
+    /// no payload bytes and is never executable admission authority.
+    pub fn validate_record(&self) -> Result<()> {
+        require(self.path.is_absolute() && valid_hex(&self.sha256, 64),
+            "artifact identity syntax")?;
+        file(&self.path)?;
+        Ok(())
+    }
+    pub fn verify(&self) -> Result<()> {
+        require(
+            self.path.is_absolute() && valid_hex(&self.sha256, 64),
+            "artifact identity syntax",
+        )?;
+        require(
+            digest(&self.path)? == self.sha256,
+            "artifact missing or changed",
+        )
+    }
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub enum RunnerPolicy {
+    #[serde(rename = "dcomp_wine_builtins_reference_v1")]
+    DcompWineBuiltinsReferenceV1,
+    #[serde(rename = "x11_touch_release_v1")]
+    X11TouchReleaseV1,
+    #[serde(rename = "x11_touch_routing_v2")]
+    X11TouchRoutingV2,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Runner {
+    pub id: String,
+    pub version: String,
+    pub proton: PathBuf,
+    pub entry_point: PathBuf,
+    pub files: Vec<Artifact>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy: Option<RunnerPolicy>,
+}
+impl Runner {
+    /// Immutable runner identity, including pinned entry points, without live files.
+    pub fn validate_identity(&self) -> Result<()> {
+        require(!self.id.is_empty() && !self.version.is_empty()
+            && (2..=128).contains(&self.files.len()), "runner identity incomplete")?;
+        require(self.files.iter().any(|f|f.path == self.proton)
+            && self.files.iter().any(|f|f.path == self.entry_point),
+            "runner entry points not pinned")?;
+        for f in &self.files {
+            require(f.path.is_absolute() && valid_hex(&f.sha256,64),"runner artifact identity")?;
+        }
+        Ok(())
+    }
+    /// Bounded runner record/entry-point validation, without a runtime census.
+    pub fn validate_record(&self) -> Result<()> {
+        self.validate_identity()?;
+        for f in &self.files {
+            f.validate_record()?;
+        }
+        Ok(())
+    }
+    pub fn verify(&self) -> Result<()> {
+        self.verify_pinned_files()?;
+        runtime_delivery::verify_tree(self)?;
+        Ok(())
+    }
+    /// Exact pinned entry points only. A launch verifies the whole runtime tree;
+    /// a later message to that already-running launch must not repeat a census
+    /// of every runtime file, which takes over a minute on slow storage.
+    pub fn verify_pinned_files(&self) -> Result<()> {
+        self.validate_record()?;
+        for f in &self.files { f.verify()?; }
+        Ok(())
+    }
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Environment {
+    pub id: String,
+    pub root: PathBuf,
+    pub runner: Runner,
+    pub revision: u64,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Metadata {
+    pub class_id: String,
+    pub name: String,
+    pub vendor: String,
+    pub version: String,
+    pub subcategories: String,
+    pub metadata_tier: String,
+}
+impl Metadata {
+    pub fn verify(&self) -> Result<()> {
+        require(valid_hex(&self.class_id, 32), "class ID syntax")?;
+        for (v, n) in [
+            (&self.name, 63),
+            (&self.vendor, 63),
+            (&self.version, 63),
+            (&self.subcategories, 127),
+        ] {
+            require(
+                !v.is_empty() && v.len() <= n && !v.chars().any(char::is_control),
+                "SDK metadata bound",
+            )?;
+        }
+        require(
+            matches!(
+                self.metadata_tier.as_str(),
+                "factory_2" | "factory_3_unicode"
+            ),
+            "declared category unavailable",
+        )?;
+        let c: Vec<_> = self.subcategories.split('|').collect();
+        require(
+            c.contains(&"Fx") != c.contains(&"Instrument"),
+            "ambiguous or absent SDK role",
+        )
+    }
+}
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Compatibility {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub graphics: Option<operator_model::GraphicsBackend>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vendor_retirement: Option<profiles::VendorRetirement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub editor_lifetime: Option<profiles::EditorLifetime>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_output: Option<profiles::EventOutputPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_layout: Option<profiles::AudioLayoutPolicy>,
+    pub disable_windows_accessibility: bool,
+}
+pub use operator_model::DeliveryMode;
+fn buffered_delivery(mode: &DeliveryMode) -> bool { *mode == DeliveryMode::Buffered }
+/// Installed performance preference, independently versioned from vendor state
+/// and the class registry. Missing records preserve the accepted 512-frame path.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Performance {
+    pub schema: u32,
+    pub added_frames: u32,
+    #[serde(default, skip_serializing_if = "buffered_delivery")]
+    pub delivery_mode: DeliveryMode,
+}
+impl Default for Performance {
+    fn default() -> Self {
+        Self {
+            schema: 1,
+            added_frames: 512,
+            delivery_mode: DeliveryMode::Buffered,
+        }
+    }
+}
+impl Performance {
+    pub fn effective_frames(&self) -> u32 {
+        if self.delivery_mode == DeliveryMode::Buffered { self.added_frames } else { 0 }
+    }
+    pub fn is_qualified_buffering(&self) -> bool {
+        self.delivery_mode == DeliveryMode::Buffered && self.added_frames == 512
+    }
+    pub fn verify(&self) -> Result<()> {
+        require(
+            (self.schema == 1 && self.delivery_mode == DeliveryMode::Buffered || self.schema == 2)
+                && matches!(self.added_frames, 256 | 512 | 1024),
+            "unsupported performance schema or delay (use 256, 512 or 1024 frames)",
+        )
+    }
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Registration {
+    pub metadata: Metadata,
+    pub environment: Environment,
+    pub module: Artifact,
+    pub host: Artifact,
+    pub host_source_sha256: String,
+    pub native: Artifact,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub descriptor: Option<Artifact>,
+    pub compatibility: Compatibility,
+}
+impl Registration {
+    pub fn relocate_native(&mut self, path: PathBuf) {
+        if let Some(descriptor) = &mut self.descriptor {
+            descriptor.path = path.with_file_name(lvb_plugin_descriptor::FILE_NAME);
+        }
+        self.native.path = path;
+    }
+    pub fn verify_descriptor(&self) -> Result<()> {
+        if let Some(artifact) = &self.descriptor {
+            verify_native_descriptor(&self.native, artifact, &self.metadata, &self.module.sha256)?;
+        }
+        Ok(())
+    }
+    pub fn verify_loaded_execution(
+        &self,
+        loaded: &ap1_native_client::admission::ExecutionIdentity,
+    ) -> Result<()> {
+        let descriptor = self.descriptor.as_ref().ok_or("loaded_descriptor_binding_absent")?;
+        require(self.native.sha256 == hex(&loaded.engine)
+            && descriptor.sha256 == hex(&loaded.descriptor),
+            "loaded_execution_binding_differs")
+    }
+    pub fn key(&self) -> String {
+        self.metadata.class_id.to_uppercase()
+    }
+    /// Exact control bindings and descriptor metadata, not payload verification.
+    pub fn validate_record(&self, root: &Path) -> Result<()> {
+        self.metadata.verify()?;
+        require(
+            self.environment.revision > 0 && !self.environment.id.is_empty(),
+            "environment revision absent",
+        )?;
+        let parent = root.join("environments");
+        require(
+            self.environment.root.parent() == Some(parent.as_path())
+                && self.environment.root.file_name().and_then(|s| s.to_str())
+                    == Some(&self.environment.id),
+            "environment identity/path differs",
+        )?;
+        private_dir(&self.environment.root)?;
+        require(
+            self.environment.root.canonicalize()? == self.environment.root,
+            "environment path traverses symlink",
+        )?;
+        let installed: Environment = read_json(&self.environment.root.join("environment.json"))?;
+        require(
+            installed == self.environment,
+            "registered environment revision differs",
+        )?;
+        require(
+            self.host.path.starts_with(root.join("software")),
+            "host is not installed product software",
+        )?;
+        require(
+            self.module
+                .path
+                .starts_with(self.environment.root.join("compatdata/pfx/drive_c")),
+            "module outside registered environment",
+        )?;
+        require(
+            self.module.path.canonicalize()? == self.module.path,
+            "module path traverses a symlink",
+        )?;
+        require(
+            valid_hex(&self.host_source_sha256, 64),
+            "host source identity syntax",
+        )?;
+        self.environment.runner.validate_record()?;
+        self.module.validate_record()?;
+        self.host.validate_record()?;
+        self.native.validate_record()?;
+        self.verify_descriptor()?;
+        Ok(())
+    }
+    pub fn verify(&self, root: &Path) -> Result<()> {
+        self.verify_with_runner(root, Runner::verify)
+    }
+    /// As [`verify`](Self::verify), with the runner verified by `runner`.
+    pub fn verify_with_runner(&self, root: &Path, runner: impl FnOnce(&Runner) -> Result<()>) -> Result<()> {
+        self.validate_record(root)?;
+        runner(&self.environment.runner)?;
+        self.module.verify()?;
+        self.host.verify()?;
+        self.native.verify()
+    }
+}
+pub(crate) fn verify_native_descriptor(
+    native: &Artifact,
+    artifact: &Artifact,
+    metadata: &Metadata,
+    module: &str,
+) -> Result<()> {
+    require(
+        artifact.path == native.path.with_file_name(lvb_plugin_descriptor::FILE_NAME),
+        "native_descriptor_location",
+    )?;
+    let bytes = artifact.record_bytes(lvb_plugin_descriptor::LIMIT)?;
+    let descriptor = lvb_plugin_descriptor::Descriptor::parse(&bytes)?;
+    require(
+        descriptor.engine_sha256 == native.sha256
+            && descriptor.module_sha256 == module
+            && descriptor.class_id.eq_ignore_ascii_case(&metadata.class_id)
+            && descriptor.class_name == metadata.name
+            && descriptor.vendor == metadata.vendor
+            && descriptor.version == metadata.version
+            && descriptor.subcategories == metadata.subcategories,
+        "native_descriptor_binding",
+    )
+}
+pub(crate) fn copy_native_descriptor(
+    source: &Path,
+    target: &Path,
+    expected: &Option<Artifact>,
+) -> Result<()> {
+    if let Some(descriptor) = expected {
+        let source = source.with_file_name(lvb_plugin_descriptor::FILE_NAME);
+        let target = target.with_file_name(lvb_plugin_descriptor::FILE_NAME);
+        require(
+            digest(&source)? == descriptor.sha256,
+            "source_descriptor_changed",
+        )?;
+        // Copy through the same no-follow, current-owner reader as other artifacts.
+        let mut input = file(&source)?;
+        let mut output = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o400)
+            .open(&target)?;
+        std::io::copy(&mut input, &mut output)?;
+        output.sync_all()?;
+        require(
+            digest(&target)? == descriptor.sha256,
+            "copied_descriptor_changed",
+        )?;
+    }
+    Ok(())
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum Publication {
+    Pending,
+    Published,
+    Removed,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Entry {
+    pub registration: Registration,
+    pub publication: Publication,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub managed_revision: Option<publication::RevisionRef>,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Registry {
+    pub schema: u32,
+    pub revision: u64,
+    pub classes: BTreeMap<String, Entry>,
+}
+impl Default for Registry {
+    fn default() -> Self {
+        Self {
+            schema: 1,
+            revision: 0,
+            classes: BTreeMap::new(),
+        }
+    }
+}
+pub struct Manager {
+    pub root: PathBuf,
+    pub publications: PathBuf,
+    /// Facts derived once while this manager composes one view (`composing`).
+    derived: Option<Derived>,
+}
+/// Facts a composition derives from records, each derived once (#504). They
+/// last as long as the composition's manager; nothing outlives it.
+#[derive(Default)]
+struct Derived(std::sync::Mutex<HashMap<(String, std::any::TypeId), DerivedFact>>);
+type DerivedFact = std::sync::Arc<dyn std::any::Any + Send + Sync>;
+/// A derivation's failure, given to every use of the fact unchanged.
+#[derive(Clone)]
+struct DerivedError(std::sync::Arc<dyn std::error::Error + Send + Sync>);
+impl std::fmt::Debug for DerivedError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { std::fmt::Debug::fmt(&*self.0, f) }
+}
+impl std::fmt::Display for DerivedError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { std::fmt::Display::fmt(&*self.0, f) }
+}
+impl std::error::Error for DerivedError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> { Some(&*self.0) }
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LeaseOwner {
+    schema: u32,
+    temporary_owner: PathBuf,
+    owner: serde_json::Value,
+}
+pub struct Lock {
+    file: File,
+    root: PathBuf,
+    name: String,
+    exclusive: bool,
+}
+impl Lock {
+    pub fn require_registry(&self, m: &Manager) -> Result<()> {
+        require(
+            self.exclusive && self.root == m.root && self.name == "registry.lock",
+            "registry_guard_identity",
+        )
+    }
+}
+impl Drop for Lock {
+    fn drop(&mut self) {
+        unsafe {
+            libc::flock(std::os::fd::AsRawFd::as_raw_fd(&self.file), libc::LOCK_UN);
+        }
+    }
+}
+impl Manager {
+    fn lease_owner_location(&self, sid: &str, report: &Path, owner: &serde_json::Value)
+        -> Result<PathBuf> {
+        require(valid_hex(sid, 32)
+            && report.parent() == Some(self.root.join("runtime/results").as_path())
+            && owner["session"].as_str() == Some(sid)
+            && owner["report"].as_str() == report.to_str()
+            && owner["lease"].as_str() == self.root.join("runtime/leases")
+                .join(format!("{sid}.json")).to_str(), "lease_identity")?;
+        let environment = &owner["registration"]["environment"];
+        let root = PathBuf::from(environment["root"].as_str().ok_or("lease_identity")?);
+        require(root.parent() == Some(self.root.join("environments").as_path())
+            && root.file_name().and_then(|v| v.to_str()) == environment["id"].as_str(),
+            "lease_identity")?;
+        Ok(root.join("compatdata/pfx/drive_c/bridge/sessions").join(sid).join("owner.json"))
+    }
+    /// Caller holds registry.lock. Retain exact ownership before publishing its
+    /// lease; a supervisor may remove its Windows session view before Rust reaps it.
+    pub fn retain_lease_owner(&self, path: &Path) -> Result<()> {
+        let owner: serde_json::Value = read_json(path)?;
+        let sid = owner["session"].as_str().ok_or("lease_identity")?;
+        let report = PathBuf::from(owner["report"].as_str().ok_or("lease_identity")?);
+        require(self.lease_owner_location(sid, &report, &owner)? == path, "lease_identity")?;
+        let directory = self.root.join("runtime/lease-owners");
+        private_dir(&directory)?;
+        let destination = directory.join(format!("{sid}.json"));
+        if destination.try_exists()? {
+            let existing: LeaseOwner = read_json(&destination)?;
+            return require(existing.schema == 1 && existing.temporary_owner == path
+                && existing.owner == owner, "lease_owner_changed");
+        }
+        atomic_json(&destination, &LeaseOwner { schema:1, temporary_owner:path.into(), owner })
+    }
+    /// Caller holds registry.lock. The manager record remains authoritative
+    /// until lease release. Legacy leases retain their original exact lookup.
+    pub fn lease_owner(&self, sid: &str, report: &Path)
+        -> Result<(serde_json::Value, PathBuf)> {
+        require(valid_hex(sid, 32)
+            && report.parent() == Some(self.root.join("runtime/results").as_path()),
+            "lease_identity")?;
+        let retained = self.root.join("runtime/lease-owners").join(format!("{sid}.json"));
+        if retained.try_exists()? {
+            let record: LeaseOwner = read_json(&retained)?;
+            require(record.schema == 1
+                && self.lease_owner_location(sid, report, &record.owner)? == record.temporary_owner,
+                "lease_identity")?;
+            return Ok((record.owner, record.temporary_owner));
+        }
+        let envs = fs::read_dir(self.root.join("environments"))?
+            .take(129).map(|e| e.map(|e| e.path()))
+            .collect::<std::io::Result<Vec<_>>>()?;
+        require(envs.len() <= 128, "active_lease_unresolved")?;
+        let mut found = None;
+        for env in envs {
+            let path = env.join("compatdata/pfx/drive_c/bridge/sessions").join(sid).join("owner.json");
+            if path.try_exists()? {
+                require(found.is_none(), "duplicate_lease_identity")?;
+                found = Some((read_json::<serde_json::Value>(&path)?, path));
+            }
+        }
+        let (owner, path) = found.ok_or("active_lease_unresolved")?;
+        require(owner["session"].as_str() == Some(sid)
+            && owner["report"].as_str() == report.to_str(), "lease_identity")?;
+        Ok((owner, path))
+    }
+    /// Resolve setup scope from the exact durable owner, never from today's
+    /// class publication (which may have moved since this host was admitted).
+    /// Caller holds registry.lock. Historical owners without this binding
+    /// remain unscoped and cannot grant independence from another setup.
+    pub fn lease_environment(&self, sid: &str) -> Result<Environment> {
+        require(valid_hex(sid, 32), "lease_identity")?;
+        let report: PathBuf = read_json(&self.root.join("runtime/leases").join(format!("{sid}.json")))?;
+        let (owner, path) = self.lease_owner(sid, &report)?;
+        require(self.lease_owner_location(sid, &report, &owner)? == path, "lease_identity")?;
+        let environment: Environment = serde_json::from_value(owner["registration"]["environment"].clone())?;
+        require(!environment.id.is_empty(), "lease_identity")?;
+        Ok(environment)
+    }
+    /// Must be called while holding registry.lock, the same lock as admission.
+    pub fn require_inactive(&self, class: Option<&str>) -> Result<()> {
+        let environment = class.map(|key| self.registry().map(|db|
+            db.classes.get(&key.to_uppercase()).map(|entry|entry.registration.environment.clone())))
+            .transpose()?.flatten();
+        for owner in capacity::owners_for(self, environment.as_ref())? {
+            match owner.kind {
+                capacity::Kind::Keeper => {}
+                capacity::Kind::Dsp => require(
+                    class.is_some_and(|c| !c.eq_ignore_ascii_case(&owner.class_id)),
+                    "active_device_lease",
+                )?,
+                capacity::Kind::Inspection | capacity::Kind::VendorAccess => {
+                    return Err("active_maintenance_lease".into());
+                }
+            }
+        }
+        Ok(())
+    }
+    pub fn performance(&self, key: &str) -> Result<Performance> {
+        require(valid_hex(key, 32), "class ID syntax")?;
+        let path = self
+            .root
+            .join("performance")
+            .join(format!("{}.json", key.to_uppercase()));
+        let value = match fs::symlink_metadata(&path) {
+            Ok(_) => read_json(&path)?,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Performance::default(),
+            Err(e) => return Err(e.into()),
+        };
+        value.verify()?;
+        Ok(value)
+    }
+    pub fn select_delay(&self, key: &str, frames: u32) -> Result<()> {
+        self.select_delay_with_registry(key, frames, || self.lock("registry.lock"))
+    }
+    pub fn select_delay_with_registry(
+        &self, key: &str, frames: u32, acquire_registry: impl FnOnce() -> Result<Lock>,
+    ) -> Result<()> {
+        self.select_performance(key, Some(frames), None, acquire_registry)
+    }
+    pub fn select_delivery(&self, key: &str, mode: DeliveryMode) -> Result<()> {
+        self.select_delivery_with_registry(key, mode, || self.lock("registry.lock"))
+    }
+    pub fn select_delivery_with_registry(
+        &self, key: &str, mode: DeliveryMode, acquire_registry: impl FnOnce() -> Result<Lock>,
+    ) -> Result<()> {
+        self.select_performance(key, None, Some(mode), acquire_registry)
+    }
+    fn select_performance(
+        &self, key: &str, frames: Option<u32>, mode: Option<DeliveryMode>,
+        acquire_registry: impl FnOnce() -> Result<Lock>,
+    ) -> Result<()> {
+        require(valid_hex(key, 32), "class ID syntax")?;
+        let key = key.to_uppercase();
+        let registration = self.registry()?.classes.get(&key)
+            .ok_or("class not registered")?.registration.clone();
+        // Capability checks use the exact native/Windows pair. The registry lock
+        // then rechecks that pair and publishes the preference atomically with
+        // respect to admission. Missing/old capabilities never enable a new mode.
+        let old = self.performance(&key)?;
+        let mut value = old.clone();
+        if let Some(frames) = frames { value.added_frames = frames; }
+        if let Some(mode) = mode {
+            value.delivery_mode = mode;
+            // Returning to Buffered restores the historical representation as
+            // well, so the retained predecessor manager can read this setting.
+            value.schema = if mode == DeliveryMode::Buffered { 1 } else { 2 };
+        }
+        value.verify()?;
+        require(value.added_frames != 1024
+            || preparation::build::maximum_bridge_frames(self, &registration)? == Some(1024),
+            "The selected proxy does not support 1024-frame buffering. Check compatibility with the current package first.")?;
+        require(value.delivery_mode != DeliveryMode::SameCallback
+            || preparation::build::supports_audio_completion(self, &registration)?,
+            "The selected native bridge and Windows host do not support same-callback delivery. Prepare them with the current package first.")?;
+        // Ordinary operator actions may wait for a short readback here. Neither
+        // waiting nor the earlier admission grants mutation authority: recheck
+        // the exact pair, preference and affected owners under this guard.
+        let lock = acquire_registry()?;
+        lock.require_registry(self)?;
+        let registry = self.registry()?;
+        let entry = registry.classes.get(&key).ok_or("class not registered")?;
+        require(entry.registration == registration, "performance_target_changed")?;
+        require(self.performance(&key)? == old, "performance_preference_changed")?;
+        self.require_inactive(Some(&key))?;
+        private_dir(&self.root.join("performance"))?;
+        atomic_json(&self.root.join("performance").join(format!("{key}.json")), &value)
+    }
+    pub fn new(root: PathBuf, publications: PathBuf) -> Self {
+        Self { root, publications, derived: None }
+    }
+    pub fn installed() -> Result<Self> {
+        let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
+        Ok(Self::new(home.join(".local/share/linux-vst-bridge/managed"), home.join(".vst3")))
+    }
+    /// The same state, for composing one view: each fact it derives through
+    /// [`derive_once`](Self::derive_once) is derived once, however many parts
+    /// of the view use it, so the parts agree. Compose each view, and each
+    /// recheck of one, with its own.
+    pub fn composing(&self) -> Self {
+        Self { derived: Some(Derived::default()), ..Self::new(self.root.clone(), self.publications.clone()) }
+    }
+    /// `derive`'s result. While composing, once per fact, failure included;
+    /// otherwise on every use. `fact` names everything the result depends on
+    /// besides the records. A failure given again keeps its text, not its
+    /// type: the original error is its `source`.
+    pub fn derive_once<T: Clone + Send + Sync + 'static>(&self, fact: &str,
+        derive: impl FnOnce() -> Result<T>) -> Result<T> {
+        let Some(Derived(derived)) = &self.derived else { return derive() };
+        let key = (fact.to_owned(), std::any::TypeId::of::<T>());
+        let known = derived.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).get(&key).cloned();
+        // Derived without the lock: a derivation uses other facts. Should two
+        // helper threads derive one fact at once, the first to finish holds.
+        let value = match known {
+            Some(value) => value,
+            None => {
+                let value: DerivedFact = std::sync::Arc::new(derive().map_err(|error| DerivedError(error.into())));
+                derived.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .entry(key).or_insert(value).clone()
+            }
+        };
+        let value = value.downcast_ref::<std::result::Result<T, DerivedError>>()
+            .ok_or("derived_fact_type")?;
+        value.clone().map_err(Into::into)
+    }
+    /// `runner`'s full verification ([`Runner::verify`]). While composing, a
+    /// runtime shared by several plug-ins is verified once for all of them,
+    /// as a status read or as a launch verifies it.
+    pub fn verify_runner(&self, runner: &Runner) -> Result<()> {
+        self.derive_once(&format!("runner_verified:{}:{}", catalogue::runner_key(runner)?,
+            readback_digests_active()), || runner.verify())
+    }
+    pub fn lock(&self, name: &str) -> Result<Lock> {
+        // Only an operator action waits, and only for the lock status reads share.
+        if name == operator_model::OperatorLock::Registry.filename() {
+            if let Some(wait) = operator_lock::operator_registry_wait() {
+                return self.lock_registry_waiting(wait);
+            }
+        }
+        match self.try_lock(name)? {
+            operator_lock::LockAttempt::Acquired(lock) => Ok(lock),
+            operator_lock::LockAttempt::Busy => Err(operator_lock::LockBusy.into()),
+        }
+    }
+    pub fn try_lock(&self, name: &str) -> Result<operator_lock::LockAttempt> {
+        self.try_lock_mode(name, true)
+    }
+    /// Pure observers share an existing owner gate; they cannot create one or
+    /// authorize registry mutations. Writers retain fail-fast exclusive custody.
+    pub(crate) fn try_lock_shared(&self, name: &str) -> Result<operator_lock::LockAttempt> {
+        self.try_lock_mode(name, false)
+    }
+    fn try_lock_mode(&self, name: &str, exclusive: bool) -> Result<operator_lock::LockAttempt> {
+        private_dir(&self.root)?;
+        let f = OpenOptions::new()
+            .read(true)
+            .write(exclusive)
+            .create(exclusive)
+            .truncate(false)
+            .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+            .open(self.root.join(name))?;
+        require(
+            f.metadata()?.uid() == unsafe { libc::getuid() } && f.metadata()?.is_file(),
+            "lock ownership differs",
+        )?;
+        if exclusive && name == operator_model::OperatorLock::Registry.filename() {
+            operator_lock::ensure_registry_writer_marker(self);
+        }
+        let status = unsafe {
+            libc::flock(
+                std::os::fd::AsRawFd::as_raw_fd(&f),
+                (if exclusive { libc::LOCK_EX } else { libc::LOCK_SH }) | libc::LOCK_NB,
+            )
+        };
+        if status != 0 {
+            let error = std::io::Error::last_os_error();
+            if error.kind() == std::io::ErrorKind::WouldBlock {
+                return Ok(operator_lock::LockAttempt::Busy);
+            }
+            return Err(error.into());
+        }
+        Ok(operator_lock::LockAttempt::Acquired(Lock {
+            file: f,
+            root: self.root.clone(),
+            name: name.into(),
+            exclusive,
+        }))
+    }
+    /// The registry as this composition read it: once for each composition,
+    /// otherwise on every use ([`derive_once`](Self::derive_once)).
+    pub fn composed_registry(&self) -> Result<std::sync::Arc<Registry>> {
+        self.derive_once("registry", || self.registry().map(std::sync::Arc::new))
+    }
+    pub fn registry(&self) -> Result<Registry> {
+        let p = self.root.join("registry.json");
+        if !p.try_exists()? {
+            return Ok(Registry::default());
+        }
+        let db: Registry = read_json(&p)?;
+        require(db.schema == 1, "unsupported registry schema")?;
+        Ok(db)
+    }
+    fn save(&self, r: &mut Registry) -> Result<()> {
+        r.revision = r.revision.checked_add(1).ok_or("revision exhausted")?;
+        atomic_json(&self.root.join("registry.json"), r)
+    }
+    pub fn link(&self, key: &str) -> PathBuf {
+        self.publications.join(format!("LVB_{key}.vst3"))
+    }
+    pub fn target(&self, r: &Registration) -> PathBuf {
+        self.root
+            .join("publications")
+            .join(r.key())
+            .join(if let Some(descriptor) = &r.descriptor {
+                hex(&Sha256::digest(format!("{}:{}", r.native.sha256, descriptor.sha256).as_bytes()))
+            } else { r.native.sha256.clone() })
+            .join(format!("LVB_{}.vst3", r.key()))
+    }
+    pub fn native_path(&self, r: &Registration) -> PathBuf {
+        self.target(r)
+            .join("Contents/x86_64-linux")
+            .join(format!("LVB_{}.so", r.key()))
+    }
+    pub fn register(&self, r: Registration) -> Result<()> {
+        let _lock = self.lock("registry.lock")?;
+        r.verify(&self.root)?;
+        let mut db = self.registry()?;
+        let key = r.key();
+        let mut installed = r.clone();
+        installed.relocate_native(self.native_path(&r));
+        if let Some(old) = db.classes.get(&key) {
+            require(
+                old.managed_revision.is_none(),
+                "managed binding requires explicit publication transaction",
+            )?;
+            let mut previous = old.registration.clone();
+            previous.relocate_native(self.native_path(&previous));
+            require(
+                previous == installed,
+                "existing binding differs; explicit update transaction required",
+            )?;
+        }
+        db.classes.insert(
+            key.clone(),
+            Entry {
+                registration: r,
+                publication: Publication::Pending,
+                managed_revision: None,
+            },
+        );
+        self.save(&mut db)?;
+        self.publish_entry(&db.classes[&key].registration)?;
+        let entry = db.classes.get_mut(&key).unwrap();
+        entry.registration = installed;
+        entry.publication = Publication::Published;
+        self.save(&mut db)
+    }
+    fn publish_entry(&self, r: &Registration) -> Result<()> {
+        let target = self.target(r);
+        let so = target
+            .join("Contents/x86_64-linux")
+            .join(format!("LVB_{}.so", r.key()));
+        if !target.try_exists()? {
+            let parent = target.parent().ok_or("publication parent")?;
+            private_dir(parent)?;
+            let stage = parent.join(format!("stage-{}", random_id()?));
+            private_dir(&stage)?;
+            let dir = stage.join("Contents/x86_64-linux");
+            private_dir(&dir)?;
+            let copy = dir.join(so.file_name().unwrap());
+            fs::copy(&r.native.path, &copy)?;
+            require(
+                digest(&copy)? == r.native.sha256,
+                "publication copy changed",
+            )?;
+            fs::set_permissions(&copy, fs::Permissions::from_mode(0o500))?;
+            File::open(&copy)?.sync_all()?;
+            copy_native_descriptor(&r.native.path, &copy, &r.descriptor)?;
+            atomic_json(&stage.join("bridge-provenance.json"), r)?;
+            fs::rename(stage, &target)?;
+            File::open(parent)?.sync_all()?;
+        }
+        require(
+            digest(&so)? == r.native.sha256,
+            "installed publication changed",
+        )?;
+        if let Some(descriptor) = &r.descriptor {
+            require(digest(&so.with_file_name(lvb_plugin_descriptor::FILE_NAME))? == descriptor.sha256, "installed_descriptor_changed")?;
+        }
+        fs::create_dir_all(&self.publications)?;
+        let parent_meta = fs::symlink_metadata(&self.publications)?;
+        require(
+            parent_meta.is_dir() && parent_meta.uid() == unsafe { libc::getuid() },
+            "publication directory ownership differs",
+        )?;
+        let link = self.link(&r.key());
+        if fs::symlink_metadata(&link).is_ok() {
+            require(
+                fs::read_link(&link)? == target,
+                "publication name occupied by another owner",
+            )?;
+            return Ok(());
+        }
+        let tmp = self.publications.join(format!(".lvb-{}", random_id()?));
+        symlink(&target, &tmp)?;
+        fs::rename(&tmp, &link)?;
+        File::open(&self.publications)?.sync_all()?;
+        Ok(())
+    }
+    pub fn reconcile(&self) -> Result<()> {
+        self.reconcile_checked(false)
+    }
+    pub fn reconcile_with_registry(
+        &self, acquire_registry: impl FnOnce() -> Result<Lock>,
+    ) -> Result<()> {
+        self.reconcile_admitted(false, acquire_registry)
+    }
+    /// Operator reconciliation must not repair publication while any instance or maintenance owner remains.
+    pub fn reconcile_inactive(&self) -> Result<()> {
+        self.reconcile_checked(true)
+    }
+    pub fn reconcile_inactive_with_registry(
+        &self, acquire_registry: impl FnOnce() -> Result<Lock>,
+    ) -> Result<()> {
+        self.reconcile_admitted(true, acquire_registry)
+    }
+    fn reconcile_checked(&self, inactive: bool) -> Result<()> {
+        self.reconcile_admitted(inactive, || self.lock("registry.lock"))
+    }
+    fn reconcile_admitted(
+        &self, inactive: bool, acquire_registry: impl FnOnce() -> Result<Lock>,
+    ) -> Result<()> {
+        let _lock = acquire_registry()?;
+        _lock.require_registry(self)?;
+        if inactive {
+            self.require_inactive(None)?;
+        }
+        let mut db = self.registry()?;
+        self.reconcile_revisions(&mut db)?;
+        let mut changed = false;
+        for e in db.classes.values_mut() {
+            if e.publication == Publication::Pending {
+                let target = self.native_path(&e.registration);
+                if target.try_exists()? {
+                    e.registration.relocate_native(target.clone());
+                }
+                e.registration.verify(&self.root)?;
+                self.publish_entry(&e.registration)?;
+                e.registration.relocate_native(target);
+                e.publication = Publication::Published;
+                changed = true;
+            }
+        }
+        if changed {
+            self.save(&mut db)?;
+        }
+        drop(_lock);
+        self.restore_editor_qualifications()
+    }
+    pub fn unpublish(&self, key: &str) -> Result<()> { self.unpublish_scoped(key,None,false) }
+    pub fn unpublish_exact_inactive(&self,key:&str,expected:&publication::RevisionRef)->Result<()> {self.unpublish_scoped(key,Some(expected),true)}
+    /// Remove one exact current publication; only that class must be inactive.
+    pub fn unpublish_exact(&self,key:&str,expected:&publication::RevisionRef)->Result<()> {self.unpublish_scoped(key,Some(expected),false)}
+    fn unpublish_scoped(&self,key:&str,expected:Option<&publication::RevisionRef>,global:bool)->Result<()> {
+        require(valid_hex(key, 32), "class ID syntax")?;
+        let key = key.to_uppercase();
+        let _lock = self.lock("registry.lock")?;
+        self.require_inactive(if global{None}else{Some(&key)})?;
+        let mut db = self.registry()?;
+        require(expected.is_none_or(|r|db.classes.get(&key).and_then(|e|e.managed_revision.as_ref())==Some(r)),"experimental_publication_changed")?;
+        if db
+            .classes
+            .get(&key)
+            .is_some_and(|e| e.managed_revision.is_some())
+        {
+            return self.remove_revision(&mut db, &key, None);
+        }
+        let entry = db.classes.get_mut(&key).ok_or("registration absent")?;
+        let link = self.link(&key);
+        let target = self.target(&entry.registration);
+        if fs::symlink_metadata(&link).is_ok() {
+            require(fs::read_link(&link)? == target, "publication owner differs")?;
+            fs::remove_file(link)?;
+            File::open(&self.publications)?.sync_all()?;
+        }
+        entry.publication = Publication::Removed;
+        self.save(&mut db)
+    }
+    /// The DAW entry of this exact current publication was deleted outside the
+    /// manager (for example by hand). Record it as removed; nothing else
+    /// changes, and a link that is present (ours or not) is never touched.
+    pub fn record_missing_publication_removed(&self, key: &str, expected: &publication::RevisionRef)
+        -> Result<()> {
+        require(valid_hex(key, 32), "class ID syntax")?;
+        let key = key.to_uppercase();
+        let _lock = self.lock("registry.lock")?;
+        require(!self.root.join("package-transition.json").try_exists()?,
+            "package_transition_needs_recovery")?;
+        self.require_inactive(Some(&key))?;
+        require(!self.publication_pending(&key)?, "publication_recovery_pending")?;
+        let mut db = self.registry()?;
+        let entry = db.classes.get_mut(&key).ok_or("registration_absent")?;
+        require(entry.publication == Publication::Published
+            && entry.managed_revision.as_ref() == Some(expected), "experimental_publication_changed")?;
+        require(publication::physical(&self.link(&key))?.is_none(), "publication_link_present")?;
+        entry.publication = Publication::Removed;
+        self.save(&mut db)
+    }
+    pub fn resolve(&self, identity: &[u8]) -> Result<Registration> {
+        require(identity.len() == 48, "identity extent")?;
+        let key = hex(&identity[..16]).to_uppercase();
+        let db = self.registry()?;
+        let e = db.classes.get(&key).ok_or("class not registered")?;
+        require(
+            !self.publication_pending(&key)?,
+            "publication_recovery_pending",
+        )?;
+        require(
+            e.publication == Publication::Published
+                && e.registration.module.sha256 == hex(&identity[16..]),
+            "mapping inactive or module binding differs",
+        )?;
+        e.registration.verify(&self.root)?;
+        require(
+            fs::read_link(self.link(&key))? == self.entry_target(e)?,
+            "publication unavailable",
+        )?;
+        Ok(e.registration.clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_fixture::Fixture;
+    #[test]
+    fn a_composition_names_what_it_and_its_recorded_helpers_open() {
+        let f = Fixture::new();
+        let (record, helper, unrecorded) = (f.outer.join("record.json"), f.outer.join("helper.json"),
+            f.outer.join("unrecorded.json"));
+        for path in [&record, &helper, &unrecorded] { atomic_json(path, &serde_json::json!({})).unwrap(); }
+        let ((), opened) = with_opened_files(|| {
+            read_json::<serde_json::Value>(&record).unwrap();
+            std::thread::scope(|scope| {
+                spawn_recorded(scope, || read_json::<serde_json::Value>(&helper).unwrap()).join().unwrap();
+                scope.spawn(|| read_json::<serde_json::Value>(&unrecorded).unwrap()).join().unwrap();
+            });
+        });
+        assert_eq!(opened.unwrap(), [record, helper].into_iter().collect());
+        assert!(OpenedFiles::here().0.is_none(), "nothing records after the composition");
+    }
+    #[test]
+    fn a_composition_derives_each_fact_once_and_nothing_outlives_it() {
+        let f = Fixture::new();
+        let derived = std::cell::Cell::new(0);
+        let count = || { derived.set(derived.get() + 1); Ok(derived.get()) };
+        assert_eq!((f.m.derive_once("fact", count).unwrap(), f.m.derive_once("fact", count).unwrap()), (1, 2),
+            "a manager that composes nothing derives on every use");
+        let composing = f.m.composing();
+        assert_eq!((composing.derive_once("fact", count).unwrap(), composing.derive_once("fact", count).unwrap()),
+            (3, 3));
+        assert_eq!(composing.derive_once("another fact", count).unwrap(), 4);
+        assert_eq!(f.m.composing().derive_once("fact", count).unwrap(), 5, "the next composition derives afresh");
+        // A failure reaches every use as it was, down to the refusal text.
+        let missing = || read_json::<u32>(&f.outer.join("missing.json"));
+        let expected = format!("{:?}", missing().unwrap_err());
+        assert!(expected.contains("NotFound"), "{expected}");
+        for _ in 0..2 {
+            assert_eq!(format!("{:?}", composing.derive_once("missing", missing).unwrap_err()), expected);
+        }
+        let failure = composing.derive_once("missing", missing).unwrap_err();
+        assert!(std::error::Error::source(&*failure).is_some_and(|source| source.is::<std::io::Error>()),
+            "the original failure is its source: {failure:?}");
+    }
+    #[test]
+    fn shared_observation_guard_refuses_fifo_without_waiting_for_a_writer() {
+        let f = Fixture::new();
+        private_dir(&f.m.root).unwrap();
+        let path = f.m.root.join("fifo-observation.lock");
+        let fifo = std::ffi::CString::new(path.as_os_str().as_encoded_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) }, 0);
+        let (started_tx, started_rx) = std::sync::mpsc::channel();
+        let (finished_tx, finished_rx) = std::sync::mpsc::channel();
+        std::thread::scope(|scope| {
+            let manager = &f.m;
+            let reader = scope.spawn(move || {
+                started_tx.send(()).unwrap();
+                finished_tx.send(manager.try_lock_shared("fifo-observation.lock").is_err()).unwrap();
+            });
+            started_rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+            let result = finished_rx.recv_timeout(std::time::Duration::from_secs(1));
+            // Release a regressed blocking open before asserting, so this test
+            // has a finite failure instead of leaving a blocked reader thread.
+            let _writer = result.is_err().then(|| OpenOptions::new().read(true).write(true)
+                .custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW).open(&path).unwrap());
+            reader.join().unwrap();
+            assert!(result.is_ok_and(|refused| refused), "malformed observation gates must refuse without waiting");
+        });
+    }
+    #[test]
+    fn shared_observation_guard_cannot_authorize_registry_mutation() {
+        let f = Fixture::new();
+        drop(f.m.lock("registry.lock").unwrap());
+        let operator_lock::LockAttempt::Acquired(shared) = f.m.try_lock_shared("registry.lock").unwrap() else {
+            panic!("shared observation was refused")
+        };
+        assert_eq!(shared.require_registry(&f.m).unwrap_err().to_string(), "registry_guard_identity");
+        assert!(matches!(f.m.try_lock("registry.lock").unwrap(), operator_lock::LockAttempt::Busy));
+        drop(shared);
+        assert!(f.m.try_lock_shared("absent-observation.lock").is_err());
+        assert!(!f.m.root.join("absent-observation.lock").exists());
+        f.m.lock("registry.lock").unwrap().require_registry(&f.m).unwrap();
+    }
+    #[test]
+    fn bounded_control_record_uses_one_stable_object_for_parse_and_identity() {
+        let f = Fixture::new();
+        let path = f.outer.join("bounded-control.json");
+        fs::write(&path, b"{\"value\":1}\n").unwrap();
+        let (value, sha): (serde_json::Value, String) = read_json_identity(&path).unwrap();
+        assert_eq!(value["value"], 1);
+        assert_eq!(sha, hex(&Sha256::digest(fs::read(&path).unwrap())));
+        let record = Artifact { path:path.clone(), sha256:sha };
+        assert_eq!(record.read_record::<serde_json::Value>(32).unwrap(), value);
+        let unopened = Cell::new(true);
+        File::create(&path).unwrap().set_len(33).unwrap();
+        let error = read_control_bytes_with(&path, 32, || { unopened.set(false); Ok(()) })
+            .unwrap_err().to_string();
+        assert_eq!(error, "control_record_bound");
+        assert!(unopened.get(), "oversized records must refuse before the read seam");
+        // Rewritten in place while read: read again, so the bound applies to
+        // what the record now is.
+        fs::write(&path, b"{}\n").unwrap();
+        assert_eq!(read_control_bytes_with(&path, 32, || {
+            fs::write(&path, vec![b'x';33])?; Ok(())
+        }).unwrap_err().to_string(), "control_record_bound");
+        let replace = |bytes: &[u8]| -> Result<()> {
+            let replacement = path.with_extension("replacement");
+            fs::write(&replacement, bytes)?;
+            fs::rename(replacement, &path)?; Ok(())
+        };
+        // Replaced once while read, as a supervisor's receipt is: the
+        // replacement is read, whole (#382).
+        fs::write(&path, b"{}\n").unwrap();
+        let replaced = Cell::new(false);
+        assert_eq!(read_control_bytes_with(&path, 32, || {
+            if !replaced.replace(true) { replace(b"[1]\n")?; }
+            Ok(())
+        }).unwrap(), b"[1]\n");
+        // Replaced during every read: it refuses.
+        fs::write(&path, b"{}\n").unwrap();
+        assert_eq!(read_control_bytes_with(&path, 32, || replace(b"[]\n"))
+            .unwrap_err().to_string(), "control_record_changed_during_read");
+        assert_eq!(record.read_record::<serde_json::Value>(32).unwrap_err().to_string(),
+            "control_record_digest_changed");
+    }
+    #[test]
+    fn special_file_replacements_refuse_without_a_writer_or_payload_read() {
+        use std::os::unix::ffi::OsStrExt;
+        let f = Fixture::new();
+        let path = f.outer.join("replaced-control");
+        let name = std::ffi::CString::new(path.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+        let record = Artifact {path:path.clone(),sha256:"ab".repeat(32)};
+        assert_eq!(record.validate_record().unwrap_err().to_string(), "file ownership/type differs");
+        assert_eq!(read_json::<serde_json::Value>(&path).unwrap_err().to_string(),
+            "file ownership/type differs");
+        assert_eq!(record.read_record::<serde_json::Value>(32).unwrap_err().to_string(),
+            "file ownership/type differs");
+    }
+    fn change_link_count(path: &Path) {
+        let before = DigestFileIdentity::from(&fs::symlink_metadata(path).unwrap());
+        let alias = path.with_extension("digest-link");
+        fs::hard_link(path, &alias).unwrap();
+        fs::remove_file(alias).unwrap();
+        let after = DigestFileIdentity::from(&fs::symlink_metadata(path).unwrap());
+        assert_ne!(before, after);
+        assert!(before.matches_except_ctime(after));
+    }
+    #[test]
+    fn digest_ctime_reread_hashes_fresh_bytes_for_cached_and_fresh_races() {
+        let f = Fixture::new();
+        let path = &f.r.environment.runner.entry_point;
+        for cached in [false, true] {
+            with_launch_verification(|| {
+                let expected = f.r.environment.runner.files[1].sha256.clone();
+                if cached { assert_eq!(digest(path).unwrap(), expected); }
+                let mut opened = Vec::new();
+                let (actual, identity) = digest_observed(path, |step| {
+                    match step {
+                        DigestReadStep::Opened(attempt) => {
+                            opened.push(attempt);
+                            if attempt == 0 { change_link_count(path); }
+                        }
+                        DigestReadStep::BeforeReread => {
+                            // Even a matching cache entry at the reread boundary
+                            // cannot supply bytes for the mandatory full read.
+                            let current = DigestFileIdentity::from(&fs::symlink_metadata(path)?);
+                            SCOPED_DIGESTS.with(|cache| cache.borrow_mut().as_mut().unwrap()
+                                .insert(path.to_path_buf(), (current, "invalid cached digest".into())));
+                        }
+                    }
+                    Ok(())
+                }).unwrap();
+                assert_eq!(opened, vec![0, 1]);
+                assert_eq!(actual, expected);
+                assert_eq!(identity, DigestFileIdentity::from(&fs::symlink_metadata(path).unwrap()));
+                assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap()[path].clone()),
+                    (identity, expected));
+            });
+        }
+    }
+    #[test]
+    fn digest_ctime_reread_does_not_hide_changed_content_with_restored_mtime() {
+        let f = Fixture::new();
+        let record = &f.r.environment.runner.files[1];
+        let modified = fs::metadata(&record.path).unwrap().modified().unwrap();
+        with_launch_verification(|| {
+            record.verify().unwrap();
+            let (actual, _) = digest_observed(&record.path, |step| {
+                match step {
+                    DigestReadStep::Opened(0) => change_link_count(&record.path),
+                    DigestReadStep::BeforeReread => {
+                        fs::write(&record.path, b"changed")?;
+                        File::open(&record.path)?.set_times(fs::FileTimes::new().set_modified(modified))?;
+                    }
+                    _ => {}
+                }
+                Ok(())
+            }).unwrap();
+            assert_ne!(actual, record.sha256);
+            assert_eq!(record.verify().unwrap_err().to_string(), "artifact missing or changed");
+        });
+    }
+    #[test]
+    fn digest_ctime_reread_refuses_replacement_across_attempts_and_repeat_churn() {
+        for replacement in [false, true] {
+            let f = Fixture::new();
+            let path = &f.r.environment.runner.entry_point;
+            with_launch_verification(|| {
+                digest(path).unwrap();
+                let mut opened = Vec::new();
+                let error = digest_observed(path, |step| {
+                    match step {
+                        DigestReadStep::Opened(attempt) => {
+                            opened.push(attempt);
+                            change_link_count(path);
+                        }
+                        DigestReadStep::BeforeReread if replacement => {
+                            // Keep the original inode alive to rule out inode
+                            // reuse, and preserve bytes, mode, size and mtime.
+                            let modified = fs::metadata(path)?.modified()?;
+                            fs::rename(path, path.with_extension("original"))?;
+                            fs::write(path, b"runtime")?;
+                            File::open(path)?.set_times(fs::FileTimes::new().set_modified(modified))?;
+                        }
+                        _ => {}
+                    }
+                    Ok(())
+                }).unwrap_err().to_string();
+                assert_eq!(error, "artifact_changed_during_verification");
+                assert_eq!(opened, if replacement { vec![0] } else { vec![0, 1] });
+            });
+        }
+    }
+    #[test]
+    fn digest_non_ctime_changes_refuse_without_rereading() {
+        let f = Fixture::new();
+        let path = &f.r.environment.runner.entry_point;
+        with_launch_verification(|| {
+            digest(path).unwrap();
+            let mut opened = Vec::new();
+            let error = digest_observed(path, |step| {
+                assert_eq!(step, DigestReadStep::Opened(0));
+                opened.push(step);
+                fs::set_permissions(path, fs::Permissions::from_mode(0o400))?;
+                Ok(())
+            }).unwrap_err().to_string();
+            assert_eq!(error, "artifact_changed_during_verification");
+            assert_eq!(opened.len(), 1);
+        });
+        let before = DigestFileIdentity::from(&fs::symlink_metadata(path).unwrap());
+        for changed in [
+            DigestFileIdentity { device: before.device+1, ..before },
+            DigestFileIdentity { inode: before.inode+1, ..before },
+            DigestFileIdentity { length: before.length+1, ..before },
+            DigestFileIdentity { mode: before.mode^0o100, ..before },
+            DigestFileIdentity { uid: before.uid+1, ..before },
+            DigestFileIdentity { mtime: before.mtime+1, ..before },
+            DigestFileIdentity { mtime_ns: before.mtime_ns^1, ..before },
+        ] { assert!(!before.matches_except_ctime(changed)); }
+    }
+    #[test]
+    fn shared_launch_observations_recheck_mutation_and_restore_scopes() {
+        let f = Fixture::new();
+        let path = f.outer.join("launch-artifact");
+        fs::write(&path, b"first").unwrap();
+        let shared = LaunchVerification::default();
+        let deadline = || std::time::Instant::now()+std::time::Duration::from_secs(2);
+        let (first, snapshot) = shared.prepare(deadline(), || digest(&path)).unwrap();
+        assert_eq!(shared.records.lock().unwrap().len(), 1);
+        assert_eq!(snapshot.run(|| digest(&path)).unwrap(), first);
+        assert!(SCOPED_DIGESTS.with(|cache| cache.borrow().is_none()));
+        // Replacing same-sized bytes must invalidate a process-owned observation.
+        fs::write(&path, b"other").unwrap();
+        let changed = snapshot.run(|| digest(&path)).unwrap();
+        assert_ne!(changed, first);
+        assert_ne!(shared.prepare(deadline(), || digest(&path)).unwrap().0, first);
+        let before = shared.records.lock().unwrap().clone();
+        assert!(shared.prepare::<()>(deadline(), || {
+            digest(&f.r.host.path)?;
+            Err("deliberate preparation refusal".into())
+        }).is_err());
+        assert_eq!(*shared.records.lock().unwrap(), before, "failed preparation may not publish new observations");
+        fs::remove_file(&path).unwrap();
+        std::os::unix::fs::symlink(&f.r.host.path, &path).unwrap();
+        assert!(snapshot.run(|| digest(&path)).is_err());
+        with_readback_digests(|| {
+            snapshot.run(|| assert!(!readback_digests_active()));
+            assert!(readback_digests_active());
+        });
+    }
+    #[test]
+    fn prepared_scan_payloads_never_hash_on_admission_cache_miss_or_change() {
+        let f = Fixture::new();
+        let path = f.outer.join("prepared-payload");
+        fs::write(&path, b"original").unwrap();
+        let artifact = Artifact {path:path.clone(), sha256:digest(&path).unwrap()};
+        let shared = LaunchVerification::default();
+        let (_, verified) = shared.prepare(std::time::Instant::now() + std::time::Duration::from_secs(2),
+            || artifact.verify()).unwrap();
+        for mode in ["unchanged", "unprepared", "changed"] {
+            if mode == "changed" { fs::write(&path, b"modified").unwrap(); }
+            let selected = if mode == "unprepared" { &f.r.host } else { &artifact };
+            let (result, reads) = with_opened_reads(|| verified.run_prepared(|| selected.verify()));
+            assert_eq!(result.is_ok(), mode == "unchanged", "{mode}");
+            assert_eq!(reads.unwrap().values().map(|(_, bytes)| bytes).sum::<u64>(), 0, "{mode}");
+        }
+        // The bounded scope restores ordinary full-byte verification.
+        assert_ne!(digest(&path).unwrap(), artifact.sha256);
+    }
+    #[test]
+    fn shared_launch_preparation_wait_has_a_deadline() {
+        let shared = std::sync::Arc::new(LaunchVerification::default());
+        let held = shared.records.lock().unwrap();
+        let waiting = shared.clone();
+        let thread = std::thread::spawn(move || waiting.prepare(
+            std::time::Instant::now()+std::time::Duration::from_millis(20), || Ok(()))
+            .err().unwrap().to_string());
+        assert_eq!(thread.join().unwrap(), "launch_verification_deadline");
+        drop(held);
+        assert!(shared.prepare(std::time::Instant::now()-std::time::Duration::from_millis(1),
+            || Ok(())).is_err());
+    }
+    #[test]
+    fn background_warm_retains_cold_reads_without_granting_late_execution() {
+        let f = Fixture::new();
+        let shared = LaunchVerification::default();
+        let deadline = std::time::Instant::now()+std::time::Duration::from_millis(100);
+        shared.warm(deadline, || {
+            digest(&f.r.host.path)?;
+            std::thread::sleep(deadline.saturating_duration_since(std::time::Instant::now())
+                +std::time::Duration::from_millis(20));
+            Ok(())
+        }).unwrap();
+        assert_eq!(shared.records.lock().unwrap().len(), 1);
+        assert!(shared.prepare(deadline, || Ok(())).is_err());
+        fs::write(&f.r.host.path, b"changed host").unwrap();
+        assert!(shared.prepare(std::time::Instant::now()+std::time::Duration::from_secs(2),
+            || f.r.host.verify()).is_err());
+    }
+    #[test]
+    fn late_success_is_refused_but_retains_valid_launch_observations() {
+        let f = Fixture::new();
+        let path = f.outer.join("late-launch-artifact");
+        fs::write(&path, b"verified bytes").unwrap();
+        let shared = LaunchVerification::default();
+        let deadline = std::time::Instant::now()+std::time::Duration::from_secs(1);
+        let mut verified = None;
+        let error = match shared.prepare(deadline, || {
+            verified = Some(digest(&path)?);
+            std::thread::sleep(deadline.saturating_duration_since(std::time::Instant::now())
+                +std::time::Duration::from_millis(20));
+            Ok(())
+        }) {
+            Ok(_) => panic!("late preparation authorized execution"),
+            Err(error) => error.to_string(),
+        };
+        assert_eq!(error, "launch_verification_deadline");
+        let verified = verified.expect("late preparation must have completed its verification");
+        assert_eq!(shared.records.lock().unwrap().len(), 1,
+            "completed valid observations remain available after refusing late execution");
+        let (next, _) = shared.prepare(
+            std::time::Instant::now()+std::time::Duration::from_secs(2), || {
+                assert!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap()
+                    .contains_key(&path)), "next request starts from the valid process observation");
+                digest(&path)
+            }).unwrap();
+        assert_eq!(next, verified);
+        let published = shared.records.lock().unwrap().clone();
+        let expected = Artifact {path:path.clone(),sha256:verified};
+        fs::write(&path, b"modified bytes").unwrap();
+        let changed = match shared.prepare(
+            std::time::Instant::now()+std::time::Duration::from_secs(2), || expected.verify()) {
+            Ok(_) => panic!("changed artifact satisfied the retained observation"),
+            Err(error) => error.to_string(),
+        };
+        assert_eq!(changed, "artifact missing or changed");
+        assert_eq!(*shared.records.lock().unwrap(), published,
+            "failed verification may not publish changed observations");
+        fs::write(&path, b"verified bytes").unwrap();
+        let wrong = Artifact {path,sha256:"00".repeat(32)};
+        let wrong_digest = match shared.prepare(
+            std::time::Instant::now()+std::time::Duration::from_secs(2), || wrong.verify()) {
+            Ok(_) => panic!("wrong expected digest gained execution authority"),
+            Err(error) => error.to_string(),
+        };
+        assert_eq!(wrong_digest, "artifact missing or changed");
+        assert_eq!(*shared.records.lock().unwrap(), published,
+            "wrong expected digest may not publish observations");
+    }
+    #[test]
+    fn readback_digest_reuse_is_scoped_and_rechecks_file_identity() {
+        let f = Fixture::new();
+        let path = f.outer.join("readback-artifact");
+        fs::write(&path, b"first").unwrap();
+        let first = with_readback_digests(|| {
+            let first = digest(&path).unwrap();
+            assert_eq!(digest(&path).unwrap(), first);
+            assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 1);
+            std::thread::sleep(std::time::Duration::from_millis(2));
+            fs::write(&path, b"other").unwrap();
+            assert_ne!(digest(&path).unwrap(), first);
+            first
+        });
+        assert!(SCOPED_DIGESTS.with(|cache| cache.borrow().is_none()));
+        assert_ne!(digest(&path).unwrap(), first);
+        fs::remove_file(&path).unwrap();
+        std::os::unix::fs::symlink(f.r.host.path.clone(), &path).unwrap();
+        assert!(with_readback_digests(|| digest(&path)).is_err());
+    }
+    #[test]
+    fn nested_launch_stages_reuse_bytes_but_recheck_replaced_files_and_claims() {
+        let f = Fixture::new();
+        let path = f.outer.join("transition-runtime");
+        fs::write(&path, b"first").unwrap();
+        let expected = Artifact { path:path.clone(), sha256:digest(&path).unwrap() };
+        with_launch_verification(|| {
+            expected.verify().unwrap();
+            with_launch_verification(|| {
+                assert!(SCOPED_DIGESTS.with(|cache|cache.borrow().as_ref().unwrap()
+                    .contains_key(&path)), "nested transition must retain its byte observation");
+                expected.verify().unwrap();
+                let mut false_claim = expected.clone();
+                false_claim.sha256 = "0".repeat(64);
+                assert!(false_claim.verify().is_err(), "reuse cannot authorize a different digest");
+                // A replacement with identical length and restored mtime is
+                // still a different object. Metadata reuse must reject it.
+                let modified = fs::metadata(&path).unwrap().modified().unwrap();
+                let replacement = path.with_extension("new");
+                fs::write(&replacement, b"other").unwrap();
+                File::options().write(true).open(&replacement).unwrap()
+                    .set_times(fs::FileTimes::new().set_modified(modified)).unwrap();
+                fs::rename(&replacement, &path).unwrap();
+                assert!(expected.verify().is_err());
+            });
+            assert!(expected.verify().is_err(), "outer stage must also reject the replacement");
+        });
+        assert!(SCOPED_DIGESTS.with(|cache|cache.borrow().is_none()));
+        with_launch_verification(|| assert!(SCOPED_DIGESTS.with(|cache|
+            cache.borrow().as_ref().unwrap().is_empty()), "next operation starts fresh"));
+    }
+    #[test]
+    fn nested_readbacks_retain_observations_without_lending_them_to_launch() {
+        let f = Fixture::new();
+        let first = f.outer.join("first-observation");
+        let second = f.outer.join("second-observation");
+        fs::write(&first, b"first").unwrap();
+        fs::write(&second, b"other").unwrap();
+        with_readback_digests(|| {
+            let original = digest(&first).unwrap();
+            with_readback_digests(|| {
+                assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 1);
+                assert_eq!(digest(&first).unwrap(), original);
+                digest(&second).unwrap();
+                fs::write(&first, b"later").unwrap();
+                assert_ne!(digest(&first).unwrap(), original);
+            });
+            assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 2);
+            // An admission starts a fresh byte scope, even inside readback.
+            with_launch_verification(|| {
+                assert!(!readback_digests_active());
+                assert!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().is_empty()));
+                digest(&second).unwrap();
+                with_readback_digests(|| {
+                    assert!(!readback_digests_active());
+                    assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 1);
+                });
+            });
+            assert!(readback_digests_active());
+            assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 2);
+        });
+        assert!(SCOPED_DIGESTS.with(|cache| cache.borrow().is_none()));
+    }
+    #[test]
+    fn historical_performance_bytes_keep_identity_and_do_not_enable_new_delivery() {
+        let bytes = br#"{"schema":1,"added_frames":512}"#;
+        let old: Performance = serde_json::from_slice(bytes).unwrap();
+        old.verify().unwrap();
+        assert_eq!(serde_json::to_vec(&old).unwrap(), bytes);
+        assert_eq!(old.effective_frames(), 512);
+        let mut next = old.clone();
+        next.delivery_mode = DeliveryMode::SameCallback;
+        assert!(next.verify().is_err());
+        next.schema = 2;
+        next.verify().unwrap();
+        assert_eq!(next.effective_frames(), 0);
+        assert_eq!(next.added_frames, 512);
+        assert!(!next.is_qualified_buffering());
+        assert!(serde_json::from_str::<Performance>(r#"{"schema":2,"added_frames":512,"delivery_mode":"fast"}"#).is_err());
+    }
+    #[test]
+    fn explicit_delivery_preserves_buffering_checks_the_exact_pair_and_stays_inactive() {
+        let f = Fixture::new();
+        f.m.register(f.r.clone()).unwrap();
+        let key = f.r.key();
+        let path = f.m.root.join("software/delivery-test.zip");
+        let status = std::process::Command::new("python3").args(["-I", "-c", r#"
+import json,hashlib,sys,zipfile
+path,native,host=sys.argv[1:]
+index=json.dumps(dict(schema=3,engine='prebuilt/engine.so',engine_sha256=native,
+ descriptor_schema=1,maximum_bridge_frames=1024,audio_completion_contract=1,native_sources={})).encode()
+with zipfile.ZipFile(path,'x') as z:
+ z.writestr('prebuilt/index.json',index)
+ z.writestr('recipe.json',json.dumps(dict(schema=4,files={
+  'prebuilt/index.json':hashlib.sha256(index).hexdigest(),'prebuilt/engine.so':native,'runtime/host.exe':host})))
+"#]).arg(&path).arg(&f.r.native.sha256).arg(&f.r.host.sha256).status().unwrap();
+        assert!(status.success());
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        let sw = catalogue::Software {manager:f.r.host.clone(),operator_frontend:None,
+            installer_launch:None,preparation_kit:Some(Artifact {sha256:digest(&path).unwrap(),path}),
+            supervisor:f.r.host.clone(),ownership:f.r.host.clone(),host:f.r.host.clone(),
+            source_manifest:f.r.host.clone(),source_sha256:f.r.host_source_sha256.clone(),native_catalogue:None};
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let registration = fs::read(f.m.root.join("registry.json")).unwrap();
+        f.m.select_delay(&key, 1024).unwrap();
+        f.m.select_delivery(&key, DeliveryMode::SameCallback).unwrap();
+        let selected = f.m.performance(&key).unwrap();
+        assert_eq!(selected.effective_frames(), 0);
+        assert_eq!(selected.added_frames, 1024);
+        // A healthy independent keeper does not become an audio owner.
+        let _keeper = managed_tests::lease(&f, &key, true);
+        f.m.select_delay(&key, 256).unwrap();
+        assert_eq!(f.m.performance(&key).unwrap().delivery_mode, DeliveryMode::SameCallback);
+        f.m.select_delivery(&key, DeliveryMode::Buffered).unwrap();
+        assert_eq!(f.m.performance(&key).unwrap().effective_frames(), 256);
+        let restored: serde_json::Value = read_json(&f.m.root.join("performance")
+            .join(format!("{}.json", key.to_uppercase()))).unwrap();
+        assert_eq!(restored, serde_json::json!({"schema":1,"added_frames":256}),
+            "normal buffering restoration remains readable by the predecessor manager");
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registration);
+        let lease = f.m.root.join("runtime/leases/active.json");
+        atomic_json(&lease, &f.m.root.join("runtime/results/windows-active.json")).unwrap();
+        assert!(f.m.select_delivery(&key, DeliveryMode::SameCallback).is_err());
+        assert_eq!(f.m.performance(&key).unwrap().delivery_mode, DeliveryMode::Buffered);
+        fs::remove_file(&lease).unwrap();
+        let mut wrong = f.r.clone();
+        wrong.host.sha256 = "cd".repeat(32);
+        assert!(preparation::build::supports_audio_completion(&f.m, &wrong).is_err());
+        let mut sw = sw;
+        sw.preparation_kit = None;
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        assert!(f.m.select_delivery(&key, DeliveryMode::SameCallback).is_err());
+        assert_eq!(f.m.performance(&key).unwrap().effective_frames(), 256);
+    }
+    #[test]
+    fn preference_commit_rechecks_guard_target_preference_and_owners() {
+        for change in ["guard", "manager", "target", "preference", "owner"] {
+            let f = Fixture::new();
+            let other = Fixture::new();
+            f.m.register(f.r.clone()).unwrap();
+            let key = f.r.key();
+            let result = f.m.select_delay_with_registry(&key, 256, || {
+                if change == "guard" { return f.m.lock("operator-canonical.lock"); }
+                if change == "manager" { return other.m.lock("registry.lock"); }
+                let guard = f.m.lock("registry.lock")?;
+                match change {
+                    "target" => {
+                        let mut db = f.m.registry()?;
+                        db.classes.get_mut(&key).unwrap().registration.metadata.version = "next".into();
+                        atomic_json(&f.m.root.join("registry.json"), &db)?;
+                    }
+                    "preference" => {
+                        private_dir(&f.m.root.join("performance"))?;
+                        // Use a distinct valid value so the stale read is observable.
+                        atomic_json(&f.m.root.join("performance").join(format!("{key}.json")),
+                            &Performance {schema:1,added_frames:1024,delivery_mode:DeliveryMode::Buffered})?;
+                    }
+                    "owner" => {
+                        managed_tests::lease(&f, &key, false);
+                    }
+                    _ => unreachable!(),
+                }
+                Ok(guard)
+            });
+            let error = result.unwrap_err().to_string();
+            match change {
+                "guard" | "manager" => assert_eq!(error, "registry_guard_identity"),
+                "target" => assert_eq!(error, "performance_target_changed"),
+                "preference" => assert_eq!(error, "performance_preference_changed"),
+                "owner" => assert_eq!(error, "active_device_lease"),
+                _ => unreachable!(),
+            }
+            assert_eq!(f.m.performance(&key).unwrap().added_frames,
+                if change == "preference" {1024} else {512});
+            if change != "preference" { assert!(!f.m.root.join("performance").exists()); }
+        }
+    }
+    #[test]
+    fn installed_delay_is_inactive_versioned_and_separate_from_identity() {
+        let f = Fixture::new();
+        f.m.register(f.r.clone()).unwrap();
+        let key = f.r.key();
+        let before = f.m.resolve(&f.identity()).unwrap();
+        assert_eq!(f.m.performance(&key).unwrap().added_frames, 512);
+        f.m.select_delay(&key, 256).unwrap();
+        assert_eq!(f.m.performance(&key).unwrap().added_frames, 256);
+        assert_eq!(before, f.m.resolve(&f.identity()).unwrap());
+        assert!(f.m.select_delay(&key, 128).is_err());
+        // A new manager cannot enlarge a legacy proxy through the internal CLI.
+        assert!(f.m.select_delay(&key, 1024).is_err());
+        assert_eq!(f.m.performance(&key).unwrap().added_frames, 256);
+        private_dir(&f.m.root.join("runtime/leases")).unwrap();
+        let lease = f.m.root.join("runtime/leases/active.json");
+        atomic_json(
+            &lease,
+            &f.m.root.join("runtime/results/windows-active.json"),
+        )
+        .unwrap();
+        assert!(f.m.select_delay(&key, 512).is_err());
+        assert_eq!(f.m.performance(&key).unwrap().added_frames, 256);
+        fs::remove_file(&lease).unwrap();
+        // The environment keeper is not a DSP instance.
+        let _keeper = managed_tests::lease(&f, &key, true);
+        f.m.select_delay(&key, 512).unwrap();
+        assert_eq!(f.m.performance(&key).unwrap().added_frames, 512);
+        let path = f.m.root.join("performance").join(format!("{key}.json"));
+        atomic_json(
+            &path,
+            &Performance {
+                schema: 3,
+                added_frames: 256, delivery_mode:DeliveryMode::Buffered },
+        )
+        .unwrap();
+        assert!(f.m.performance(&key).is_err());
+    }
+    #[test]
+    fn exact_metadata_and_roles() {
+        let f = Fixture::new();
+        assert!(f.r.metadata.verify().is_ok());
+        for c in ["", "Fx|Instrument", "Instrumental"] {
+            let mut r = f.r.clone();
+            r.metadata.subcategories = c.into();
+            assert!(r.metadata.verify().is_err());
+        }
+        let mut r = f.r.clone();
+        r.metadata.metadata_tier = "factory_1".into();
+        assert!(r.metadata.verify().is_err());
+    }
+    #[test]
+    fn idempotent_publication_and_removal_preserve_vendor_files() {
+        let f = Fixture::new();
+        f.m.register(f.r.clone()).unwrap();
+        let first = fs::read_link(f.m.link(&f.r.key())).unwrap();
+        f.m.register(f.r.clone()).unwrap();
+        assert_eq!(first, fs::read_link(f.m.link(&f.r.key())).unwrap());
+        assert_eq!(fs::read_dir(&f.m.publications).unwrap().count(), 1);
+        let resolved = f.m.resolve(&f.identity()).unwrap();
+        assert_eq!(resolved.metadata, f.r.metadata);
+        fs::remove_file(&f.r.native.path).unwrap();
+        assert!(f.m.resolve(&f.identity()).is_ok());
+        f.m.unpublish(&f.r.key()).unwrap();
+        assert!(!f.m.link(&f.r.key()).exists());
+        assert!(f.r.module.path.exists());
+        assert!(f.m.resolve(&f.identity()).is_err());
+    }
+    #[test]
+    fn changed_or_missing_artifacts_refuse_startup() {
+        for which in 0..3 {
+            let f = Fixture::new();
+            f.m.register(f.r.clone()).unwrap();
+            let p = match which {
+                0 => &f.r.module.path,
+                1 => &f.r.environment.runner.proton,
+                _ => &f.m.native_path(&f.r),
+            };
+            fs::set_permissions(p, fs::Permissions::from_mode(0o600)).unwrap();
+            fs::write(p, b"changed").unwrap();
+            assert!(f.m.resolve(&f.identity()).is_err());
+            fs::remove_file(p).unwrap();
+            assert!(f.m.resolve(&f.identity()).is_err());
+        }
+    }
+    #[test]
+    fn interrupted_publication_recovers_and_never_overwrites_foreign_entry() {
+        let f = Fixture::new();
+        let mut db = Registry::default();
+        db.classes.insert(
+            f.r.key(),
+            Entry {
+                registration: f.r.clone(),
+                publication: Publication::Pending,
+                managed_revision: None,
+            },
+        );
+        f.m.save(&mut db).unwrap();
+        f.m.reconcile().unwrap();
+        assert!(f.m.resolve(&f.identity()).is_ok());
+        fs::remove_file(f.m.link(&f.r.key())).unwrap();
+        fs::create_dir(f.m.link(&f.r.key())).unwrap();
+        assert!(f.m.register(f.r.clone()).is_err());
+        assert!(f.m.unpublish(&f.r.key()).is_err());
+        assert!(f.m.link(&f.r.key()).is_dir());
+    }
+    #[test]
+    fn duplicate_service_start_and_changed_binding_are_refused() {
+        let f = Fixture::new();
+        let lock = f.m.lock("service.lock").unwrap();
+        assert!(f.m.lock("service.lock").is_err());
+        drop(lock);
+        assert!(f.m.lock("service.lock").is_ok());
+        f.m.register(f.r.clone()).unwrap();
+        let mut r = f.r.clone();
+        r.metadata.name = "different".into();
+        assert!(f.m.register(r).is_err());
+    }
+    #[test]
+    fn removing_one_mapping_preserves_the_other() {
+        let f = Fixture::new();
+        f.m.register(f.r.clone()).unwrap();
+        let mut other = f.r.clone();
+        other.metadata.class_id = "02".repeat(16);
+        other.metadata.name = "Effect".into();
+        other.metadata.subcategories = "Fx|Delay".into();
+        f.m.register(other.clone()).unwrap();
+        f.m.unpublish(&f.r.key()).unwrap();
+        assert_eq!(
+            fs::read_link(f.m.link(&other.key())).unwrap(),
+            f.m.target(&other)
+        );
+        assert_eq!(
+            f.m.registry().unwrap().classes[&other.key()].publication,
+            Publication::Published
+        );
+    }
+}
+
+pub mod managed_candidate;
+
+pub mod native_access_dependency;
+pub mod dependency_session;
+pub mod portable_package;
+pub mod supervisor;
+pub mod package_version;
+pub mod update_feed;
+
+/// One `KEY=value` field of an os-release file, unquoted and bounded.
+pub fn os_release_value(text: &str, key: &str) -> Option<String> {
+    let value = text
+        .lines()
+        .find_map(|line| line.strip_prefix(&format!("{key}=")))?;
+    let value = value.trim().trim_matches('"').trim_matches('\'');
+    (!value.is_empty() && value.len() <= 128 && !value.chars().any(char::is_control))
+        .then(|| value.to_owned())
+}
+/// This computer's os-release text, bounded; empty when unreadable.
+pub fn read_os_release() -> String {
+    for path in ["/etc/os-release", "/usr/lib/os-release"] {
+        let mut bytes = Vec::new();
+        if File::open(path).and_then(|f| f.take(8193).read_to_end(&mut bytes)).is_ok()
+            && bytes.len() <= 8192 {
+            if let Ok(text) = String::from_utf8(bytes) { return text; }
+        }
+    }
+    String::new()
+}

@@ -1,5 +1,7 @@
 //! egui worker delivery and wakeup; product requests live in `lvb-client`.
-pub use lvb_client::{Query, Reply, SupportReport};
+pub use lvb_client::{Query, Reply};
+#[cfg(test)]
+pub use lvb_client::SupportReport;
 use lvb_client::{Client, native::RfdSelection};
 use std::{path::PathBuf, sync::{mpsc::Sender, Arc, OnceLock}};
 

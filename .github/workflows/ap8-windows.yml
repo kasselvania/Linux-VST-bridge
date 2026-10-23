@@ -36,8 +36,8 @@ on:
       - 'windows-fixtures/beta/**'
       - 'windows-fixtures/graphics/**'
       - 'tools/graphics/**'
-      - 'bridge-manager/src/graphics/**'
-      - 'bridge-manager/examples/graphics_assessment_report.rs'
+      - 'crates/service/src/graphics/**'
+      - 'crates/service/examples/graphics_assessment_report.rs'
       - 'tools/beta/reference_installer.rs'
       - 'tools/beta/build_reference.py'
       - 'tools/beta/build_unfamiliar.py'
@@ -255,7 +255,7 @@ jobs:
           CARGO_BUILD_JOBS: 2
         run: |
           for kind in 1 2 3 4 5; do
-            cargo run --quiet --locked --manifest-path bridge-manager/Cargo.toml --example graphics_assessment_report -- "$GRAPHICS_REFERENCE_ROOT/graphics-reference-$kind.vst3" "$GRAPHICS_REFERENCE_ROOT/graphics-reference-$kind.json" > "$GRAPHICS_REFERENCE_ROOT/assessment-$kind.json"
+            cargo run --quiet --locked --manifest-path crates/service/Cargo.toml --example graphics_assessment_report -- "$GRAPHICS_REFERENCE_ROOT/graphics-reference-$kind.vst3" "$GRAPHICS_REFERENCE_ROOT/graphics-reference-$kind.json" > "$GRAPHICS_REFERENCE_ROOT/assessment-$kind.json"
           done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

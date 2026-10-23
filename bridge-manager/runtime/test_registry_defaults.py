@@ -3,7 +3,7 @@ from unittest.mock import patch
 import session as s
 import ownership
 
-PROFILE = json.loads((pathlib.Path(__file__).parents[1] / 'src/vendor_profiles/native_access.json').read_text())
+PROFILE = json.loads((pathlib.Path(__file__).resolve().parents[2] / 'crates/service/src/vendor_profiles/native_access.json').read_text())
 DEFAULT = PROFILE['registry_defaults'][0]
 GUID = s.REGISTRY_KNOWN_FOLDERS['Downloads']
 TOOL = s.REGISTRY_TOOL

@@ -17,6 +17,8 @@ on:
       - 'evidence/lc2/generated.json'
       - 'bridge-manager/**'
       - 'crates/model/**'
+      - 'crates/service/**'
+      - 'crates/cli/**'
       - 'crates/view-model/**'
       - 'crates/client/**'
       # Read by problem.rs's explanation-completeness test.
@@ -60,6 +62,8 @@ on:
       - 'evidence/lc2/generated.json'
       - 'bridge-manager/**'
       - 'crates/model/**'
+      - 'crates/service/**'
+      - 'crates/cli/**'
       - 'crates/view-model/**'
       - 'crates/client/**'
       # Read by problem.rs's explanation-completeness test.
@@ -96,14 +100,14 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - run: rustup toolchain install 1.95.0 --profile minimal
-      - run: cargo +1.95.0 build --release --manifest-path bridge-manager/Cargo.toml --locked --bin linux-vst-bridge
+      - run: cargo +1.95.0 build --release --manifest-path crates/cli/Cargo.toml --locked --bin linux-vst-bridge
       - run: cargo +1.95.0 build --release --manifest-path manager-ui/Cargo.toml --locked --bin linux-audio-compatibility-manager
       - name: Bind exact source and executable identities
         run: |
           python3 - <<'PY'
           import hashlib, json, pathlib, subprocess
           files = {
-              'linux-vst-bridge': pathlib.Path('bridge-manager/target/release/linux-vst-bridge'),
+              'linux-vst-bridge': pathlib.Path('crates/cli/target/release/linux-vst-bridge'),
               'linux-audio-compatibility-manager': pathlib.Path('manager-ui/target/release/linux-audio-compatibility-manager'),
           }
           package = pathlib.Path('wd1-linux-artifacts')
@@ -179,14 +183,15 @@ jobs:
           test -d "$runtime" || sudo install -d -m 0700 -o "$(id -u)" -g "$(id -g)" "$runtime"
           stat -f -c %T "$runtime"
       # The real `serve` on a fixture state, driven through the operator CLI
-      # and the service socket (bridge-manager/tests/real_service). The full
+      # and the service socket (crates/cli/tests/real_service). The full
       # suite below runs it again with everything else.
       - name: Real-service behaviour oracle
-        run: cargo test --manifest-path bridge-manager/Cargo.toml --locked --test real_service
-      - run: cargo test --manifest-path bridge-manager/Cargo.toml --locked
+        run: cargo test --manifest-path crates/cli/Cargo.toml --locked --features service-executor-fixture --test real_service
+      - run: cargo test --manifest-path crates/cli/Cargo.toml --locked
+      - run: cargo test --manifest-path crates/service/Cargo.toml --locked
       - name: Bounded configuration timing observation
-        run: cargo test --manifest-path bridge-manager/Cargo.toml --locked --features pb0-c0-audit audit_
-      - run: cargo test --manifest-path bridge-manager/Cargo.toml --example uir1_report --locked
+        run: cargo test --manifest-path crates/service/Cargo.toml --locked --features pb0-c0-audit audit_
+      - run: cargo test --manifest-path crates/service/Cargo.toml --example uir1_report --locked
       - run: cargo test --manifest-path crates/model/Cargo.toml --locked
       - run: cargo clippy --manifest-path crates/model/Cargo.toml --locked --all-targets -- -D warnings
       # Until one workspace lockfile replaces them, each crate's own lockfile
@@ -203,7 +208,7 @@ jobs:
           failed = False
           for crate in ('crates/model', 'crates/view-model'):
               own = entries(f'{crate}/Cargo.lock')
-              for user in ('bridge-manager', 'manager-ui'):
+              for user in ('crates/service', 'crates/cli', 'crates/client', 'manager-ui'):
                   theirs = entries(f'{user}/Cargo.lock')
                   names = {name for name, _, _ in theirs}
                   drift = sorted((e for e in own if e[0] in names and e not in theirs), key=str)
@@ -213,7 +218,8 @@ jobs:
                   failed = failed or bool(drift)
           sys.exit(1 if failed else 0)
           PY
-      - run: cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings
+      - run: cargo clippy --manifest-path crates/cli/Cargo.toml --locked --all-targets -- -D warnings
+      - run: cargo clippy --manifest-path crates/service/Cargo.toml --locked --all-targets -- -D warnings
       - run: python3 -m unittest discover -s bridge-manager/runtime -v
       - run: python3 tools/test_ap10_descriptor.py
       - run: python3 tools/frg1/test_census.py

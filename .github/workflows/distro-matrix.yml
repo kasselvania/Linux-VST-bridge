@@ -109,7 +109,7 @@ jobs:
             ${{ runner.temp }}/lvb-distro/cargo/registry/cache
             ${{ runner.temp }}/lvb-distro/cargo/git/db
             ${{ runner.temp }}/lvb-distro/target
-          key: distro-${{ matrix.id }}-${{ steps.image.outputs.stamp }}-${{ hashFiles('bridge-manager/Cargo.lock', 'manager-ui/Cargo.lock', 'crates/*/Cargo.lock', 'native-vst3-proxy/backend/Cargo.lock') }}
+          key: distro-${{ matrix.id }}-${{ steps.image.outputs.stamp }}-${{ hashFiles('crates/cli/Cargo.lock', 'manager-ui/Cargo.lock', 'crates/*/Cargo.lock', 'native-vst3-proxy/backend/Cargo.lock') }}
           restore-keys: |
             distro-${{ matrix.id }}-${{ steps.image.outputs.stamp }}-
       - name: Build and test on ${{ matrix.name }}

@@ -2,10 +2,10 @@
 import hashlib,json,os,pathlib,shutil,stat,subprocess,tempfile
 SOURCES={n:'tools/naui2/'+n for n in ('package.py','campaign.py','supervise.py','readback.py','application.cpp')}
 SOURCES.update({n:'bridge-manager/runtime/'+n for n in ('session.py','ownership.py')})
-SOURCES.update({'linker.py':'tools/is4/linker.py','Cargo.lock':'bridge-manager/Cargo.lock','Cargo.toml':'bridge-manager/Cargo.toml'})
+SOURCES.update({'linker.py':'tools/is4/linker.py','Cargo.lock':'crates/service/Cargo.lock','Cargo.toml':'crates/service/Cargo.toml'})
 SOURCES['nad1_stop.h']='tools/is2/nad1_stop.h'
 SOURCES['nad1_service.h']='tools/is2/nad1_service.h'
-SOURCES.update({'launch.cpp':'tools/is2/launch.cpp','binding.rs':'bridge-manager/examples/naui2_binding.rs','application.rs':'bridge-manager/src/renderer_application.rs','lifecycle.rs':'bridge-manager/src/renderer_session.rs','operator_cli.rs':'bridge-manager/src/operator_cli.rs'})
+SOURCES.update({'launch.cpp':'tools/is2/launch.cpp','binding.rs':'crates/service/examples/naui2_binding.rs','application.rs':'crates/service/src/renderer_application.rs','lifecycle.rs':'crates/service/src/renderer_session.rs','operator_cli.rs':'crates/service/src/owner/operator_cli.rs'})
 SOURCES['native_access_callback.h']='tools/is2/native_access_callback.h'
 REQUIRED=set(SOURCES)|{'payload.exe','adapter.exe','binding-owner','context.private.json'}
 def digest(p):
@@ -64,8 +64,8 @@ def build(repo,out,context):
             shutil.copyfile(built,out/name)
     with (out/'payload.exe').open('ab') as f:f.truncate(67*1024*1024)
     env=dict(os.environ,IS4_ZIG=zig,CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=str(repo/'tools/is4/linker.py'))
-    subprocess.run(['cargo','build','--manifest-path',str(repo/'bridge-manager/Cargo.toml'),'--locked','--release','--target','x86_64-unknown-linux-gnu','--example','naui2_binding'],env=env,check=True,timeout=240)
-    shutil.copyfile(repo/'bridge-manager/target/x86_64-unknown-linux-gnu/release/examples/naui2_binding',out/'binding-owner')
+    subprocess.run(['cargo','build','--manifest-path',str(repo/'crates/service/Cargo.toml'),'--locked','--release','--target','x86_64-unknown-linux-gnu','--example','naui2_binding'],env=env,check=True,timeout=240)
+    shutil.copyfile(repo/'crates/service/target/x86_64-unknown-linux-gnu/release/examples/naui2_binding',out/'binding-owner')
     shutil.copyfile(context,out/'context.private.json')
     m={'schema':1,'source':source,'files':{p.name:digest(p) for p in out.iterdir()},'payload_size':67*1024*1024,
        'recipe':{'name':'naui2-x64-cpp20-padded67MiB-rust-binding-v1','zig_sha256':digest(zig),'zig_version':subprocess.check_output([zig,'version']).decode().strip()}}

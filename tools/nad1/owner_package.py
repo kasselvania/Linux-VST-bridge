@@ -2,9 +2,9 @@
 import hashlib,json,os,pathlib,shutil,stat,subprocess,tempfile
 SOURCES={n:'tools/nad1/'+n for n in ('owner_package.py','owner_campaign.py','owner_supervise.py','service_fixture.cpp','application_fixture.cpp','application_supervise.py','application_campaign.py','lifetime_campaign.py','recovery_campaign.py','child_memory.h','child_memory_campaign.py','callback_campaign.py')}
 SOURCES.update({n:'bridge-manager/runtime/'+n for n in ('session.py','ownership.py')})
-SOURCES.update({'launch.cpp':'tools/is2/launch.cpp','nad1_service.h':'tools/is2/nad1_service.h','readback.py':'tools/naui2/readback.py','binding.rs':'bridge-manager/examples/nad1_binding.rs','dependency.rs':'bridge-manager/src/native_access_dependency.rs','lifecycle.rs':'bridge-manager/src/dependency_session.rs','operator_cli.rs':'bridge-manager/src/operator_cli.rs','linker.py':'tools/is4/linker.py','Cargo.toml':'bridge-manager/Cargo.toml','Cargo.lock':'bridge-manager/Cargo.lock'})
-SOURCES['native_access_recovery.json']='bridge-manager/src/native_access_recovery.json'
-SOURCES['renderer_lifecycle.rs']='bridge-manager/src/renderer_session.rs'
+SOURCES.update({'launch.cpp':'tools/is2/launch.cpp','nad1_service.h':'tools/is2/nad1_service.h','readback.py':'tools/naui2/readback.py','binding.rs':'crates/service/examples/nad1_binding.rs','dependency.rs':'crates/service/src/native_access_dependency.rs','lifecycle.rs':'crates/service/src/dependency_session.rs','operator_cli.rs':'crates/service/src/owner/operator_cli.rs','linker.py':'tools/is4/linker.py','Cargo.toml':'crates/service/Cargo.toml','Cargo.lock':'crates/service/Cargo.lock'})
+SOURCES['native_access_recovery.json']='crates/service/src/native_access_recovery.json'
+SOURCES['renderer_lifecycle.rs']='crates/service/src/renderer_session.rs'
 SOURCES['nad1_stop.h']='tools/is2/nad1_stop.h'
 SOURCES['native_access_callback.h']='tools/is2/native_access_callback.h'
 REQUIRED=set(SOURCES)|{'Setup.exe','application.exe','adapter.exe','binding-owner'}
@@ -35,8 +35,8 @@ def build(repo,out):
   for name,src,flags in [('application.exe','application_fixture.cpp',['-ladvapi32']),('Setup.exe','service_fixture.cpp',['-lws2_32','-ladvapi32']),('adapter.exe','launch.cpp',['-DNAD1_GENERATED_SERVICE','-lbcrypt','-ladvapi32'])]:
    output=pathlib.Path(d)/name;subprocess.run(['zig','c++','-target','x86_64-windows-gnu','-std=c++20','-O2','-municode',str(out/src),*flags,'-o',str(output)],check=True,timeout=180);shutil.copyfile(output,out/name)
  env=dict(os.environ,IS4_ZIG=shutil.which('zig'),CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=str(repo/'tools/is4/linker.py'))
- subprocess.run(['cargo','+1.95.0','build','--manifest-path',str(repo/'bridge-manager/Cargo.toml'),'--locked','--release','--target','x86_64-unknown-linux-gnu','--example','nad1_binding'],env=env,check=True,timeout=300)
- shutil.copyfile(repo/'bridge-manager/target/x86_64-unknown-linux-gnu/release/examples/nad1_binding',out/'binding-owner')
+ subprocess.run(['cargo','+1.95.0','build','--manifest-path',str(repo/'crates/service/Cargo.toml'),'--locked','--release','--target','x86_64-unknown-linux-gnu','--example','nad1_binding'],env=env,check=True,timeout=300)
+ shutil.copyfile(repo/'crates/service/target/x86_64-unknown-linux-gnu/release/examples/nad1_binding',out/'binding-owner')
  for f in out.iterdir():f.chmod(0o500 if f.name=='binding-owner' else 0o400)
  m={'schema':1,'source':source,'files':{f.name:digest(f) for f in out.iterdir()}}
  publish(out/'seal.json',m);return digest(out/'seal.json')

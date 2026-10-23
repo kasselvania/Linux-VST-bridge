@@ -66,9 +66,7 @@ pub fn software_install_offer(snapshot: Option<&Snapshot>, installer: &str, poli
         setup.primary.iter().chain(setup.secondary.iter()))
         .find(|offer| offer.action.software_install().is_some_and(|(offered,_,choice)|
             offered==installer && choice==policy))
-        .map(|offer| offer.disabled_reason.clone().or_else(||
-            offer.action.requires_global_inactive().then(||snapshot.system.inactive_reason())
-                .flatten().map(str::to_owned)))
+        .map(|offer| offer.disabled_reason.clone())
         .ok_or("This installation offer changed. Refresh Setup before continuing.")
 }
 
@@ -96,14 +94,14 @@ pub fn installation_form_offer(snapshot: Option<&Snapshot>, action: &Action)
             snapshot.vendor_applications.iter().flat_map(|app|&app.actions).find(|offer|
                 matches!(&offer.action,Action::RendererSoftwareInstall {application:offered,policy:offered_policy,..}
                     if offered==application && offered_policy==policy))
-                .map(|offer|offer.disabled_reason.clone().or_else(||snapshot.system.inactive_reason().map(str::to_owned)))
+                .map(|offer|offer.disabled_reason.clone())
                 .ok_or("This app's offered rendering choice changed. Refresh Setup before continuing.")
         },
         Action::EnvironmentRefresh {environment,..}=> {
             let snapshot=snapshot.ok_or("Current manager status is unavailable. Refresh before continuing.")?;
             snapshot.installer_setups.iter().flat_map(|setup|setup.primary.iter().chain(setup.secondary.iter()))
                 .find(|offer|matches!(&offer.action,Action::EnvironmentRefresh {environment:offered,..} if offered==environment))
-                .map(|offer|offer.disabled_reason.clone().or_else(||snapshot.system.inactive_reason().map(str::to_owned)))
+                .map(|offer|offer.disabled_reason.clone())
                 .ok_or("This setup refresh offer changed. Refresh Setup before continuing.")
         },
         Action::VendorSoftwareInstall { application, .. } => {
@@ -111,9 +109,7 @@ pub fn installation_form_offer(snapshot: Option<&Snapshot>, action: &Action)
             snapshot.vendor_applications.iter().flat_map(|app| &app.actions)
                 .find(|offer| matches!(&offer.action,
                     Action::VendorSoftwareInstall { application: offered, .. } if offered == application))
-                .map(|offer| offer.disabled_reason.clone().or_else(||
-                    offer.action.requires_global_inactive().then(||snapshot.system.inactive_reason())
-                        .flatten().map(str::to_owned)))
+                .map(|offer| offer.disabled_reason.clone())
                 .ok_or("This vendor installation offer changed. Refresh Setup before continuing.")
         }
         _ => Err("This installation offer changed. Refresh Setup before continuing."),
@@ -281,7 +277,7 @@ fn confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirmation {
                 body.push(format!("First, {} will be removed from your DAW. Projects that use {} will open with {} missing.",
                     u.affected.join(", "), if one { "it" } else { "them" }, if one { "it" } else { "them" }));
             }
-            body.push("Afterwards, this setup's plug-ins are checked again one at a time, and any it didn't remove go back into your DAW. The bridge is paused for all your setups until that finishes, which can take a few minutes for a large setup.".into());
+            body.push("Afterwards, this setup's plug-ins are checked again one at a time, and any it didn't remove go back into your DAW. This setup stays unavailable until the check finishes, which can take a few minutes for a large setup.".into());
             body.push("The uninstaller may also remove licences or settings it stored there. Your projects are not changed.".into());
             Confirmation { title: "Uninstall?", body, confirm: "Uninstall", cancel: "Cancel",
                 offer: current(uninstaller.map(|u| &u.action).into_iter().collect()), forget: None }

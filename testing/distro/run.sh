@@ -113,11 +113,11 @@ check_toolchain() {
     rustup default "$RUST_TOOLCHAIN"
 }
 
-# The product's own admission probe (bridge-manager/src/supervisor.rs,
+# The product's own admission probe (crates/service/src/supervisor.rs,
 # verify_host_python): the embedded bootstrap run by /usr/bin/python3.
 check_python() {
     local range version probe errors status=0
-    range=$(sed -n 's/^pub const SOURCE_PYTHON_RANGE: &str = "\(.*\)";$/\1/p' bridge-manager/src/supervisor.rs)
+    range=$(sed -n 's/^pub const SOURCE_PYTHON_RANGE: &str = "\(.*\)";$/\1/p' crates/service/src/supervisor.rs)
     version=$(/usr/bin/python3 -c 'import platform; print(platform.python_implementation(), platform.python_version())')
     errors=$(mktemp)
     probe=$(/usr/bin/python3 -I -S -B -c "$(cat bridge-manager/runtime/bootstrap.py)" --probe 2>"$errors") || status=$?
@@ -135,7 +135,7 @@ check_python() {
 }
 
 check_build() {
-    cargo build --release --locked --manifest-path bridge-manager/Cargo.toml --bin linux-vst-bridge
+    cargo build --release --locked --manifest-path crates/cli/Cargo.toml --bin linux-vst-bridge
     cargo build --release --locked --manifest-path manager-ui/Cargo.toml --bins
 }
 
@@ -146,13 +146,14 @@ check_model() {
 }
 
 check_manager() {
-    cargo test --locked --no-fail-fast --manifest-path bridge-manager/Cargo.toml --lib --bins
+    cargo test --locked --no-fail-fast --manifest-path crates/service/Cargo.toml --lib
+    cargo test --locked --no-fail-fast --manifest-path crates/cli/Cargo.toml --bins
 }
 
 # The real `serve` on a fixture state, with the stand-in systemd-run and
-# systemctl the test itself installs (bridge-manager/tests/real_service).
+# systemctl the test itself installs (crates/cli/tests/real_service).
 check_real_service() {
-    cargo test --locked --no-fail-fast --manifest-path bridge-manager/Cargo.toml --test real_service
+    cargo test --locked --no-fail-fast --manifest-path crates/cli/Cargo.toml --features service-executor-fixture --test real_service
 }
 
 check_ui() {

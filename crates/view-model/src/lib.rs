@@ -32,6 +32,7 @@ pub mod journey;
 pub mod offers;
 pub mod plugins;
 pub mod product;
+pub mod request;
 pub mod screen;
 pub mod service;
 pub mod settings;
