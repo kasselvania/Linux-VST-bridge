@@ -50,9 +50,11 @@ jobs:
       # both Windows programs are built with the zig from PyPI below.
       - name: The runner's X server and session bus
         run: |
-          dpkg-query -W -f='${Package} ${Version} ${db:Status-Abbrev}\n' xvfb dbus-user-session
-          test -x /usr/bin/Xvfb
-          test -f /usr/lib/systemd/user/dbus.socket
+          dpkg-query -W -f='${Package} ${Version} ${db:Status-Abbrev}\n' xvfb dbus-user-session || true
+          test -x /usr/bin/Xvfb ||
+            { echo "::error title=Runner image::/usr/bin/Xvfb (package xvfb) is missing; the test needs an X server"; exit 1; }
+          test -f /usr/lib/systemd/user/dbus.socket ||
+            { echo "::error title=Runner image::/usr/lib/systemd/user/dbus.socket (package dbus-user-session) is missing; the test needs a user session bus"; exit 1; }
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
