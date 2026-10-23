@@ -2,7 +2,8 @@
 //! retirement of its owner and lease.
 use super::*;
 
-pub(super) fn finish_scan(
+#[cfg(test)]
+fn finish_scan(
     child: Child,
     job: &SessionSpec,
     owner: &Path,
