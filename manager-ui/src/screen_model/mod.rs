@@ -129,7 +129,8 @@ pub enum Detail {
     Text(Text),
     Offers(offers::OfferRow),
     /// Offers that wait for current status: shown, but not pressable, until
-    /// the screen is `actionable` again. The screen says why once.
+    /// the screen is `actionable` again. Each offer is also `Held`, and the
+    /// screen says why once.
     Held { actionable: bool, row: offers::OfferRow },
     Choice(Box<offers::SetupChoice>),
     Disclosure(Disclosure),

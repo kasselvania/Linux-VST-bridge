@@ -1577,7 +1577,7 @@ fn setup_card(ui: &mut egui::Ui, snapshot: &Snapshot, card: &setup::SetupCard, p
             setup::Replace::Waiting(reason) => { ui.small(*reason); }
         }
         let draft = if chose {
-            setup::ReplacementDraft::build(snapshot, &card.installer, focus.replacement.as_ref(), pending)
+            setup::ReplacementDraft::build(snapshot, &card.installer, focus.replacement.as_ref(), card.actionable, pending)
         } else { card.draft.clone() };
         if let Some(draft) = draft {
             let mut close = false;
@@ -2511,31 +2511,13 @@ impl eframe::App for Operator {
             });
         });
         if let Some(a) = chosen.take() {
-            if let Some(installation) = forms::installation_with_daw(&a,
-                self.software_install_daw.unwrap_or(DawChoice::Other)) {
-                if self.software_install_daw.is_some() {
-                    chosen = Some(installation);
-                } else {
-                    self.software_install_form = Some(installation);
-                }
-            } else if matches!(
-                a,
-                Action::CandidateObserve { .. } | Action::CandidateReview { .. }
-                    | Action::CompatibilityResult { .. }
-            ) {
-                self.product_form = Some(a);
-            } else if matches!(
-                a,
-                Action::WorkspaceSelectInstaller { .. }
-                    | Action::WorkspaceSelectProductInstaller { .. }
-            ) {
-                self.workspace_select_form = Some(a);
-            } else if matches!(a, Action::InstallerRename { .. }) {
-                self.installer_rename_form = Some(a);
-            } else if forms::needs_confirmation(&a) {
-                self.removal_form = Some(a);
-            } else {
-                chosen = Some(a);
+            match forms::route(a, self.software_install_daw) {
+                forms::Route::Send(action) => chosen = Some(action),
+                forms::Route::ChooseDaw(action) => self.software_install_form = Some(action),
+                forms::Route::Record(action) => self.product_form = Some(action),
+                forms::Route::ChooseRelease(action) => self.workspace_select_form = Some(action),
+                forms::Route::Rename(action) => self.installer_rename_form = Some(action),
+                forms::Route::Confirm(action) => self.removal_form = Some(action),
             }
         }
         if let Some(form) = &self.software_install_form {
