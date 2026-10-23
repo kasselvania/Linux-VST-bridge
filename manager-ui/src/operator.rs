@@ -826,6 +826,12 @@ impl Operator {
         }
         preview
     }
+    /// A sample update state for render checks; it never checks or downloads.
+    #[cfg(test)]
+    pub fn with_updates(mut self, updates: crate::updates::Updates) -> Self {
+        self.updates = updates;
+        self
+    }
     fn preparation_details(ui: &mut egui::Ui, v: &serde_json::Value) {
         if v["publication"] == "ordinary" {
             ui.strong("Ordinarily published");

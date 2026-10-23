@@ -112,6 +112,42 @@ impl Updates {
         Self { home: None, link: None, draft: String::new(), editing: false, link_message: None,
             status: Status::Idle, receiver: None, next_check: None, notice: None, handover: None }
     }
+    /// Every state Setup's update panel draws, for render checks. Sample
+    /// values only: no saved link, no check, no download, no files.
+    #[cfg(test)]
+    pub fn samples() -> Vec<(&'static str, Self)> {
+        let link = || BetaLink::parse("https://beta.example.ts.net:8443/private-beta/?pw=s3cret").ok();
+        let offer = || Offer { version: "0.12.0test148".into(), notes: "Setup → Beta updates\r\nFaster plug-in list".into(),
+            system: "cachyos".into(), package: feed::FeedPackage { file: "a.install".into(), size: 10_000_000,
+                sha256: "a".repeat(64) } };
+        let with = |status: Status| Self { link: link(), status, ..Self::disabled() };
+        let soon = Instant::now() + Duration::from_secs(3600);
+        let long_ago = Instant::now().checked_sub(READING_GRACE + Duration::from_secs(1)).unwrap_or_else(Instant::now);
+        vec![
+            ("no_link", Self::disabled()),
+            ("unreadable_link", Self { link_message: Some("Your saved beta link could not be read. Paste it again.".into()),
+                ..Self::disabled() }),
+            ("idle", with(Status::Idle)),
+            ("editing", Self { editing: true, draft: "https://example".into(),
+                link_message: Some("This is not a beta link.".into()), ..with(Status::Idle) }),
+            ("checking", with(Status::Checking)),
+            ("failed", with(Status::Failed(UpdateError::Install("user_package_intake_busy".into()).into()))),
+            ("up_to_date", with(Status::UpToDate("0.12.0test146".into()))),
+            ("no_package", with(Status::NoPackage("0.12.0test148".into()))),
+            ("manual", with(Status::Manual(Some("0.12.0test148".into())))),
+            ("manual_unknown", with(Status::Manual(None))),
+            ("available", with(Status::Available(offer()))),
+            ("available_notice", Self { notice: Some(UpdateError::DownloadStopped.into()),
+                ..with(Status::Available(offer())) }),
+            ("downloading", with(Status::Downloading { offer: offer(), done: 4_000_000, total: 10_000_000 })),
+            ("waiting", with(Status::WaitingForDaw { offer: offer(), frontend: "/nonexistent/setup".into(),
+                since: soon, observed: false })),
+            ("waiting_long", with(Status::WaitingForDaw { offer: offer(), frontend: "/nonexistent/setup".into(),
+                since: long_ago, observed: false })),
+            ("handing_over", with(Status::HandingOver(offer()))),
+            ("handed_over", with(Status::HandedOver)),
+        ]
+    }
     /// Work is running that a new check or link must not interrupt.
     fn busy(&self) -> bool {
         matches!(self.status, Status::Checking | Status::Downloading { .. }
