@@ -167,7 +167,7 @@ jobs:
   # on main and on request.
   kvm:
     name: KVM on the runner (informational)
-    if: github.event_name != 'pull_request' || github.head_ref == 'ci/504-signin-without-mirror'
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     continue-on-error: true
