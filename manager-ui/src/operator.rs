@@ -871,7 +871,7 @@ fn next_step(ui: &mut egui::Ui, next: &screen_model::home::Next, chosen: &mut Op
             if let Some(blocker) = blocker { ui.colored_label(warning_color(ui), blocker); }
             if ui.button(review.label).clicked() { *local = Some(review.does.clone()); }
         }
-        Next::Go { title, detail, open } => {
+        Next::Recovery { title, detail, open } | Next::Go { title, detail, open } => {
             ui.strong(title);
             if let Some(detail) = detail { ui.label(detail); }
             if control_button(ui, open) { *local = Some(open.does.clone()); }

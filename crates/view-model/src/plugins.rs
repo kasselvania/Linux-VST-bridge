@@ -336,6 +336,12 @@ impl PluginCard {
         if let Some(refused) = last_load_text(p) {
             notes.push(Text::caution(refused));
         }
+        for limit in &p.limitations {
+            let words = limit.replace('_', " ");
+            if !notes.iter().any(|note| note.words == words) {
+                notes.push(Text::caution(words));
+            }
+        }
 
         let lead = everyday_primary.as_ref().map(|action| LeadOffer {
             preface: vendor_install_consequence(snapshot, &action.action),
@@ -566,9 +572,10 @@ impl LoadingList {
 }
 
 /// The retained technical records under a plug-in's technical details: its
-/// limitations, preparation, published revision and history.
+/// preparation, published revision and history. Supplied limitations are
+/// musician-facing notes on the card, not hidden technical records.
 pub fn technical_records(product: &Product) -> Vec<Detail> {
-    let mut details: Vec<Detail> = product.limitations.iter().map(|limit| Text::body(limit.replace('_', " ")).into()).collect();
+    let mut details = Vec::new();
     if let Some(preparation) = product.details.get("preparation") {
         details.extend(preparation_records(preparation));
     }
@@ -1102,6 +1109,30 @@ mod tests {
     }
 
     #[test]
+    fn available_product_supplies_limitations_as_visible_notes_only_once() {
+        let mut snapshot = sample(Page::Plugins, "plugin_ready");
+        snapshot.products[0].limitations = vec!["Saved-project recall has not been checked.".into()];
+        let card = card(&snapshot, 0, false, false);
+        assert_eq!(card.status.class, StatusClass::Ready);
+        assert_eq!(card.notes.iter().filter(|note|
+            note.words == "Saved-project recall has not been checked.").count(), 1);
+        assert!(!format!("{:?}", technical_records(&snapshot.products[0]))
+            .contains("Saved-project recall has not been checked."));
+        let product = &mut snapshot.products[0];
+        product.disposition = "needs_attention".into();
+        product.availability = None;
+        product.compatibility = None;
+        product.details = serde_json::json!({});
+        product.limitations.push("The editor has not been checked.".into());
+        let card = self::card(&snapshot, 0, false, false);
+        assert!(card.status.class.needs_attention());
+        for limitation in &snapshot.products[0].limitations {
+            assert_eq!(card.notes.iter().filter(|note| note.words == *limitation).count(), 1,
+                "the first limitation may already be the product's issue; retain every distinct limitation once");
+        }
+    }
+
+    #[test]
     fn publication_does_not_invent_a_passed_sound_or_recall_check() {
         let mut snapshot = sample(Page::Plugins, "plugin_ready");
         let product = &mut snapshot.products[0];
@@ -1212,7 +1243,9 @@ mod tests {
             }
         }
         walk(&records, &mut lines);
-        for expected in ["editor not yet assessed", "Ordinarily published", "Candidate generations and their own results",
+        assert!(card(&snapshot, 0, false, false).notes.contains(&Text::caution("editor not yet assessed")));
+        assert!(!lines.contains(&"editor not yet assessed"), "the visible limitation is not duplicated in technical records");
+        for expected in ["Ordinarily published", "Candidate generations and their own results",
             "This publication retains its original acceptance. New evidence needs review; use Withdraw to disable it.",
             "The previous preparation stopped; prepare again.", "Inspection: inspected · Preparation: prepared · Publication: ordinary",
             "Adopted exact SV1 work; originally prepared through the engineering CLI.", "Parameters: 412 · Positive inspection cleanup: true",

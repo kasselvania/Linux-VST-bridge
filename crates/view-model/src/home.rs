@@ -48,7 +48,13 @@ pub enum Next {
         blocker: Option<String>,
         review: Control,
     },
-    /// One plug-in to recover or set up, or the first one to add.
+    /// One exact plug-in has an unfinished recovery, independent of siblings.
+    Recovery {
+        title: String,
+        detail: Option<String>,
+        open: Control,
+    },
+    /// One plug-in to set up, or the first one to add.
     Go {
         title: String,
         detail: Option<String>,
@@ -217,7 +223,7 @@ impl Next {
             };
         }
         if let Some(recovering) = snapshot.products.iter().find(|product| product::recovery_pending(product)) {
-            return Self::Go {
+            return Self::Recovery {
                 title: format!("Next: recover {}", recovering.name),
                 detail: recovering.compatibility.as_ref().map(|workflow| workflow.summary.clone()),
                 open: Control::go("Open plug-in recovery", Importance::Primary,
@@ -307,7 +313,7 @@ mod tests {
                 (offer, offer.availability.reason().into_iter().collect()))),
             Next::Computer { action, .. } => out.extend(action.iter().map(|offer|
                 (offer, offer.availability.reason().into_iter().collect()))),
-            Next::Go { .. } | Next::Ready { .. } => {}
+            Next::Recovery { .. } | Next::Go { .. } | Next::Ready { .. } => {}
         }
         if let Some(result) = &home.computer.result { out.extend(row(&result.export)); }
         out
@@ -355,6 +361,7 @@ mod tests {
             Next::Service { title, .. } => format!("service: {title}"),
             Next::Setup { title, .. } => format!("setup: {title}"),
             Next::Computer { title, .. } => format!("computer: {title}"),
+            Next::Recovery { title, .. } => format!("recovery: {title}"),
             Next::Go { title, .. } => format!("go: {title}"),
             Next::Ready { title, .. } => format!("ready: {title}"),
         };
@@ -389,6 +396,32 @@ mod tests {
         assert_eq!(action.label, "Download Windows plug-in support (310 MB)");
         let Next::Computer { action, .. } = home("pb0_step", false, false).next else { panic!("a computer step") };
         assert_eq!(action.unwrap().availability, Availability::Waiting);
+    }
+
+    #[test]
+    fn published_product_recovery_is_distinct_from_routine_setup_navigation() {
+        for phase in [crate::model::CompatibilityPhase::AwaitingRetirement,
+            crate::model::CompatibilityPhase::PublicationNeedsAttention] {
+            let (mut snapshot, _) = sample("available");
+            snapshot.installer_setups.clear();
+            let product = &mut snapshot.products[0];
+            product.active_revision = Some(1);
+            product.compatibility = Some(crate::model::CompatibilityWorkflow {
+                phase, summary: "Recorded problem needs recovery".into(),
+                established: vec![], remaining: vec![], current_inspection: None,
+                current_candidate: None, primary: None, alternatives: vec![],
+            });
+            let expected = ProductKey::from(&*product);
+            let name = product.name.clone();
+            let home = Home::build(&snapshot, None, true, false, false);
+            let Next::Recovery { title, detail, open } = home.next else { panic!("exact recovery") };
+            assert_eq!(title, format!("Next: recover {name}"));
+            assert_eq!(detail.as_deref(), Some("Recorded problem needs recovery"));
+            assert_eq!(open.does, Local::Go(Destination::Product(expected)));
+            assert!(snapshot.products[0].active_revision.is_some(), "publication does not hide recovery");
+            assert!(home.plugins.len() > 1, "healthy siblings remain separate library rows");
+        }
+        assert!(matches!(home("populated", true, false).next, Next::Go { .. }));
     }
 
     #[test]
