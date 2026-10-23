@@ -1791,6 +1791,27 @@ pub(super) fn job_dir(m: &Manager, id: &str) -> Result<PathBuf> {
     require(valid_hex(id, 32), "operator_operation_identity")?;
     Ok(m.root.join("operator").join(id))
 }
+/// Read one owner-retained outcome without consulting or changing latest.
+fn operation_readback(m: &Manager, id: &str) -> Result<ui::OperationReadback> {
+    let path = job_dir(m, id)?.join("result.json");
+    let canonical = path.canonicalize().map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            "operator_operation_unavailable".to_owned()
+        } else { error.to_string() }
+    })?;
+    require(canonical == path, "operator_operation_path")?;
+    // read_json holds one owned regular file, bounds it to 8 MiB and checks
+    // that neither its bytes nor path identity changed during the read.
+    let mut record: Value = read_json(&path)?;
+    if let Some(record) = record.as_object_mut() {
+        // A saved receipt cannot certify a current service pause.
+        record.remove("owned_service_pause");
+    }
+    let reply = ui::OperationReadback { schema: 1, operator_schema: ui::OPERATOR_SCHEMA,
+        operation: id.into(), record };
+    require(reply.matches(id), "operator_operation_record_invalid")?;
+    Ok(reply)
+}
 /// A continuation never revives the original worker. Its exact request and
 /// terminal refusal remain historical authority while a fresh offered request
 /// completes only the missing preparation stages.
@@ -4324,6 +4345,7 @@ pub(super) fn answer_read(m: &Manager, read: &contract::Read) -> Result<contract
         Read::Snapshot => Reply::Snapshot(Box::new(snapshot(m)?)),
         Read::Activity => Reply::Activity(activity(m)?),
         Read::Pulse => Reply::Pulse(pulse(m)?),
+        Read::Operation(id) => Reply::Operation(operation_readback(m, id)?),
     })
 }
 /// Answer a window action request with its receipt.
@@ -5713,6 +5735,70 @@ pub(crate) mod tests {
             .is_err());
         assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), before);
     }
+    #[test]
+    fn exact_operation_readback_follows_an_older_completion_without_changing_latest() {
+        let f = test_fixture::Fixture::new();
+        let a = queued_test_action(&f.m, ui::Action::SupportExport {});
+        let b = queued_test_action(&f.m, ui::Action::SupportExport {});
+        let latest_path = f.m.root.join("operator/latest.json");
+        let latest = fs::read(&latest_path).unwrap();
+        let generation = b"retained software generation";
+        fs::write(f.m.root.join("software.json"), generation).unwrap();
+        let request = contract::Request::Read(contract::Read::Operation(a.clone()));
+        let read = contract::Read::Operation(a.clone());
+        let first = super::view(&f.m, &read).unwrap();
+        assert_eq!(first.hold, linux_vst_bridge::service::view::Hold::Never);
+        let contract::Reply::Operation(queued) = contract::decode(&request, &first.reply).unwrap()
+            else { panic!("exact operation reply") };
+        assert_eq!(queued.record["state"], "queued");
+        let completed = json!({"schema":1,"operation":a,"state":"completed",
+            "result":{"export":"ab".repeat(16),"sha256":"cd".repeat(32)}});
+        write_operation(&f.m, &a, &completed, false).unwrap();
+        let retained_path = job_dir(&f.m, &a).unwrap().join("result.json");
+        let retained = fs::read(&retained_path).unwrap();
+        let answer = super::view(&f.m, &read).unwrap();
+        let contract::Reply::Operation(reply) = contract::decode(&request, &answer.reply).unwrap()
+            else { panic!("exact operation reply") };
+        assert_eq!(reply.operation, a);
+        assert_eq!(reply.record, completed);
+        assert_eq!(fs::read(&latest_path).unwrap(), latest);
+        assert_eq!(optional(&latest_path).unwrap()["operation"], b);
+        assert_eq!(fs::read(&retained_path).unwrap(), retained);
+        assert_eq!(fs::read(f.m.root.join("software.json")).unwrap(), generation);
+    }
+
+    #[test]
+    fn exact_operation_readback_refuses_invalid_missing_mismatched_and_redirected_records() {
+        let f = test_fixture::Fixture::new();
+        assert_eq!(operation_readback(&f.m, "../latest").unwrap_err().to_string(),
+            "operator_operation_identity");
+        assert_eq!(operation_readback(&f.m, &"ab".repeat(16)).unwrap_err().to_string(),
+            "operator_operation_unavailable");
+        let id = queued_test_action(&f.m, ui::Action::SupportExport {});
+        let path = job_dir(&f.m, &id).unwrap().join("result.json");
+        let valid = optional(&path).unwrap();
+        for (field, value) in [("operation", json!("cd".repeat(16))), ("schema", json!(3)),
+            ("state", Value::Null), ("state", json!(""))] {
+            let mut invalid = valid.clone(); invalid[field] = value;
+            atomic_json(&path, &invalid).unwrap();
+            assert_eq!(operation_readback(&f.m, &id).unwrap_err().to_string(),
+                "operator_operation_record_invalid");
+        }
+        let mut derived = valid.clone(); derived["owned_service_pause"] = json!({"unverified":true});
+        atomic_json(&path, &derived).unwrap();
+        assert!(operation_readback(&f.m, &id).unwrap().record.get("owned_service_pause").is_none());
+        assert_eq!(optional(&path).unwrap(), derived, "reading cannot rewrite retained history");
+        fs::write(&path, b"not json").unwrap();
+        assert!(operation_readback(&f.m, &id).is_err());
+        fs::File::create(&path).unwrap().set_len(8 * 1024 * 1024 + 1).unwrap();
+        assert_eq!(operation_readback(&f.m, &id).unwrap_err().to_string(), "control_record_bound");
+        fs::remove_file(&path).unwrap();
+        let source = f.m.root.join("source-result.json");
+        atomic_json(&source, &valid).unwrap();
+        std::os::unix::fs::symlink(&source, &path).unwrap();
+        assert_eq!(operation_readback(&f.m, &id).unwrap_err().to_string(), "operator_operation_path");
+    }
+
     #[test]
     fn terminal_receipt_waits_for_an_existing_writer_instead_of_leaving_running() {
         let f = test_fixture::Fixture::new();

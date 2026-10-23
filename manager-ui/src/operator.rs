@@ -892,6 +892,11 @@ impl Operator {
                 self.apply_current_overview((*bundle).into());
             }
             Reply::CurrentOverview(bundle) => self.apply_current_overview(*bundle),
+            // This frontend does not issue exact-operation reads yet. An
+            // unsolicited reply must not replace its retained request feedback.
+            Reply::Operation(_) => {
+                self.message = "Unexpected operation readback; refresh current status.".into();
+            }
             Reply::Product(detail) => {
                 if self.overview.as_ref().is_some_and(|overview|
                     self.overview_fresh

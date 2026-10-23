@@ -4,7 +4,7 @@
 use lvb_model::contract;
 use lvb_model::operator_model::{
     Activity, CurrentOverview, CurrentProductDetail, InstallerImportResult, InteractiveOverview,
-    Pulse, Receipt, Request, Snapshot,
+    OperationReadback, Pulse, Receipt, Request, Snapshot,
 };
 use lvb_view_model::ProductKey;
 use std::path::PathBuf;
@@ -20,6 +20,7 @@ pub enum Reply {
     Snapshot(Box<Snapshot>),
     Activity(Activity),
     Pulse(Pulse),
+    Operation(OperationReadback),
     Receipt(Receipt),
     Imported(InstallerImportResult),
     ReportSaved(std::path::PathBuf),
@@ -36,6 +37,7 @@ pub enum Query {
     Snapshot,
     Activity,
     Pulse,
+    Operation(String),
     Action(Request),
 }
 impl From<contract::Reply> for Reply {
@@ -47,6 +49,7 @@ impl From<contract::Reply> for Reply {
             contract::Reply::Snapshot(snapshot) => Self::Snapshot(snapshot),
             contract::Reply::Activity(activity) => Self::Activity(activity),
             contract::Reply::Pulse(pulse) => Self::Pulse(pulse),
+            contract::Reply::Operation(operation) => Self::Operation(operation),
             contract::Reply::Receipt(receipt) => Self::Receipt(receipt),
             contract::Reply::Imported(imported) => Self::Imported(imported),
             contract::Reply::Delivered => Self::Error("Unexpected manager reply".into()),
@@ -68,6 +71,7 @@ fn request(query: Query) -> contract::Request {
         Query::Snapshot => contract::Request::Read(Read::Snapshot),
         Query::Activity => contract::Request::Read(Read::Activity),
         Query::Pulse => contract::Request::Read(Read::Pulse),
+        Query::Operation(operation) => contract::Request::Read(Read::Operation(operation)),
         Query::Action(request) => contract::Request::Action(request),
         Query::PickInstaller | Query::SaveSupportReport(_) => {
             unreachable!("file choices are handled before exchange")
@@ -117,6 +121,20 @@ mod tests {
             self.0.clone()
         }
     }
+    #[test]
+    fn exact_operation_query_preserves_identity_and_rejects_another_result() {
+        let id = "ab".repeat(16);
+        let query = request(Query::Operation(id.clone()));
+        assert_eq!(query.command(), ["operator", "operation", id.as_str()]);
+        let reply = OperationReadback { schema: 1, operator_schema: lvb_model::operator_model::OPERATOR_SCHEMA,
+            operation: id.clone(), record: serde_json::json!({"schema":1,"operation":id,"state":"running"}) };
+        let bytes = serde_json::to_vec(&reply).unwrap();
+        assert!(matches!(exchange(Answering(Ok(bytes.clone())), &query, None),
+            Ok(Reply::Operation(value)) if value.operation == id && value.record["state"] == "running"));
+        let other = request(Query::Operation("cd".repeat(16)));
+        assert!(exchange(Answering(Ok(bytes)), &other, None).is_err());
+    }
+
     #[test]
     fn window_queries_reach_the_manager_through_the_contract() {
         let key = ProductKey {

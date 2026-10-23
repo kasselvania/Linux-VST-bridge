@@ -689,6 +689,27 @@ pub struct Pulse {
     pub operation: Option<serde_json::Value>,
     pub operation_live: bool,
 }
+/// One retained operation, selected by the receipt's exact identity. This
+/// reports its saved outcome, not current offers or service health.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OperationReadback {
+    pub schema: u32,
+    pub operator_schema: u32,
+    pub operation: String,
+    pub record: serde_json::Value,
+}
+impl OperationReadback {
+    /// Shared owner/client envelope check. Older retained receipt schemas stay
+    /// readable; a different operation can never answer the requested one.
+    pub fn matches(&self, requested: &str) -> bool {
+        self.schema == 1 && self.operator_schema == OPERATOR_SCHEMA
+            && requested.len() == 32 && requested.bytes().all(|byte| byte.is_ascii_hexdigit())
+            && self.operation == requested && self.record["operation"] == requested
+            && matches!(self.record["schema"].as_u64(), Some(1 | 2))
+            && self.record["state"].as_str().is_some_and(|state| !state.is_empty())
+    }
+}
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ReadinessOutcome { Ready, ActionRequired, Unsupported, Unknown }
