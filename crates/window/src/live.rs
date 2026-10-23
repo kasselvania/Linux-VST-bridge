@@ -2,7 +2,7 @@
 //! offer and result; this controller owns navigation and one outstanding request.
 use crate::{presentation::{self, After, Built, FormStep, ListStep, LocalUi, Node, Tab, Target, Why}, Outcome};
 use lvb_client::{Query, Reply};
-use lvb_view_model::{self as vm, forms, model::{Action, CurrentOverview, CurrentProductDetail, ProblemCategory, ReadinessAssessment, Request, Snapshot, TestResultKind},
+use lvb_view_model::{self as vm, forms, model::{Action, Activity, CurrentOverview, CurrentProductDetail, ProblemCategory, ReadinessAssessment, Request, Snapshot, TestResultKind},
     screen::{Reading, Records, Window}, state::{Effect, Imported, State}, window::Page, Destination, ProductKey};
 use makepad_product_ui::{makepad_widgets::Cx, Availability, InputPath};
 use std::collections::BTreeMap;
@@ -44,6 +44,7 @@ enum Flight {
     OpenCurrent,
     Product { key: ProductKey, binding: Binding },
     Details { generation: String },
+    Status,
     Pulse,
     Operation(String),
     Action { binding: Binding, offer: Box<Action>, context: Box<State>, ui: Box<LocalUi> },
@@ -59,6 +60,11 @@ pub struct Live {
     pending_import: Option<(String, bool, String)>,
     product: Option<Snapshot>,
     details: Option<Snapshot>,
+    status: Option<Activity>,
+    status_notice: Option<String>,
+    status_attempted: bool,
+    need_status: bool,
+    inspection_requested: bool,
     pending_details: Option<PendingDetails>,
     details_notice: Option<String>,
     details_retried: bool,
@@ -104,7 +110,7 @@ pub struct Live {
 impl Live {
     pub fn new(_posture: String, reveal: bool) -> Self {
         let mut live = Self { state: State::default(), built: Built::default(), ui: LocalUi::default(),
-            overview: None, readiness: None, pending_import: None, product: None, details: None, pending_details: None, details_notice: None, details_retried: false, fresh: false, current_read_error: None, current_retried: false, superseded: false,
+            overview: None, readiness: None, pending_import: None, product: None, details: None, status: None, status_notice: None, status_attempted: false, need_status: false, inspection_requested: false, pending_details: None, details_notice: None, details_retried: false, fresh: false, current_read_error: None, current_retried: false, superseded: false,
             product_attempted: false, details_attempted: false, need_current: true, need_interactive: false, need_details: false,
             queued: None, in_flight: None, support: None, report_preview: None, report_reading: None, message: String::new(), reveal,
             epoch: 0, shown_binding: None, form_origin: None, form_generation: 0, last_current: Cx::monotonic_now(), operation_live: None, drawn: BTreeMap::new(), offers: BTreeMap::new(), log: vec![], clipboard: None,
@@ -162,6 +168,10 @@ impl Live {
         } else if self.need_current {
             self.need_current = false;
             self.queue(Query::CurrentOverview, Flight::Current);
+        } else if self.need_status && self.state.page == Page::Diagnostics && self.overview.is_some() {
+            self.need_status = false; self.status_attempted = true;
+            self.status_notice = None;
+            self.queue(Query::Activity, Flight::Status);
         } else if self.need_details {
             if let Some(binding) = self.binding() {
                 self.need_details = false;
@@ -185,6 +195,7 @@ impl Live {
                 Flight::Current => self.need_current = true,
                 Flight::Overview => self.need_interactive = true,
                 Flight::Details { .. } => self.need_details = true,
+                Flight::Status => { self.need_status = true; self.status_attempted = false; },
                 Flight::Product { .. } => self.product_attempted = false,
                 _ => {}
             }
@@ -194,7 +205,7 @@ impl Live {
     fn offered_in(&self, original: &Action, context: &State, ui: &LocalUi) -> bool {
         let current = self.overview.as_ref().map(|o| &o.current);
         let records = Records { current, actions: current, product: self.product.as_ref(), details: self.details.as_ref(),
-            ..Records::default() };
+            support: Some(self.support_read()), ..Records::default() };
         let window = Window::build(&records, &Reading { fresh: true, ..Reading::default() }, context);
         let rendered = presentation::build(&window, self.product.as_ref().or(current).or(self.details.as_ref()), current,
             context, ui, Why { fresh: true, pending: false, in_flight: false, superseded: false }, None, self.reveal, self.form_generation);
@@ -204,7 +215,8 @@ impl Live {
     fn submit(&mut self, action: Action, binding: Binding, offer: Action) {
         if !self.fresh || self.binding().as_ref() != Some(&binding) || self.foreground_busy() || self.support_waiting() { return; }
         let context = Box::new(self.state.clone());
-        if matches!(action, Action::SupportExport {}) { self.ui.report = None; self.state.page = Page::Diagnostics; }
+        if matches!(action, Action::SupportExport {}) { self.ui.report = None; self.state.page = Page::Diagnostics;
+            if !self.status_attempted { self.need_status = true; } }
         self.support = Some(Support::captured(action.clone()));
         self.state.sent(&action);
         self.form_origin = None;
@@ -349,8 +361,8 @@ impl Live {
                         _ => self.retry_changed_details(),
                     }
                 }
-                if matches!(self.state.page, Page::Diagnostics | Page::Activity)
-                    && self.details.is_none() && !self.details_attempted { self.need_details = true; }
+                if self.wants_details() && self.details.is_none() && !self.details_attempted { self.need_details = true; }
+                if self.state.page == Page::Diagnostics && !self.status_attempted { self.need_status = true; }
             }
             (Flight::Product { key, binding }, Reply::Product(detail)) => {
                 if self.binding().as_ref() == Some(&binding) && self.state.plugins.focused_product() == Some(&key)
@@ -362,6 +374,9 @@ impl Live {
                     self.message = "The opened plug-in changed while its records were loading. Refreshing current status.".into();
                     self.fresh = false; self.need_current = true;
                 }
+            }
+            (Flight::Status, Reply::Activity(activity)) => {
+                self.status = Some(activity); self.status_notice = None;
             }
             (Flight::Details { generation }, Reply::Snapshot(snapshot)) => {
                 let observed = Binding { token: snapshot.state_token.clone(), generation };
@@ -458,6 +473,8 @@ impl Live {
                 self.pending_details = Some(PendingDetails::Changed);
                 DETAILS_CHANGED.into()
             } else { format!("This page could not be loaded. Try again. {}", error.chars().take(1024).collect::<String>()) });
+        } else if matches!(flight, Flight::Status) {
+            self.status = None; self.status_notice = Some(error.chars().take(1024).collect());
         } else { self.message = error; }
         match flight {
             Flight::Action { .. } => {
@@ -484,7 +501,7 @@ impl Live {
                         self.current_read_error.as_ref().map(CurrentReadError::message).unwrap_or_default().chars().take(1024).collect::<String>()));
                 }
             },
-            Flight::Import | Flight::OpenCurrent => {}
+            Flight::Import | Flight::OpenCurrent | Flight::Status => {}
             Flight::Product { .. } => self.product = None,
             Flight::Details { .. } => { self.details = None; }
         }
@@ -527,9 +544,6 @@ impl Live {
         let changed_read = matches!(self.current_read_error, Some(CurrentReadError::Changed));
         let retained_health = self.current_read_error.is_none() || changed_read;
         let actions = (self.fresh && !self.superseded).then_some(current).flatten();
-        let records = Records { current, details: self.details.as_ref(), product: self.product.as_ref(), actions,
-            readiness: self.readiness.as_ref().filter(|(value, requested)| binding.as_ref() == Some(requested) && current.is_some_and(|current| value.system == current.system)).map(|(value, _)| value),
-            health: retained_health.then(|| current.map(|s| &s.system)).flatten() };
         if let Some(report) = self.support.as_ref().and_then(|s| s.report.as_ref()) {
             if self.ui.report.as_ref().is_none_or(|view| &view.identity != report) {
                 self.ui.report = Some(presentation::support::Report::new(report.clone()));
@@ -560,6 +574,10 @@ impl Live {
             request: self.support.as_ref().map(|s| vm::window::Request { text: &s.text, journey: s.journey.as_ref(),
                 operation: s.operation.as_deref(), transitions: &s.transitions, report: s.report.is_some(), blocking: s.blocking }),
             ..Reading::default() };
+        let records = Records { current, details: self.details.as_ref(), product: self.product.as_ref(), actions,
+            readiness: self.readiness.as_ref().filter(|(value, requested)| binding.as_ref() == Some(requested) && current.is_some_and(|current| value.system == current.system)).map(|(value, _)| value),
+            health: retained_health.then(|| current.map(|s| &s.system)).flatten(),
+            support: Some(self.support_read()) };
         let mut window = Window::build(&records, &reading, &self.state);
         if changed_read && !current_pending && !self.superseded {
             // This is the controller's read lifecycle, not a new service fact.
@@ -646,17 +664,56 @@ impl Live {
         let navigated = before != (self.state.page, self.state.plugins.focus.clone());
         if navigated {
             self.product = None; self.product_attempted = false;
-            if matches!(self.state.page, Page::Diagnostics | Page::Activity) && !self.details_attempted { self.need_details = true; }
+            if self.state.page == Page::Diagnostics {
+                self.status = None; self.status_attempted = false; self.status_notice = None; self.need_status = true;
+                self.inspection_requested = false;
+            }
+            self.need_details = self.wants_details() && !self.details_attempted;
+            // Navigation can retire an unsent page read. An already running
+            // read still finishes normally; it cannot authorize a new action.
+            if self.queued.as_ref().is_some_and(|(_, flight)| match flight {
+                Flight::Details { .. } => !self.wants_details(),
+                Flight::Status => self.state.page != Page::Diagnostics,
+                _ => false,
+            }) { self.queued = None; }
         }
         self.drive(); self.rebuild();
         if navigated { Outcome::Navigated } else { Outcome::Changed }
+    }
+    fn wants_details(&self) -> bool {
+        self.state.page == Page::Activity || (self.state.page == Page::Diagnostics && self.inspection_requested)
+    }
+    fn support_read(&self) -> vm::diagnostics::SupportRead<'_> {
+        use vm::diagnostics::{Section, SupportRead};
+        let flights = || self.queued.as_ref().map(|(_, flight)| flight).into_iter().chain(self.in_flight.as_ref());
+        let status = if self.superseded {
+                self.status.as_ref().map(Section::Loaded).unwrap_or(Section::Failed("This window is paused. Open the current manager."))
+            } else if self.need_status || flights().any(|f| matches!(f, Flight::Status)) { Section::Loading }
+            else if let Some(reason) = &self.status_notice { Section::Failed(reason) }
+            else if let Some(status) = &self.status { Section::Loaded(status) }
+            else { Section::NotRequested };
+        let technical = if !self.inspection_requested { Section::NotRequested }
+            else if self.superseded { Section::Failed("Technical inspection paused. Open the current manager.") }
+            else if self.need_details || self.pending_details.is_some() || flights().any(|f| matches!(f, Flight::Details { .. })) { Section::Loading }
+            else if let Some(reason) = &self.details_notice { Section::Failed(reason) }
+            else if let Some(details) = &self.details { Section::Loaded(details) }
+            else { Section::NotRequested };
+        SupportRead { status, technical }
     }
     fn invalidate_pages(&mut self) {
         // Changed owner state retires loaded pages, but a failed read remains
         // an explicit retry. Unrelated counter changes must not replay it.
         if self.product.take().is_some() { self.product_attempted = false; }
-        if self.details.take().is_some() { self.details_attempted = false; self.details_retried = false; }
-        self.need_details = !self.details_attempted && matches!(self.state.page, Page::Diagnostics | Page::Activity);
+        if self.details.take().is_some() {
+            self.details_attempted = false; self.details_retried = false;
+            // A completed inspection is not permission to keep rereading the
+            // full retained history after every passive change.
+            self.inspection_requested = false;
+        }
+        // Activity is an independent last-read observation, not bound to the
+        // current overview token. Refresh it on page entry or explicit Refresh.
+        self.need_status = self.state.page == Page::Diagnostics && !self.status_attempted;
+        self.need_details = !self.details_attempted && self.wants_details();
     }
     fn retry_changed_details(&mut self) {
         self.details = None;
@@ -665,7 +722,7 @@ impl Live {
         if !self.details_retried {
             self.details_retried = true;
             self.details_attempted = false;
-            self.need_details = matches!(self.state.page, Page::Diagnostics | Page::Activity);
+            self.need_details = self.wants_details();
             self.details_notice = None;
         } else {
             self.details_attempted = true; self.need_details = false;
@@ -722,7 +779,8 @@ impl Live {
                 self.fresh = false; self.need_interactive = true;
                 self.current_retried = false;
                 self.product_attempted = false; self.details_attempted = false;
-                self.details_retried = false;
+                self.details_retried = false; self.inspection_requested = false;
+                self.status = None; self.status_notice = None; self.status_attempted = false;
                 self.pending_details = None; self.details_notice = None; self.message.clear(); self.invalidate_pages();
             }
             Effect::RetryDetails => {
@@ -730,7 +788,7 @@ impl Live {
                 if self.state.page == Page::Plugins && self.state.plugins.focused_product().is_some() {
                     self.product = None;
                     self.product_attempted = false;
-                } else { self.details_notice = None; self.details_retried = false; self.need_details = true; }
+                } else { self.inspection_requested = true; self.details_notice = None; self.details_retried = false; self.need_details = true; }
             }
             Effect::SaveReport => if !self.foreground_busy() && !self.superseded {
                 if let Some(report) = self.support.as_ref().and_then(|s| s.report.clone()) { self.save_report(report); }
@@ -919,6 +977,10 @@ mod tests {
         live.receive(overview(snapshot(), "generation-a"));
         live
     }
+    fn activity(s: &Snapshot) -> Reply {
+        Reply::Activity(Activity { schema: vm::model::OPERATOR_SCHEMA, system: s.system.clone(),
+            capture: s.capture.clone(), operation: s.operation.clone(), workspace_product_install_ready: false })
+    }
     fn ready_support() -> Live {
         let mut live = ready();
         show_page(&mut live, Page::Diagnostics, &snapshot());
@@ -983,7 +1045,7 @@ mod tests {
     #[test]
     fn failed_technical_read_remains_retryable_through_background_status_reads() {
         for page in [Page::Activity, Page::Diagnostics] {
-            let mut live = ready(); live.state.page = page; live.need_details = true; live.drive();
+            let mut live = ready(); live.state.page = page; live.inspection_requested = true; live.status_attempted = true; live.need_details = true; live.drive();
             assert!(matches!(live.take_query(), Some(Query::Snapshot)));
             live.receive(Reply::Error("Full records read timed out".into()));
             for current in [false, true, true] {
@@ -1008,7 +1070,7 @@ mod tests {
     #[test]
     fn a_newer_full_snapshot_is_validated_without_an_endless_overview_snapshot_loop() {
         for page in [Page::Activity, Page::Diagnostics] {
-            let mut live = ready(); live.state.page = page; live.need_details = true; live.drive();
+            let mut live = ready(); live.state.page = page; live.inspection_requested = true; live.status_attempted = true; live.need_details = true; live.drive();
             assert!(matches!(live.take_query(), Some(Query::Snapshot)));
             let mut newer = snapshot(); newer.state_token = "newer-owner-state".into();
             live.receive(Reply::Snapshot(Box::new(newer.clone())));
@@ -1176,6 +1238,9 @@ mod tests {
         let mut current = snapshot(); current.state_token = "export-completed".into();
         current.operation = Some(completed("exact-operation"));
         live.receive(overview(current, "generation-b"));
+        // Exercise an explicitly requested technical read alongside the
+        // retained report; ordinary Support no longer requests this read.
+        live.effect(Effect::RetryDetails); live.drive(); live.rebuild();
         assert!(matches!(live.take_query(), Some(Query::Snapshot)));
         assert!(live.support.as_ref().unwrap().report.is_some());
         live
@@ -1307,6 +1372,8 @@ mod tests {
         assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
         let mut current = snapshot(); current.state_token = "report-running".into(); current.operation = Some(running);
         live.receive(overview(current.clone(), "generation-b"));
+        let inspect = target(&live, |t| matches!(t, Target::Control(c) if c.does == Local::RetryDetails));
+        assert_eq!(press(&mut live, &inspect), Outcome::Changed);
         assert!(matches!(live.take_query(), Some(Query::Snapshot)));
         current.state_token = "report-completed".into(); current.operation = Some(completed("exact-operation"));
         live.receive(Reply::Snapshot(Box::new(current.clone())));
@@ -1676,9 +1743,9 @@ mod tests {
         let mut s = snapshot(); s.state_token = "replacement-token".into();
         live.receive(interactive(s, "generation-b"));
         assert_eq!(press(&mut live, &old), Outcome::Refused);
-        assert!(matches!(live.take_query(), Some(Query::Snapshot)));
+        assert!(matches!(live.take_query(), Some(Query::Activity)));
         let s = live.overview.as_ref().unwrap().current.clone();
-        live.receive(Reply::Snapshot(Box::new(s)));
+        live.receive(activity(&s));
         let current = export(&live); press(&mut live, &current);
         let Some(Query::Action(request)) = live.take_query() else { panic!("new exact offer") };
         assert_eq!(request.state_token, "replacement-token");
@@ -1720,9 +1787,9 @@ mod tests {
             assert!(!format!("{:?}", live.built.page).contains("initial read unavailable"));
             assert_eq!(live.message, notice);
             assert_eq!(live.state.page, Page::Diagnostics);
-            assert!(matches!(live.take_query(), Some(Query::Snapshot)));
-            live.receive(Reply::Snapshot(Box::new(snapshot())));
-            assert!(live.details.is_some());
+            assert!(matches!(live.take_query(), Some(Query::Activity)));
+            live.receive(activity(&snapshot()));
+            assert!(live.status.is_some() && live.details.is_none());
             if !notice.is_empty() { assert!(format!("{:?}", live.built.page).contains(notice)); }
         }
     }
@@ -1993,6 +2060,8 @@ mod tests {
         live.state.page = page;
         if page == Page::Plugins {
             live.state.go(&Destination::Product(ProductKey::from(&s.products[0])));
+        } else if page == Page::Diagnostics {
+            live.need_status = true;
         } else {
             live.need_details = true;
         }
@@ -2010,7 +2079,8 @@ mod tests {
                     environments: s.environments.clone(), vendor_applications: s.vendor_applications.clone(),
                 })));
             }
-            (Page::Activity | Page::Diagnostics, Some(Query::Snapshot)) => {
+            (Page::Diagnostics, Some(Query::Activity)) => live.receive(activity(s)),
+            (Page::Activity, Some(Query::Snapshot)) => {
                 live.receive(Reply::Snapshot(Box::new(s.clone())));
             }
             _ => panic!("the opened page must read its own current records"),
@@ -2028,13 +2098,14 @@ mod tests {
                 if changed_counters { s.system.dsp += 1; }
                 live.receive(interactive(s.clone(), "generation-a"));
                 finish_page_read(&mut live, page, &s);
-                assert_eq!(live.product.as_ref().or(live.details.as_ref()).unwrap().system, s.system);
+                if page == Page::Diagnostics { assert_eq!(live.status.as_ref().unwrap().system, s.system); }
+                else { assert_eq!(live.product.as_ref().or(live.details.as_ref()).unwrap().system, s.system); }
             }
         }
     }
     #[test]
     fn observed_system_changes_retire_old_page_readings_without_a_token_change() {
-        for page in [Page::Plugins, Page::Activity, Page::Diagnostics] {
+        for page in [Page::Plugins, Page::Activity] {
             let mut live = ready(); let mut s = snapshot();
             show_page(&mut live, page, &s);
             live.last_current = Cx::monotonic_now() - 6.0;
@@ -2045,6 +2116,125 @@ mod tests {
             assert!(live.product.is_none() && live.details.is_none());
             finish_page_read(&mut live, page, &s);
         }
+    }
+
+    #[test]
+    fn support_opens_from_current_and_export_can_preempt_the_status_read() {
+        let mut live = ready();
+        live.overview.as_mut().unwrap().current.capture = serde_json::Value::Null;
+        let tab = target(&live, |t| matches!(t, Target::Tab(Tab::Support)));
+        assert_eq!(press(&mut live, &tab), Outcome::Navigated);
+        assert!(page_says(&live, "Loading service and capture status"));
+        assert!(page_says(&live, "Installed:"));
+        assert!(!page_says(&live, "Crash capture: off"));
+        assert!(live.details.is_none() && !live.need_details);
+        let reports: Vec<_> = live.built.targets.values().filter(|t| matches!(t,
+            Target::Offer { offer, .. } if offer.intent == Action::SupportExport {})).collect();
+        assert_eq!(reports.len(), 1, "the exact primary report offer appears once");
+        let id = export(&live); assert!(live.drawn[&id].is_none());
+        assert_eq!(press(&mut live, &id), Outcome::Changed);
+        let Some(Query::Action(request)) = live.take_query() else { panic!("foreground report wins unsent status read") };
+        assert_eq!(request.action, Action::SupportExport {});
+        assert!(live.need_status && !live.need_details);
+        live.receive(Reply::Receipt(Receipt { schema: vm::model::OPERATOR_SCHEMA, accepted: true,
+            operation: Some("exact-operation".into()), refusal: None }));
+        assert!(matches!(live.take_query(), Some(Query::Operation(_))));
+        live.receive(readback("exact-operation", completed("exact-operation")));
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        let mut changed = snapshot(); changed.state_token = "after-export".into();
+        live.receive(overview(changed.clone(), "generation-b"));
+        assert!(matches!(live.take_query(), Some(Query::Activity)), "a preempted read was never attempted");
+        live.receive(activity(&changed));
+        assert!(live.status.is_some() && live.details.is_none());
+        assert!(live.take_query().is_none());
+        assert!(live.support.as_ref().unwrap().report.is_some());
+    }
+
+    #[test]
+    fn failed_support_status_is_separate_bounded_and_retried_only_by_explicit_refresh() {
+        let mut live = ready();
+        let tab = target(&live, |t| matches!(t, Target::Tab(Tab::Support)));
+        press(&mut live, &tab);
+        assert!(matches!(live.take_query(), Some(Query::Activity)));
+        live.receive(Reply::Error(format!("status fixture {}", "x".repeat(2048))));
+        assert!(page_says(&live, "status fixture"));
+        assert!(!page_says(&live, &"x".repeat(1025)));
+        assert!(live.fresh && live.current_read_error.is_none());
+        assert!(live.drawn[&export(&live)].is_none());
+        for current in [false, true] {
+            live.queue(if current { Query::CurrentOverview } else { Query::Pulse },
+                if current { Flight::Current } else { Flight::Pulse });
+            live.take_query().unwrap();
+            live.receive(if current { overview(snapshot(), "generation-a") } else { pulse(None) });
+            assert!(page_says(&live, "status fixture"));
+            assert!(live.take_query().is_none());
+        }
+        let retry = target(&live, |t| matches!(t, Target::Control(c) if c.label == "Refresh status"));
+        press(&mut live, &retry);
+        assert!(matches!(live.take_query(), Some(Query::Overview)));
+        live.receive(interactive(snapshot(), "generation-a"));
+        assert!(matches!(live.take_query(), Some(Query::Activity)));
+        // A successful Activity is only its own observation. It cannot clear
+        // an independent current-read failure or make mutation offers fresh.
+        live.current_read_error = Some(CurrentReadError::Failed("current fixture".into()));
+        live.fresh = false;
+        live.receive(activity(&snapshot()));
+        assert!(live.current_read_error.is_some() && !live.fresh);
+        assert!(page_says(&live, "Crash capture:"));
+        assert!(live.drawn[&export(&live)].is_some());
+        assert!(live.take_query().is_none() && live.details.is_none());
+    }
+
+    #[test]
+    fn support_inspection_is_explicit_and_passive_changes_do_not_repeat_it() {
+        let mut live = ready_support();
+        assert!(live.status.is_some() && live.details.is_none());
+        let inspect = target(&live, |t| matches!(t, Target::Control(c) if c.label == "Inspect technical records"));
+        assert_eq!(press(&mut live, &inspect), Outcome::Changed);
+        assert!(matches!(live.take_query(), Some(Query::Snapshot)));
+        assert!(page_says(&live, "Loading technical records"));
+        live.receive(Reply::Snapshot(Box::new(snapshot())));
+        assert!(live.details.is_some());
+        let mut changed = snapshot(); changed.state_token = "changed".into(); changed.system.dsp += 1;
+        live.queue(Query::CurrentOverview, Flight::Current); live.take_query().unwrap();
+        live.receive(overview(changed, "generation-b"));
+        assert!(live.details.is_none() && !live.inspection_requested);
+        assert!(live.status.is_some(), "independent last-read observation remains labelled");
+        assert!(live.take_query().is_none(), "passive current changes do not reload full history");
+        assert!(live.built.targets.values().any(|t| matches!(t, Target::Control(c)
+            if c.label == "Inspect technical records")));
+    }
+
+    #[test]
+    fn ordinary_report_creation_settles_without_any_full_snapshot_read() {
+        let mut live = ready_support(); start(&mut live);
+        live.receive(Reply::Receipt(Receipt { schema: vm::model::OPERATOR_SCHEMA, accepted: true,
+            operation: Some("exact-operation".into()), refusal: None }));
+        assert!(matches!(live.take_query(), Some(Query::Operation(id)) if id == "exact-operation"));
+        live.receive(readback("exact-operation", completed("exact-operation")));
+        current_if_queued(&mut live, Some(completed("someone-else")));
+        assert!(live.take_query().is_none());
+        assert!(live.details.is_none() && !live.details_attempted && !live.need_details);
+        assert!(page_says(&live, "Problem report created"));
+        assert_eq!(live.ui.report.as_ref().unwrap().identity.id, "ab".repeat(16));
+        let save = report_button(&live, presentation::support::Step::Save);
+        assert!(live.drawn[&save].is_none());
+    }
+
+    #[test]
+    fn leaving_activity_before_dispatch_does_not_make_support_read_full_history() {
+        let mut live = ready();
+        let activity_tab = target(&live, |t| matches!(t, Target::Tab(Tab::Activity)));
+        press(&mut live, &activity_tab);
+        assert!(matches!(live.queued.as_ref(), Some((Query::Snapshot, _))));
+        let support_tab = target(&live, |t| matches!(t, Target::Tab(Tab::Support)));
+        press(&mut live, &support_tab);
+        assert!(matches!(live.take_query(), Some(Query::Activity)));
+        assert!(!live.need_details && !live.inspection_requested);
+        live.pause_superseded();
+        assert!(!page_says(&live, "Loading service and capture status"));
+        assert!(page_says(&live, "This window is paused"));
+        assert!(live.take_query().is_none());
     }
 
 }

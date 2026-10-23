@@ -1379,6 +1379,7 @@ impl Operator {
             actions: self.current_action_snapshot(),
             readiness: self.readiness.as_ref().filter(|_| readiness_visible).map(|(assessment, _, _)| assessment),
             health: self.current_health_system(),
+            support: None,
         };
         let attempted = self.window.plugins.focused_product().is_some_and(|key|
             self.product_attempted.as_ref() == Some(key));

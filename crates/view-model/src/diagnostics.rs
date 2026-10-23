@@ -2,7 +2,19 @@
 //! manager action, and the retained technical records behind the other pages.
 use super::offers::{self, Importance, OfferRow};
 use super::{record, version, Control, Detail, Disclosure, Local, Text};
-use crate::model::{Action, Snapshot};
+use crate::model::{Action, Activity, Snapshot, System};
+
+/// Each independently read Support section has its own availability.
+/// Activity has no generation token and never supplies action authority.
+#[derive(Clone, Copy, Debug)]
+pub enum Section<'a, T> { NotRequested, Loading, Loaded(T), Failed(&'a str) }
+
+#[derive(Clone, Copy, Debug)]
+pub struct SupportRead<'a> {
+    pub status: Section<'a, &'a Activity>,
+    pub technical: Section<'a, &'a Snapshot>,
+}
+
 
 /// What the installed bridge is and what Setup holds, with a plain copy for
 /// bug reports.
@@ -41,6 +53,9 @@ pub struct Diagnostics {
     pub heading: &'static str,
     pub version: VersionSection,
     pub system: Disclosure,
+    pub status_control: Option<Control>,
+    pub inspection_control: Option<Control>,
+    pub inspection_failure: Option<String>,
     pub actions_title: &'static str,
     /// Every manager action, one row each.
     pub actions: Vec<OfferRow>,
@@ -51,8 +66,12 @@ pub struct Diagnostics {
 /// The service's capacity, cleanup, capture and last operation, open by
 /// default on Diagnostics.
 pub fn system_status(snapshot: &Snapshot, pending: bool, expanded: bool) -> Disclosure {
-    let busy = snapshot.system.inactive_reason();
-    let system = &snapshot.system;
+    status(&snapshot.system, &snapshot.capture, snapshot.operation.as_ref(), &snapshot.actions, pending, expanded)
+}
+
+fn status(system: &System, capture: &serde_json::Value, operation: Option<&serde_json::Value>,
+    actions: &[crate::model::AvailableAction], pending: bool, expanded: bool) -> Disclosure {
+    let busy = system.inactive_reason();
     let mut content: Vec<Detail> = Vec::new();
     if !system.capacity_available() {
         content.push(Text::alert("Service capacity unavailable — DSP, keeper and cleanup status cannot be confirmed").into());
@@ -68,21 +87,78 @@ pub fn system_status(snapshot: &Snapshot, pending: bool, expanded: bool) -> Disc
     // A fixed claim the window prints itself, not a service fact; replace it
     // with the service's buffering recommendation (#489, schema 30).
     content.push(Text::body("512 added frames recommended · 256 unqualified").into());
-    content.push(Text::body(if snapshot.capture["armed"] == true { "Crash capture: armed for next admitted launch" }
-        else if snapshot.capture["active_retention"].as_u64().unwrap_or(0) > 0 { "Crash capture: retaining an active instance" }
-        else { "Crash capture: off" }).into());
-    if snapshot.capture["armed"] == true {
-        for action in snapshot.actions.iter().filter(|action| matches!(action.action, Action::CaptureDisarm {})) {
+    content.push(Text::body(if capture["armed"] == true { "Crash capture: armed for next admitted launch" }
+        else if capture["active_retention"].as_u64().is_some_and(|count| count > 0) { "Crash capture: retaining an active instance" }
+        else if capture["armed"] == false && capture["active_retention"].as_u64() == Some(0) { "Crash capture: off" }
+        else { "Crash capture: status unavailable" }).into());
+    if capture["armed"] == true {
+        for action in actions.iter().filter(|action| matches!(action.action, Action::CaptureDisarm {})) {
             content.push(Detail::Offers(offers::row(std::slice::from_ref(action), Importance::Secondary, busy, pending)));
         }
     }
-    if let Some(operation) = &snapshot.operation {
+    if let Some(operation) = operation {
         content.push(Detail::Disclosure(Disclosure::new("Last operation receipt", vec![record(operation)])));
     }
     Disclosure { start_open: expanded, ..Disclosure::new("System status and diagnostics", content) }
 }
 
 impl Diagnostics {
+    /// Versions and offers are from the current owner view. Status is a
+    /// separate observation; full retained records are an explicit inspection.
+    pub fn from_current(current: &Snapshot, read: SupportRead<'_>, pending: bool,
+        reading: bool, superseded: bool, distribution: Option<&str>) -> Self {
+        let control = |label, does| Control { label, does, importance: Importance::Secondary,
+            enabled: !reading && !superseded };
+        let mut view = Self {
+            heading: "Diagnostics", version: VersionSection::build(current, distribution),
+            system: Disclosure::new("Service and capture status", vec![]),
+            status_control: None, inspection_control: None, inspection_failure: None,
+            actions_title: "Manager actions", actions: vec![],
+            records: Disclosure::new("Vendor applications and managed setup details", vec![]),
+            technical: Disclosure::new("Technical system details", vec![]),
+        };
+        view.system = match read.status {
+            Section::Loaded(activity) => {
+                let mut shown = status(&activity.system, &activity.capture, activity.operation.as_ref(), &[], true, true);
+                shown.title = "Service and capture status · last read".into();
+                shown
+            },
+            Section::NotRequested => {
+                view.status_control = Some(control("Refresh status", Local::Refresh));
+                Disclosure { start_open: true, ..Disclosure::new("Service and capture status",
+                    vec![Text::body("Service and capture status has not been read.").into()]) }
+            }
+            Section::Loading => Disclosure { start_open: true,
+                ..Disclosure::new("Service and capture status", vec![Text::body("Loading service and capture status…").into()]) },
+            Section::Failed(reason) => {
+                view.status_control = Some(control("Refresh status", Local::Refresh));
+                Disclosure { start_open: true, ..Disclosure::new("Service and capture status",
+                    vec![Text::alert(format!("Service and capture status could not be loaded. {reason}")).into()]) }
+            }
+        };
+        // All actions come from current records, never from Activity or an
+        // older full Snapshot. In particular, armed does not invent Disarm.
+        view.actions = current.actions.iter().map(|offer| offers::row(std::slice::from_ref(offer),
+            Importance::Secondary, current.system.inactive_reason(), pending)).collect();
+        match read.technical {
+            Section::Loaded(snapshot) => {
+                let full = Self::build(snapshot, true, distribution);
+                view.records = full.records; view.technical = full.technical;
+            }
+            Section::NotRequested => {
+                view.technical.content.push(Text::body("Read retained setup and technical records when you need to inspect them. This can take a little longer.").into());
+                view.inspection_control = Some(control("Inspect technical records", Local::RetryDetails));
+            }
+            Section::Loading => view.technical.content.push(Text::body("Loading technical records…").into()),
+            Section::Failed(reason) => {
+                view.inspection_failure = Some(reason.into());
+                view.technical.content.push(Text::alert(reason).into());
+                view.inspection_control = Some(control("Read technical records again", Local::RetryDetails));
+            }
+        }
+        view
+    }
+
     pub fn build(snapshot: &Snapshot, pending: bool, distribution: Option<&str>) -> Self {
         let busy = snapshot.system.inactive_reason();
         let row = |actions: &[crate::model::AvailableAction]| offers::row(actions, Importance::Secondary, busy, pending);
@@ -112,6 +188,7 @@ impl Diagnostics {
             heading: "Diagnostics",
             version: VersionSection::build(snapshot, distribution),
             system: system_status(snapshot, pending, true),
+            status_control: None, inspection_control: None, inspection_failure: None,
             actions_title: "Manager actions",
             actions: snapshot.actions.iter()
                 // Disarming is offered next to the armed state above.
@@ -261,6 +338,51 @@ mod tests {
             Detail::Group(inner) => rows(inner),
             _ => vec![],
         }).collect()
+    }
+
+    #[test]
+    fn current_support_offers_and_versions_do_not_wait_for_other_sections() {
+        let mut current = samples::snapshot(Page::Diagnostics, Some("populated"));
+        current.capture = serde_json::Value::Null;
+        current.actions = vec![crate::model::AvailableAction { label: "Create problem report".into(),
+            action: Action::SupportExport {}, disabled_reason: None }];
+        for status in [Section::NotRequested, Section::Loading, Section::Failed("status fixture failure")] {
+            let view = Diagnostics::from_current(&current, SupportRead { status,
+                technical: Section::NotRequested }, false, false, false, None);
+            assert_eq!(view.version, VersionSection::build(&current, None));
+            let listed: Vec<_> = view.actions.iter().flat_map(|r| &r.offers).collect();
+            assert_eq!(listed.len(), 1);
+            assert_eq!(listed[0].intent, Action::SupportExport {});
+            assert!(listed[0].availability.enabled());
+            assert!(view.records.content.is_empty(), "unread records are not fabricated");
+            assert!(!format!("{:?}", view.system).contains("Crash capture: off"));
+            assert_eq!(view.inspection_control.unwrap().does, Local::RetryDetails);
+        }
+    }
+
+    #[test]
+    fn separate_activity_observation_does_not_invent_capture_off_or_actions() {
+        let mut current = samples::snapshot(Page::Diagnostics, Some("populated"));
+        current.actions = vec![crate::model::AvailableAction { label: "Create problem report".into(),
+            action: Action::SupportExport {}, disabled_reason: None }];
+        for (capture, expected) in [
+            (serde_json::Value::Null, "status unavailable"),
+            (serde_json::json!({"armed": false}), "status unavailable"),
+            (serde_json::json!({"armed": true,"active_retention":0}), "armed for next admitted launch"),
+            (serde_json::json!({"armed": false,"active_retention":1}), "retaining an active instance"),
+            (serde_json::json!({"armed": false,"active_retention":0}), "Crash capture: off"),
+        ] {
+            let activity = Activity { schema: crate::model::OPERATOR_SCHEMA, system: current.system.clone(),
+                capture, operation: None, workspace_product_install_ready: false };
+            let view = Diagnostics::from_current(&current, SupportRead { status: Section::Loaded(&activity),
+                technical: Section::Failed("technical fixture failure") }, true, false, false, None);
+            assert!(format!("{:?}", view.system).contains(expected));
+            assert!(view.system.title.contains("last read"));
+            assert!(rows(&view.system.content).is_empty(), "armed does not invent a Disarm offer");
+            assert!(view.actions.iter().flat_map(|r| &r.offers).all(|o| !o.availability.enabled()));
+            assert!(view.inspection_control.unwrap().enabled, "local inspection is independent of stale action authority");
+            assert_eq!(view.inspection_failure.as_deref(), Some("technical fixture failure"));
+        }
     }
 
     #[test]

@@ -89,7 +89,7 @@ impl Builder<'_> {
     }
 
     pub(super) fn diagnostics(&mut self, diagnostics: &Diagnostics, frame: &Frame) -> Vec<Node> {
-        let Diagnostics { heading: _, version, system, actions_title, actions, records, technical } = diagnostics;
+        let Diagnostics { heading: _, version, system, status_control, inspection_control, inspection_failure: _, actions_title, actions, records, technical } = diagnostics;
         let VersionSection { installed, setup, apply, runtime, copy, copied } = version;
         let mut out = vec![Node::Title("Support".into())];
         out.push(Node::Heading("Make a support report".into()));
@@ -119,9 +119,11 @@ impl Builder<'_> {
         }
         out.push(Node::Columns(vec![versions, Node::Panel { kind: PanelKind::Card, children: rows }]));
         out.push(self.fold(system));
+        if let Some(control) = status_control { let action = self.control(control); out.push(self.one(action)); }
         out.extend(self.service_details(frame));
-        out.push(self.fold(records));
+        if !records.content.is_empty() { out.push(self.fold(records)); }
         out.push(self.fold(technical));
+        if let Some(control) = inspection_control { let action = self.control(control); out.push(self.one(action)); }
         out
     }
 

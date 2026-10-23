@@ -31,6 +31,8 @@ pub struct Records<'a> {
     pub readiness: Option<&'a ReadinessAssessment>,
     /// The service status the health row shows.
     pub health: Option<&'a System>,
+    /// Independent Support reads, when this frontend loads sections separately.
+    pub support: Option<crate::diagnostics::SupportRead<'a>>,
 }
 
 /// How current the records are and what the window is doing.
@@ -164,6 +166,9 @@ impl Screen {
                         None => Self::PluginsLoading(Box::new(LoadingList::build(current, &state.plugins.query(),
                             fresh, reading.product_attempted))),
                     },
+                    Page::Diagnostics if records.support.is_some() => return Self::Diagnostics(Box::new(
+                        Diagnostics::from_current(current, records.support.unwrap(), actions_pending,
+                            reading.in_flight, reading.superseded, reading.distribution))),
                     _ => {}
                 }
             } else if matches!(state.page, Page::Home | Page::Setup) {
@@ -326,4 +331,19 @@ mod tests {
         assert!(matches!(Screen::build(&records, &preview, &sample.state()), Screen::LoadingCurrent(_)));
         assert!(matches!(Screen::build(&records, &live, &sample.state()), Screen::Checking { heading: "Setup", .. }));
     }
+    #[test]
+    fn support_sections_do_not_turn_partial_activity_into_a_complete_activity_page() {
+        use crate::diagnostics::{Section, SupportRead};
+        let sample = Sample::new(Case::new(Page::Diagnostics, "populated"));
+        let records = Records { details: None, support: Some(SupportRead {
+            status: Section::Loading, technical: Section::NotRequested,
+        }), ..sample.records() };
+        let reading = Reading { fresh: true, ..Reading::default() };
+        let state = State { page: Page::Diagnostics, ..State::default() };
+        assert!(matches!(Screen::build(&records, &reading, &state), Screen::Diagnostics(_)));
+        let state = State { page: Page::Activity, ..State::default() };
+        assert!(matches!(Screen::build(&records, &reading, &state), Screen::LoadingDetails { .. }),
+            "Activity still needs session and incident records not present in Read::Activity");
+    }
+
 }

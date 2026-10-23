@@ -1014,6 +1014,7 @@ impl Sample {
             readiness: self.readiness.as_ref().filter(|readiness| readiness.state_token == self.snapshot.state_token
                 && readiness.system == self.snapshot.system),
             health: current.map(|snapshot| &snapshot.system),
+            support: None,
         }
     }
 

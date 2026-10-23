@@ -615,6 +615,14 @@ impl<'a> Builder<'a> {
                         words(Role::Detail, notice), self.one(retry),
                     ] });
                 }
+                if let Screen::Diagnostics(view) = screen {
+                    if let (Some(notice), Some(retry)) = (&view.inspection_failure, &view.inspection_control) {
+                        let retry = self.control(retry);
+                        page.push(Node::Panel { kind: PanelKind::Raised, children: vec![
+                            words(Role::Detail, notice), self.one(retry),
+                        ] });
+                    }
+                }
                 return page;
             }
         }
