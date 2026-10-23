@@ -32,17 +32,12 @@ pub(super) fn all_retired(m: &Manager) -> Result<bool> {
     lifecycle::retired(m,op)
 }
 pub(super) fn discover(m: &Manager) -> Result<Value> {
-    // Census, hashing and runner checks stay outside registry authority.
-    let app=renderer::discover(&m.root)?;
-    let _guard=m.lock("registry.lock")?;capacity::require_environment_inactive(m,&app.environment)?;
-    require(all_retired(m)?,"renderer_previous_cleanup_unconfirmed")?;
-    let d=directory(m);private_dir(&d)?;let p=d.join("application.json");
-    if p.exists(){require(current_application(m)?==app,"renderer_application_update_requires_transition")?;}
-    else{atomic_json(&p,&app)?;}
-    Ok(json!({"application":app.identity()?,"installed_identity":"verified","renderer_cause":"unresolved"}))
+    vendor_cli::registration::retained_renderer(m)
 }
 pub(super) fn launch(m: &Manager, identity: &str, policy: renderer::RendererPolicy, op: &str) -> Result<lifecycle::Submission> {
     let app=current_application(m)?;
+    require(!vendor_cli::registration::renderer_selected(m, &app)?,
+        "Use this application's ordinary Open action")?;
     require(app.identity()?==identity,"renderer_application_selection_changed")?;app.verify(&m.root)?;
     let sw=linux_vst_bridge::preparation::build::launch_software(m)?;let d=operation_dir(m,op)?;
     let spec=native_access_dependency::bind_session(m,&app,&sw,op,policy,&d.join("result.json"))?;

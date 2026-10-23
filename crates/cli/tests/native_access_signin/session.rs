@@ -1,15 +1,11 @@
 //! A managed Native Access session and browser returns sent to it.
 //!
-//! `Session::open` submits the session as the window's Open does
-//! (`vendor_cli::run_selected`): it verifies the selection, observes the
-//! profile capabilities, writes the same launch records and starts the unit
-//! from the same `vendor_application::session_command`. Everything after
-//! that is the product. Returns go through the real URL handler.
+//! Open and Stop use the service's exact offered actions. The fixture does not
+//! construct session records or launch a supervisor itself. Returns use the real
+//! URL handler, and completion follows the exact accepted owner operation.
 use crate::setup::Setup;
-use linux_vst_bridge::{
-    vendor_application::{self, Application, LaunchMode, Operation, OperationResult},
-    *,
-};
+use linux_vst_bridge::{vendor_application::Operation, *};
+use lvb_model::{contract, operator_model as ui};
 use serde_json::{json, Value};
 use std::{
     fs,
@@ -37,6 +33,8 @@ pub fn unix_ms() -> u64 {
 pub struct Session<'a> {
     setup: &'a Setup,
     pub operation: String,
+    owner: String,
+    primaries_before_open: usize,
     pub unit: String,
     stopped: bool,
 }
@@ -136,44 +134,37 @@ fn field<'l>(line: &'l str, name: &str) -> Option<&'l str> {
 }
 
 impl<'a> Session<'a> {
-    /// The window's Open, as `vendor_cli::run_selected("launch")` performs it.
+    /// Submit the same exact offer and state token as the window.
     pub fn open(setup: &'a Setup) -> Self {
-        let m = &setup.m;
-        let directory = &setup.directory;
-        let unit = setup.unit();
-        let app: Application = read_json(&directory.join("application.json")).unwrap();
-        app.verify(&m.root).unwrap();
-        let inspected = vendor_profile::inspect(&app, &m.root).unwrap();
-        let capabilities = inspected.capabilities.unwrap_or_else(|| panic!(
-            "the bundled profile did not recognise the stand-in: {:?}", inspected.missing_capability));
-        let software = preparation::build::launch_software(m).unwrap();
-        let managed = vendor_profile::ManagedLaunch::new(capabilities, software.clone()).unwrap();
-        let job = directory.join("operation.json");
-        let report = directory.join("operation-result.json");
-        let prior = job.exists();
-        if prior {
-            let old: OperationResult = read_json(&report).unwrap();
-            assert!(old.retired(), "the previous session is not retired: {old:?}");
-            let history = directory.join(format!("retired-{}", random_id().unwrap()));
-            private_dir(&history).unwrap();
-            fs::rename(&job, history.join("operation.json")).unwrap();
-            fs::rename(&report, history.join("result.json")).unwrap();
+        let primaries_before_open = setup.stand_in_lines("primary.log").iter()
+            .filter(|line| line.starts_with("primary ready")).count();
+        let owner = offered(setup, |action| matches!(action,
+            ui::Action::VendorSoftwareInstall {application, ..} if application == &setup.selector));
+        // Own cleanup as soon as the request is accepted, including readback
+        // failure before the subordinate session has been published.
+        let mut session = Self {setup, operation: String::new(), owner, primaries_before_open,
+            unit: setup.unit(), stopped: false};
+        let started = Instant::now();
+        let job = setup.directory.join("operation.json");
+        loop {
+            // The fixture may inspect its own non-secret custody records, but
+            // never creates them. Bind the subordinate session to this receipt.
+            let checkpoint = setup.m.root.join("operator").join(&session.owner).join("automatic.json");
+            if let (Ok(retained), Ok(operation)) = (read_json::<Value>(&checkpoint), read_json::<Operation>(&job)) {
+                if retained["vendor"]["operation"] == operation.operation_id
+                    && retained["vendor"]["application"] == setup.selector {
+                    assert_eq!(operation.application.selector().unwrap(), setup.selector);
+                    assert!(operation.managed.is_some());
+                    session.operation = operation.operation_id;
+                    return session;
+                }
+            }
+            let record = owner_record(setup, &session.owner);
+            assert!(!matches!(record["state"].as_str(), Some("completed" | "refused")),
+                "Open finished before launching its application: {record}");
+            assert!(started.elapsed() < READY, "Open did not submit a session within {READY:?}");
+            std::thread::sleep(Duration::from_millis(100));
         }
-        let operation = random_id().unwrap();
-        atomic_json(&directory.join(vendor_profile::LAUNCH_SETTINGS),
-            &vendor_profile::launch_settings(&managed.capabilities.profile, &operation).unwrap()).unwrap();
-        atomic_json(&job, &Operation { application: app, report: report.clone(), mode: LaunchMode::Normal,
-            operation_id: operation.clone(), launcher: software.installer_launch.clone(),
-            managed: Some(managed), capability_notice: inspected.missing_capability }).unwrap();
-        atomic_json(&report, &json!({"schema":3,"operation_id":operation,"state":"unknown","launcher_exit":null,
-            "owned_live":null,"cleanup_confirmed":false,"error":null,"discarded_diagnostic_bytes":0,
-            "account_posture":"unknown"})).unwrap();
-        if prior {
-            let _ = Command::new("systemctl").args(["--user", "reset-failed", &unit]).stderr(Stdio::null()).status();
-        }
-        let status = vendor_application::session_command(&unit, true, &software, &job).unwrap().status().unwrap();
-        assert!(status.success(), "systemd-run refused the session unit: {status}");
-        Self { setup, operation, unit, stopped: false }
     }
 
     pub fn setup(&self) -> &'a Setup { self.setup }
@@ -204,7 +195,7 @@ impl<'a> Session<'a> {
     /// is open and the stand-in's first copy has its single-instance window.
     pub fn wait_ready(&self) -> Duration {
         let started = Instant::now();
-        let ready_before = self.primaries();
+        let ready_before = self.primaries_before_open;
         loop {
             let record = self.record();
             if record["state"] == "running" && record["effective"]["operation"] == self.operation
@@ -273,13 +264,14 @@ impl<'a> Session<'a> {
         (members.len(), open)
     }
 
-    /// The window's Stop: `systemctl --user --no-block stop`, then the record.
+    /// The window's exact Stop offer, followed by the accepted owner result.
     pub fn stop(&mut self) -> (Value, Duration) {
         let started = Instant::now();
-        let status = Command::new("systemctl").args(["--user", "--no-block", "stop", &self.unit]).status().unwrap();
-        assert!(status.success(), "systemctl stop: {status}");
-        self.stopped = true;
-        (self.wait_ended(), started.elapsed())
+        let stop = offered(self.setup, |action| matches!(action,
+            ui::Action::VendorApplicationStop {application} if application == &self.setup.selector));
+        let result = self.wait_ended();
+        wait_owner(self.setup, &stop);
+        (result, started.elapsed())
     }
     /// The unit has gone and the product's result for this operation is final.
     pub fn wait_ended(&mut self) -> Value {
@@ -290,6 +282,7 @@ impl<'a> Session<'a> {
                 Some("completed" | "failed" | "cancelled" | "cleanup_unconfirmed"));
             if terminal && !unit_present(&self.unit) {
                 self.stopped = true;
+                wait_owner(self.setup, &self.owner);
                 return result;
             }
             assert!(started.elapsed() < RETIREMENT, "the session did not retire within {RETIREMENT:?}: {}",
@@ -319,6 +312,40 @@ impl Drop for Session<'_> {
         if !self.stopped {
             let _ = Command::new("systemctl").args(["--user", "--no-block", "stop", &self.unit]).status();
         }
+    }
+}
+
+fn exchange(setup: &Setup, request: contract::Request) -> contract::Reply {
+    contract::Client::new(contract::Service::new(setup.m.root.join("runtime/owner.sock")))
+        .call(&request, None).unwrap_or_else(|failure| panic!("{request:?}: {failure:?}"))
+}
+fn offered(setup: &Setup, matches: impl Fn(&ui::Action) -> bool) -> String {
+    let contract::Reply::CurrentOverview(overview) = exchange(setup,
+        contract::Request::Read(contract::Read::CurrentOverview)) else {panic!("current overview reply")};
+    let offers = overview.current.vendor_applications.iter().filter(|row| row.id == setup.selector)
+        .flat_map(|row| &row.actions).filter(|offer| matches(&offer.action)).collect::<Vec<_>>();
+    assert_eq!(offers.len(), 1, "one exact owner offer");
+    assert_eq!(offers[0].disabled_reason, None, "{}", offers[0].label);
+    let contract::Reply::Receipt(receipt) = exchange(setup, contract::Request::Action(ui::Request {
+        schema: ui::OPERATOR_SCHEMA, state_token: overview.current.state_token.clone(),
+        action: offers[0].action.clone(),
+    })) else {panic!("action receipt")};
+    assert!(receipt.accepted, "owner refused: {:?}", receipt.refusal);
+    receipt.operation.expect("accepted operation")
+}
+fn owner_record(setup: &Setup, operation: &str) -> Value {
+    let contract::Reply::Operation(readback) = exchange(setup,
+        contract::Request::Read(contract::Read::Operation(operation.into()))) else {panic!("exact operation reply")};
+    assert!(readback.matches(operation));
+    readback.record
+}
+fn wait_owner(setup: &Setup, operation: &str) {
+    let started = Instant::now();
+    loop {
+        let record = owner_record(setup, operation);
+        if matches!(record["state"].as_str(), Some("completed" | "refused")) {return;}
+        assert!(started.elapsed() < RETIREMENT, "owner did not finish: {record}");
+        std::thread::sleep(Duration::from_millis(100));
     }
 }
 
