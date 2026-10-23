@@ -5,8 +5,9 @@ use super::offers::{self, Importance, Offer, OfferRow};
 use super::product::{self, daw_guidance, installation_progress, last_load_text, product_activity,
     product_daw, product_issue, recovery_pending, vendor_install_consequence};
 use super::settings::{self, settings_actions};
+use super::setup::SetupControls;
 use super::{Detail, Disclosure, Fact, ProductKey, Status, StatusClass, Text};
-use crate::model::{Action, AvailableAction, CompatibilityPhase, EnvironmentInstaller, Product, Snapshot};
+use crate::model::{Action, AvailableAction, CompatibilityPhase, Product, Snapshot};
 
 pub const HEADING: &str = "Plug-ins";
 pub const SHOW_ALL: &str = "Show all plug-ins";
@@ -223,13 +224,12 @@ pub struct Uninstall {
     pub explanation: String,
 }
 
-/// The plug-in's shared setup controls. Not yet a screen model of its own:
-/// the Setup page's controls draw this record until that screen moves here.
+/// The plug-in's shared setup controls, the same ones Setup shows for it.
 #[derive(Clone, Debug)]
 pub struct SharedSetup {
     pub title: &'static str,
     pub start_open: bool,
-    pub record: EnvironmentInstaller,
+    pub controls: SetupControls,
 }
 
 impl PluginCard {
@@ -373,7 +373,7 @@ impl PluginCard {
                 title: "Manage shared setup",
                 start_open: target.actions.iter().any(|offer|
                     matches!(offer.action, Action::EnvironmentInstallerStop { .. })),
-                record: target.clone(),
+                controls: SetupControls::build(target, pending),
             });
 
         let expert: Vec<_> = p.actions.iter().chain(related.iter())
@@ -830,7 +830,7 @@ mod tests {
         fn details<'a>(content: &'a [Detail], out: &mut Vec<(&'a Offer, Vec<&'a str>)>) {
             for detail in content {
                 match detail {
-                    Detail::Offers(row) => out.extend(row.offers.iter()
+                    Detail::Offers(row) | Detail::Held { row, .. } => out.extend(row.offers.iter()
                         .map(|offer| (offer, row.notes.iter().map(String::as_str).collect()))),
                     Detail::Choice(choice) => out.push((&choice.offer,
                         choice.notes.iter().map(String::as_str).collect())),

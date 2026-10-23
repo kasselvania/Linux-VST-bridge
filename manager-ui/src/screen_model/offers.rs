@@ -5,6 +5,8 @@ use crate::model::{AccessibilityChoice, Action, AvailableAction, Product};
 
 /// Said while an earlier request or the manager's readback is still pending.
 pub const WAITING: &str = "Waiting for the current request or manager readback";
+/// Said under a Home or Setup card's main step while a request is pending.
+pub const WAITING_TO_FINISH: &str = "Waiting for the current request to finish.";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Importance {

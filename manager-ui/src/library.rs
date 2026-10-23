@@ -1,9 +1,9 @@
 //! egui drawing of the Plug-ins screens from the screen model. The list,
 //! search and selection state lives here; decisions and words do not.
-use crate::model::{Action, AvailableAction, Product, Snapshot};
-use crate::presentation;
+use crate::model::{Action, Product, Snapshot};
 use crate::screen_model::plugins::{self, LoadingList, PluginCard, PluginList, RoleFilter, StatusFilter};
-use crate::screen_model::{fact_line, offers, ProductKey};
+use crate::screen_model::setup::SetupControls;
+use crate::screen_model::{fact_line, ProductKey};
 use crate::widgets::{self, action_buttons, warning_color};
 use eframe::egui;
 
@@ -151,7 +151,7 @@ impl Library {
                 ui.strong(heading);
             }
             for card in &group.cards {
-                plugin_card(ui, card, pending, chosen, |ui| {
+                plugin_card(ui, card, chosen, |ui| {
                     if let Some(record) = card.record { details(ui, &snapshot.products[record]); }
                 });
             }
@@ -160,7 +160,7 @@ impl Library {
 }
 
 /// One plug-in's card. Same class can have several installed builds or environments.
-fn plugin_card(ui: &mut egui::Ui, card: &PluginCard, pending: bool, chosen: &mut Option<Action>,
+fn plugin_card(ui: &mut egui::Ui, card: &PluginCard, chosen: &mut Option<Action>,
     records: impl FnOnce(&mut egui::Ui)) {
     ui.push_id((&card.key.environment, &card.key.class_id, &card.key.module_sha256), |ui| {
         egui::Frame::group(ui.style())
@@ -194,7 +194,7 @@ fn plugin_card(ui: &mut egui::Ui, card: &PluginCard, pending: bool, chosen: &mut
                 if let Some(shared) = &card.shared_setup {
                     egui::CollapsingHeader::new(shared.title)
                         .default_open(shared.start_open)
-                        .show(ui, |ui| environment_installer_controls(ui, &shared.record, pending, chosen));
+                        .show(ui, |ui| setup_controls(ui, &shared.controls, chosen));
                 }
                 widgets::disclosure_with(ui, &card.technical, chosen, records);
             });
@@ -222,118 +222,72 @@ pub fn diagnostics(
                 });
 }
 
-pub(crate) fn primary_action(ui: &mut egui::Ui, offer: &AvailableAction,
-    busy: Option<&str>, pending: bool, chosen: &mut Option<Action>) {
-    let reason = offers::refusal(offer,busy);
-    if ui.add_enabled(!pending && reason.is_none(),
-        presentation::primary_button(egui::RichText::new(offers::action_label(offer)).strong(),ui)).clicked() {
-        *chosen=Some(offer.action.clone());
-    }
-    if let Some(reason)=reason {ui.small(reason);}
-    else if pending {ui.small("Waiting for the current request to finish.");}
-    if let Some(consequence) = offers::action_consequence(&offer.action) { ui.small(consequence); }
-}
-
-pub(crate) fn installer_retry(offer:&crate::model::AvailableAction)->bool {
-    offer.label=="Retry" && offer.action.environment_installer_start().is_some()
-}
-pub(crate) fn environment_installer_controls(ui: &mut egui::Ui,
-    target: &crate::model::EnvironmentInstaller, pending: bool, chosen: &mut Option<Action>) {
-    for help in &target.dependency_help {ui.label(help);}
-    ui.strong("Programs");
-    ui.small("Choose a Windows program to remember and open in this setup. Its files and resources stay in place.");
-    let programs:Vec<_>=target.actions.iter().filter(|offer|matches!(offer.action,
-        Action::ProgramChoose {..})).cloned().collect();
-    action_buttons(ui,&programs,None,pending,chosen);
-    let controls:Vec<_>=target.actions.iter().filter(|offer|matches!(offer.action,
-        Action::EnvironmentInstallerFocus { .. } | Action::EnvironmentInstallerStop { .. })).cloned().collect();
-    action_buttons(ui,&controls,None,pending,chosen);
-    ui.label(&target.consequence);
-    if target.affected.is_empty() {
-        ui.small("This existing setup has no discovered plug-ins yet.");
-    } else {
-        ui.strong(format!("Affected plug-ins: {}", target.affected.join(", ")));
-    }
-    egui::CollapsingHeader::new("Setup identity").show(ui, |ui| {
-        ui.small(&target.environment);
-    });
-    if let Some(runtime)=&target.runtime {
-        egui::CollapsingHeader::new("Compatibility runtime").show(ui,|ui| {
-            ui.label(format!("Current runtime: {} · setup revision {}",runtime.runner,runtime.revision));
+/// An existing setup's own controls, from the screen model. Shared by the
+/// plug-in card and Setup's "Manage an existing setup".
+pub(crate) fn setup_controls(ui: &mut egui::Ui, controls: &SetupControls, chosen: &mut Option<Action>) {
+    for help in &controls.help { ui.label(help); }
+    ui.strong(controls.programs_title);
+    ui.small(controls.programs_hint);
+    widgets::offer_row(ui, &controls.programs, chosen);
+    widgets::offer_row(ui, &controls.running, chosen);
+    ui.label(&controls.consequence);
+    widgets::text(ui, &controls.affected);
+    widgets::disclosure(ui, &controls.identity, chosen);
+    if let Some(runtime) = &controls.runtime {
+        egui::CollapsingHeader::new(runtime.title).show(ui, |ui| {
+            ui.label(&runtime.current);
             ui.label(&runtime.consequence);
-            ui.strong("Affected plug-ins and applications");
-            for owner in &runtime.affected {ui.label(owner);}
-            let key=egui::Id::new(("environment_runtime",&target.environment));
-            let mut selected=ui.data_mut(|data|data.get_temp::<String>(key)).unwrap_or_default();
-            egui::ComboBox::from_id_salt(("environment_runtime_choice",&target.environment))
-                .selected_text(runtime.choices.iter().find(|offer|matches!(&offer.action,
-                    Action::EnvironmentRuntimeSelect {runner,..} if runner==&selected))
-                    .map(|offer|offer.label.as_str()).unwrap_or("Choose an installed runtime"))
-                .show_ui(ui,|ui|for offer in &runtime.choices {
-                    if let Action::EnvironmentRuntimeSelect {runner,..}=&offer.action {
-                        ui.selectable_value(&mut selected,runner.clone(),&offer.label);
-                    }
+            ui.strong(runtime.affected_title);
+            for owner in &runtime.affected { ui.label(owner); }
+            let key = egui::Id::new(("environment_runtime", &controls.environment));
+            let mut selected = ui.data_mut(|data| data.get_temp::<String>(key)).unwrap_or_default();
+            egui::ComboBox::from_id_salt(("environment_runtime_choice", &controls.environment))
+                .selected_text(runtime.choices.iter().find(|choice| choice.key == selected)
+                    .map(|choice| choice.label.as_str()).unwrap_or(runtime.placeholder))
+                .show_ui(ui, |ui| for choice in &runtime.choices {
+                    ui.selectable_value(&mut selected, choice.key.clone(), &choice.label);
                 });
-            ui.data_mut(|data|data.insert_temp(key,selected.clone()));
-            if let Some(offer)=runtime.choices.iter().find(|offer|matches!(&offer.action,
-                Action::EnvironmentRuntimeSelect {runner,..} if runner==&selected)) {
-                action_buttons(ui,std::slice::from_ref(offer),None,pending,chosen);
+            ui.data_mut(|data| data.insert_temp(key, selected.clone()));
+            if let Some(choice) = runtime.choices.iter().find(|choice| choice.key == selected) {
+                widgets::offer_row(ui, &choice.content, chosen);
             }
-            if runtime.choices.is_empty() {ui.small("To download Windows plug-in support, open Diagnostics → Manager actions.");}
+            if let Some(none) = runtime.none { ui.small(none); }
         });
     }
-    if target.operation.is_some() {
-        let state = target.result["state"].as_str().unwrap_or("unavailable").replace('_'," ");
-        ui.label(format!("Last installer: {state}"));
-        if target.result["transaction"]["durable_installation"].is_string() {
-            ui.label(presentation::installer_installation_label(&target.result["transaction"]));
-        }
-        if target.result["state"] == "failed" || target.result["state"] == "cancelled" {
-            ui.colored_label(warning_color(ui),"Files or vendor state may already have changed. Rescan to see what remains, or retry in this same compatibility space. Stopping does not restore prior vendor state.");
-        }
-        egui::CollapsingHeader::new("Installer details").show(ui,|ui| {
-            for line in presentation::installer_lines(&target.result) {ui.small(line);}
-        });
+    if let Some(last) = &controls.last_installer {
+        ui.label(&last.state);
+        if let Some(installation) = &last.installation { ui.label(installation); }
+        if let Some(warning) = last.warning { ui.colored_label(warning_color(ui), warning); }
+        widgets::disclosure(ui, &last.details, chosen);
     }
-    let continuation:Vec<_>=target.actions.iter().filter(|offer|installer_retry(offer)
-        || offer.action.environment_installer_start().is_none() && !matches!(offer.action,
-        Action::EnvironmentInstallerFocus { .. } | Action::EnvironmentInstallerStop { .. }
-        | Action::ProgramChoose {..})).cloned().collect();
-    action_buttons(ui,&continuation,None,pending,chosen);
-    let key = egui::Id::new(("companion_installer",&target.environment));
-    let mut selected = ui.data_mut(|data|data.get_temp::<String>(key))
-        .unwrap_or_else(|| target.installer.clone().unwrap_or_default());
-    egui::ComboBox::from_id_salt(("companion_choice",&target.environment))
-        .selected_text(target.choices.iter().find(|offer|offer.action.environment_installer_start()
-            .is_some_and(|(_,installer,policy)|installer==selected && policy.is_none()))
-            .map(|offer|offer.label.as_str()).unwrap_or("Choose an added Windows installer"))
-        .show_ui(ui,|ui| {
-            for offer in &target.choices {
-                if let Some((_,installer,None))=offer.action.environment_installer_start() {
-                    ui.selectable_value(&mut selected,installer.into(),&offer.label);
-                }
+    widgets::offer_row(ui, &controls.continuation, chosen);
+    let installers = &controls.installers;
+    let key = egui::Id::new(("companion_installer", &controls.environment));
+    let mut selected = ui.data_mut(|data| data.get_temp::<String>(key))
+        .unwrap_or_else(|| installers.preselected.clone().unwrap_or_default());
+    egui::ComboBox::from_id_salt(("companion_choice", &controls.environment))
+        .selected_text(installers.choices.iter().find(|choice| choice.key == selected)
+            .map(|choice| choice.label.as_str()).unwrap_or(installers.placeholder))
+        .show_ui(ui, |ui| {
+            for choice in &installers.choices {
+                ui.selectable_value(&mut selected, choice.key.clone(), &choice.label);
             }
         });
-    ui.data_mut(|data|data.insert_temp(key,selected.clone()));
-    if let Some(offer) = target.choices.iter().find(|offer|offer.action.environment_installer_start()
-        .is_some_and(|(_,installer,policy)|installer==selected && policy.is_none())) {
-        action_buttons(ui,std::slice::from_ref(offer),None,pending,chosen);
-        let advanced:Vec<_>=target.actions.iter().filter(|offer|!installer_retry(offer)
-            && offer.action.environment_installer_start().is_some_and(|(_,installer,policy)|
-                installer==selected && policy.is_some())).cloned().collect();
-        if !advanced.is_empty() {
-            egui::CollapsingHeader::new("Advanced installer options").show(ui,|ui| {
-                action_buttons(ui,&advanced,None,pending,chosen);
-            });
-        }
+    ui.data_mut(|data| data.insert_temp(key, selected.clone()));
+    if let Some(choice) = installers.choices.iter().find(|choice| choice.key == selected) {
+        let (run, advanced) = &choice.content;
+        widgets::offer_row(ui, run, chosen);
+        if let Some(advanced) = advanced { widgets::disclosure(ui, advanced, chosen); }
     }
-    if target.choices.is_empty() {ui.small("Choose a Windows installer to add a local installer first.");}
+    if let Some(none) = installers.none { ui.small(none); }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{CompatibilityWorkflow, CompatibilityPhase};
+    use crate::model::{AvailableAction, CompatibilityWorkflow, CompatibilityPhase};
+    use crate::presentation;
+    use crate::screen_model::offers;
     use crate::screen_model::offers::{refusal as primary_refusal, setup_choice_label, visible_refusals};
     use crate::screen_model::product::{self, status};
     use crate::screen_model::{settings, Status, StatusClass};

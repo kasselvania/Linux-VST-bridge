@@ -165,7 +165,7 @@ mod tests {
             match detail {
                 Detail::Text(text) => out.push(text.words.clone()),
                 Detail::Disclosure(disclosure) => { out.push(disclosure.title.clone()); words(&disclosure.content, out); }
-                Detail::Offers(row) => out.extend(row.offers.iter().map(|offer| offer.label.clone())
+                Detail::Offers(row) | Detail::Held { row, .. } => out.extend(row.offers.iter().map(|offer| offer.label.clone())
                     .chain(row.notes.iter().cloned())),
                 Detail::Choice(choice) => out.push(choice.offer.label.clone()),
                 Detail::Divider => {}

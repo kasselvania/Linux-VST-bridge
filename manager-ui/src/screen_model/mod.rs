@@ -7,11 +7,19 @@
 //! and actions; an offer carries the manager's exact closed action and refusal
 //! unchanged, and pressing it sends only that action.
 //!
-//! Screens built here so far: the plug-in list and one plug-in's detail.
+//! Screens built here so far: Home, Setup (with install progress, required
+//! apps, existing setups and their runtime choice), the Setup forms, the
+//! plug-in list and one plug-in's detail.
+pub mod forms;
+pub mod home;
+pub mod installer;
+pub mod journey;
 pub mod offers;
 pub mod plugins;
 pub mod product;
+pub mod service;
 pub mod settings;
+pub mod setup;
 #[cfg(test)]
 mod tests;
 
@@ -30,6 +38,10 @@ pub enum TextRole {
     Caution,
     /// A retained hazard inside a technical record.
     Alert,
+    /// A quiet aside, printed smaller and fainter than detail.
+    Hint,
+    /// An aside that says something is not current, printed small.
+    CautionHint,
 }
 
 /// One line of words with its role.
@@ -45,6 +57,8 @@ impl Text {
     pub fn detail(words: impl Into<String>) -> Self { Self { role: TextRole::Detail, words: words.into() } }
     pub fn caution(words: impl Into<String>) -> Self { Self { role: TextRole::Caution, words: words.into() } }
     pub fn alert(words: impl Into<String>) -> Self { Self { role: TextRole::Alert, words: words.into() } }
+    pub fn hint(words: impl Into<String>) -> Self { Self { role: TextRole::Hint, words: words.into() } }
+    pub fn caution_hint(words: impl Into<String>) -> Self { Self { role: TextRole::CautionHint, words: words.into() } }
 }
 
 /// Visual class of a status: how it should look, not what it says.
@@ -114,6 +128,9 @@ impl From<&Product> for ProductKey {
 pub enum Detail {
     Text(Text),
     Offers(offers::OfferRow),
+    /// Offers that wait for current status: shown, but not pressable, until
+    /// the screen is `actionable` again. The screen says why once.
+    Held { actionable: bool, row: offers::OfferRow },
     Choice(Box<offers::SetupChoice>),
     Disclosure(Disclosure),
     Divider,
@@ -144,4 +161,72 @@ impl Disclosure {
         self.force_open = force_open;
         self
     }
+}
+
+/// Exact identity of one installer setup attempt.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AttemptKey {
+    pub installer: String,
+    pub environment: Option<String>,
+}
+
+/// Where a navigation control leads: a page, or an exact item on it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Destination {
+    Product(ProductKey),
+    /// Several exact plug-ins, such as the ones one installation found.
+    Products(Vec<ProductKey>),
+    Attempt(AttemptKey),
+    Session(String),
+    Activity,
+    Setup,
+    Diagnostics,
+}
+
+/// What a window-handled control does. None of these sends anything to the
+/// manager; a manager action is always an `offers::Offer`.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Local {
+    Go(Destination),
+    /// Read current status again, including the computer-setup check.
+    CheckComputer,
+    /// Choose a Windows installer file to add.
+    ChooseInstaller,
+    /// Choose a different installer, or a required app's installer, for this
+    /// setup. The draft carries the setup's identity at the time of choosing.
+    ChooseReplacement(setup::InstallerReplacement),
+    /// Drop the replacement draft and keep the current installer.
+    KeepCurrentInstaller,
+    /// Stop showing only the selected installer.
+    ShowAllSetup,
+}
+
+/// A control the window handles itself, such as opening another page.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Control {
+    pub label: &'static str,
+    pub importance: offers::Importance,
+    pub enabled: bool,
+    pub does: Local,
+}
+
+impl Control {
+    pub fn go(label: &'static str, importance: offers::Importance, destination: Destination) -> Self {
+        Self { label, importance, enabled: true, does: Local::Go(destination) }
+    }
+
+    pub fn enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+}
+
+/// One option of a choice the musician makes on this screen, with what the
+/// screen shows once it is chosen.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Choice<T> {
+    /// Stable identity of the option, such as a runtime or an installer.
+    pub key: String,
+    pub label: String,
+    pub content: T,
 }

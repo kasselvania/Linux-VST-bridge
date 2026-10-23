@@ -1,6 +1,7 @@
 //! egui drawing of the screen-model vocabulary: words, offers, setup choices
 //! and disclosures. Drawing only; every decision and word comes from the model.
 use crate::model::{Action, AvailableAction};
+use crate::screen_model::journey::Results;
 use crate::screen_model::offers::{self, Availability, Importance, OfferRow, SetupChoice};
 use crate::screen_model::{Detail, Disclosure, Text, TextRole};
 use eframe::egui;
@@ -20,6 +21,9 @@ pub fn text(ui: &mut egui::Ui, text: &Text) {
         TextRole::Detail => ui.small(&text.words),
         TextRole::Caution => ui.colored_label(warning_color(ui), &text.words),
         TextRole::Alert => ui.colored_label(egui::Color32::YELLOW, &text.words),
+        TextRole::Hint => ui.label(egui::RichText::new(&text.words).small()
+            .color(ui.visuals().weak_text_color())),
+        TextRole::CautionHint => ui.label(egui::RichText::new(&text.words).small().color(warning_color(ui))),
     };
 }
 
@@ -78,6 +82,7 @@ pub fn details(ui: &mut egui::Ui, details: &[Detail], chosen: &mut Option<Action
         match detail {
             Detail::Text(line) => text(ui, line),
             Detail::Offers(row) => offer_row(ui, row, chosen),
+            Detail::Held { actionable, row } => { ui.add_enabled_ui(*actionable, |ui| offer_row(ui, row, chosen)); }
             Detail::Choice(choice) => setup_choice(ui, choice, chosen),
             Detail::Disclosure(inner) => disclosure(ui, inner, chosen),
             Detail::Divider => { ui.separator(); }
@@ -123,4 +128,34 @@ pub fn lead_offer(ui: &mut egui::Ui, offer: &offers::Offer, chosen: &mut Option<
         ui.small(offers::WAITING);
     }
     if let Some(consequence) = offer.consequence { ui.small(consequence); }
+}
+
+/// The main next step of a Home or Setup card: a filled button, then its
+/// refusal or why it waits, then what it changes.
+pub fn main_offer(ui: &mut egui::Ui, offer: &offers::Offer, chosen: &mut Option<Action>) {
+    if ui.add_enabled(offer.availability.enabled(), crate::presentation::primary_button(
+        egui::RichText::new(&offer.label).strong(), ui)).clicked() {
+        *chosen = Some(offer.intent.clone());
+    }
+    match &offer.availability {
+        Availability::Refused(reason) => { ui.small(reason); }
+        Availability::Waiting => { ui.small(offers::WAITING_TO_FINISH); }
+        Availability::Enabled => {}
+    }
+    if let Some(consequence) = offer.consequence { ui.small(consequence); }
+}
+
+/// One installation journey's DAW, problem and per-plug-in results.
+pub fn journey(ui: &mut egui::Ui, results: &Results) {
+    ui.small(&results.daw);
+    if let Some(empty) = results.empty { ui.label(empty); }
+    if let Some(problem) = &results.problem { ui.colored_label(warning_color(ui), problem); }
+    for plugin in &results.plugins {
+        ui.horizontal_wrapped(|ui| {
+            ui.strong(&plugin.name);
+            ui.label(plugin.status.words);
+        });
+        if let Some(problem) = &plugin.problem { ui.colored_label(warning_color(ui), problem); }
+        if let Some(hint) = plugin.hint { ui.small(hint); }
+    }
 }
