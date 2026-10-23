@@ -5254,6 +5254,8 @@ mod tests {
         assert_eq!(asked.title, "Uninstall?");
         assert!(asked.body.iter().any(|line| line.contains(&product.name) && line.contains("removed from your DAW")),
             "{:?}", asked.body);
+        assert!(asked.body.iter().any(|line| line.contains("This setup stays unavailable until the check finishes")),
+            "{:?}", asked.body);
         assert_eq!(asked.offer.as_ref().map(|offer| &offer.action), Ok(&uninstall.action));
         let sent = confirmed(uninstall.action.clone());
         assert!(matches!(sent, Action::ProductUninstall {confirmed:true,..}));
@@ -6213,12 +6215,12 @@ mod tests {
         let mut feedback=RequestFeedback::captured(Action::EnvironmentRescan {environment:"ab".repeat(16)});
         feedback.operation=Some("scan".into());
         feedback.observe(&serde_json::json!({"operation":"scan","state":"running"}));
-        assert!(feedback.text.contains("Checking the installed products"));
+        assert_eq!(feedback.text, "Checking this setup's installed plug-ins.");
         assert!(!feedback.text.contains("Downloading"));
     }
     #[test]
     fn an_uninstall_shows_its_setup_being_checked_once_the_uninstaller_closed() {
-        let progress = "Checking this setup's plug-ins (2 of 3)… The bridge is paused for all your setups until this finishes.";
+        let progress = "Checking this setup's plug-ins (2 of 3)…";
         for action in [Action::ProductUninstall {environment:"ab".repeat(16),registration:"cd".repeat(32),
             command_sha256:"ef".repeat(32),confirmed:true}, Action::InstallerCloseCheck {operation:"ab".repeat(16)}] {
             let mut feedback=RequestFeedback::captured(action);
