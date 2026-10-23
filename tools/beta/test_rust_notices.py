@@ -1,12 +1,15 @@
 """Qualification notices include exact-source vendored crates and omit dev edges."""
 import hashlib
+import copy
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
 import rust_notices
+from test_frontend_build import commit
 
 
 class FrontendNotices(unittest.TestCase):
@@ -29,6 +32,7 @@ class FrontendNotices(unittest.TestCase):
             vendor_license.write_text("Vendored exact license")
             (private / "app/resources").mkdir()
             (private / "app/resources/OFL-BodyFont.txt").write_text("Bundled font license")
+            (private / ".gitignore").write_text("NOTICE-unrecorded\napp/resources/OFL-unrecorded.txt\n")
             archive = root / "registry/cache/index/registry-fixture-1.0.crate"
             archive.parent.mkdir(parents=True)
             archive.write_bytes(b"locked archive fixture")
@@ -58,14 +62,33 @@ class FrontendNotices(unittest.TestCase):
             public_metadata = {"packages": [dict(id="public", name="public", source=None,
                 manifest_path=str(bridge / "bridge-manager/Cargo.toml"))],
                 "resolve": {"root": "public", "nodes": [dict(id="public", deps=[])]}}
-            identity = {"head": "a" * 40, "tree": "b" * 40}
-            record = {"bridge_source": identity,
+            commit(bridge)
+            commit(private)
+            identity = rust_notices.qualification.source_identity(private)
+            record = {"bridge_source": rust_notices.qualification.source_identity(bridge),
                       "frontend_source": {**identity, "manifest": "app/Cargo.toml"}}
+            original_check_output = rust_notices.subprocess.check_output
+
+            def cargo_metadata(manifest, **_):
+                materialized = Path(manifest).parent.parent
+                result = copy.deepcopy(metadata)
+                for package in result["packages"]:
+                    path = Path(package["manifest_path"])
+                    if path.is_relative_to(private):
+                        package["manifest_path"] = str(materialized / path.relative_to(private))
+                return result
+
+            def check_output(command, **kwargs):
+                if command[0] != "cargo":
+                    return original_check_output(command, **kwargs)
+                result = copy.deepcopy(public_metadata)
+                result["packages"][0]["manifest_path"] = command[command.index("--manifest-path") + 1]
+                return json.dumps(result).encode()
 
             def capture():
-                with patch.object(rust_notices.qualification, "source_identity", return_value=identity), \
-                        patch.object(rust_notices.qualification, "release_metadata", return_value=metadata), \
-                        patch.object(rust_notices.subprocess, "check_output", return_value=json.dumps(public_metadata).encode()):
+                with patch.dict(os.environ, {"CARGO_HOME": str(root / "empty-cache")}), \
+                        patch.object(rust_notices.qualification, "release_metadata", side_effect=cargo_metadata), \
+                        patch.object(rust_notices.subprocess, "check_output", side_effect=check_output):
                     return rust_notices.capture(bridge, output, frontend_source=private, frontend_build=record)
 
             inventory = capture()
@@ -77,10 +100,22 @@ class FrontendNotices(unittest.TestCase):
                          "Bundled font license"):
                 self.assertIn(text, notices)
             self.assertNotIn(str(root), (output / "Rust-Dependency-Inventory.json").read_text())
+            # Both ignored root notices and ignored bundled-font notices used
+            # to enter the inventory under this unchanged Git head/tree.
+            for text in ("unrecorded notice A", "unrecorded notice B"):
+                (private / "NOTICE-unrecorded").write_text(text)
+                (private / "app/resources/OFL-unrecorded.txt").write_text(text)
+                self.assertEqual(rust_notices.qualification.source_identity(private), identity)
+                self.assertEqual(capture(), inventory)
+                self.assertNotIn(text, (output / "Rust-Dependency-Notices.txt").read_text())
             vendor_license.unlink()
+            commit(private)
+            record["frontend_source"].update(rust_notices.qualification.source_identity(private))
             with self.assertRaisesRegex(ValueError, "Missing exact-source license"):
                 capture()
             vendor_license.write_text("Vendored exact license")
+            commit(private)
+            record["frontend_source"].update(rust_notices.qualification.source_identity(private))
             archive.write_bytes(b"changed archive")
             with self.assertRaisesRegex(ValueError, "Registry archive differs"):
                 capture()

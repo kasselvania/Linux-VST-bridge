@@ -5,6 +5,7 @@ Only public source identities, relative manifest names and hashes enter the
 record. The private checkout and Cargo cache stay on the build machine.
 """
 import argparse
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -12,6 +13,8 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import tempfile
+import tomllib
 import urllib.parse
 
 TARGET = "x86_64-unknown-linux-gnu"
@@ -34,15 +37,87 @@ def source_identity(root):
         raise ValueError("source must be a checkout root")
     if git(root, "status", "--porcelain", "--untracked-files=all"):
         raise ValueError("commit exact frontend build sources first")
+    return git_identity(root)
+
+
+def git_identity(root):
     return {"head": git(root, "rev-parse", "HEAD"),
             "tree": git(root, "rev-parse", "HEAD^{tree}")}
 
 
-def release_metadata(manifest):
+def tracked_files(root):
+    """The recorded tree, not ignored files that happen to be beside it."""
+    return {Path(name) for name in subprocess.check_output([
+        "git", "-C", str(root), "ls-tree", "-rz", "--name-only", "HEAD"
+    ]).decode().split("\0") if name}
+
+
+def tracked_blob(root, relative):
+    relative = Path(relative)
+    entry = subprocess.check_output([
+        "git", "-C", str(root), "ls-tree", "HEAD", "--", relative.as_posix()
+    ]).decode().split()
+    if len(entry) < 3 or entry[0] not in ("100644", "100755") or entry[1] != "blob":
+        raise ValueError("source input is not a tracked regular file")
+    return subprocess.check_output(["git", "-C", str(root), "cat-file", "blob", entry[2]])
+
+
+@contextmanager
+def recorded_sources(bridge, frontend):
+    """Materialize commits and let Cargo extract dependencies into a fresh area.
+
+    Existing worktrees and Cargo Git checkouts may contain ignored source files.
+    Only registry archives matching a recorded lockfile are copied as cache
+    inputs. No existing dependency source directory is reused.
+    """
+    identities = [source_identity(root) for root in (bridge, frontend)]
+    with tempfile.TemporaryDirectory(prefix="lvb-frontend-") as temporary:
+        temporary = Path(temporary)
+        roots = []
+        for name, original, identity in zip(("bridge", "frontend"), (bridge, frontend), identities):
+            root = temporary / name
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            subprocess.run(["git", "-C", str(root), "fetch", "-q", "--depth=1", "--no-tags",
+                            str(Path(original).resolve()), identity["head"]], check=True)
+            subprocess.run(["git", "-C", str(root), "checkout", "-q", "--detach", identity["head"]], check=True)
+            if source_identity(root) != identity:
+                raise ValueError("materialized source identity differs")
+            roots.append(root)
+        cargo = temporary / "cargo"
+        registry = cargo / "registry"
+        registry.mkdir(parents=True)
+        existing_cache = Path(os.environ.get("CARGO_HOME", Path.home() / ".cargo")) / "registry/cache"
+        if existing_cache.is_dir():
+            locked = {}
+            for root in roots:
+                for name in tracked_files(root):
+                    if name.name != "Cargo.lock":
+                        continue
+                    try:
+                        lock = tomllib.loads(tracked_blob(root, name).decode())
+                    except tomllib.TOMLDecodeError:
+                        continue  # A test fixture is not a dependency lockfile.
+                    for package in lock.get("package", []):
+                        if package.get("source", "").startswith("registry+"):
+                            archive_name = f"{package['name']}-{package['version']}.crate"
+                            locked.setdefault(archive_name, set()).add(package.get("checksum"))
+            for archive in existing_cache.glob("*/*.crate"):
+                checksums = locked.get(archive.name, set())
+                if len(checksums) != 1:
+                    continue
+                target = registry / "cache" / archive.relative_to(existing_cache)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(archive, target)
+                if sha(target) not in checksums:
+                    target.unlink()  # Fetch a verified archive, never use changed cache bytes.
+        yield roots[0], roots[1], {**os.environ, "CARGO_HOME": str(cargo)}
+
+
+def release_metadata(manifest, env=None):
     return json.loads(subprocess.check_output([
         "cargo", "metadata", "--locked", "--format-version", "1",
         "--filter-platform", TARGET, "--no-default-features", "--features", "live",
-        "--manifest-path", str(manifest)]))
+        "--manifest-path", str(manifest)], cwd=Path(manifest).parent, env=env))
 
 
 def release_packages(metadata):
@@ -69,6 +144,11 @@ def bridge_dependency(source, head):
 
 
 def describe(bridge, frontend, manifest_name, public_key, key_class):
+    with recorded_sources(bridge, frontend) as (public, private, env):
+        return describe_sources(public, private, manifest_name, public_key, key_class, env)
+
+
+def describe_sources(bridge, frontend, manifest_name, public_key, key_class, env=None):
     bridge, frontend = Path(bridge).resolve(), Path(frontend).resolve()
     public, private = source_identity(bridge), source_identity(frontend)
     relative = Path(manifest_name)
@@ -77,9 +157,11 @@ def describe(bridge, frontend, manifest_name, public_key, key_class):
     manifest = frontend / relative
     if manifest.resolve() != manifest or not manifest.is_file():
         raise ValueError("frontend manifest custody")
+    tracked_blob(frontend, relative)
+    tracked_blob(frontend, relative.with_name("Cargo.lock"))
     if not re.fullmatch(r"[0-9a-f]{64}", public_key) or key_class != "internal_test":
         raise ValueError("qualification frontend requires an internal public trust root")
-    metadata = release_metadata(manifest)
+    metadata = release_metadata(manifest, env=env)
     if Path(metadata["workspace_root"]).resolve() != manifest.parent:
         raise ValueError("qualification frontend requires its own locked workspace")
     nodes = {node["id"]: node for node in metadata["resolve"]["nodes"]}
@@ -98,13 +180,20 @@ def describe(bridge, frontend, manifest_name, public_key, key_class):
                 raise ValueError("frontend dependency is not the exact public Bridge revision")
             checkout = Path(git(package_root, "rev-parse", "--show-toplevel")).resolve()
             if checkout not in checked:
-                if source_identity(checkout) != public:
+                if env is not None and not checkout.is_relative_to(Path(env["CARGO_HOME"]).resolve() / "git/checkouts"):
+                    raise ValueError("resolved Bridge source escapes fresh Cargo checkouts")
+                # Cargo writes its own untracked sentinel in a new checkout.
+                # Its sources came from the commit in our fresh Cargo area;
+                # tracked edits still refuse, without an ignored-file allowlist.
+                if git_identity(checkout) != public or git(checkout, "diff", "HEAD", "--name-only"):
                     raise ValueError("resolved Bridge source tree differs from package source")
                 checked.add(checkout)
             if package["name"] in BRIDGE_CRATES:
                 found.add(package["name"])
         elif not package_root.is_relative_to(frontend):
             raise ValueError("frontend path dependency escapes exact private source")
+        else:
+            tracked_blob(frontend, (package_root / "Cargo.toml").relative_to(frontend))
         if package["name"] == "lvb-view-model" and "samples" in nodes[package["id"]]["features"]:
             raise ValueError("sample fixtures cannot enter the qualification frontend")
     if found != BRIDGE_CRATES:
@@ -133,18 +222,25 @@ def verify_record(record, bridge, frontend, binary):
 
 
 def build(bridge, frontend, manifest, output, target_dir, public_key, key_class):
-    output = Path(output)
+    output, target_dir = Path(output).resolve(), Path(target_dir).resolve()
     if output.exists():
         raise ValueError("frontend build output already exists")
-    metadata = describe(bridge, frontend, manifest, public_key, key_class)
-    env = {**os.environ, "CARGO_BUILD_JOBS": "2", "CARGO_TARGET_DIR": str(Path(target_dir).resolve()),
+    if any(path.is_relative_to(Path(root).resolve())
+           for path in (output, target_dir) for root in (bridge, frontend)):
+        raise ValueError("frontend outputs must be outside source checkouts")
+    with recorded_sources(bridge, frontend) as (public, private, cargo_env):
+        metadata = describe_sources(public, private, manifest, public_key, key_class, cargo_env)
+        env = {**cargo_env, "CARGO_BUILD_JOBS": "2", "CARGO_TARGET_DIR": str(target_dir),
            "LVB_PORTABLE_ED25519_PUBLIC_KEY": public_key, "LVB_PORTABLE_KEY_CLASS": key_class,
            "MAKEPAD_PACKAGE_DIR": ".",
            "LVB_FRONTEND_PACKAGE_INFO": json.dumps(metadata, sort_keys=True, separators=(",", ":"))}
-    subprocess.run(["cargo", "build", "--release", "--locked", "--target", TARGET,
+        subprocess.run(["cargo", "build", "--release", "--locked", "--target", TARGET,
                     "--no-default-features", "--features", "live", "--bin", BINARY,
-                    "--manifest-path", str(Path(frontend).resolve() / manifest)], env=env, check=True)
-    binary = Path(target_dir).resolve() / TARGET / "release" / BINARY
+                    "--manifest-path", str(private / manifest)], cwd=private, env=env, check=True)
+        if (source_identity(public) != metadata["bridge_source"]
+                or source_identity(private) != {k: metadata["frontend_source"][k] for k in ("head", "tree")}):
+            raise ValueError("frontend build changed recorded sources")
+    binary = target_dir / TARGET / "release" / BINARY
     data = binary.read_bytes()
     if not data.startswith(b"\x7fELF") or public_key.encode() not in data:
         raise ValueError("frontend ELF or compiled public trust root absent")

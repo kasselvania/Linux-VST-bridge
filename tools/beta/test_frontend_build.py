@@ -1,6 +1,8 @@
 """Exact source and live-only qualification frontend build boundaries."""
 import copy
+import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -51,7 +53,7 @@ class FrontendBuild(unittest.TestCase):
 
     def describe(self, metadata=None):
         with patch.object(frontend, "release_metadata", return_value=metadata or self.metadata):
-            return frontend.describe(self.bridge, self.ui, "app/Cargo.toml", "a" * 64, "internal_test")
+            return frontend.describe_sources(self.bridge, self.ui, "app/Cargo.toml", "a" * 64, "internal_test")
 
     def test_two_distinct_source_identities_and_exact_lock_are_retained(self):
         record = self.describe()
@@ -66,7 +68,7 @@ class FrontendBuild(unittest.TestCase):
         metadata["packages"][0]["source"] = metadata["packages"][0]["source"].split("#")[0] + "#" + "b" * 40
         with self.assertRaisesRegex(ValueError, "exact public Bridge revision"):
             self.describe(metadata)
-        original = frontend.source_identity
+        original = frontend.git_identity
         calls = 0
 
         def changed_tree(root):
@@ -75,7 +77,7 @@ class FrontendBuild(unittest.TestCase):
             result = original(root)
             return {**result, "tree": "f" * 40} if calls > 2 else result
 
-        with patch.object(frontend, "source_identity", side_effect=changed_tree):
+        with patch.object(frontend, "git_identity", side_effect=changed_tree):
             with self.assertRaisesRegex(ValueError, "resolved Bridge source tree differs"):
                 self.describe()
 
@@ -114,6 +116,76 @@ class FrontendBuild(unittest.TestCase):
             binary.write_bytes(b"\x7fELFchanged")
             with self.assertRaisesRegex(ValueError, "sources or artifact changed"):
                 frontend.verify_record(record, self.bridge, self.ui, binary)
+
+    def test_ignored_path_dependency_cannot_share_a_recorded_tree_identity(self):
+        (self.ui / ".gitignore").write_text("ignored/\n")
+        commit(self.ui)
+        dependency = self.ui / "ignored/Cargo.toml"
+        dependency.parent.mkdir()
+        metadata = copy.deepcopy(self.metadata)
+        metadata["packages"].append(dict(id="ignored", name="ignored", source=None,
+                                         manifest_path=str(dependency)))
+        metadata["resolve"]["nodes"].append(dict(id="ignored", features=[], deps=[]))
+        metadata["resolve"]["nodes"][-2]["deps"].append(
+            {"pkg": "ignored", "dep_kinds": [{"kind": None}]})
+        identity = frontend.source_identity(self.ui)
+        for contents in ("first unrecorded dependency", "different unrecorded dependency"):
+            dependency.write_text(contents)
+            self.assertEqual(frontend.source_identity(self.ui), identity)
+            with self.assertRaisesRegex(ValueError, "not a tracked regular file"):
+                self.describe(metadata)
+
+    def test_fresh_materializations_exclude_ignored_sources_and_cargo_sentinels(self):
+        (self.ui / ".gitignore").write_text("app/ignored.rs\n")
+        commit(self.ui)
+        (self.ui / "app/ignored.rs").write_text("unrecorded source")
+        (self.bridge / ".git/info/exclude").write_text(".cargo-ok\n")
+        (self.bridge / ".cargo-ok").write_text("Cargo sentinel")
+        with patch.dict(os.environ, {"CARGO_HOME": str(self.root / "empty-cache")}):
+            with frontend.recorded_sources(self.bridge, self.ui) as (public, private, env):
+                self.assertNotEqual(private, self.ui)
+                self.assertFalse((private / "app/ignored.rs").exists())
+                self.assertFalse((public / ".cargo-ok").exists())
+                self.assertEqual(frontend.source_identity(private), frontend.source_identity(self.ui))
+                self.assertEqual(frontend.source_identity(public), frontend.source_identity(self.bridge))
+                self.assertFalse((Path(env["CARGO_HOME"]) / "git/checkouts").exists())
+                self.assertFalse((Path(env["CARGO_HOME"]) / "registry/src").exists())
+            self.assertFalse(private.exists())
+
+    def test_cargo_sentinel_does_not_relax_tracked_source_identity(self):
+        checkout = self.root / "cargo/git/checkouts/bridge/pinned"
+        subprocess.run(["git", "clone", "-q", str(self.bridge), str(checkout)], check=True)
+        (checkout / ".cargo-ok").write_text("Cargo extraction complete")
+        metadata = copy.deepcopy(self.metadata)
+        for package in metadata["packages"][:-1]:
+            package["manifest_path"] = str(checkout / package["name"] / "Cargo.toml")
+        with patch.object(frontend, "release_metadata", return_value=metadata):
+            args = (self.bridge, self.ui, "app/Cargo.toml", "a" * 64, "internal_test")
+            env = {"CARGO_HOME": str(self.root / "cargo")}
+            frontend.describe_sources(*args, env)
+            (checkout / "lvb-client/Cargo.toml").write_text("unrecorded tracked edit")
+            with self.assertRaisesRegex(ValueError, "resolved Bridge source tree differs"):
+                frontend.describe_sources(*args, env)
+
+    def test_only_locked_registry_archive_bytes_enter_the_fresh_cache(self):
+        cache = self.root / "cache"
+        archive = cache / "registry/cache/index/fixture-1.0.crate"
+        archive.parent.mkdir(parents=True)
+        data = b"exact locked archive"
+        archive.write_bytes(data)
+        self.manifest.with_name("Cargo.lock").write_text(
+            '[[package]]\nname="fixture"\nversion="1.0"\nsource="registry+https://example.invalid"\n'
+            f'checksum="{hashlib.sha256(data).hexdigest()}"\n')
+        commit(self.ui)
+        with patch.dict(os.environ, {"CARGO_HOME": str(cache)}):
+            with frontend.recorded_sources(self.bridge, self.ui) as (_, _, env):
+                copied = Path(env["CARGO_HOME"]) / archive.relative_to(cache)
+                self.assertEqual(copied.read_bytes(), data)
+                self.assertFalse(copied.is_symlink())
+            archive.write_bytes(b"changed cached archive")
+            with frontend.recorded_sources(self.bridge, self.ui) as (_, _, env):
+                self.assertFalse((Path(env["CARGO_HOME"]) / archive.relative_to(cache)).exists())
+            self.assertEqual(archive.read_bytes(), b"changed cached archive")
 
 
 if __name__ == "__main__":

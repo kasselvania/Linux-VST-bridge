@@ -13,6 +13,11 @@ workspace/lockfile and use Git dependencies pinned to that public revision for
 `lvb-model`, `lvb-view-model` and `lvb-client`. It must declare a `live` feature;
 the build disables defaults and refuses compiled sample fixtures. All other
 non-registry dependencies must live in the exact private source tree.
+Metadata and compilation run from disposable checkouts of the recorded commits,
+with fresh Cargo dependency sources and outputs outside the source trees.
+Ignored path dependencies cannot contribute to a build. Existing registry
+archives may be copied only when their bytes match recorded lockfile checksums.
+Private notices are read from tracked Git blobs, never ignored files.
 
 On the bounded Linux build machine, with the existing public signing identity:
 
