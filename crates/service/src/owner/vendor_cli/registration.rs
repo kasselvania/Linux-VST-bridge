@@ -239,15 +239,18 @@ mod tests {
         let prepared = PreparedRegistration::new(&f.m, &app).unwrap();
         let operation = "ab".repeat(16);
         let legacy = renderer_session::operation_dir(&f.m, &operation).unwrap();
-        private_dir(&legacy).unwrap();
         // Only the owned setup and operation are consumed by the retirement
         // reader; this synthetic record cannot authorize a legacy executable.
         let old = renderer_application::Application {schema: 1, id: renderer_application::ID.into(),
             environment: app.environment.clone(), files: Default::default(),
             installation: app.installer_result.clone().unwrap(), observation_sha256: "00".repeat(32),
             source_seal_sha256: "00".repeat(32)};
-        atomic_json(&renderer_session::directory(&f.m).join("current.json"), &json!({"operation":operation})).unwrap();
-        atomic_json(&legacy.join("spec.json"), &json!({"operation":operation,"application":old})).unwrap();
+        // Use the real reservation path: retirement observers must share an
+        // existing writer gate, never create the missing owner's custody.
+        renderer_session::submit_with(&f.m, &json!({"operation":operation,"application":old,
+            "application_identity":"00".repeat(32),"renderer_policy":"inherited",
+            "report":legacy.join("result.json")}), |_|Ok(true),
+            ||panic!("acknowledged reservation needs no unit probe")).unwrap();
         for state in ["running", "submission_uncertain"] {
             atomic_json(&legacy.join("result.json"), &json!({"schema":1,"operation":operation,
                 "state":state,"cleanup_confirmed":false,"owned_live":null})).unwrap();
@@ -256,10 +259,8 @@ mod tests {
                 ||panic!("unretired custody cannot publish registration")).unwrap_err().to_string(),
                 "setup_legacy_cleanup_unconfirmed");
             assert!(!directory(&f.m, &app.selector().unwrap()).unwrap().join("application.json").exists());
-            // The shared read gate may be created, but custody and user bytes stay exact.
-            for name in ["spec.json", "result.json"] {
-                assert_eq!(fs::read(legacy.join(name)).unwrap(), before[&legacy.join(name)]);
-            }
+            assert_eq!(test_fixture::snapshot(&f.m.root), before,
+                "registration refusal must preserve all retained custody and user bytes");
         }
     }
     #[test]
