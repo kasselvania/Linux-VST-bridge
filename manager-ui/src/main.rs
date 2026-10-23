@@ -10,6 +10,8 @@ mod presentation;
 #[cfg(test)]
 #[allow(dead_code)]
 mod preview_states;
+#[cfg(test)]
+mod render_digests;
 mod screen_model;
 mod updates;
 mod widgets;

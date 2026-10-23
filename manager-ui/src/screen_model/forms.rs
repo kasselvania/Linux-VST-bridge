@@ -1,0 +1,362 @@
+//! The Setup forms: the DAW choice, starting an installation, naming an
+//! installer, and confirming a removal or deletion. Each form checks its
+//! exact current offer again before it can be submitted; that lookup, and the
+//! shared-resource refusal it applies, duplicate the manager's own admission
+//! and go when the service supplies a refusal on each offer (#489).
+use super::product::daw_name;
+use crate::model::{Action, AvailableAction, DawChoice, Snapshot};
+
+/// The musician's DAW, chosen before an installation starts. A local draft.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DawPicker {
+    pub placeholder: &'static str,
+    pub choices: [(DawChoice, &'static str); 3],
+}
+
+pub fn daw_picker() -> DawPicker {
+    DawPicker { placeholder: "Choose your DAW",
+        choices: [DawChoice::Bitwig, DawChoice::Reaper, DawChoice::Other].map(|choice| (choice, daw_name(choice))) }
+}
+
+impl DawPicker {
+    pub fn shown(&self, daw: Option<DawChoice>) -> &'static str {
+        daw.map(daw_name).unwrap_or(self.placeholder)
+    }
+}
+
+/// Starting an installation, or finding and connecting a setup's plug-ins.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InstallForm {
+    pub title: &'static str,
+    pub question: &'static str,
+    pub daw: DawPicker,
+    pub explanation: &'static str,
+    pub note: &'static str,
+    pub submit: &'static str,
+    /// Why it cannot start now: the current offer's refusal, or that it changed.
+    pub refusal: Option<String>,
+    pub cancel: &'static str,
+}
+
+impl InstallForm {
+    pub fn build(snapshot: Option<&Snapshot>, form: &Action) -> Self {
+        let refresh = matches!(form, Action::EnvironmentRefresh { .. });
+        Self {
+            title: if refresh { "Find and connect" } else { "Install and connect" },
+            question: "Which Linux DAW do you use?",
+            daw: daw_picker(),
+            explanation: if refresh {"The manager finds installed instruments and effects and connects missing plug-ins automatically. Your working plug-ins keep their current setup."}
+                else {"Complete requests in the vendor's window. The manager then finds and connects all newly installed VST3 plug-ins automatically."},
+            note: "Native VST3 plug-ins may also appear in other compatible Linux DAWs.",
+            submit: if refresh { "Find and connect" } else { "Start installation" },
+            refusal: match installation_form_offer(snapshot, form) {
+                Ok(reason) => reason,
+                Err(reason) => Some(reason.into()),
+            },
+            cancel: "Cancel",
+        }
+    }
+}
+
+pub fn software_install_offer(snapshot: Option<&Snapshot>, installer: &str, policy: Option<crate::model::Powershell>)
+    -> Result<Option<String>, &'static str> {
+    let snapshot = snapshot.ok_or("Current manager status is unavailable. Refresh before installing.")?;
+    snapshot.installer_setups.iter().flat_map(|setup|
+        setup.primary.iter().chain(setup.secondary.iter()))
+        .find(|offer| offer.action.software_install().is_some_and(|(offered,_,choice)|
+            offered==installer && choice==policy))
+        .map(|offer| offer.disabled_reason.clone().or_else(||
+            offer.action.requires_global_inactive().then(||snapshot.system.inactive_reason())
+                .flatten().map(str::to_owned)))
+        .ok_or("This installation offer changed. Refresh Setup before continuing.")
+}
+
+pub fn installation_with_daw(action: &Action, daw: DawChoice) -> Option<Action> {
+    if let Some(action)=action.software_install_with_daw(daw) {return Some(action);}
+    match action {
+        Action::VendorSoftwareInstall { application, .. } =>
+            Some(Action::VendorSoftwareInstall { application: application.clone(), daw }),
+        Action::EnvironmentRefresh {environment,..}=>
+            Some(Action::EnvironmentRefresh {environment:environment.clone(),daw}),
+        Action::RendererSoftwareInstall {application,policy,..}=>
+            Some(Action::RendererSoftwareInstall {application:application.clone(),policy:*policy,daw}),
+        _ => None,
+    }
+}
+
+pub fn installation_form_offer(snapshot: Option<&Snapshot>, action: &Action)
+    -> Result<Option<String>, &'static str> {
+    if let Some((installer,_,policy))=action.software_install() {
+        return software_install_offer(snapshot,installer,policy);
+    }
+    match action {
+        Action::RendererSoftwareInstall {application,policy,..}=> {
+            let snapshot=snapshot.ok_or("Current manager status is unavailable. Refresh before continuing.")?;
+            snapshot.vendor_applications.iter().flat_map(|app|&app.actions).find(|offer|
+                matches!(&offer.action,Action::RendererSoftwareInstall {application:offered,policy:offered_policy,..}
+                    if offered==application && offered_policy==policy))
+                .map(|offer|offer.disabled_reason.clone().or_else(||snapshot.system.inactive_reason().map(str::to_owned)))
+                .ok_or("This app's offered rendering choice changed. Refresh Setup before continuing.")
+        },
+        Action::EnvironmentRefresh {environment,..}=> {
+            let snapshot=snapshot.ok_or("Current manager status is unavailable. Refresh before continuing.")?;
+            snapshot.installer_setups.iter().flat_map(|setup|setup.primary.iter().chain(setup.secondary.iter()))
+                .find(|offer|matches!(&offer.action,Action::EnvironmentRefresh {environment:offered,..} if offered==environment))
+                .map(|offer|offer.disabled_reason.clone().or_else(||snapshot.system.inactive_reason().map(str::to_owned)))
+                .ok_or("This setup refresh offer changed. Refresh Setup before continuing.")
+        },
+        Action::VendorSoftwareInstall { application, .. } => {
+            let snapshot = snapshot.ok_or("Current manager status is unavailable. Refresh before installing.")?;
+            snapshot.vendor_applications.iter().flat_map(|app| &app.actions)
+                .find(|offer| matches!(&offer.action,
+                    Action::VendorSoftwareInstall { application: offered, .. } if offered == application))
+                .map(|offer| offer.disabled_reason.clone().or_else(||
+                    offer.action.requires_global_inactive().then(||snapshot.system.inactive_reason())
+                        .flatten().map(str::to_owned)))
+                .ok_or("This vendor installation offer changed. Refresh Setup before continuing.")
+        }
+        _ => Err("This installation offer changed. Refresh Setup before continuing."),
+    }
+}
+
+/// Where a pressed offer goes before anything is sent: to the manager as it
+/// is, or first to the form that completes or confirms it. Every frontend
+/// routes through this, so no confirmation or DAW choice can be skipped.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Route {
+    Send(Action),
+    /// Choose the DAW, then send the installation with it.
+    ChooseDaw(Action),
+    /// Record what was observed: a test result, or the maintainer's
+    /// observation or review.
+    Record(Action),
+    /// Enter the exact release to select (Workspaces).
+    ChooseRelease(Action),
+    /// Name the installer.
+    Rename(Action),
+    /// Confirm what the removal or deletion changes.
+    Confirm(Action),
+}
+
+/// `daw`: the musician's DAW choice for installations, when made.
+pub fn route(action: Action, daw: Option<DawChoice>) -> Route {
+    if let Some(installation) = installation_with_daw(&action, daw.unwrap_or(DawChoice::Other)) {
+        return if daw.is_some() { Route::Send(installation) } else { Route::ChooseDaw(installation) };
+    }
+    match action {
+        Action::CandidateObserve { .. } | Action::CandidateReview { .. } | Action::CompatibilityResult { .. } =>
+            Route::Record(action),
+        Action::WorkspaceSelectInstaller { .. } | Action::WorkspaceSelectProductInstaller { .. } =>
+            Route::ChooseRelease(action),
+        Action::InstallerRename { .. } => Route::Rename(action),
+        _ if needs_confirmation(&action) => Route::Confirm(action),
+        _ => Route::Send(action),
+    }
+}
+
+/// Removing from the DAW or deleting a setup always asks first.
+pub fn needs_confirmation(action: &Action) -> bool {
+    matches!(action, Action::PluginRemoveFromDaw { .. } | Action::SetupRemoveFromDaw { .. }
+        | Action::SetupDelete { .. } | Action::ProductUninstall { .. })
+}
+/// Setup-level removal offers live in their own section of the setup card.
+pub fn removal_offer(action: &Action) -> bool {
+    matches!(action, Action::SetupRemoveFromDaw { .. } | Action::SetupDelete { .. })
+}
+/// The musician's answer to the confirmation. Delete and Uninstall carry it.
+pub fn confirmed(action: Action) -> Action {
+    match action {
+        Action::SetupDelete { installer, environment, forget_installer, .. } =>
+            Action::SetupDelete { installer, environment, confirmed: true, forget_installer },
+        Action::ProductUninstall { environment, registration, command_sha256, .. } =>
+            Action::ProductUninstall { environment, registration, command_sha256, confirmed: true },
+        other => other,
+    }
+}
+/// The offer a confirmed request answers: without the musician's own choices.
+pub fn offer_identity(action: &Action) -> Action {
+    match action.clone() {
+        Action::SetupDelete { installer, environment, .. } =>
+            Action::SetupDelete { installer, environment, confirmed: false, forget_installer: false },
+        Action::ProductUninstall { environment, registration, command_sha256, .. } =>
+            Action::ProductUninstall { environment, registration, command_sha256, confirmed: false },
+        other => other,
+    }
+}
+/// What a removal or deletion changes, asked before it is sent.
+#[derive(Clone, Debug)]
+pub struct Confirmation {
+    pub title: &'static str,
+    pub body: Vec<String>,
+    pub confirm: &'static str,
+    pub cancel: &'static str,
+    /// The exact current offer, or why it can't be confirmed now.
+    pub offer: Result<AvailableAction, String>,
+    /// The musician's optional choice to also forget the installer file, off
+    /// by default, with what it means. Offered when deleting, not when
+    /// finishing an earlier deletion.
+    pub forget: Option<(&'static str, &'static str)>,
+}
+pub fn removal_confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirmation {
+    let finishing = matches!(action, Action::SetupDelete { environment, .. } if snapshot.is_some_and(|s|
+        s.deleted_setups.iter().any(|d| &d.environment == environment)));
+    Confirmation {
+        forget: (matches!(action, Action::SetupDelete { .. }) && !finishing).then_some((
+            "Also forget the installer file", "You would need to add the installer again to set this up later.")),
+        ..confirmation(snapshot, action)
+    }
+}
+fn confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirmation {
+    const CHANGED: &str = "This choice is no longer offered. Close this and check the current status.";
+    // The musician's own answers are not part of the offer.
+    let offered = offer_identity(action);
+    let current = |offers: Vec<&AvailableAction>| -> Result<AvailableAction, String> {
+        let offer = offers.into_iter().find(|offer| offer.action == offered).cloned().ok_or(CHANGED)?;
+        match &offer.disabled_reason { Some(reason) => Err(reason.clone()), None => Ok(offer) }
+    };
+    let Some(snapshot) = snapshot else {
+        return Confirmation { title: "Check current status", body: vec![], confirm: "Continue",
+            cancel: "Close", offer: Err("Current manager status is unavailable. Refresh before continuing.".into()),
+            forget: None };
+    };
+    match action {
+        Action::PluginRemoveFromDaw { class_id, .. } => {
+            let product = snapshot.products.iter().find(|p| p.class_id.eq_ignore_ascii_case(class_id)
+                && p.actions.iter().any(|offer| offer.action == *action));
+            let name = product.map_or("This plug-in", |p| p.name.as_str());
+            Confirmation { title: "Remove from your DAW?",
+                body: vec![format!("{name} will no longer appear in your DAW's plug-in list."),
+                    "Projects that use it will open with it missing until you add it back.".into(),
+                    "Its Windows installation and settings stay in its setup, so you can add it back later, unless you delete that setup.".into()],
+                confirm: "Remove from my DAW", cancel: "Keep it",
+                offer: current(product.into_iter().flat_map(|p| p.actions.iter()).collect()), forget: None }
+        }
+        Action::SetupRemoveFromDaw { environment } => {
+            let names: Vec<_> = snapshot.products.iter().filter(|p| p.environment == *environment
+                && p.availability.as_ref().is_some_and(|a| a.available)).map(|p| p.name.as_str()).collect();
+            let names = if names.is_empty() { "This setup's plug-ins".into() } else { names.join(", ") };
+            Confirmation { title: "Remove from your DAW?",
+                body: vec![format!("{names} will no longer appear in your DAW's plug-in list."),
+                    "Projects that use them will open with them missing until you add them back.".into(),
+                    "Their Windows installation stays in this setup. If you delete this setup afterwards, they can't be added back; you would set it up again.".into()],
+                confirm: "Remove from my DAW", cancel: "Keep them",
+                offer: current(snapshot.installer_setups.iter().flat_map(|s| s.secondary.iter()).collect()), forget: None }
+        }
+        Action::SetupDelete { installer, environment, .. } => {
+            if let Some(deleted) = snapshot.deleted_setups.iter().find(|d| d.environment == *environment) {
+                return Confirmation { title: "Finish deleting this setup?",
+                    body: vec![format!("Deleting the Windows setup for {} didn't finish. This removes the rest of its files.", deleted.name),
+                        "Your projects are not changed.".into()],
+                    confirm: "Finish deleting", cancel: "Not now",
+                    offer: current(deleted.actions.iter().collect()), forget: None };
+            }
+            let setup = snapshot.installer_setups.iter().find(|s| s.installer == *installer);
+            let name = setup.map_or_else(|| "this setup".into(), |s| super::setup::display_name(s, snapshot));
+            // Every attempt of the setup, not only the current one.
+            let attempts: std::collections::BTreeSet<&str> = std::iter::once(environment.as_str())
+                .chain(setup.into_iter().flat_map(|s| s.history.iter().filter_map(|h| h.environment.as_deref())))
+                .collect();
+            let names: Vec<_> = snapshot.products.iter().filter(|p| attempts.contains(p.environment.as_str()))
+                .map(|p| p.name.as_str()).collect();
+            let (plugins, them) = match names.len() {
+                0 => ("its plug-ins".into(), "them"),
+                1 => (names[0].to_owned(), "it"),
+                _ => (names.join(", "), "them"),
+            };
+            Confirmation { title: "Delete this setup?",
+                body: vec![format!("This deletes the Windows setup for {name}: everything installed in it, and any licences or sign-ins stored there."),
+                    "Files you saved from inside its plug-ins or apps and kept in this setup, such as presets or downloaded content, are deleted too.".into(),
+                    "If the vendor limits how many computers can be activated, deactivate the licence in the vendor's app first. Deleting the files doesn't give the activation back.".into(),
+                    format!("Projects that use {plugins} will open with {them} missing until you set this setup up again. Add back won't be possible."),
+                    "The installer you added stays in the manager, so you can set it up again later, unless you choose to forget it below. A record of this setup is kept in its history. Your project files are not changed.".into()],
+                confirm: "Delete setup", cancel: "Cancel",
+                offer: current(setup.into_iter().flat_map(|s| s.secondary.iter()).collect()), forget: None }
+        }
+        Action::ProductUninstall { .. } => {
+            let uninstaller = snapshot.uninstallers.iter().find(|u| u.action.action == offered);
+            let name = uninstaller.map_or("this software", |u| u.name.as_str());
+            let mut body = vec![format!("This runs {name}'s own uninstaller in its setup. Follow its window to finish.")];
+            if uninstaller.is_some_and(|u| u.coverage != "installed_with_this") {
+                body.push("The manager can't tell exactly what this removes: it was installed together with other software, or what it installed wasn't fully recorded. It might be a shared part, such as a runtime or a licence manager, that other software in this setup needs. Uninstall it only if you're sure.".into());
+            }
+            if let Some(u) = uninstaller.filter(|u| !u.affected.is_empty()) {
+                let one = u.affected.len() == 1;
+                body.push(format!("First, {} will be removed from your DAW. Projects that use {} will open with {} missing.",
+                    u.affected.join(", "), if one { "it" } else { "them" }, if one { "it" } else { "them" }));
+            }
+            body.push("Afterwards, this setup's plug-ins are checked again one at a time, and any it didn't remove go back into your DAW. The bridge is paused for all your setups until that finishes, which can take a few minutes for a large setup.".into());
+            body.push("The uninstaller may also remove licences or settings it stored there. Your projects are not changed.".into());
+            Confirmation { title: "Uninstall?", body, confirm: "Uninstall", cancel: "Cancel",
+                offer: current(uninstaller.map(|u| &u.action).into_iter().collect()), forget: None }
+        }
+        _ => Confirmation { title: "Check current status", body: vec![], confirm: "Continue", cancel: "Close",
+            offer: Err(CHANGED.into()), forget: None },
+    }
+}
+
+/// Naming an installer for display.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RenameForm {
+    pub title: &'static str,
+    pub explanation: &'static str,
+    pub identity: String,
+    pub save: &'static str,
+    pub cancel: &'static str,
+}
+
+impl RenameForm {
+    /// The name can be saved once `plausible_installer_label` accepts it.
+    pub fn build(installer: &str) -> Self {
+        Self {
+            title: "Name installer",
+            explanation: "This name is for display only. It cannot change the installer, environment or plug-ins.",
+            identity: format!("Exact installer ID: {}…{}", &installer[..8], &installer[60..]),
+            save: "Save name",
+            cancel: "Cancel",
+        }
+    }
+}
+
+/// The same bound the manager applies to an installer label: a duplicate of
+/// its validation, kept so the form can refuse before sending. Retire it when
+/// the service supplies the refusal (#489).
+pub fn plausible_installer_label(label: &str) -> bool {
+    !label.trim().is_empty()
+        && label.trim() == label
+        && label.len() <= 96
+        && !matches!(label, "." | "..")
+        && !label.chars().any(|c| c.is_control() || matches!(c, '/' | '\\' | ':')
+            || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}'))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::PublicationIdentity;
+
+    #[test]
+    fn every_removal_asks_first_and_an_installation_asks_for_the_daw_until_chosen() {
+        let identity = PublicationIdentity { id: "ab".repeat(16), sha256: "cd".repeat(32) };
+        for action in [
+            Action::PluginRemoveFromDaw { class_id: "exact".into(), expected_current: identity.clone() },
+            Action::SetupRemoveFromDaw { environment: "exact".into() },
+            Action::SetupDelete { installer: "ab".repeat(32), environment: "exact".into(), confirmed: false,
+                forget_installer: false },
+            Action::ProductUninstall { environment: "exact".into(), registration: "exact".into(),
+                command_sha256: "ef".repeat(32), confirmed: false },
+        ] {
+            assert_eq!(route(action.clone(), Some(DawChoice::Reaper)), Route::Confirm(action));
+        }
+        let install = Action::SoftwareInstall { installer: "ab".repeat(32), daw: DawChoice::Other };
+        assert_eq!(route(install.clone(), None), Route::ChooseDaw(install));
+        assert_eq!(route(Action::SoftwareInstall { installer: "ab".repeat(32), daw: DawChoice::Other }, Some(DawChoice::Bitwig)),
+            Route::Send(Action::SoftwareInstall { installer: "ab".repeat(32), daw: DawChoice::Bitwig }));
+        let rename = Action::InstallerRename { installer: "ab".repeat(32), label: String::new() };
+        assert_eq!(route(rename.clone(), None), Route::Rename(rename));
+        let rescan = Action::EnvironmentRescan { environment: "exact".into() };
+        assert_eq!(route(rescan.clone(), None), Route::Send(rescan));
+        let result = Action::CompatibilityResult { candidate: "exact".into(), expected_current: identity,
+            result: crate::model::TestResultKind::Worked, passed: vec![], failed_area: None, note: String::new() };
+        assert_eq!(route(result.clone(), None), Route::Record(result));
+    }
+}

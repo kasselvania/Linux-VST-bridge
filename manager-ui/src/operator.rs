@@ -1,32 +1,28 @@
 use crate::{
     client::{self, Query, Reply},
     model::*,
-    presentation::{self, AttemptKey, Destination},
-    screen_model::{self, ProductKey},
+    presentation,
+    screen_model::{self, forms, journey, setup::{self, InstallerReplacement}, AttemptKey, Destination,
+        Local, ProductKey},
+    widgets,
 };
 use eframe::egui;
 use std::{
     sync::mpsc,
     time::{Duration, Instant},
 };
+#[cfg(test)]
+thread_local! {
+    /// What the preview window chose on its last frame: the manager action and
+    /// the window's own requests. Render checks hash it, so equal digests also
+    /// mean equal intents.
+    pub static PREVIEW_INTENT: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
+}
 fn runtime_verification_label(op: &serde_json::Value) -> Option<String> {
     let checked = op["runtime_verification"]["checked"].as_u64()?;
     let total = op["runtime_verification"]["total"].as_u64()?;
     (total > 0 && total <= 40000 && checked <= total).then(|| format!(
         "Checking compatibility files: {checked} of {total}. This can take longer after a restart."))
-}
-
-fn installation_label(product: &ReadinessProduct) -> &'static str {
-    let records = product.facts.iter().any(|fact| fact.name == "Validation scope"
-        && fact.value.as_deref() == Some("control_records"));
-    match (records, product.installation_health) {
-        (true, InstallationHealth::Healthy) => "Current configuration: records and publication agree",
-        (true, InstallationHealth::ActionRequired) => "Current configuration: needs attention",
-        (true, InstallationHealth::Unknown) => "Current configuration: records incomplete",
-        (false, InstallationHealth::Healthy) => "Current installation: healthy",
-        (false, InstallationHealth::ActionRequired) => "Current installation: needs repair",
-        (false, InstallationHealth::Unknown) => "Current installation: not verified",
-    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq)]
@@ -82,14 +78,6 @@ fn workspace_product_state_label(state: &str) -> &str {
     }
 }
 
-fn plausible_installer_label(label: &str) -> bool {
-    !label.trim().is_empty()
-        && label.trim() == label
-        && label.len() <= 96
-        && !matches!(label, "." | "..")
-        && !label.chars().any(|c| c.is_control() || matches!(c, '/' | '\\' | ':')
-            || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}'))
-}
 fn test_areas() -> [TestArea; 9] {
     [TestArea::DawLoad, TestArea::Midi, TestArea::Audio, TestArea::Editor,
         TestArea::Parameters, TestArea::Automation, TestArea::StateRecall,
@@ -278,7 +266,7 @@ impl RequestFeedback {
                 Action::SoftwareInstall { .. } | Action::SoftwareInstallWithPolicy {..} | Action::VendorSoftwareInstall { .. }
                     | Action::SoftwareInstallResume { .. } | Action::RendererSoftwareInstall {..} | Action::EnvironmentRefresh { .. }
                     | Action::EnvironmentRefreshResume { .. } =>
-                    self.journey.as_ref().map(journey_phase_label)
+                    self.journey.as_ref().map(journey::phase_label)
                         .unwrap_or("Installing and connecting your plug-ins").into(),
                 Action::RuntimeInstall {} =>
                     "Downloading and preparing the compatibility runtime. This may take several minutes.".into(),
@@ -477,71 +465,13 @@ struct RouteFocus {
     activity: Option<String>,
     replacement: Option<InstallerReplacement>,
 }
+impl RouteFocus {
+    fn setup_focus(&self) -> setup::Focus<'_> {
+        setup::Focus { attempt: self.setup.as_ref(), installer: self.setup_installer.as_deref(),
+            replacement: self.replacement.as_ref() }
+    }
+}
 
-// This is a local file-choice draft, not installation authority. Submission
-// still requires the current manager offer for these exact bytes and setup.
-#[derive(Clone, Debug)]
-struct InstallerReplacement {
-    original: String,
-    environment: Option<String>,
-    runtime: Option<(String, u64)>,
-    selected: Option<String>,
-}
-fn replacement_context(snapshot: &Snapshot, setup: &InstallerSetup) -> Option<InstallerReplacement> {
-    if setup.phase == SetupPhase::CleanupUnconfirmed || setup.primary.iter().chain(&setup.secondary)
-        .any(|offer| matches!(offer.action, Action::PluginSetupFocus {..}|Action::PluginSetupStop {..}|Action::InstallerFocus {..} | Action::InstallerStop {..}
-            | Action::VendorApplicationFocus {..} | Action::VendorApplicationStop {..})) {
-        return None;
-    }
-    let runtime = if let Some(environment) = &setup.environment {
-        let mut targets = snapshot.environment_installers.iter().filter(|t| &t.environment == environment);
-        let target = targets.next()?;
-        if targets.next().is_some() || target.actions.iter().any(|offer| matches!(offer.action,
-            Action::EnvironmentInstallerFocus {..} | Action::EnvironmentInstallerStop {..}))
-            || (target.operation.is_some() && !installer_result_retired(&target.result)) {
-            return None;
-        }
-        target.runtime.as_ref().map(|r| (r.runner.clone(), r.revision))
-    } else {
-        // A missing environment on an ambiguous history is not an unstarted setup.
-        if setup.history.iter().any(|attempt| attempt.environment.is_some()) { return None; }
-        None
-    };
-    Some(InstallerReplacement { original: setup.installer.clone(),
-        environment: setup.environment.clone(), runtime, selected: None })
-}
-fn installer_result_retired(result: &serde_json::Value) -> bool {
-    result["cleanup_confirmed"] == true && result["owned_live"] == 0
-        && matches!(result["state"].as_str(), Some("completed" | "failed" | "cancelled"))
-}
-fn replacement_offer(snapshot: &Snapshot, draft: &InstallerReplacement)
-    -> Result<AvailableAction, &'static str> {
-    let mut originals = snapshot.installer_setups.iter().filter(|s| s.installer == draft.original);
-    let original = originals.next().ok_or("The original setup is unavailable. Refresh Setup.")?;
-    if originals.next().is_some() { return Err("The original setup is ambiguous. Review Setup."); }
-    let current = replacement_context(snapshot, original)
-        .ok_or("Finish or stop the current operation and wait for cleanup before choosing another installer.")?;
-    if current.environment != draft.environment || current.runtime != draft.runtime {
-        return Err("This setup changed during file selection. Choose another installer again.");
-    }
-    let selected = draft.selected.as_ref().ok_or("Choose a different installer file.")?;
-    if selected == &draft.original { return Err("That is the same installer. Choose a different file, or use Retry."); }
-    let mut offer = if let Some(environment) = &draft.environment {
-        snapshot.environment_installers.iter().find(|t| &t.environment == environment)
-            .and_then(|target| target.choices.iter().find(|offer|offer.action.environment_installer_start()
-                .is_some_and(|(env,installer,policy)|env==environment && installer==selected && policy.is_none()))).cloned()
-    } else {
-        // Already imported bytes may belong to another working setup. Never
-        // turn this file choice into a continuation of that other setup.
-        snapshot.installer_setups.iter().find(|s| &s.installer == selected
-            && s.environment.is_none() && s.history.iter().all(|h|h.environment.is_none()))
-            .and_then(|s| s.primary.as_ref()).filter(|offer|offer.action.software_install()
-                .is_some_and(|(installer,_,policy)|installer==selected && policy.is_none())).cloned()
-    }.ok_or("This file has no installation offer for the selected setup. Review Setup or choose another file.")?;
-    offer.label = if draft.environment.is_some() { "Run installer in this setup" }
-        else { "Install and connect" }.into();
-    Ok(offer)
-}
 fn imported_destination(snapshot: &Snapshot, installer: &str) -> Option<Page> {
     let setups = snapshot.installer_setups.iter().filter(|setup| setup.installer == installer).count();
     let workspaces = snapshot.workspaces.iter().filter(|workspace|
@@ -826,6 +756,12 @@ impl Operator {
         }
         preview
     }
+    /// A sample update state for render checks; it never checks or downloads.
+    #[cfg(test)]
+    pub fn with_updates(mut self, updates: crate::updates::Updates) -> Self {
+        self.updates = updates;
+        self
+    }
     fn preparation_details(ui: &mut egui::Ui, v: &serde_json::Value) {
         if v["publication"] == "ordinary" {
             ui.strong("Ordinarily published");
@@ -970,7 +906,7 @@ impl Operator {
             }
         }
         // The confirmed request differs from its offer only by the musician's answers.
-        if self.removal_form.as_ref().is_some_and(|form| offer_identity(form) == offer_identity(&request.action)) {
+        if self.removal_form.as_ref().is_some_and(|form| forms::offer_identity(form) == forms::offer_identity(&request.action)) {
             self.removal_form = None;
         }
         self.feedback = Some(RequestFeedback::captured(request.action.clone()));
@@ -1098,7 +1034,7 @@ impl Operator {
         } else if self.overview_fresh || self.overview_renewing {
             self.overview.as_ref().and_then(|overview| overview.current.operation.as_ref())
         } else { None };
-        presentation::owned_service_pause(operation)
+        screen_model::service::owned_service_pause(operation)
     }
     fn retained_health_system(&self) -> Option<&System> {
         let overview = self.overview.as_ref()?;
@@ -1485,6 +1421,10 @@ fn navigate(
             library.focus_product(key.clone());
             *page = Page::Plugins;
         }
+        Destination::Products(keys) => {
+            library.focus_products(keys.clone());
+            *page = Page::Plugins;
+        }
         Destination::Attempt(key) => {
             focus.setup = Some(key.clone());
             focus.setup_installer = Some(key.installer.clone());
@@ -1501,93 +1441,40 @@ fn navigate(
     }
 }
 
-
-fn existing_setup_installer(ui: &mut egui::Ui, snapshot: &Snapshot,
-    fresh: bool, pending: bool, chosen: &mut Option<Action>) {
-    if snapshot.environment_installers.is_empty() {return;}
-    ui.separator();
-    ui.strong("Manage an existing setup");
-    let key = egui::Id::new("companion_environment");
-    let mut selected = ui.data_mut(|data|data.get_temp::<String>(key)).unwrap_or_default();
-    egui::ComboBox::from_id_salt("companion_environment_choice")
-        .selected_text(snapshot.environment_installers.iter().find(|target|target.environment == selected)
-            .map(|target|target.name.as_str()).unwrap_or("Choose the existing setup or plug-in"))
-        .show_ui(ui,|ui| {
-            for target in &snapshot.environment_installers {
-                ui.selectable_value(&mut selected,target.environment.clone(),&target.name);
-            }
-        });
-    ui.data_mut(|data|data.insert_temp(key,selected.clone()));
-    if let Some(target) = snapshot.environment_installers.iter().find(|target|target.environment == selected) {
-        ui.push_id(&target.environment,|ui|ui.add_enabled_ui(fresh, |ui|
-            crate::library::environment_installer_controls(ui,target,pending,chosen)));
-        for app in snapshot.vendor_applications.iter().filter(|app|
-            app.details["user_selected"] == true && app.details["environment"] == target.environment) {
-            ui.strong(&app.name);
-            ui.label(&app.version);
-            if let Some(path) = app.details["executable"]["path"].as_str() {ui.small(path);}
-            ui.add_enabled_ui(fresh,|ui|
-                crate::widgets::action_buttons(ui,&app.actions,snapshot.system.inactive_reason(),pending,chosen));
+/// What a window-handled control does, applied as soon as it is pressed.
+fn apply_local(local: Local, page: &mut Page, library: &mut crate::library::Library,
+    focus: &mut RouteFocus, refresh: &mut bool, pick: &mut bool) {
+    match local {
+        Local::Go(destination) => navigate(&destination, page, library, focus),
+        Local::CheckComputer => *refresh = true,
+        Local::ChooseInstaller => {
+            focus.replacement = None;
+            *pick = true;
         }
-    }
-    // An exact running owner's Stop remains visible even if no setup is selected.
-    for target in snapshot.environment_installers.iter().filter(|target|target.environment != selected) {
-        if target.actions.iter().any(|a|matches!(a.action,Action::EnvironmentInstallerStop { .. })) {
-            ui.strong(&target.name);
-            ui.add_enabled_ui(fresh, |ui|
-                crate::widgets::action_buttons(ui,&target.actions,None,pending,chosen));
+        Local::ChooseReplacement(context) => {
+            focus.setup_installer = Some(context.original.clone());
+            focus.replacement = Some(context);
+            *pick = true;
+        }
+        Local::KeepCurrentInstaller => focus.replacement = None,
+        Local::ShowAllSetup => {
+            focus.setup_installer = None;
+            focus.setup = None;
+            focus.setup_scroll = false;
         }
     }
 }
 
-fn show_discovered_products(setup: &InstallerSetup,
-    library: &mut crate::library::Library, page: &mut Page) {
-    library.focus_products(setup.discovered.iter().map(|product| ProductKey {
-        environment: product.environment.clone(),
-        module_sha256: product.module_sha256.clone(),
-        class_id: product.class_id.clone(),
-    }).collect());
-    *page = Page::Plugins;
-}
-
-fn setup_phase_label(phase: &SetupPhase) -> &'static str {
-    match phase {
-        SetupPhase::Imported => "Ready to set up",
-        SetupPhase::EnvironmentReady => "Ready to install",
-        SetupPhase::InstallerRunning => "Vendor installer is open",
-        SetupPhase::SetupNeedsAttention => "Installation needs your attention",
-        SetupPhase::InstallerRetired | SetupPhase::ScanReady => "Ready to find installed plug-ins",
-        SetupPhase::DiscoveryComplete => "Plug-ins found",
-        SetupPhase::CleanupUnconfirmed => "Could not confirm the installer closed",
+/// A window-handled control drawn as its page has always drawn it: a filled
+/// main button, or an ordinary one.
+fn control_button(ui: &mut egui::Ui, control: &screen_model::Control) -> bool {
+    if control.importance == screen_model::offers::Importance::Primary {
+        ui.add_enabled(control.enabled, presentation::primary_button(control.label, ui)).clicked()
+    } else {
+        ui.add_enabled(control.enabled, egui::Button::new(control.label)).clicked()
     }
 }
 
-fn setup_priority(phase: &SetupPhase) -> u8 {
-    match phase {
-        SetupPhase::InstallerRunning => 0,
-        SetupPhase::CleanupUnconfirmed => 1,
-        SetupPhase::SetupNeedsAttention => 2,
-        SetupPhase::EnvironmentReady => 3,
-        SetupPhase::InstallerRetired | SetupPhase::ScanReady => 4,
-        SetupPhase::Imported => 5,
-        SetupPhase::DiscoveryComplete => 6,
-    }
-}
-
-fn journey_phase_label(journey: &InstallationJourney) -> &'static str {
-    if journey.phase == InstallationPhase::Available && journey.plugins.is_empty() {
-        return "Application session complete";
-    }
-    match journey.phase {
-        InstallationPhase::PreparingEnvironment => "Getting ready to install",
-        InstallationPhase::VendorRunning => "Complete the vendor's requests",
-        InstallationPhase::Discovering => "Finding installed plug-ins",
-        InstallationPhase::PreparingPlugins => "Connecting plug-ins to your DAW",
-        InstallationPhase::AwaitingApplication => "Continue in the installed app",
-        InstallationPhase::Available => "DAW connection complete",
-        InstallationPhase::NeedsAttention => "Installation or DAW connection needs attention",
-    }
-}
 
 fn veto_owned_pause(operation: &mut Option<serde_json::Value>, cleanup_failed: bool) {
     if cleanup_failed {
@@ -1597,90 +1484,6 @@ fn veto_owned_pause(operation: &mut Option<serde_json::Value>, cleanup_failed: b
     }
 }
 
-fn setup_attention_priority(setup: &InstallerSetup) -> u8 {
-    setup.journey.as_ref().map(|journey| match journey.phase {
-        InstallationPhase::VendorRunning => 0,
-        InstallationPhase::NeedsAttention => 2,
-        InstallationPhase::AwaitingApplication => 2,
-        InstallationPhase::PreparingEnvironment | InstallationPhase::Discovering
-            | InstallationPhase::PreparingPlugins => 3,
-        InstallationPhase::Available => 6,
-    }).unwrap_or_else(|| setup_priority(&setup.phase))
-}
-
-/// A finished journey is installation history. What is in the DAW now comes
-/// from each plug-in's current state, so a later removal reads as removed.
-fn current_plugin_state<'a>(journey: &InstallationJourney, plugin: &InstallationPlugin,
-    current: Option<(&'a Snapshot, &str)>) -> Option<&'a str> {
-    if journey.phase != InstallationPhase::Available || plugin.stage != InstallationPluginStage::Available {
-        return None;
-    }
-    let (snapshot, environment) = current?;
-    snapshot.products.iter().find(|product| product.environment == environment
-        && product.class_id.eq_ignore_ascii_case(&plugin.class_id))
-        .map(|product| screen_model::product::status(product).words)
-}
-fn current_journey_label(journey: &InstallationJourney, current: Option<(&Snapshot, &str)>) -> &'static str {
-    if journey.phase == InstallationPhase::Available && !journey.plugins.is_empty() {
-        let states: Vec<_> = journey.plugins.iter()
-            .filter_map(|plugin| current_plugin_state(journey, plugin, current)).collect();
-        let available = states.iter().filter(|state| **state == "Available in your DAW").count();
-        if !states.is_empty() && available == 0 { return "Not in your DAW"; }
-        if available < states.len() { return "Partly in your DAW"; }
-    }
-    journey_phase_label(journey)
-}
-fn journey_results(ui: &mut egui::Ui, journey: &InstallationJourney, current: Option<(&Snapshot, &str)>,
-    next: Option<&AvailableAction>) {
-    ui.small(format!("Your DAW: {}", screen_model::product::daw_name(journey.daw)));
-    if journey.phase == InstallationPhase::Available && journey.plugins.is_empty() {
-        ui.label("No plug-ins were added during this visit.");
-    }
-    if let Some(failure) = &journey.failure {
-        ui.colored_label(warning_color(ui), installation_failure_text(failure, next));
-    }
-    for plugin in &journey.plugins {
-        ui.horizontal_wrapped(|ui| {
-            ui.strong(&plugin.name);
-            if let Some(state) = current_plugin_state(journey, plugin, current) { ui.label(state); return; }
-            ui.label(match plugin.stage {
-                InstallationPluginStage::Pending => "Waiting to connect",
-                InstallationPluginStage::Inspecting => "Checking plug-in interfaces",
-                InstallationPluginStage::Preparing => "Preparing the native connection",
-                InstallationPluginStage::Publishing => "Making the connection available",
-                InstallationPluginStage::Available => "Available in your DAW",
-                InstallationPluginStage::NeedsAttention => "Connection needs attention",
-                InstallationPluginStage::ReplacementRequired => "A different setup is already available",
-            });
-        });
-        if let Some(failure) = &plugin.failure {
-            ui.colored_label(warning_color(ui), installation_failure_text(failure, next));
-        }
-        if plugin.stage == InstallationPluginStage::ReplacementRequired {
-            ui.small("Open this plug-in to review changing its existing DAW setup.");
-        }
-    }
-}
-
-/// A step that met a busy lock is repeated by the card's own continuation;
-/// the sentence names that button as the card shows it. Without one on the
-/// card, the manager's sentence ("run the same step again") stays.
-fn installation_failure_text(failure: &InstallationFailure, next: Option<&AvailableAction>) -> String {
-    let reason = match next.and_then(|offer| continuation_offer(std::slice::from_ref(offer))) {
-        Some(offer) if linux_vst_bridge::operator_lock::is_busy_text(&failure.code) =>
-            linux_vst_bridge::operator_lock::busy_sentence_naming(&screen_model::offers::action_label(offer)),
-        _ => failure.reason.clone(),
-    };
-    let phase = match failure.stage {
-        InstallationFailureStage::EnvironmentPreparation => "Installation setup",
-        InstallationFailureStage::VendorInstallation => "Vendor installation",
-        InstallationFailureStage::Discovery => "Plug-in discovery",
-        InstallationFailureStage::Inspection => "Plug-in inspection",
-        InstallationFailureStage::Preparation => "Native connection preparation",
-        InstallationFailureStage::Publication => "DAW connection",
-    };
-    format!("{phase}: {reason}")
-}
 /// A status read refused because the state changed while it was read, or
 /// because it gave way to a running action until its bound. Neither is a
 /// service fault.
@@ -1688,171 +1491,228 @@ fn readback_deferred(error: &str) -> bool {
     error.contains("changed_refresh")
         || (error.contains("AcquisitionFailure") && error.contains("outcome: Timeout"))
 }
-/// The offer on a card that repeats an unfinished connection step.
-fn continuation_offer(offers: &[AvailableAction]) -> Option<&AvailableAction> {
-    offers.iter().find(|offer| matches!(offer.action,
-        Action::EnvironmentRefreshResume { .. } | Action::SoftwareInstallResume { .. }))
-}
-
-/// Removal choices sit on every settled card; they are not pending setup work.
-fn no_setup_work(setup: &InstallerSetup) -> bool {
-    setup.primary.is_none() && setup.secondary.iter().all(|offer| removal_offer(&offer.action))
-}
-fn retained_setup_records_need_refresh(setup: &InstallerSetup, snapshot: &Snapshot) -> bool {
-    setup.journey.is_none() && setup.phase == SetupPhase::SetupNeedsAttention
-        && no_setup_work(setup)
-        && setup.environment.is_some() && !setup.discovered.is_empty()
-        && snapshot.onboarding.iter().any(|attempt|
-            attempt.installer == setup.installer && attempt.environment == setup.environment
-                && attempt.state == "needs_attention" && attempt.failure.is_none()
-                && attempt.actions.is_empty() && attempt.details["managed_product"] == true
-                && attempt.details["scan"].is_object()
-                && attempt.details["installation"]["state"] == "completed"
-                && attempt.details["installation"]["cleanup_confirmed"] == true
-                && attempt.details["installation"]["owned_live"] == 0
-                && attempt.details["installation"]["error"].is_null()
-                && attempt.details["installation"]["failure"].is_null()
-                && matches!(attempt.details["installation"]["transaction"]["outcome"].as_str(),
-                    None | Some("installed")))
-}
-
-fn setup_display_name(setup: &InstallerSetup, snapshot: &Snapshot) -> String {
-    if setup.label_source != "generated" { return setup.name.clone(); }
-    let mut names = Vec::new();
-    for discovered in &setup.discovered {
-        if snapshot.products.iter().any(|product|
-            product.environment == discovered.environment
-                && product.module_sha256 == discovered.module_sha256
-                && product.class_id == discovered.class_id)
-            && !names.contains(&discovered.name) {
-            names.push(discovered.name.clone());
+/// Home's next step, drawn from the screen model.
+fn next_step(ui: &mut egui::Ui, next: &screen_model::home::Next, chosen: &mut Option<Action>,
+    local: &mut Option<Local>) {
+    use screen_model::home::Next;
+    match next {
+        Next::Service { title, what_happened, offers, review } => {
+            ui.strong(*title);
+            ui.label(*what_happened);
+            widgets::offer_row(ui, offers, chosen);
+            if ui.button(review.label).clicked() { *local = Some(review.does.clone()); }
+        }
+        Next::Setup { title, status, journey, primary, open } => {
+            ui.strong(title);
+            ui.label(status);
+            if let Some(journey) = journey { widgets::journey(ui, journey); }
+            if let Some(primary) = primary { widgets::main_offer(ui, primary, chosen); }
+            if control_button(ui, open) { *local = Some(open.does.clone()); }
+        }
+        Next::Computer { note, title, detail, action, blocker, review } => {
+            ui.small(*note);
+            ui.strong(title);
+            if let Some(detail) = detail { ui.label(detail); }
+            if let Some(action) = action { widgets::main_offer(ui, action, chosen); }
+            if let Some(blocker) = blocker { ui.colored_label(warning_color(ui), blocker); }
+            if ui.button(review.label).clicked() { *local = Some(review.does.clone()); }
+        }
+        Next::Go { title, detail, open } => {
+            ui.strong(title);
+            if let Some(detail) = detail { ui.label(detail); }
+            if control_button(ui, open) { *local = Some(open.does.clone()); }
+        }
+        Next::Ready { title, help } => {
+            ui.strong(title);
+            widgets::disclosure(ui, help, chosen);
         }
     }
-    match names.as_slice() {
-        [] => setup.name.clone(),
-        [name] => name.clone(),
-        [first, rest @ ..] => format!("{first} and {} other plug-ins",rest.len()),
-    }
 }
 
-fn partial_installation_needs_review(setup: &InstallerSetup, snapshot: &Snapshot) -> bool {
-    setup.phase == SetupPhase::SetupNeedsAttention
-        && snapshot.onboarding.iter().any(|attempt|
-            attempt.installer == setup.installer && attempt.environment == setup.environment
-                && attempt.state == "needs_attention" && attempt.failure.is_none()
-                && attempt.details["installation"]["state"] == "completed"
-                && attempt.details["installation"]["cleanup_confirmed"] == true
-                && attempt.details["installation"]["owned_live"] == 0
-                && attempt.details["installation"]["error"].is_null()
-                && attempt.details["installation"]["failure"].is_null()
-                && attempt.details["installation"]["transaction"]["outcome"] == "partial_installation")
+/// One installer's setup card. Returns whether another installer was chosen
+/// for it; its draft then shows at once, in this frame.
+fn setup_card(ui: &mut egui::Ui, snapshot: &Snapshot, card: &setup::SetupCard, pending: bool,
+    chosen: &mut Option<Action>, local: &mut Option<Local>, focus: &mut RouteFocus) -> bool {
+    let mut chose = false;
+    egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
+        ui.set_min_width((ui.available_width() - 1.0).max(0.0));
+        ui.label(egui::RichText::new(&card.name).size(18.0).strong());
+        ui.strong(card.title);
+        widgets::text(ui, &card.status);
+        if let Some(journey) = &card.journey { widgets::journey(ui, journey); }
+        if let Some(primary) = &card.primary {
+            ui.add_enabled_ui(card.actionable, |ui| widgets::main_offer(ui, primary, chosen));
+        }
+        if let Some(discovered) = &card.discovered {
+            if ui.add_enabled(discovered.enabled, egui::Button::new(discovered.label)
+                .min_size(egui::vec2(240.0, 44.0))).clicked() { *local = Some(discovered.does.clone()); }
+        }
+        ui.add_enabled_ui(card.actionable, |ui| widgets::offer_row(ui, &card.secondary, chosen));
+        if let Some((line, offers)) = &card.latest {
+            ui.label(line);
+            ui.add_enabled_ui(card.actionable, |ui| widgets::offer_row(ui, offers, chosen));
+        }
+        let mut choose = |ui: &mut egui::Ui, control: &screen_model::Control, focus: &mut RouteFocus| {
+            if ui.add_enabled(control.enabled, egui::Button::new(control.label)
+                .min_size(egui::vec2(240.0, 44.0))).clicked() {
+                // The draft below and the apps after this card follow at once.
+                if let Local::ChooseReplacement(context) = &control.does {
+                    focus.replacement = Some(context.clone());
+                    focus.setup_installer = Some(context.original.clone());
+                    chose = true;
+                }
+                *local = Some(control.does.clone());
+            }
+        };
+        match &card.replace {
+            setup::Replace::Allowed(choices) => {
+                if let Some(app) = &choices.dependency {
+                    ui.strong(app.title);
+                    for help in &app.help { ui.label(help); }
+                    ui.label(app.explanation);
+                    choose(ui, &app.choose, focus);
+                }
+                choose(ui, &choices.another, focus);
+            }
+            setup::Replace::Waiting(reason) => { ui.small(*reason); }
+        }
+        let draft = if chose {
+            setup::ReplacementDraft::build(snapshot, &card.installer, focus.replacement.as_ref(), card.actionable, pending)
+        } else { card.draft.clone() };
+        if let Some(draft) = draft {
+            let mut close = false;
+            if let Some(selected) = &draft.selected {
+                ui.separator();
+                ui.strong(&selected.title);
+                if let Some((note, consequence, affected)) = &selected.same_setup {
+                    ui.label(*note);
+                    ui.label(consequence);
+                    if let Some(affected) = affected { ui.strong(affected); }
+                }
+                match &selected.offer {
+                    Ok(offer) => {
+                        let before = chosen.clone();
+                        ui.add_enabled_ui(card.actionable, |ui| widgets::main_offer(ui, offer, chosen));
+                        if *chosen != before {
+                            if let Some(installer) = &selected.focus_after {
+                                focus.setup_installer = Some(installer.clone());
+                            }
+                            close = true;
+                        }
+                    }
+                    Err(reason) => { ui.colored_label(warning_color(ui), *reason); }
+                }
+            }
+            close |= ui.add_enabled(draft.keep.enabled, egui::Button::new(draft.keep.label)
+                .min_size(egui::vec2(160.0, 44.0))).clicked();
+            if close { focus.replacement = None; }
+        }
+        widgets::disclosure(ui, &card.details, chosen);
+        if let Some(removal) = &card.removal { widgets::disclosure(ui, removal, chosen); }
+    });
+    chose
 }
 
-fn setup_history_settled_by_current_products(setup: &InstallerSetup, snapshot: &Snapshot) -> bool {
-    setup.journey.is_none() && setup.phase == SetupPhase::SetupNeedsAttention
-        && no_setup_work(setup)
-        && setup.environment.is_some() && !setup.discovered.is_empty()
-        && (retained_setup_records_need_refresh(setup, snapshot)
-            || partial_installation_needs_review(setup, snapshot))
-        && !snapshot.onboarding.iter().any(|attempt|
-            attempt.installer == setup.installer && attempt.environment == setup.environment
-                && (attempt.failure.is_some() || !attempt.actions.is_empty()
-                    || !attempt.details["installation"]["error"].is_null()
-                    || !attempt.details["installation"]["failure"].is_null()
-                    || !attempt.details["installation"]["transaction"]["first_failure"].is_null()))
-        && setup.discovered.iter().all(|discovered|
-            setup.environment.as_deref() == Some(discovered.environment.as_str())
-                && snapshot.products.iter().any(|product|
-                    product.environment == discovered.environment
-                        && product.module_sha256 == discovered.module_sha256
-                        && product.class_id == discovered.class_id
-                        && product.availability.as_ref().is_some_and(|availability| availability.available)))
-}
-
-struct ApplicationGroup<'a> {
-    environment: &'a str,
-    setup: Option<&'a InstallerSetup>,
-    applications: Vec<&'a VendorApplication>,
-}
-
-fn application_groups<'a>(snapshot: &'a Snapshot, focus: &RouteFocus) -> Vec<ApplicationGroup<'a>> {
-    let mut groups: Vec<ApplicationGroup<'a>> = Vec::new();
-    for app in &snapshot.vendor_applications {
-        let Some(environment) = app.details["environment"].as_str() else { continue; };
-        let setup = snapshot.installer_setups.iter().find(|setup|
-            setup.environment.as_deref() == Some(environment));
-        if focus.setup.as_ref().and_then(|key| key.environment.as_deref())
-            .is_some_and(|selected| selected != environment)
-            || focus.setup_installer.as_ref().is_some_and(|installer|
-                setup.is_none_or(|setup| &setup.installer != installer)) { continue; }
-        if let Some(group) = groups.iter_mut().find(|group| group.environment == environment) {
-            group.applications.push(app);
-        } else {
-            groups.push(ApplicationGroup {environment, setup, applications: vec![app]});
+fn existing_setups(ui: &mut egui::Ui, existing: &setup::ExistingSetups, chosen: &mut Option<Action>) {
+    ui.separator();
+    ui.strong(existing.title);
+    let key = egui::Id::new("companion_environment");
+    let mut selected = ui.data_mut(|data|data.get_temp::<String>(key)).unwrap_or_default();
+    egui::ComboBox::from_id_salt("companion_environment_choice")
+        .selected_text(existing.setups.iter().find(|choice| choice.key == selected)
+            .map(|choice| choice.label.as_str()).unwrap_or(existing.placeholder))
+        .show_ui(ui,|ui| {
+            for choice in &existing.setups {
+                ui.selectable_value(&mut selected, choice.key.clone(), &choice.label);
+            }
+        });
+    ui.data_mut(|data|data.insert_temp(key,selected.clone()));
+    if let Some(choice) = existing.setups.iter().find(|choice| choice.key == selected) {
+        ui.push_id(&choice.key, |ui| ui.add_enabled_ui(existing.actionable, |ui|
+            crate::library::setup_controls(ui, &choice.content.controls, chosen)));
+        for program in &choice.content.programs {
+            ui.strong(&program.name);
+            ui.label(&program.version);
+            if let Some(path) = &program.path { ui.small(path); }
+            ui.add_enabled_ui(existing.actionable, |ui| widgets::offer_row(ui, &program.offers, chosen));
         }
     }
-    groups
-}
-
-fn application_group_names(snapshot: &Snapshot, environment: &str) -> Vec<String> {
-    let mut names = Vec::new();
-    for product in &snapshot.products {
-        if product.environment == environment && !names.contains(&product.name) {
-            names.push(product.name.clone());
+    // An exact running owner's Stop remains visible even if no setup is selected.
+    for choice in existing.setups.iter().filter(|choice| choice.key != selected) {
+        if let Some(stop) = &choice.content.stop {
+            ui.strong(&choice.label);
+            ui.add_enabled_ui(existing.actionable, |ui| widgets::offer_row(ui, stop, chosen));
         }
     }
-    names
 }
 
-fn setup_offer_uses_program_choice(snapshot: &Snapshot, setup: &InstallerSetup,
-    offer: &AvailableAction) -> bool {
-    let application = match &offer.action {
-        Action::VendorSoftwareInstall {application, ..}
-            | Action::VendorApplicationFocus {application}
-            | Action::VendorApplicationStop {application} => application,
-        _ => return false,
-    };
-    snapshot.vendor_applications.iter().any(|app| &app.id == application
-        && app.details["choose_application"] == true
-        && app.details["environment"].as_str() == setup.environment.as_deref())
+fn app_group(ui: &mut egui::Ui, group: &setup::AppGroup, chosen: &mut Option<Action>) {
+    egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
+        ui.set_min_width((ui.available_width() - 1.0).max(0.0));
+        ui.label(egui::RichText::new(&group.title).size(18.0).strong());
+        if let Some(plugins) = &group.plugins { ui.label(plugins); }
+        for app in &group.apps {
+            ui.push_id(&app.id, |ui| {
+                ui.strong(&app.name);
+                if let Some((headline, results)) = &app.progress {
+                    ui.strong(*headline);
+                    widgets::journey(ui, results);
+                }
+                if let Some(hint) = app.hint { ui.label(hint); }
+                for note in &app.notes { ui.label(note); }
+                ui.add_enabled_ui(group.actionable, |ui| widgets::offer_row(ui, &app.offers, chosen));
+            });
+        }
+        if let Some(picker) = &group.picker {
+            ui.strong(picker.title);
+            ui.label(picker.hint);
+            let id = ui.make_persistent_id("installed-program-choice");
+            let mut selected = ui.data_mut(|data|data.get_temp::<String>(id));
+            if picker.forget_missing && selected.as_ref().is_some_and(|id|
+                !picker.choices.iter().any(|choice| &choice.key == id)) { selected = None; }
+            egui::ComboBox::from_id_salt("installed-program")
+                .selected_text(selected.as_ref().and_then(|id| picker.choices.iter().find(|choice| &choice.key == id))
+                    .map_or(picker.placeholder, |choice| choice.label.as_str()))
+                .show_ui(ui, |ui| for choice in &picker.choices {
+                    ui.selectable_value(&mut selected, Some(choice.key.clone()), &choice.label);
+                });
+            match selected.as_ref().and_then(|id| picker.choices.iter().find(|choice| &choice.key == id)) {
+                Some(choice) => if let Some(open) = &choice.content {
+                    if let Some(consequence) = &open.consequence { ui.label(consequence); }
+                    ui.add_enabled_ui(group.actionable, |ui| widgets::main_offer(ui, &open.offer, chosen));
+                },
+                None => { ui.add_enabled(false, presentation::primary_button(picker.unchosen, ui)); }
+            }
+            ui.data_mut(|data|match selected {Some(value)=>{data.insert_temp(id,value);},None=>{data.remove::<String>(id);}});
+        }
+    });
 }
 
-fn obsolete_initial_installer_offer(offer: &AvailableAction) -> bool {
-    offer.action.software_install().is_some() || matches!(offer.action, Action::InstallerNewAttempt {..}
-        | Action::InstallerStart {..} | Action::InstallerStartWithPolicy {..}
-        | Action::InstallerFocus {..} | Action::InstallerStop {..} | Action::InstallerScan {..})
+fn deleted_setups(ui: &mut egui::Ui, deleted: &setup::DeletedSetups, chosen: &mut Option<Action>) {
+    egui::CollapsingHeader::new(&deleted.title).default_open(deleted.start_open).show(ui, |ui| {
+        for setup in &deleted.setups {
+            ui.push_id(("deleted-setup", &setup.environment), |ui| {
+                ui.strong(&setup.name);
+                ui.label(setup.state);
+                if let Some(plugins) = &setup.plugins { ui.small(plugins); }
+                ui.add_enabled_ui(deleted.actionable, |ui| widgets::offer_row(ui, &setup.offers, chosen));
+            });
+        }
+    });
 }
 
 impl Operator {
-    fn readiness_details(ui: &mut egui::Ui, assessment: Option<&ReadinessAssessment>,
-        fresh: bool, pending: bool, refresh: &mut bool, chosen: &mut Option<Action>) {
-        egui::CollapsingHeader::new("Computer setup and support").show(ui, |ui| {
-            ui.label(if !fresh {
-                "Refreshing current status. Actions will return when it finishes."
-            } else if assessment.is_none() {
-                "Computer setup has not been checked in this window. This does not change which plug-ins are available in your DAW."
-            } else {
-                "This check describes the current computer setup. It does not test a plug-in's sound or saved-project recall."
-            });
-            if ui.add_enabled(!pending, egui::Button::new("Check computer setup")
-                .min_size(egui::vec2(180.0, 44.0))).clicked() { *refresh = true; }
-            if let Some(assessment) = assessment {
-                for blocker in &assessment.blockers {
-                    ui.colored_label(warning_color(ui), &blocker.explanation);
-                }
-                Self::buttons(ui, std::slice::from_ref(&assessment.support_export_action),
-                    None, pending || !fresh, chosen);
-                ui.small("The support report stays on this computer. Nothing is uploaded.");
-                egui::CollapsingHeader::new("Technical observations").show(ui, |ui| {
-                    for facts in [&assessment.platform, &assessment.daw, &assessment.audio,
-                        &assessment.graphics, &assessment.runtime] {
-                        for fact in facts {
-                            ui.small(format!("{}: {} · {} · {:?}", fact.name,
-                                fact.value.as_deref().unwrap_or("unknown"), fact.source,
-                                fact.certainty));
-                        }
-                    }
-                });
+    fn computer_check(ui: &mut egui::Ui, check: &screen_model::home::ComputerCheck,
+        chosen: &mut Option<Action>, local: &mut Option<Local>) {
+        egui::CollapsingHeader::new(check.title).show(ui, |ui| {
+            ui.label(check.intro);
+            if ui.add_enabled(check.check.enabled, egui::Button::new(check.check.label)
+                .min_size(egui::vec2(180.0, 44.0))).clicked() { *local = Some(check.check.does.clone()); }
+            if let Some(result) = &check.result {
+                for blocker in &result.blockers { ui.colored_label(warning_color(ui), blocker); }
+                widgets::offer_row(ui, &result.export, chosen);
+                ui.small(result.export_note);
+                widgets::disclosure(ui, &result.observations, chosen);
             }
         });
     }
@@ -1861,474 +1721,100 @@ impl Operator {
         pending: bool, controls: (&mut Page, &mut crate::library::Library, &mut RouteFocus,
             &mut bool, &mut Option<Action>)) {
         let (page, library, focus, refresh, chosen) = controls;
+        let home = screen_model::home::Home::build(&overview.current, assessment, fresh, refreshing, pending);
+        let mut local = None;
         ui.horizontal_wrapped(|ui| {
-            ui.heading("Your plug-ins");
-            if ui.add(egui::Button::new("Add a plug-in")
-                .min_size(egui::vec2(150.0, 44.0))).clicked() { *page = Page::Setup; }
+            ui.heading(home.heading);
+            if ui.add(egui::Button::new(home.add.label)
+                .min_size(egui::vec2(150.0, 44.0))).clicked() { local = Some(home.add.does.clone()); }
         });
-        if !fresh {
-            if refreshing {
-                ui.label("Refreshing the listed plug-ins; setup actions wait for current readback.");
-            } else {
-                ui.colored_label(warning_color(ui),
-                    "Current status is unavailable. These are the last listed plug-ins; setup actions wait for current readback.");
-            }
-        }
-        let unfinished = overview.current.installer_setups.iter().filter(|setup|
-            setup.journey.as_ref().map(|journey| journey.phase != InstallationPhase::Available)
-                .unwrap_or(setup.phase != SetupPhase::DiscoveryComplete)
-                && !setup_history_settled_by_current_products(setup, &overview.current))
-            .min_by_key(|setup| setup_attention_priority(setup));
-        // A plug-in the musician removed from the DAW is not unfinished setup.
-        let needs_setup = overview.current.products.iter().find(|product|
-            screen_model::product::status(product).class != screen_model::StatusClass::Ready
-                && !matches!(product.disposition.as_str(), "removed_from_daw" | "uninstalled"));
-        let recovery = overview.current.products.iter().find(|product|
-            screen_model::product::recovery_pending(product));
-        let owned_pause = presentation::owned_service_pause(overview.current.operation.as_ref())
-            && overview.current.system.pending_transactions == 0
-            && overview.current.system.stale_transports == 0
-            && (!overview.current.system.capacity_available() || !overview.current.system.cleanup_unconfirmed);
+        if let Some(freshness) = &home.freshness { widgets::text(ui, freshness); }
         egui::Frame::group(ui.style()).fill(ui.visuals().faint_bg_color)
             .inner_margin(16.0).show(ui, |ui| {
             ui.set_min_width((ui.available_width() - 1.0).max(0.0));
-            if (!overview.current.system.capacity_available()
-                || overview.current.system.cleanup_unconfirmed
-                || overview.current.system.stale_transports > 0
-                || overview.current.system.pending_transactions > 0) && !owned_pause {
-                ui.strong("Next: resolve the bridge service problem");
-                ui.label(if !overview.current.system.capacity_available() {
-                    "The bridge service could not report its current status."
-                } else if overview.current.system.pending_transactions > 0 {
-                    "A previous setup change has not finished."
-                } else {"Could not confirm that an earlier plug-in or installer closed."});
-                let recoveries: Vec<_> = overview.current.actions.iter().filter(|offer|
-                    matches!(offer.action,Action::TransactionReconcile {})).cloned().collect();
-                Self::buttons(ui,&recoveries,overview.current.system.inactive_reason(),pending || !fresh,chosen);
-                if ui.button("Review recovery details").clicked() {*page = Page::Diagnostics;}
-            } else if let Some(setup) = unfinished {
-                let partial = partial_installation_needs_review(setup, &overview.current);
-                let name = setup_display_name(setup, &overview.current);
-                let current = setup.environment.as_deref().map(|environment| (&overview.current, environment));
-                ui.strong(if let Some(journey) = &setup.journey {
-                    format!("{name} · {}", current_journey_label(journey, current))
-                } else if partial {format!("Next: review the installation for {name}")}
-                    else {format!("Next: continue {name}")});
-                if partial {
-                    ui.label("A complete installation was not confirmed. Review this setup before making installation changes. Plug-ins already available in your DAW remain available.");
-                } else {ui.label(&setup.status);}
-                if let Some(journey) = &setup.journey { journey_results(ui, journey, current, setup.primary.as_ref()); }
-                if let Some(action) = &setup.primary {
-                    crate::library::primary_action(ui, action,
-                        overview.current.system.inactive_reason(), pending || !fresh, chosen);
-                }
-                let review = if partial && setup.primary.is_none() {
-                    ui.add(presentation::primary_button("Review this installation",ui)).clicked()
-                } else {ui.button("Open this setup").clicked()};
-                if review {
-                    navigate(&Destination::Attempt(AttemptKey {installer:setup.installer.clone(),
-                        environment:setup.environment.clone()}), page, library, focus);
-                }
-            } else if let Some(product) = recovery {
-                ui.strong(format!("Next: recover {}",product.name));
-                if let Some(workflow) = &product.compatibility { ui.label(&workflow.summary); }
-                if ui.add(presentation::primary_button("Open plug-in recovery",ui)).clicked() {
-                    library.focus_product(ProductKey::from(product));
-                    *page=Page::Plugins;
-                }
-            } else if let Some(assessment) = assessment.filter(|assessment|
-                assessment.overall_status != ReadinessOutcome::Ready
-                    && (!assessment.ordered_steps.is_empty() || !assessment.blockers.is_empty())) {
-                ui.small("Computer setup recommendations reflect the last explicit setup check.");
-                if let Some(step) = assessment.ordered_steps.first() {
-                    ui.strong(format!("Next: {}", step.title));
-                    ui.label(&step.detail);
-                    if let Some(action) = &step.action {
-                        crate::library::primary_action(ui, action,
-                            overview.current.system.inactive_reason(), pending || !fresh, chosen);
-                    }
-                } else {
-                    ui.strong(match assessment.overall_status {
-                        ReadinessOutcome::Unsupported => "A required computer capability is unavailable",
-                        ReadinessOutcome::Unknown => "A required setup check is incomplete",
-                        _ => "Computer setup needs attention",
-                    });
-                }
-                if let Some(blocker) = assessment.blockers.first() {
-                    ui.colored_label(warning_color(ui), &blocker.explanation);
-                }
-                if ui.button("Review setup details").clicked() {*page = Page::Diagnostics;}
-            } else if let Some(product) = needs_setup {
-                ui.strong(format!("Next: set up {} for your DAW", product.name));
-                ui.label(screen_model::product::status(product).words);
-                if ui.add(presentation::primary_button("Continue plug-in setup", ui)).clicked() {
-                    library.focus_product(ProductKey::from(product));
-                    *page = Page::Plugins;
-                }
-            } else if overview.current.products.is_empty() {
-                ui.strong("Start with a Windows plug-in");
-                ui.label("Choose your vendor's Windows installer and the Linux DAW you use. Complete the vendor's requests when they appear; the manager connects the installed plug-ins to your DAW.");
-                if ui.add(presentation::primary_button("Add your first plug-in", ui)).clicked() {
-                    *page = Page::Setup;
-                }
-            } else {
-                let mut daws = overview.current.products.iter()
-                    .map(|product| screen_model::product::product_daw(&overview.current, product));
-                let daw = daws.next().flatten()
-                    .filter(|first| daws.all(|other| other == Some(*first)));
-                ui.strong(match daw {
-                    Some(daw @ (DawChoice::Bitwig | DawChoice::Reaper)) =>
-                        format!("Plug-ins available in {}", screen_model::product::daw_name(daw)),
-                    _ => "Plug-ins available in your DAW".into(),
-                });
-                egui::CollapsingHeader::new("Using your plug-ins").show(ui, |ui| {
-                    ui.label("Available plug-ins appear as native VST3s. Add them to a track in your DAW; if one is missing, rescan VST3 plug-ins.");
-                });
-            }
+            next_step(ui, &home.next, chosen, &mut local);
         });
-        if !overview.current.products.is_empty() {
+        if let Some(summary) = &home.summary {
             ui.add_space(8.0);
-            ui.small(format!("{} managed plug-ins · open one to manage its setup, updates and settings",
-                overview.current.products.len()));
+            ui.small(summary);
         }
-        for current in &overview.current.products {
-            ui.push_id((&current.environment, &current.class_id, &current.module_sha256), |ui| {
+        for row in &home.plugins {
+            ui.push_id((&row.key.environment, &row.key.class_id, &row.key.module_sha256), |ui| {
                 egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
                     ui.set_min_width((ui.available_width() - 1.0).max(0.0));
                     ui.horizontal_wrapped(|ui| {
-                        ui.label(egui::RichText::new(&current.name).size(18.0).strong());
-                        if ui.add(egui::Button::new("Manage plug-in")
-                            .min_size(egui::vec2(145.0, 44.0))).clicked() {
-                            library.focus_product(ProductKey::from(current));
-                            *page = Page::Plugins;
-                        }
+                        ui.label(egui::RichText::new(&row.name).size(18.0).strong());
+                        if ui.add(egui::Button::new(row.manage.label)
+                            .min_size(egui::vec2(145.0, 44.0))).clicked() { local = Some(row.manage.does.clone()); }
                     });
-                    let progress = screen_model::product::installation_progress(&overview.current, current);
-                    if fresh { ui.label(progress.unwrap_or_else(|| screen_model::product::status(current).words)); }
-                    if let Some(product) = assessment.and_then(|assessment| assessment.products.iter()
-                        .find(|product| product.class_id == current.class_id
-                            && product.module_sha256 == current.module_sha256)) {
-                        if progress.is_none() && product.installation_health == InstallationHealth::ActionRequired {
-                            ui.colored_label(warning_color(ui), &product.reason);
-                        }
-                        egui::CollapsingHeader::new("Setup check details").show(ui, |ui| {
-                            ui.label(installation_label(product));
-                            ui.label(match product.support_qualification {
-                                SupportQualification::Verified => "Support qualification: exact profile verified",
-                                SupportQualification::Unsupported => "Support qualification: exact profile withdrawn",
-                                SupportQualification::NotYetQualified => "Support qualification: not yet qualified",
-                            });
-                            ui.label(&product.reason);
-                        });
-                    }
+                    if let Some(status) = row.status { ui.label(status); }
+                    if let Some(problem) = &row.problem { ui.colored_label(warning_color(ui), problem); }
+                    if let Some(check) = &row.check { widgets::disclosure(ui, check, chosen); }
                 });
             });
         }
         ui.add_space(8.0);
-        Self::readiness_details(ui, assessment, fresh, pending, refresh, chosen);
+        Self::computer_check(ui, &home.computer, chosen, &mut local);
+        if let Some(local) = local { apply_local(local, page, library, focus, refresh, &mut false); }
     }
+    /// Setup, drawn from its screen model. A choice applied while drawing
+    /// (adding an installer, showing all setup, choosing another installer)
+    /// rebuilds only what the page draws after it, so it shows in this frame.
     fn fast_setup(ui: &mut egui::Ui, overview: &CurrentOverview, fresh: bool,
         pending: bool, controls: (&mut bool, &mut Option<Action>, &mut bool,
             &mut Page, &mut crate::library::Library, &mut RouteFocus, &mut Option<DawChoice>)) {
         let (refresh, chosen, pick, page, library, focus, daw) = controls;
-        // Exact-operation offers still control a running installer without DSP capacity.
-        // Disable stale actions without adding waiting rows to the retained layout.
-        // The DAW and program choices are local drafts, not manager requests.
-        let _ = refresh;
-        ui.heading("Setup");
+        let snapshot = &overview.current;
+        let build = |focus: &RouteFocus| setup::Setup::build(snapshot, fresh, pending, focus.setup_focus());
+        let mut view = build(focus);
+        let mut local = None;
+        ui.heading(view.heading);
+        let mut added = false;
         ui.horizontal_wrapped(|ui| {
-            if ui.add_enabled(fresh && !pending, presentation::primary_button("Choose Windows installer", ui)).clicked() {
-                focus.replacement = None;
-                *pick = true;
+            if ui.add_enabled(view.add.enabled, presentation::primary_button(view.add.label, ui)).clicked() {
+                apply_local(view.add.does.clone(), page, library, focus, refresh, pick);
+                added = true;
             }
-            ui.label("Add a plug-in");
-            daw_choice_control(ui, daw);
+            ui.label(view.add_label);
+            daw_choice_control(ui, &view.daw, daw);
         });
-        ui.label(egui::RichText::new(if fresh {
-            "Choose software and your DAW · Complete vendor requests · Make music"
-        } else { "Refreshing setup · actions wait for current status" }).small()
-            .color(if fresh { ui.visuals().weak_text_color() } else { warning_color(ui) }));
-        existing_setup_installer(ui,&overview.current,fresh,pending,chosen);
-        if focus.setup_installer.is_some() {
+        if added { view = build(focus); }
+        widgets::text(ui, &view.progress);
+        if let Some(existing) = &view.existing { existing_setups(ui, existing, chosen); }
+        if let Some((title, show_all)) = &view.showing_one {
+            let mut all = false;
             ui.horizontal_wrapped(|ui| {
-                ui.strong("Showing the selected installer");
-                if ui.add_sized([180.0, 44.0], egui::Button::new("Show all setup")).clicked() {
-                    focus.setup_installer = None;
-                    focus.setup = None;
-                    focus.setup_scroll = false;
+                ui.strong(*title);
+                if ui.add_sized([180.0, 44.0], egui::Button::new(show_all.label)).clicked() {
+                    apply_local(show_all.does.clone(), page, library, focus, refresh, pick);
+                    all = true;
                 }
             });
+            if all { view = build(focus); }
         }
-        let mut shown = 0;
-        let mut setups: Vec<_> = overview.current.installer_setups.iter().filter(|setup|
-            focus.setup_installer.as_ref().is_none_or(|id| id == &setup.installer)).collect();
-        setups.sort_by_key(|setup| setup_attention_priority(setup));
-        for setup in setups {
-            shown += 1;
-            if focus.setup_scroll && focus.setup_installer.as_ref() == Some(&setup.installer) {
+        let mut chose_replacement = false;
+        for card in &view.cards {
+            if focus.setup_scroll && focus.setup_installer.as_ref() == Some(&card.installer) {
                 ui.scroll_to_cursor(Some(egui::Align::Center));
                 focus.setup_scroll = false;
             }
-            ui.push_id(&setup.installer, |ui| {
-                egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
-                    ui.set_min_width((ui.available_width() - 1.0).max(0.0));
-                    ui.label(egui::RichText::new(setup_display_name(setup,&overview.current)).size(18.0).strong());
-                    let retained_refresh = retained_setup_records_need_refresh(setup, &overview.current);
-                    let partial = partial_installation_needs_review(setup,&overview.current);
-                    let settled = setup_history_settled_by_current_products(setup, &overview.current);
-                    let current = setup.environment.as_deref().map(|environment| (&overview.current, environment));
-                    ui.strong(if let Some(journey) = &setup.journey { current_journey_label(journey, current) }
-                        else if settled {"Plug-ins available in your DAW"}
-                        else if retained_refresh {"Installation records need attention"}
-                        else if partial {"Review earlier installation"}
-                        else {setup_phase_label(&setup.phase)});
-                    let continuation = overview.current.environment_installers.iter().find(|target|
-                        setup.environment.as_ref() == Some(&target.environment) && target.operation.is_some());
-                    let reviewing_replacement = focus.replacement.as_ref().is_some_and(|d|d.original == setup.installer);
-                    let shown_primary = setup.primary.as_ref().filter(|offer| (continuation.is_none()
-                        || !obsolete_initial_installer_offer(offer))
-                        && !reviewing_replacement && !setup_offer_uses_program_choice(&overview.current,setup,offer));
-                    if let Some(journey) = &setup.journey {
-                        ui.label(&setup.status);
-                        journey_results(ui, journey, current, shown_primary);
-                    } else if settled {
-                        ui.label(format!("{} plug-ins available in your DAW.",setup.discovered.len()));
-                    } else if retained_refresh {
-                        ui.label("Installation records need refreshing before making setup changes.");
-                    } else if partial {
-                        ui.label("A complete installation was not confirmed. Review the installation result before making setup changes. Plug-ins already available in your DAW remain available.");
-                    } else if setup.phase == SetupPhase::DiscoveryComplete {
-                        ui.label(format!("{} plug-ins found. Open them to see their current DAW connection.",setup.discovered.len()));
-                    } else if setup.phase == SetupPhase::Imported && setup.primary.is_none() {
-                        ui.colored_label(warning_color(ui), &setup.status);
-                    } else { ui.label(&setup.status); }
-                    if let Some(primary) = shown_primary {
-                        ui.add_enabled_ui(fresh, |ui| crate::library::primary_action(ui, primary,
-                            overview.current.system.inactive_reason(), pending, chosen));
-                    }
-                    if !setup.discovered.is_empty()
-                        && ui.add_enabled(fresh, egui::Button::new("View discovered plug-ins")
-                            .min_size(egui::vec2(240.0, 44.0))).clicked() {
-                        show_discovered_products(setup, library, page);
-                    }
-                    let secondary: Vec<_> = setup.secondary.iter().filter(|offer| !removal_offer(&offer.action)
-                        && (continuation.is_none() || !obsolete_initial_installer_offer(offer)) && !reviewing_replacement
-                            && offer.action.software_install().is_none_or(|(_,_,policy)|policy.is_none())
-                            && !setup_offer_uses_program_choice(&overview.current,setup,offer)).cloned().collect();
-                    ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &secondary,
-                        overview.current.system.inactive_reason(), pending, chosen));
-                    if let Some(target) = continuation {
-                        ui.label(format!("Latest installer in this setup: {}",
-                            target.result["state"].as_str().unwrap_or("status unavailable").replace('_', " ")));
-                        let actions: Vec<_> = target.actions.iter().filter(|offer| crate::library::installer_retry(offer)
-                            || matches!(offer.action,
-                            Action::EnvironmentInstallerFocus {..} | Action::EnvironmentInstallerStop {..}
-                                | Action::EnvironmentInstallerScan {..}))
-                            .cloned().collect();
-                        ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &actions,
-                            overview.current.system.inactive_reason(), pending, chosen));
-                    }
-                    if let Some(context) = replacement_context(&overview.current, setup) {
-                        if context.environment.is_some() {
-                            ui.strong("Install a required app in this setup");
-                            if let Some(target)=overview.current.environment_installers.iter().find(|target|
-                                context.environment.as_ref()==Some(&target.environment)) {
-                                for help in &target.dependency_help {ui.label(help);}
-                            }
-                            ui.label("If the plug-in asks for a licence manager or another dependency, download its Windows installer from the vendor. Choose it here; after it closes, the bridge checks this same setup again.");
-                            if ui.add_enabled(fresh && !pending,
-                                egui::Button::new("Choose dependency installer").min_size(egui::vec2(240.0,44.0))).clicked() {
-                                focus.replacement=Some(context.clone());
-                                focus.setup_installer=Some(setup.installer.clone());
-                                *pick=true;
-                            }
-                        }
-                        if ui.add_enabled(fresh && !pending,
-                            egui::Button::new("Choose another installer").min_size(egui::vec2(240.0,44.0))).clicked() {
-                            focus.replacement = Some(context);
-                            focus.setup_installer = Some(setup.installer.clone());
-                            *pick = true;
-                        }
-                    } else {
-                        ui.small("To choose another installer, finish or stop the current operation and wait for cleanup.");
-                    }
-                    if let Some(draft) = focus.replacement.as_ref().filter(|d|d.original == setup.installer) {
-                        let mut close = false;
-                        if let Some(selected) = &draft.selected {
-                            ui.separator();
-                            let name = overview.current.installer_setups.iter().find(|s| &s.installer == selected)
-                                .map(|s|s.name.as_str()).unwrap_or("Selected Windows installer");
-                            ui.strong(format!("Selected installer: {name}"));
-                            if let Some(target) = overview.current.environment_installers.iter().find(|t|
-                                draft.environment.as_ref() == Some(&t.environment)) {
-                                ui.label("Continue in this same setup.");
-                                ui.label(&target.consequence);
-                                if !target.affected.is_empty() {
-                                    ui.strong(format!("Affected plug-ins: {}",target.affected.join(", ")));
-                                }
-                            }
-                            match replacement_offer(&overview.current, draft) {
-                                Ok(offer) => {
-                                    let before = chosen.clone();
-                                    ui.add_enabled_ui(fresh, |ui| crate::library::primary_action(ui, &offer,
-                                        overview.current.system.inactive_reason(),pending,chosen));
-                                    if *chosen != before {
-                                        if draft.environment.is_none() {focus.setup_installer = Some(selected.clone());}
-                                        close = true;
-                                    }
-                                }
-                                Err(reason) => {ui.colored_label(warning_color(ui),reason);}
-                            }
-                        }
-                        close |= ui.add_enabled(!pending,egui::Button::new("Keep current installer")
-                            .min_size(egui::vec2(160.0,44.0))).clicked();
-                        if close {focus.replacement = None;}
-                    }
-                    egui::CollapsingHeader::new("Setup details and options").show(ui, |ui| {
-                        ui.small(format!("Recorded installer label: {}",setup.name));
-                        if let Some(environment) = &setup.environment {ui.small(format!("Setup environment: {environment}"));}
-                        ui.label(&setup.status);
-                        if let Some(compatibility) = &setup.compatibility { ui.small(compatibility); }
-                        if continuation.is_none() && !reviewing_replacement {
-                            let advanced:Vec<_>=setup.primary.iter().chain(&setup.secondary)
-                                .filter(|offer|offer.action.software_install().is_some_and(|(_,_,policy)|policy.is_some())).cloned().collect();
-                            ui.add_enabled_ui(fresh,|ui|Self::buttons(ui,&advanced,
-                                overview.current.system.inactive_reason(),pending,chosen));
-                        }
-                        for attempt in overview.current.onboarding.iter().filter(|attempt|
-                            attempt.installer == setup.installer
-                                && attempt.environment == setup.environment) {
-                            for line in installer_lines(&attempt.details["installation"]) { ui.label(line); }
-                            for line in installer_policy_lines(&attempt.details["installation"]) { ui.small(line); }
-                            if let Some(failure) = &attempt.failure {
-                                for line in failure_lines(failure) { ui.label(line); }
-                            }
-                            if continuation.is_none() && !reviewing_replacement {
-                                let advanced:Vec<_>=attempt.actions.iter().filter(|offer|
-                                    matches!(offer.action,Action::InstallerStartWithPolicy {..})).cloned().collect();
-                                ui.add_enabled_ui(fresh,|ui|Self::buttons(ui,&advanced,
-                                    overview.current.system.inactive_reason(),pending,chosen));
-                            }
-                        }
-                        ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, std::slice::from_ref(&setup.rename),
-                            overview.current.system.inactive_reason(), pending, chosen));
-                        ui.small(format!("Installer SHA-256: {}",setup.installer));
-                    });
-                    let removal: Vec<_> = setup.secondary.iter().filter(|offer| removal_offer(&offer.action))
-                        .cloned().collect();
-                    let uninstallers: Vec<_> = overview.current.uninstallers.iter().filter(|u|
-                        setup.environment.as_deref() == Some(u.environment.as_str())).collect();
-                    if !removal.is_empty() || !uninstallers.is_empty() {
-                        egui::CollapsingHeader::new("Uninstall, remove or delete").show(ui, |ui| {
-                            for uninstaller in &uninstallers {
-                                ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, std::slice::from_ref(&uninstaller.action),
-                                    overview.current.system.inactive_reason(), pending, chosen));
-                                if !uninstaller.affected.is_empty() {
-                                    ui.small(format!("Plug-ins it removes: {}", uninstaller.affected.join(", ")));
-                                }
-                            }
-                            ui.label("Remove its plug-ins from your DAW, or delete the whole Windows setup. Deleting also deletes everything installed in it, files saved inside it such as presets, and any licences or sign-ins stored there. Your project files are not changed.");
-                            ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &removal,
-                                overview.current.system.inactive_reason(), pending, chosen));
-                        });
-                    }
-                });
-            });
+            ui.push_id(&card.installer, |ui| chose_replacement |=
+                setup_card(ui, snapshot, card, pending, chosen, &mut local, focus));
         }
-        if overview.current.installer_setups.is_empty() {
+        if !view.empty.is_empty() {
             ui.add_space(8.0);
-            ui.label("Choose the installer you downloaded from your plug-in vendor. Selecting it adds a managed copy; the installer runs only when you choose to start it.");
-            ui.label("Choose your DAW when starting installation. Complete any requests in the vendor's window. After installation finishes, the manager finds and connects the installed plug-ins automatically.");
-        } else if shown == 0 {
-            ui.colored_label(warning_color(ui),
-                "The selected installer is unavailable in this readback. Refresh or show all setup.");
+            for line in &view.empty { ui.label(*line); }
         }
-        for group in application_groups(&overview.current, focus) {
-            ui.push_id(("application-setup", group.environment), |ui| {
-                egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
-                    ui.set_min_width((ui.available_width() - 1.0).max(0.0));
-                    let names = application_group_names(&overview.current, group.environment);
-                    let setup_name = group.setup.map(|setup|setup_display_name(setup,&overview.current))
-                        .unwrap_or_else(|| names.first().cloned().unwrap_or_else(||group.applications[0].name.clone()));
-                    ui.label(egui::RichText::new(format!("Apps for {setup_name}")).size(18.0).strong());
-                    if !names.is_empty() { ui.label(format!("Plug-ins in this setup: {}",names.join(", "))); }
-                    for app in group.applications.iter().filter(|app| app.details["choose_application"] != true) {
-                        ui.push_id(&app.id, |ui| {
-                            ui.strong(&app.name);
-                            if let Ok(journey) = serde_json::from_value::<InstallationJourney>(
-                                app.details["journey"].clone()) {
-                                let current = Some((&overview.current, group.environment));
-                                ui.strong(current_journey_label(&journey, current));
-                                journey_results(ui, &journey, current, continuation_offer(&app.actions));
-                            } else { ui.label("Open this app to install or manage its plug-ins."); }
-                            if let Some(notice) = presentation::vendor_default_notice(app) { ui.label(notice); }
-                            if let Some(consequence) = app.actions.iter().find_map(|offer|
-                                screen_model::product::vendor_install_consequence(&overview.current, &offer.action)) {
-                                ui.label(consequence);
-                            }
-                            let actions: Vec<_> = app.actions.iter().filter(|offer|match offer.action {
-                                Action::VendorApplicationFocus { .. } => matches!(app.state.as_str(),"starting"|"running"),
-                                Action::VendorApplicationStop { .. } => app.state != "closed"
-                                    || offer.disabled_reason.is_none(),
-                                _ => true,
-                            }).cloned().collect();
-                            ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &actions,
-                                overview.current.system.inactive_reason(), pending, chosen));
-                        });
-                    }
-                    let choices: Vec<_> = group.applications.iter()
-                        .filter(|app|app.details["choose_application"] == true).collect();
-                    if !choices.is_empty() {
-                        ui.strong("Choose the app to open");
-                        ui.label("Select the installed program you want to use in this setup.");
-                        let id = ui.make_persistent_id("installed-program-choice");
-                        let mut selected = ui.data_mut(|data|data.get_temp::<String>(id));
-                        if fresh && selected.as_ref().is_some_and(|id|!choices.iter().any(|app|&app.id == id)) { selected = None; }
-                        egui::ComboBox::from_id_salt("installed-program")
-                            .selected_text(selected.as_ref().and_then(|id|choices.iter().find(|app|&app.id == id))
-                                .map_or("Choose installed program",|app|app.name.as_str()))
-                            .show_ui(ui, |ui|for app in &choices {
-                                ui.selectable_value(&mut selected,Some(app.id.clone()),&app.name);
-                            });
-                        let app = selected.as_ref().and_then(|id|choices.iter().find(|app|&app.id == id));
-                        if let Some(app) = app {
-                            if let Some(offer) = app.actions.iter().find(|offer|
-                                matches!(offer.action,Action::VendorSoftwareInstall { .. })) {
-                                if let Some(consequence) = screen_model::product::vendor_install_consequence(&overview.current,&offer.action) {
-                                    ui.label(consequence);
-                                }
-                                ui.add_enabled_ui(fresh, |ui| crate::library::primary_action(ui,offer,
-                                    overview.current.system.inactive_reason(),pending,chosen));
-                            }
-                        } else { ui.add_enabled(false,presentation::primary_button("Open selected app",ui)); }
-                        ui.data_mut(|data|match selected {Some(value)=>{data.insert_temp(id,value);},None=>{data.remove::<String>(id);}});
-                    }
-                });
-            });
+        if let Some(missing) = view.missing { ui.colored_label(warning_color(ui), missing); }
+        // A replacement chosen above narrows the page to its setup at once.
+        let apps = if chose_replacement { build(focus).apps } else { std::mem::take(&mut view.apps) };
+        for group in &apps {
+            ui.push_id(("application-setup", group.environment.as_str()), |ui| app_group(ui, group, chosen));
         }
-        if !overview.current.deleted_setups.is_empty() {
-            egui::CollapsingHeader::new(format!("Deleted setups ({})", overview.current.deleted_setups.len()))
-                .default_open(overview.current.deleted_setups.iter().any(|d| d.state == "deleting"))
-                .show(ui, |ui| {
-                    for deleted in &overview.current.deleted_setups {
-                        ui.push_id(("deleted-setup", &deleted.environment), |ui| {
-                            ui.strong(&deleted.name);
-                            ui.label(match deleted.state.as_str() {
-                                "deleting" => "Deleting didn't finish. Finish it to remove the rest of its Windows files.",
-                                "unreadable" => "Its history record can't be read. The setup stays hidden; send Setup details.",
-                                _ => "Deleted. Its Windows files are gone; its history is kept.",
-                            });
-                            if !deleted.plugins.is_empty() {
-                                ui.small(format!("Plug-ins it held: {}", deleted.plugins.join(", ")));
-                            }
-                            ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &deleted.actions,
-                                overview.current.system.inactive_reason(), pending, chosen));
-                        });
-                    }
-                });
-        }
-        ui.small("Vendor accounts and authorization stay with you and the vendor.");
-        if ui.button("Technical setup history").clicked() { *page = Page::Diagnostics; }
+        if let Some(deleted) = &view.deleted { deleted_setups(ui, deleted, chosen); }
+        ui.small(view.footer);
+        if ui.button(view.history.label).clicked() { local = Some(view.history.does.clone()); }
+        if let Some(local) = local { apply_local(local, page, library, focus, refresh, pick); }
     }
     fn health_bar(ui: &mut egui::Ui, system: Option<&System>, owned_pause: bool,
         renewing: bool) {
@@ -2345,10 +1831,10 @@ impl Operator {
                         && (!system.capacity_available() || !system.cleanup_unconfirmed));
                 let title = if paused {"Bridge temporarily paused for installation"}
                     else if unobserved_refresh {"Refreshing current status"} else {
-                    system.map(presentation::health).unwrap_or(presentation::Health::Unavailable).title()
+                    system.map(screen_model::service::health).unwrap_or(screen_model::service::Health::Unavailable).title()
                 };
-                let warning = !paused && !unobserved_refresh && system.is_none_or(|system|matches!(presentation::health(system),
-                    presentation::Health::Unavailable | presentation::Health::NeedsAttention));
+                let warning = !paused && !unobserved_refresh && system.is_none_or(|system|matches!(screen_model::service::health(system),
+                    screen_model::service::Health::Unavailable | screen_model::service::Health::NeedsAttention));
                 let text = egui::RichText::new(title).size(16.0).strong();
                 ui.label(if warning {text.color(warning_color(ui))} else {text});
                 if ui.add(egui::Button::new(if expanded {"Hide service details"} else {"Service details"})
@@ -2409,11 +1895,11 @@ impl Operator {
                         ui.small(format!("{available} plug-ins connected · {attention} need attention"));
                     }
                     if let Some(failure) = &journey.failure {
-                        ui.colored_label(warning_color(ui), installation_failure_text(failure, None));
+                        ui.colored_label(warning_color(ui), journey::failure_text(failure, None));
                     }
                     egui::CollapsingHeader::new("Installation progress").show(ui, |ui| {
-                        ui.strong(journey_phase_label(journey));
-                        journey_results(ui, journey, None, None);
+                        ui.strong(journey::phase_label(journey));
+                        widgets::journey(ui, &journey::Results::build(journey, None, None));
                     });
                 }
                 egui::CollapsingHeader::new("Request details").show(ui, |ui| {
@@ -3025,41 +2511,22 @@ impl eframe::App for Operator {
             });
         });
         if let Some(a) = chosen.take() {
-            if let Some(installation) = installation_with_daw(&a,
-                self.software_install_daw.unwrap_or(DawChoice::Other)) {
-                if self.software_install_daw.is_some() {
-                    chosen = Some(installation);
-                } else {
-                    self.software_install_form = Some(installation);
-                }
-            } else if matches!(
-                a,
-                Action::CandidateObserve { .. } | Action::CandidateReview { .. }
-                    | Action::CompatibilityResult { .. }
-            ) {
-                self.product_form = Some(a);
-            } else if matches!(
-                a,
-                Action::WorkspaceSelectInstaller { .. }
-                    | Action::WorkspaceSelectProductInstaller { .. }
-            ) {
-                self.workspace_select_form = Some(a);
-            } else if matches!(a, Action::InstallerRename { .. }) {
-                self.installer_rename_form = Some(a);
-            } else if needs_confirmation(&a) {
-                self.removal_form = Some(a);
-            } else {
-                chosen = Some(a);
+            match forms::route(a, self.software_install_daw) {
+                forms::Route::Send(action) => chosen = Some(action),
+                forms::Route::ChooseDaw(action) => self.software_install_form = Some(action),
+                forms::Route::Record(action) => self.product_form = Some(action),
+                forms::Route::ChooseRelease(action) => self.workspace_select_form = Some(action),
+                forms::Route::Rename(action) => self.installer_rename_form = Some(action),
+                forms::Route::Confirm(action) => self.removal_form = Some(action),
             }
         }
         if let Some(form) = &self.software_install_form {
-            let offered = installation_form_offer(self.current_action_snapshot(), form);
+            let offered = forms::InstallForm::build(self.current_action_snapshot(), form);
             if let Some((submit, cancel)) = show_software_install_form(ui.ctx(),
-                &mut self.software_install_daw, &offered, action_controls_pending,
-                matches!(form,Action::EnvironmentRefresh {..})) {
+                &mut self.software_install_daw, &offered, action_controls_pending) {
                 if submit.clicked() {
                     if let Some(daw) = self.software_install_daw {
-                        chosen = installation_with_daw(form, daw);
+                        chosen = forms::installation_with_daw(form, daw);
                         self.software_install_form = None;
                     }
                 } else if cancel.clicked() {
@@ -3098,15 +2565,16 @@ impl eframe::App for Operator {
         if let Some(Action::InstallerRename { installer, label }) = self.installer_rename_form.as_mut() {
             let mut submit = false;
             let mut cancel = false;
-            egui::Window::new("Name installer").collapsible(false).show(ui.ctx(), |ui| {
-                ui.label("This name is for display only. It cannot change the installer, environment or plug-ins.");
-                ui.small(format!("Exact installer ID: {}…{}", &installer[..8], &installer[60..]));
+            let form = forms::RenameForm::build(installer);
+            egui::Window::new(form.title).collapsible(false).show(ui.ctx(), |ui| {
+                ui.label(form.explanation);
+                ui.small(&form.identity);
                 ui.add(egui::TextEdit::singleline(label).char_limit(96)
                     .min_size(egui::vec2(240.0, 44.0)));
-                let plausible = plausible_installer_label(label);
+                let plausible = forms::plausible_installer_label(label);
                 submit = ui.add_enabled(plausible && !action_controls_pending,
-                    egui::Button::new("Save name").min_size(egui::vec2(180.0, 44.0))).clicked();
-                cancel = ui.add_sized([100.0, 44.0], egui::Button::new("Cancel")).clicked();
+                    egui::Button::new(form.save).min_size(egui::vec2(180.0, 44.0))).clicked();
+                cancel = ui.add_sized([100.0, 44.0], egui::Button::new(form.cancel)).clicked();
             });
             if submit { chosen = self.installer_rename_form.clone(); }
             else if cancel { self.installer_rename_form = None; }
@@ -3115,19 +2583,17 @@ impl eframe::App for Operator {
             let snapshot = if matches!(form, Action::PluginRemoveFromDaw { .. }) {
                 selected_product_snapshot.as_ref().or_else(|| self.current_action_snapshot())
             } else { self.current_action_snapshot() }.or(if self.preview { self.snapshot.as_ref() } else { None });
-            let confirmation = removal_confirmation(snapshot, &form);
+            let confirmation = forms::removal_confirmation(snapshot, &form);
             let mut submit = false;
             let mut cancel = false;
             // Optional, default off: also forget the imported installer file.
-            let finishing = matches!(&form, Action::SetupDelete { environment, .. } if snapshot.is_some_and(|s|
-                s.deleted_setups.iter().any(|d| &d.environment == environment)));
             let forget_id = egui::Id::new(("forget-installer", format!("{form:?}")));
             let mut forget = ui.ctx().data(|d| d.get_temp::<bool>(forget_id)).unwrap_or(false);
             egui::Window::new(confirmation.title).collapsible(false).resizable(false).show(ui.ctx(), |ui| {
                 for line in &confirmation.body { ui.label(line); }
-                if matches!(form, Action::SetupDelete { .. }) && !finishing {
-                    ui.checkbox(&mut forget, "Also forget the installer file");
-                    ui.small("You would need to add the installer again to set this up later.");
+                if let Some((choice, meaning)) = confirmation.forget {
+                    ui.checkbox(&mut forget, choice);
+                    ui.small(meaning);
                 }
                 if let Err(reason) = &confirmation.offer { ui.colored_label(warning_color(ui), reason); }
                 ui.horizontal_wrapped(|ui| {
@@ -3139,8 +2605,8 @@ impl eframe::App for Operator {
             });
             ui.ctx().data_mut(|d| d.insert_temp(forget_id, forget));
             if submit {
-                chosen = Some(match confirmed(form) {
-                    Action::SetupDelete { installer, environment, confirmed, .. } if !finishing =>
+                chosen = Some(match forms::confirmed(form) {
+                    Action::SetupDelete { installer, environment, confirmed, .. } if confirmation.forget.is_some() =>
                         Action::SetupDelete { installer, environment, confirmed, forget_installer: forget },
                     other => other,
                 });
@@ -3168,6 +2634,9 @@ impl eframe::App for Operator {
             }
         }
         if self.preview {
+            #[cfg(test)]
+            PREVIEW_INTENT.with(|intent| *intent.borrow_mut() =
+                format!("{chosen:?} refresh={refresh} pick={pick} retry={retry_details}"));
             ui.ctx().request_repaint_after(Duration::from_millis(500));
             return;
         }
@@ -3251,210 +2720,24 @@ impl Operator {
         None
     }
 }
-fn software_install_offer(snapshot: Option<&Snapshot>, installer: &str, policy: Option<crate::model::Powershell>)
-    -> Result<Option<String>, &'static str> {
-    let snapshot = snapshot.ok_or("Current manager status is unavailable. Refresh before installing.")?;
-    snapshot.installer_setups.iter().flat_map(|setup|
-        setup.primary.iter().chain(setup.secondary.iter()))
-        .find(|offer| offer.action.software_install().is_some_and(|(offered,_,choice)|
-            offered==installer && choice==policy))
-        .map(|offer| offer.disabled_reason.clone().or_else(||
-            offer.action.requires_global_inactive().then(||snapshot.system.inactive_reason())
-                .flatten().map(str::to_owned)))
-        .ok_or("This installation offer changed. Refresh Setup before continuing.")
-}
-
-fn installation_with_daw(action: &Action, daw: DawChoice) -> Option<Action> {
-    if let Some(action)=action.software_install_with_daw(daw) {return Some(action);}
-    match action {
-        Action::VendorSoftwareInstall { application, .. } =>
-            Some(Action::VendorSoftwareInstall { application: application.clone(), daw }),
-        Action::EnvironmentRefresh {environment,..}=>
-            Some(Action::EnvironmentRefresh {environment:environment.clone(),daw}),
-        Action::RendererSoftwareInstall {application,policy,..}=>
-            Some(Action::RendererSoftwareInstall {application:application.clone(),policy:*policy,daw}),
-        _ => None,
-    }
-}
-
-fn installation_form_offer(snapshot: Option<&Snapshot>, action: &Action)
-    -> Result<Option<String>, &'static str> {
-    if let Some((installer,_,policy))=action.software_install() {
-        return software_install_offer(snapshot,installer,policy);
-    }
-    match action {
-        Action::RendererSoftwareInstall {application,policy,..}=> {
-            let snapshot=snapshot.ok_or("Current manager status is unavailable. Refresh before continuing.")?;
-            snapshot.vendor_applications.iter().flat_map(|app|&app.actions).find(|offer|
-                matches!(&offer.action,Action::RendererSoftwareInstall {application:offered,policy:offered_policy,..}
-                    if offered==application && offered_policy==policy))
-                .map(|offer|offer.disabled_reason.clone().or_else(||snapshot.system.inactive_reason().map(str::to_owned)))
-                .ok_or("This app's offered rendering choice changed. Refresh Setup before continuing.")
-        },
-        Action::EnvironmentRefresh {environment,..}=> {
-            let snapshot=snapshot.ok_or("Current manager status is unavailable. Refresh before continuing.")?;
-            snapshot.installer_setups.iter().flat_map(|setup|setup.primary.iter().chain(setup.secondary.iter()))
-                .find(|offer|matches!(&offer.action,Action::EnvironmentRefresh {environment:offered,..} if offered==environment))
-                .map(|offer|offer.disabled_reason.clone().or_else(||snapshot.system.inactive_reason().map(str::to_owned)))
-                .ok_or("This setup refresh offer changed. Refresh Setup before continuing.")
-        },
-        Action::VendorSoftwareInstall { application, .. } => {
-            let snapshot = snapshot.ok_or("Current manager status is unavailable. Refresh before installing.")?;
-            snapshot.vendor_applications.iter().flat_map(|app| &app.actions)
-                .find(|offer| matches!(&offer.action,
-                    Action::VendorSoftwareInstall { application: offered, .. } if offered == application))
-                .map(|offer| offer.disabled_reason.clone().or_else(||
-                    offer.action.requires_global_inactive().then(||snapshot.system.inactive_reason())
-                        .flatten().map(str::to_owned)))
-                .ok_or("This vendor installation offer changed. Refresh Setup before continuing.")
-        }
-        _ => Err("This installation offer changed. Refresh Setup before continuing."),
-    }
-}
-
-/// Removing from the DAW or deleting a setup always asks first.
-fn needs_confirmation(action: &Action) -> bool {
-    matches!(action, Action::PluginRemoveFromDaw { .. } | Action::SetupRemoveFromDaw { .. }
-        | Action::SetupDelete { .. } | Action::ProductUninstall { .. })
-}
-/// Setup-level removal offers live in their own section of the setup card.
-fn removal_offer(action: &Action) -> bool {
-    matches!(action, Action::SetupRemoveFromDaw { .. } | Action::SetupDelete { .. })
-}
-/// The musician's answer to the confirmation. Delete and Uninstall carry it.
-fn confirmed(action: Action) -> Action {
-    match action {
-        Action::SetupDelete { installer, environment, forget_installer, .. } =>
-            Action::SetupDelete { installer, environment, confirmed: true, forget_installer },
-        Action::ProductUninstall { environment, registration, command_sha256, .. } =>
-            Action::ProductUninstall { environment, registration, command_sha256, confirmed: true },
-        other => other,
-    }
-}
-/// The offer a confirmed request answers: without the musician's own choices.
-fn offer_identity(action: &Action) -> Action {
-    match action.clone() {
-        Action::SetupDelete { installer, environment, .. } =>
-            Action::SetupDelete { installer, environment, confirmed: false, forget_installer: false },
-        Action::ProductUninstall { environment, registration, command_sha256, .. } =>
-            Action::ProductUninstall { environment, registration, command_sha256, confirmed: false },
-        other => other,
-    }
-}
-struct Confirmation {
-    title: &'static str,
-    body: Vec<String>,
-    confirm: &'static str,
-    cancel: &'static str,
-    /// The exact current offer, or why it can't be confirmed now.
-    offer: Result<AvailableAction, String>,
-}
-fn removal_confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirmation {
-    const CHANGED: &str = "This choice is no longer offered. Close this and check the current status.";
-    // The musician's own answers are not part of the offer.
-    let offered = offer_identity(action);
-    let current = |offers: Vec<&AvailableAction>| -> Result<AvailableAction, String> {
-        let offer = offers.into_iter().find(|offer| offer.action == offered).cloned().ok_or(CHANGED)?;
-        match &offer.disabled_reason { Some(reason) => Err(reason.clone()), None => Ok(offer) }
-    };
-    let Some(snapshot) = snapshot else {
-        return Confirmation { title: "Check current status", body: vec![], confirm: "Continue",
-            cancel: "Close", offer: Err("Current manager status is unavailable. Refresh before continuing.".into()) };
-    };
-    match action {
-        Action::PluginRemoveFromDaw { class_id, .. } => {
-            let product = snapshot.products.iter().find(|p| p.class_id.eq_ignore_ascii_case(class_id)
-                && p.actions.iter().any(|offer| offer.action == *action));
-            let name = product.map_or("This plug-in", |p| p.name.as_str());
-            Confirmation { title: "Remove from your DAW?",
-                body: vec![format!("{name} will no longer appear in your DAW's plug-in list."),
-                    "Projects that use it will open with it missing until you add it back.".into(),
-                    "Its Windows installation and settings stay in its setup, so you can add it back later, unless you delete that setup.".into()],
-                confirm: "Remove from my DAW", cancel: "Keep it",
-                offer: current(product.into_iter().flat_map(|p| p.actions.iter()).collect()) }
-        }
-        Action::SetupRemoveFromDaw { environment } => {
-            let names: Vec<_> = snapshot.products.iter().filter(|p| p.environment == *environment
-                && p.availability.as_ref().is_some_and(|a| a.available)).map(|p| p.name.as_str()).collect();
-            let names = if names.is_empty() { "This setup's plug-ins".into() } else { names.join(", ") };
-            Confirmation { title: "Remove from your DAW?",
-                body: vec![format!("{names} will no longer appear in your DAW's plug-in list."),
-                    "Projects that use them will open with them missing until you add them back.".into(),
-                    "Their Windows installation stays in this setup. If you delete this setup afterwards, they can't be added back; you would set it up again.".into()],
-                confirm: "Remove from my DAW", cancel: "Keep them",
-                offer: current(snapshot.installer_setups.iter().flat_map(|s| s.secondary.iter()).collect()) }
-        }
-        Action::SetupDelete { installer, environment, .. } => {
-            if let Some(deleted) = snapshot.deleted_setups.iter().find(|d| d.environment == *environment) {
-                return Confirmation { title: "Finish deleting this setup?",
-                    body: vec![format!("Deleting the Windows setup for {} didn't finish. This removes the rest of its files.", deleted.name),
-                        "Your projects are not changed.".into()],
-                    confirm: "Finish deleting", cancel: "Not now",
-                    offer: current(deleted.actions.iter().collect()) };
-            }
-            let setup = snapshot.installer_setups.iter().find(|s| s.installer == *installer);
-            let name = setup.map_or_else(|| "this setup".into(), |s| setup_display_name(s, snapshot));
-            // Every attempt of the setup, not only the current one.
-            let attempts: std::collections::BTreeSet<&str> = std::iter::once(environment.as_str())
-                .chain(setup.into_iter().flat_map(|s| s.history.iter().filter_map(|h| h.environment.as_deref())))
-                .collect();
-            let names: Vec<_> = snapshot.products.iter().filter(|p| attempts.contains(p.environment.as_str()))
-                .map(|p| p.name.as_str()).collect();
-            let (plugins, them) = match names.len() {
-                0 => ("its plug-ins".into(), "them"),
-                1 => (names[0].to_owned(), "it"),
-                _ => (names.join(", "), "them"),
-            };
-            Confirmation { title: "Delete this setup?",
-                body: vec![format!("This deletes the Windows setup for {name}: everything installed in it, and any licences or sign-ins stored there."),
-                    "Files you saved from inside its plug-ins or apps and kept in this setup, such as presets or downloaded content, are deleted too.".into(),
-                    "If the vendor limits how many computers can be activated, deactivate the licence in the vendor's app first. Deleting the files doesn't give the activation back.".into(),
-                    format!("Projects that use {plugins} will open with {them} missing until you set this setup up again. Add back won't be possible."),
-                    "The installer you added stays in the manager, so you can set it up again later, unless you choose to forget it below. A record of this setup is kept in its history. Your project files are not changed.".into()],
-                confirm: "Delete setup", cancel: "Cancel",
-                offer: current(setup.into_iter().flat_map(|s| s.secondary.iter()).collect()) }
-        }
-        Action::ProductUninstall { .. } => {
-            let uninstaller = snapshot.uninstallers.iter().find(|u| u.action.action == offered);
-            let name = uninstaller.map_or("this software", |u| u.name.as_str());
-            let mut body = vec![format!("This runs {name}'s own uninstaller in its setup. Follow its window to finish.")];
-            if uninstaller.is_some_and(|u| u.coverage != "installed_with_this") {
-                body.push("The manager can't tell exactly what this removes: it was installed together with other software, or what it installed wasn't fully recorded. It might be a shared part, such as a runtime or a licence manager, that other software in this setup needs. Uninstall it only if you're sure.".into());
-            }
-            if let Some(u) = uninstaller.filter(|u| !u.affected.is_empty()) {
-                let one = u.affected.len() == 1;
-                body.push(format!("First, {} will be removed from your DAW. Projects that use {} will open with {} missing.",
-                    u.affected.join(", "), if one { "it" } else { "them" }, if one { "it" } else { "them" }));
-            }
-            body.push("Afterwards, this setup's plug-ins are checked again one at a time, and any it didn't remove go back into your DAW. The bridge is paused for all your setups until that finishes, which can take a few minutes for a large setup.".into());
-            body.push("The uninstaller may also remove licences or settings it stored there. Your projects are not changed.".into());
-            Confirmation { title: "Uninstall?", body, confirm: "Uninstall", cancel: "Cancel",
-                offer: current(uninstaller.map(|u| &u.action).into_iter().collect()) }
-        }
-        _ => Confirmation { title: "Check current status", body: vec![], confirm: "Continue", cancel: "Close",
-            offer: Err(CHANGED.into()) },
-    }
-}
-
-fn daw_choice_control(ui: &mut egui::Ui, daw: &mut Option<DawChoice>) {
+fn daw_choice_control(ui: &mut egui::Ui, picker: &forms::DawPicker, daw: &mut Option<DawChoice>) {
     egui::ComboBox::from_id_salt("software-install-daw")
-        .selected_text(daw.map(screen_model::product::daw_name).unwrap_or("Choose your DAW"))
+        .selected_text(picker.shown(*daw))
         .show_ui(ui, |ui| {
-            for choice in [DawChoice::Bitwig, DawChoice::Reaper, DawChoice::Other] {
-                ui.selectable_value(daw, Some(choice), screen_model::product::daw_name(choice));
+            for (choice, label) in picker.choices {
+                ui.selectable_value(daw, Some(choice), label);
             }
         });
 }
 
 fn show_software_install_form(ctx: &egui::Context, daw: &mut Option<DawChoice>,
-    offer: &Result<Option<String>, &'static str>, pending: bool, refresh: bool)
-    -> Option<(egui::Response, egui::Response)> {
-    egui::Window::new(if refresh {"Find and connect"} else {"Install and connect"})
+    form: &forms::InstallForm, pending: bool) -> Option<(egui::Response, egui::Response)> {
+    egui::Window::new(form.title)
         .collapsible(false)
         .max_width((ctx.content_rect().width() - 40.0).clamp(300.0, 460.0))
         .max_height((ctx.content_rect().height() - 40.0).max(200.0))
         .show(ctx, |ui| {
-            let refusal = match offer { Ok(reason) => reason.as_deref(), Err(reason) => Some(*reason) };
+            let refusal = form.refusal.as_deref();
             let footer_height = 2.0 * (44.0 + ui.spacing().item_spacing.y)
                 + refusal.map(|reason| ui.painter().layout(reason.to_owned(),
                     egui::TextStyle::Small.resolve(ui.style()), ui.visuals().text_color(),
@@ -3462,16 +2745,15 @@ fn show_software_install_form(ctx: &egui::Context, daw: &mut Option<DawChoice>,
             egui::ScrollArea::vertical().id_salt("software-install-fields")
                 .max_height((ui.available_height() - footer_height).max(0.0))
                 .min_scrolled_height(0.0).auto_shrink([false, true]).show(ui, |ui| {
-                    ui.label("Which Linux DAW do you use?");
-                    daw_choice_control(ui, daw);
-                    ui.label(if refresh {"The manager finds installed instruments and effects and connects missing plug-ins automatically. Your working plug-ins keep their current setup."}
-                        else {"Complete requests in the vendor's window. The manager then finds and connects all newly installed VST3 plug-ins automatically."});
-                    ui.small("Native VST3 plug-ins may also appear in other compatible Linux DAWs.");
+                    ui.label(form.question);
+                    daw_choice_control(ui, &form.daw, daw);
+                    ui.label(form.explanation);
+                    ui.small(form.note);
                 });
             let submit = ui.add_enabled(!pending && daw.is_some() && refusal.is_none(),
-                presentation::primary_button(if refresh {"Find and connect"} else {"Start installation"}, ui));
+                presentation::primary_button(form.submit, ui));
             if let Some(reason) = refusal { ui.small(reason); }
-            let cancel = ui.add(egui::Button::new("Cancel").min_size(egui::vec2(100.0, 44.0)));
+            let cancel = ui.add(egui::Button::new(form.cancel).min_size(egui::vec2(100.0, 44.0)));
             (submit, cancel)
         }).and_then(|window| window.inner)
 }
@@ -3601,8 +2883,6 @@ fn compatibility_result_refusal<'a>(offer: Option<&'a Result<Option<String>, &'s
     }
 }
 
-fn installer_lines(v: &serde_json::Value) -> Vec<String> { crate::presentation::installer_lines(v) }
-
 fn dependency_retirement_lines(v: &serde_json::Value) -> Vec<String> {
     if v.is_null() {
         return Vec::new();
@@ -3727,56 +3007,6 @@ fn dependency_retirement_lines(v: &serde_json::Value) -> Vec<String> {
     lines
 }
 
-fn installer_policy_lines(v: &serde_json::Value) -> Vec<&'static str> {
-    let Some(policy) = v.get("installer_capability") else {
-        return vec![];
-    };
-    let requested = policy["requested"]["powershell"].as_str();
-    let applied = policy["effective"]["effective"]["windows_scripting"]["powershell"].as_str();
-    vec![match requested {
-        Some("intentionally_unavailable")=>"Requested: PowerShell intentionally unavailable for this installer only.",
-        Some("inherited")=>"Requested: inherited scripting behavior.",
-        _=>"Scripting policy request could not be verified.",
-    }, match applied {
-        Some("intentionally_unavailable")=>"Applied at target launch: PowerShell intentionally unavailable. Installer fallback success is not yet established.",
-        Some("inherited")=>"Applied at target launch: inherited scripting behavior.",
-        _=>"Target-launch policy has not been confirmed applied.",
-    }]
-}
-
-fn failure_lines(f: &crate::model::OperationFailure) -> Vec<String> {
-    let mut lines = vec![match f.stage {
-        crate::model::FailureStage::OperatorValidationReadback => {
-            "Manager could not finish validating state."
-        }
-        crate::model::FailureStage::EnvironmentCreationAdmission => {
-            "Manager was busy before environment creation could start."
-        }
-    }
-    .into()];
-    if !f.mutation_started && !f.environment_created {
-        lines.push("Environment creation did not start.".into());
-    }
-    if !f.installer_launched {
-        lines.push("The installer was not launched; this is not an installer failure.".into());
-    }
-    lines.push(
-        if f.retryable {
-            "Retry is safe once the manager refreshes and canonical state is healthy."
-        } else {
-            "Manager access needs attention before retrying."
-        }
-        .into(),
-    );
-    lines.push(format!(
-        "Validation lock: {:?}; {:?}; {} attempts, {:.1} ms elapsed; holder unknown.",
-        f.lock.name,
-        f.lock.outcome,
-        f.lock.attempts,
-        f.lock.elapsed_wait_us as f64 / 1000.0
-    ));
-    lines
-}
 fn incident_lines(v: &serde_json::Value) -> Vec<String> {
     let word = |key: &str| v[key].as_str().unwrap_or("unavailable").replace('_', " ");
     let confirmed = |key: &str| match v[key].as_bool() {
@@ -4127,7 +3357,7 @@ mod tests {
             let mut output = ctx.run_ui(egui::RawInput {screen_rect:Some(egui::Rect::from_min_size(
                 egui::Pos2::ZERO,egui::vec2(960.0,900.0))),..Default::default()}, |ui| {
                 Operator::health_bar(ui,Some(&overview.current.system),
-                    presentation::owned_service_pause(overview.current.operation.as_ref()), false);
+                    screen_model::service::owned_service_pause(overview.current.operation.as_ref()), false);
                 Operator::fast_home(ui,&overview,None,true,false,false,
                     (&mut Page::Home,&mut crate::library::Library::default(),
                         &mut RouteFocus::default(),&mut false,&mut chosen));
@@ -4168,7 +3398,7 @@ mod tests {
         for refresh in [false,true] {
             if refresh {state.apply_current_overview(overview.clone());}
             let current = state.overview.as_ref().unwrap();
-            assert!(!presentation::owned_service_pause(current.current.operation.as_ref()));
+            assert!(!screen_model::service::owned_service_pause(current.current.operation.as_ref()));
             let ctx = result_form_context();let mut chosen = None;
             let mut output = ctx.run_ui(egui::RawInput {screen_rect:Some(egui::Rect::from_min_size(
                 egui::Pos2::ZERO,egui::vec2(960.0,720.0))),..Default::default()}, |ui| {
@@ -4252,7 +3482,9 @@ mod tests {
                 for frame in 0..4 {
                     let mut output=ctx.run_ui(egui::RawInput {screen_rect:Some(
                         egui::Rect::from_min_size(egui::Pos2::ZERO,size)),..Default::default()},|_ui| {
-                        let (submit,cancel)=show_software_install_form(&ctx,&mut choice,&offer,pending,false).unwrap();
+                        let form=forms::InstallForm { refusal:offer.clone().unwrap_or_else(|reason| Some(reason.into())),
+                            ..forms::InstallForm::build(None,&Action::SoftwareInstall {installer:"ab".repeat(32),daw:DawChoice::Other}) };
+                        let (submit,cancel)=show_software_install_form(&ctx,&mut choice,&form,pending).unwrap();
                         if frame == 3 {
                             assert_eq!(submit.enabled(),enabled);
                             assert!(cancel.enabled());
@@ -4750,7 +3982,7 @@ mod tests {
             "schema":1,"operation":"exact","outcome":"outer_nonzero_stage_unknown","durable_installation":"partial_installation",
             "launch_binding":{"schema":1,"operation":"exact","status":"bound"},
             "presence_close":{"schema":1,"observation_count":3,"operation_classes":["presence_query","close_request","presence_query"]}}});
-        let text = super::installer_lines(&v).join(" ");
+        let text = crate::screen_model::installer::installer_lines(&v).join(" ");
         assert!(text.contains("exact operation and launch generation"));
         assert!(
             text.contains("Helper success does not prove")
@@ -4761,12 +3993,12 @@ mod tests {
                 && text.contains("matched object and actual close outcome are unavailable")
         );
         v["transaction"]["launch_binding"]["operation"] = "unrelated".into();
-        assert!(!super::installer_lines(&v)
+        assert!(!crate::screen_model::installer::installer_lines(&v)
             .join(" ")
             .contains("exact operation and launch generation"));
         v["transaction"]["launch_binding"]["operation"] = "exact".into();
         v["transaction"]["launch_binding"]["status"] = "unavailable".into();
-        assert!(super::installer_lines(&v)
+        assert!(crate::screen_model::installer::installer_lines(&v)
             .join(" ")
             .contains("Child attribution may be incomplete"));
     }
@@ -4779,7 +4011,7 @@ mod tests {
                         "outer_launcher_exit":-15,"durable_installation":"partial_installation",
                         "first_failure":{"phase":"target_runner","role":role,
                             "relationship":"descendant","domain":domain,"status":status}}});
-                let lines = super::installer_lines(&v);
+                let lines = crate::screen_model::installer::installer_lines(&v);
                 let failure = lines
                     .iter()
                     .find(|l| l.starts_with("First retained"))
@@ -4793,7 +4025,7 @@ mod tests {
     #[test]
     fn installer_partial_nonzero_cancellation_and_cleanup_stay_separate() {
         let mut v = serde_json::json!({"operation":"exact","cleanup_confirmed":true,"startup":{"first_problem":{"code":"runtime_assertion_observed"}},"transaction":{"schema":1,"operation":"exact","outcome":"cancelled","outer_launcher_exit":-15,"durable_installation":"partial_installation","first_failure":{"domain":"linux_wait","status":37}}});
-        let lines = super::installer_lines(&v).join(" ");
+        let lines = crate::screen_model::installer::installer_lines(&v).join(" ");
         assert!(
             lines.contains("runtime assertion observed")
                 && lines.contains("cancelled")
@@ -4802,16 +4034,25 @@ mod tests {
                 && lines.contains("cleanup confirmed")
         );
         v["transaction"]["outcome"] = "in_progress".into();
-        let ongoing = super::installer_lines(&v).join(" ");
+        let ongoing = crate::screen_model::installer::installer_lines(&v).join(" ");
         assert!(ongoing.contains("Exact Focus and Stop"));
         assert!(!ongoing.contains("Further work is blocked"));
         v["transaction"]["operation"] = "other".into();
-        assert!(super::installer_lines(&v).is_empty());
+        assert!(crate::screen_model::installer::installer_lines(&v).is_empty());
         let legacy = serde_json::json!({"error":"installer_launcher_failed"});
-        assert!(super::installer_lines(&legacy)[0].contains("failing later stage"));
+        assert!(crate::screen_model::installer::installer_lines(&legacy)[0].contains("failing later stage"));
     }
 
     use super::*;
+    use crate::screen_model::forms::{confirmed, installation_form_offer, installation_with_daw,
+        needs_confirmation, offer_identity, plausible_installer_label, removal_confirmation, software_install_offer};
+    use crate::screen_model::home::installation_label;
+    use crate::screen_model::installer::failure_lines;
+    use crate::screen_model::journey::{current_label as current_journey_label, current_plugin_state,
+        failure_text as installation_failure_text};
+    use crate::screen_model::setup::{application_groups, display_name as setup_display_name,
+        history_settled_by_current_products as setup_history_settled_by_current_products, replacement_context,
+        replacement_offer, retained_records_need_refresh as retained_setup_records_need_refresh};
     #[test]
     fn installer_rename_local_check_matches_manager_utf8_byte_bound() {
         assert!(plausible_installer_label("Lunacy Audio"));
@@ -6177,10 +5418,10 @@ mod tests {
             row("newer-app","newer-owned-environment","Same app",false),
             row("hub-choice","fresh-owned-environment","Source hub (hub)",true),
             row("helper-choice","fresh-owned-environment","Source hub (helper)",true)];
-        let groups=application_groups(&overview.current,&RouteFocus::default());
+        let groups=application_groups(&overview.current,&RouteFocus::default().setup_focus());
         assert_eq!(groups.len(),3);assert_eq!(groups[2].applications.len(),2);
         let focus=RouteFocus {setup:Some(AttemptKey {installer:"exact-import".into(),environment:Some("older-owned-environment".into())}),..Default::default()};
-        let focused=application_groups(&overview.current,&focus);assert_eq!(focused.len(),1);
+        let focused=application_groups(&overview.current,&focus.setup_focus());assert_eq!(focused.len(),1);
         assert_eq!(focused[0].applications[0].id,"older-app");
         let ctx=result_form_context();let mut chosen=None;
         let mut output=ctx.run_ui(egui::RawInput {screen_rect:Some(egui::Rect::from_min_size(
@@ -6591,8 +5832,8 @@ mod tests {
         })));
         assert_eq!(state.current_health_system(), Some(&unavailable));
         assert_eq!(state.selected_product_snapshot().unwrap().system, unavailable);
-        assert_eq!(presentation::health(state.current_health_system().unwrap()),
-            presentation::Health::Unavailable);
+        assert_eq!(screen_model::service::health(state.current_health_system().unwrap()),
+            screen_model::service::Health::Unavailable);
         state.overview_fresh = false;
         assert!(state.current_health_system().is_none());
         assert!(state.current_action_snapshot().is_none());
@@ -7134,7 +6375,10 @@ mod tests {
             assert!(text.iter().any(|line| line == "View discovered plug-ins"));
             assert!(text.iter().any(|line| line == "Show all setup"));
             assert!(!focus.setup_scroll);
-            show_discovered_products(&setup,&mut library,&mut page);
+            // The card's own control opens exactly the plug-ins this setup found.
+            let card = setup::SetupCard::build(&overview.current, &setup, true, false, None);
+            apply_local(card.discovered.expect("discovered plug-ins").does, &mut page, &mut library,
+                &mut focus, &mut false, &mut false);
             assert_eq!(page,Page::Plugins);
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
                 library.show_current(ui,&overview.current,true,false,&mut false);
@@ -7256,7 +6500,8 @@ mod tests {
                 name:product.name.clone(),stage:InstallationPluginStage::Available,failure:None}],failure:None};
         let current = Some((&overview.current, product.environment.as_str()));
         assert_eq!(current_journey_label(&journey, current), "Not in your DAW");
-        assert_eq!(current_plugin_state(&journey, &journey.plugins[0], current), Some("Removed from your DAW"));
+        assert_eq!(current_plugin_state(&journey, &journey.plugins[0], current).map(|state| state.words),
+            Some("Removed from your DAW"));
         assert_eq!(current_journey_label(&journey, None), "DAW connection complete");
     }
     #[test]
@@ -7816,14 +7061,14 @@ mod tests {
         assert_eq!(operator.message, "Installer added. No installation has started.");
         assert!(operator.feedback.is_none());
         let stale = operator.snapshot.as_ref().unwrap();
-        assert_eq!(presentation::health(&stale.system), presentation::Health::Unavailable);
+        assert_eq!(screen_model::service::health(&stale.system), screen_model::service::Health::Unavailable);
         assert!(stale.system.inactive_reason().is_some());
         operator.pending = true;
         operator.background_poll = true;
         operator.origin = Some(RequestOrigin::BackgroundActivity);
         operator.handle_reply(activity_from(&snapshot));
-        assert_eq!(presentation::health(&operator.snapshot.as_ref().unwrap().system),
-            presentation::Health::Ready);
+        assert_eq!(screen_model::service::health(&operator.snapshot.as_ref().unwrap().system),
+            screen_model::service::Health::Ready);
         assert_eq!(operator.message, "Installer added. No installation has started.");
     }
     fn create_request() -> Request {
@@ -8885,11 +8130,11 @@ mod is4_presentation_tests {
     #[test]
     fn requested_does_not_imply_effective_or_vendor_success() {
         let mut v = serde_json::json!({"state":"failed","raw_exit":null,"cleanup_confirmed":true,"owned_live":0,"installer_capability":{"requested":{"powershell":"intentionally_unavailable"},"effective":null}});
-        let lines = super::installer_policy_lines(&v);
+        let lines = crate::screen_model::installer::installer_policy_lines(&v);
         assert!(lines[1].contains("not been confirmed"));
         assert!(!lines.iter().any(|s| s.contains("Applied at target launch")));
         v["installer_capability"]["effective"] = serde_json::json!({"effective":{"windows_scripting":{"powershell":"intentionally_unavailable"}}});
-        assert!(super::installer_policy_lines(&v)[1].contains("not yet established"));
-        assert!(super::installer_policy_lines(&serde_json::json!({})).is_empty());
+        assert!(crate::screen_model::installer::installer_policy_lines(&v)[1].contains("not yet established"));
+        assert!(crate::screen_model::installer::installer_policy_lines(&serde_json::json!({})).is_empty());
     }
 }
