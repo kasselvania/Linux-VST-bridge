@@ -295,14 +295,35 @@ pub(super) fn recorded(m: &Manager, operation: &str, request: &ui::Request) -> R
         "operator_precondition_record")?;
     Ok(Some(record.facts))
 }
-/// As `recheck`, for the accepted request's own executor once it holds
-/// operator serialization again. A stage another executor runs under the
-/// same operation, for another action, has no record of its own.
+thread_local! {
+    /// The operation whose worker validated its request through its record.
+    static ACCEPTED: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+}
+/// Run the executor of `operation`, whose worker validated its request
+/// through its recorded facts: its record must still be there.
+pub(super) fn with_accepted<T>(operation: &str, run: impl FnOnce() -> T) -> T {
+    struct Restore(Option<String>);
+    impl Drop for Restore {
+        fn drop(&mut self) { ACCEPTED.with(|accepted| *accepted.borrow_mut() = self.0.take()); }
+    }
+    let _restore = Restore(ACCEPTED.with(|accepted| accepted.replace(Some(operation.into()))));
+    run()
+}
+/// As `recheck`, for an executor of `operation` once it holds operator
+/// serialization again. A record must be this operation's, as `recorded`
+/// requires, and the executor whose worker validated through it requires
+/// it. A stage run for another action under the same operation is not the
+/// accepted request: its facts are not checked. With no record and no such
+/// worker, the request was accepted without facts (`recorded`).
 pub(super) fn recheck_accepted(m: &Manager, operation: &str, action: &ui::Action) -> Result<()> {
     let path = job_dir(m, operation)?.join(RECORD);
-    if !path.try_exists()? { return Ok(()); }
+    if !path.try_exists()? {
+        let expected = ACCEPTED.with(|accepted| accepted.borrow().as_deref() == Some(operation));
+        return require(!expected, "operator_precondition_record");
+    }
     let record: Record = read_json(&path)?;
-    if record.schema != 1 || record.operation != operation || record.action != *action { return Ok(()); }
+    require(record.schema == 1 && record.operation == operation, "operator_precondition_record")?;
+    if record.action != *action { return Ok(()); }
     recheck(m, &record.facts)
 }
 /// Each recorded fact as it is now, in checking order. The first that
@@ -435,15 +456,34 @@ mod tests {
         refused_for(&f.m, &resume, "checkpoint");
     }
     #[test]
-    fn an_executor_rechecks_its_accepted_facts_but_not_a_stage_of_another_action() {
+    fn the_executor_checks_its_accepted_facts_again_once_it_holds_serialization() {
+        // Through the executor's own entry: the facts changed after the
+        // worker checked them, before the executor took serialization again.
         let (f, class, _) = published();
+        let performance = f.m.performance(&class).unwrap().added_frames;
         let action = ui::Action::BufferingSet { class_id: class.clone(), added_frames: 256 };
         let id = accepted(&f.m, action.clone());
+        let execute = |action: &ui::Action, operation: &str| execute_with_receipt_policy(&f.m, action,
+            Some(operation), &idle_capacity_test, OPERATOR_WAIT, &mut vec![]);
         let mut db = f.m.registry().unwrap();
         db.classes.get_mut(&class).unwrap().registration.metadata.name = "Renamed meanwhile".into();
         atomic_json(&f.m.root.join("registry.json"), &db).unwrap();
-        assert!(recheck_accepted(&f.m, &id, &action).unwrap_err().is::<Changed>());
-        let stage = ui::Action::DeliverySet { class_id: class, mode: ui::DeliveryMode::SameCallback };
-        recheck_accepted(&f.m, &id, &stage).unwrap();
+        let refused = execute(&action, &id).unwrap_err();
+        assert_eq!(refused.downcast_ref::<Changed>().map(|changed| changed.0), Some(Fact::Plugin));
+        assert_eq!(f.m.performance(&class).unwrap().added_frames, performance, "nothing changed");
+        // A stage another action runs under the same operation is not the
+        // accepted request: its facts are not checked.
+        let stage = ui::Action::DeliverySet { class_id: class.clone(), mode: ui::DeliveryMode::SameCallback };
+        execute(&stage, &id).unwrap();
+        // A record that is another operation's refuses.
+        let other = random_id().unwrap();
+        private_dir(&job_dir(&f.m, &other).unwrap()).unwrap();
+        fs::copy(job_dir(&f.m, &id).unwrap().join(RECORD), job_dir(&f.m, &other).unwrap().join(RECORD)).unwrap();
+        assert_eq!(execute(&action, &other).unwrap_err().to_string(), "operator_precondition_record");
+        // Its worker validated through its record: the record must remain.
+        fs::remove_file(job_dir(&f.m, &id).unwrap().join(RECORD)).unwrap();
+        assert_eq!(with_accepted(&id, || execute(&action, &id)).unwrap_err().to_string(),
+            "operator_precondition_record");
+        assert_eq!(f.m.performance(&class).unwrap().added_frames, performance, "nothing changed");
     }
 }

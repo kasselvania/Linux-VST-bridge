@@ -4141,10 +4141,12 @@ fn worker_with_capacity_observed(
         false,
     )?;
     let mut waits = vec![];
+    let mut accepted_with_facts = false;
     let validation = timing::measure(Stage::WorkerValidation, || if matches!(request.action, ui::Action::SupportExport {}) {
         validate_current_request(m, &request)
     } else if let Some(facts) = preconditions::recorded(m, id, &request)? {
         // Admission validated the offer once and recorded what it acts on.
+        accepted_with_facts = true;
         validate_accepted_worker(m, &request, id, &facts, timeout, &mut waits, capacity_read)
     } else if current_offer_action(&request.action)
         || preparation_cli::is_action(&request.action)
@@ -4213,7 +4215,7 @@ fn worker_with_capacity_observed(
         &json!({"schema":1,"operation":id,"state":"running","action":request.action,"lock_waits":waits}),
         false,
     )?;
-    let result = execute_with_receipt_policy(
+    let mut execute = || execute_with_receipt_policy(
         m,
         &request.action,
         Some(id),
@@ -4221,6 +4223,7 @@ fn worker_with_capacity_observed(
         timeout,
         &mut waits,
     );
+    let result = if accepted_with_facts { preconditions::with_accepted(id, execute) } else { execute() };
     let value = match result {
         Ok(v) => {
             json!({"schema":1,"operation":id,"state":"completed","result":v,"lock_waits":waits})
