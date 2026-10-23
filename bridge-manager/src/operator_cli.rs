@@ -7,6 +7,7 @@ use linux_vst_bridge::service::contract;
 use serde_json::{json, Value};
 mod current;
 mod plugin_setup;
+mod preconditions;
 pub(super) mod automatic_install;
 pub(super) mod vendor_maintenance;
 pub(super) mod environment_install;
@@ -1669,12 +1670,15 @@ fn installer_control(action: &ui::Action) -> Option<(&str, &str)> {
         _ => None,
     }
 }
+/// A control of one exact installer or uninstaller run: that run is the live
+/// one its setup or record owns. Nothing else need be as the requesting view
+/// showed it (#382): while an installer runs, other records change, and
+/// stopping or showing that exact run stays as safe as when it was offered.
 fn validate_installer_control_with(m: &Manager, request: &ui::Request,
     is_live: impl FnOnce(&str) -> Result<bool>) -> Result<()> {
     require(request.schema == ui::OPERATOR_SCHEMA,
         "operator_schema_mismatch_update_manager_frontend")?;
     let _ownership = m.lock("onboarding.lock")?;
-    require(request.state_token == token(m)?, "operator_stale_request_refresh")?;
     if let ui::Action::EnvironmentInstallerFocus {operation}
         | ui::Action::EnvironmentInstallerStop {operation} = &request.action {
         // The same controls serve an uninstaller run in the setup.
@@ -1718,6 +1722,45 @@ fn validate_current_worker(m: &Manager, request: &ui::Request, id: &str,
     require(cap.as_ref().is_none_or(|read| read.owners == owners),
         "operator_owners_changed")?;
     require(request.state_token == token(m)?, "operator_stale_request_refresh")?;
+    drop(registry);
+    Ok(())
+}
+/// The worker of a request accepted with its facts recorded (#382). Under
+/// operator serialization (and, but for a control, registry authority with
+/// the service's owner census agreeing), the facts admission recorded must be
+/// what they were; a control's exact task must also still be the live one.
+/// The view's state token is not checked again: admission validated the
+/// offer, and a change elsewhere does not make this action unsafe.
+fn validate_accepted_worker(m: &Manager, request: &ui::Request, id: &str,
+    facts: &[preconditions::Observed], timeout: Duration, waits: &mut Vec<ui::LockFacts>,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>) -> Result<()> {
+    require(request.schema == ui::OPERATOR_SCHEMA,
+        "operator_schema_mismatch_update_manager_frontend")?;
+    let _serialization = acquire_readback(m, ui::OperatorLock::Canonical,
+        Some(id), timeout, waits)?;
+    if matches!(request.action,ui::Action::PluginSetupFocus {..}|ui::Action::PluginSetupStop {..}) {
+        preconditions::recheck(m, facts)?;
+        return plugin_setup::validate_control(m,request);
+    }
+    if installer_control(&request.action).is_some() || matches!(request.action,
+        ui::Action::EnvironmentInstallerFocus { .. } | ui::Action::EnvironmentInstallerStop { .. }) {
+        preconditions::recheck(m, facts)?;
+        return validate_installer_control_with(m, request, onboarding::live);
+    }
+    let deadline = Instant::now() + timeout;
+    let mut cap = capacity_read();
+    let mut registry = acquire_readback(m, ui::OperatorLock::Registry,
+        Some(id), deadline.saturating_duration_since(Instant::now()), waits)?;
+    if cap.is_none() {
+        drop(registry);
+        cap = capacity_read();
+        registry = acquire_readback(m, ui::OperatorLock::Registry,
+            Some(id), deadline.saturating_duration_since(Instant::now()), waits)?;
+    }
+    let owners = capacity::owners(m)?;
+    require(cap.as_ref().is_none_or(|read| read.owners == owners),
+        "operator_owners_changed")?;
+    preconditions::recheck(m, facts)?;
     drop(registry);
     Ok(())
 }
@@ -2181,15 +2224,39 @@ fn dispatch_recorded(
     dispatch.end(result.is_ok());
     result
 }
+/// Accept `request` as operation `id`: it names an action the current view
+/// offers, made from that view, and what the action acts on is recorded
+/// beside it for its worker (`preconditions`). Those facts are observed on
+/// both sides of the validation, so the offer validated is the one they
+/// describe.
+fn admit(m: &Manager, request: &ui::Request, id: &str) -> Result<Software> {
+    let before = preconditions::observe(m, &request.action);
+    timing::measure(Stage::RequestValidation, || validate_current_request(m, request))?;
+    let sw = timing::measure(Stage::SoftwareVerification, || {
+        let sw = software_record(m)?;
+        sw.manager.verify()?;
+        Ok(sw)
+    })?;
+    if let Some(before) = before? {
+        let after = preconditions::observe(m, &request.action)?.ok_or("operator_precondition_scope")?;
+        preconditions::require_same(&before, &after)?;
+        preconditions::record(m, id, request, &after)?;
+    }
+    Ok(sw)
+}
+/// As the window's request is accepted, without starting its worker unit.
+#[cfg(test)]
+pub(super) fn test_accept(m: &Manager, request: &ui::Request) -> Result<ui::Receipt> {
+    dispatch_recorded(m, request, |id| {
+        let _lock = m.lock("operator-dispatch.lock")?;
+        admit(m, request, id)?;
+        launch_reserved(m, request, id, |_| Ok(true))
+    })
+}
 fn dispatch(m: &Manager, request: ui::Request) -> Result<ui::Receipt> {
     dispatch_recorded(m, &request, |id| {
         let _lock = timing::measure(Stage::DispatchLock, || m.lock("operator-dispatch.lock"))?;
-        timing::measure(Stage::RequestValidation, || validate_current_request(m, &request))?;
-        let sw = timing::measure(Stage::SoftwareVerification, || {
-            let sw = software_record(m)?;
-            sw.manager.verify()?;
-            Ok(sw)
-        })?;
+        let sw = admit(m, &request, id)?;
         launch_reserved(m, &request, id, |id| {
             let status = Command::new("systemd-run")
                 .args([
@@ -4073,6 +4140,9 @@ fn worker_with_capacity_observed(
     let mut waits = vec![];
     let validation = timing::measure(Stage::WorkerValidation, || if matches!(request.action, ui::Action::SupportExport {}) {
         validate_current_request(m, &request)
+    } else if let Some(facts) = preconditions::recorded(m, id, &request)? {
+        // Admission validated the offer once and recorded what it acts on.
+        validate_accepted_worker(m, &request, id, &facts, timeout, &mut waits, capacity_read)
     } else if current_offer_action(&request.action)
         || preparation_cli::is_action(&request.action)
         || scoped_product_action(&request.action) {
@@ -4105,6 +4175,7 @@ fn worker_with_capacity_observed(
                     lock: f.facts.clone(),
                 }
             });
+        let changed = e.downcast_ref::<preconditions::Changed>().map(|changed| changed.0);
         let reason = if failure.as_ref().is_some_and(|f| f.retryable) {
             if matches!(
                 request.action,
@@ -4116,18 +4187,18 @@ fn worker_with_capacity_observed(
             } else {
                 linux_vst_bridge::operator_lock::BUSY_SENTENCE.to_owned()
             }
+        } else if changed.is_some() {
+            // What the action acts on changed since it was accepted.
+            e.to_string()
         } else {
             format!("Operator validation readback: {e}")
                 .chars()
                 .take(512)
                 .collect()
         };
-        return timing::measure(Stage::FinalReceipt, || write_operation(
-            m,
-            id,
-            &json!({"schema":1,"operation":id,"state":"refused","reason":reason,"failure":failure,"preparation_failure":preparation_cli::failure(&request.action),"lock_waits":waits}),
-            false,
-        ));
+        let mut refused = json!({"schema":1,"operation":id,"state":"refused","reason":reason,"failure":failure,"preparation_failure":preparation_cli::failure(&request.action),"lock_waits":waits});
+        if let Some(fact) = changed { refused["precondition"] = fact.name().into(); }
+        return timing::measure(Stage::FinalReceipt, || write_operation(m, id, &refused, false));
     }
     // Snapshot's registry authority and serialization have both been released.
     // Action owners reacquire serialization and revalidate mutation authority.
@@ -6746,8 +6817,10 @@ pub(crate) mod tests {
             onboarding: id.into(), operation: "ef".repeat(16) };
         assert!(validate_installer_control_with(&f.m, &request, |_| Ok(true)).is_err());
         request.action = ui::Action::InstallerStop { onboarding: id.into(), operation };
+        // #382: a control needs its exact live run, not an unchanged view.
+        // While an installer runs, records elsewhere change; Stop still works.
         request.state_token = "stale".into();
-        assert!(validate_installer_control_with(&f.m, &request, |_| Ok(true)).is_err());
+        validate_installer_control_with(&f.m, &request, |_| Ok(true)).unwrap();
     }
     #[test]
     #[ignore = "opt-in snapshot latency measurement"]
@@ -6798,6 +6871,45 @@ pub(crate) mod tests {
             validate_current_request(&f.m, &request).unwrap();
             server.join().unwrap();
         });
+    }
+    /// A stand-in for the running service that answers every capacity and
+    /// cleanup probe, idle, until it is dropped.
+    pub(super) struct IdleService(Option<std::sync::mpsc::Sender<()>>, Option<std::thread::JoinHandle<()>>);
+    impl Drop for IdleService {
+        fn drop(&mut self) {
+            drop(self.0.take());
+            if let Some(thread) = self.1.take() { thread.join().unwrap(); }
+        }
+    }
+    pub(super) fn idle_service(m: &Manager) -> IdleService {
+        private_dir(&m.root.join("runtime")).unwrap();
+        let socket = m.root.join("runtime/owner.sock");
+        if socket.exists() { fs::remove_file(&socket).unwrap(); }
+        let listener = UnixListener::bind(&socket).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let (stop, stopped) = std::sync::mpsc::channel::<()>();
+        let thread = std::thread::spawn(move || loop {
+            if !matches!(stopped.try_recv(), Err(std::sync::mpsc::TryRecvError::Empty)) { return; }
+            let mut peer = match listener.accept() {
+                Ok((peer, _)) => peer,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(Duration::from_millis(1));
+                    continue;
+                }
+                Err(error) => panic!("service stand-in accept: {error}"),
+            };
+            peer.set_nonblocking(false).unwrap();
+            peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+            let mut greeting = [0; 5];
+            if peer.read_exact(&mut greeting).is_err() { continue; }
+            if &greeting == b"LVC1\n" {
+                let bytes = serde_json::to_vec(&capacity_json(false, 0, 0)).unwrap();
+                let _ = peer.write_all(&(bytes.len() as u32).to_le_bytes()).and_then(|()| peer.write_all(&bytes));
+            } else if &greeting == b"LVP1\n" {
+                let _ = peer.write_all(&[0]);
+            }
+        });
+        IdleService(Some(stop), Some(thread))
     }
     #[test]
     fn a_setup_card_whose_installer_did_not_confirm_closing_offers_the_check() {
@@ -9210,6 +9322,59 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         );
         assert!(!f.m.root.join("onboarding").exists());
         assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    /// The fixture's setup creation as the window requests it: from Home's
+    /// offer and token, accepted with what it acts on recorded (#382).
+    fn accepted_setup_creation(f: &test_fixture::Fixture, queued: &str) -> String {
+        let queued: ui::Request = read_json(&job_dir(&f.m, queued).unwrap().join("request.json")).unwrap();
+        let _service = idle_service(&f.m);
+        let home = current_overview(&f.m).unwrap().current;
+        let offered = available(&home).into_iter().find(|offer| offer.action == queued.action)
+            .unwrap_or_else(|| panic!("setup creation not offered: {:#?}", available(&home)));
+        assert_eq!(offered.disabled_reason, None);
+        let request = ui::Request { state_token: home.state_token.clone(), ..queued };
+        let receipt = test_accept(&f.m, &request).unwrap();
+        assert!(receipt.accepted, "{:?}", receipt.refusal);
+        assert!(job_dir(&f.m, receipt.operation.as_ref().unwrap()).unwrap().join("preconditions.json").exists());
+        receipt.operation.unwrap()
+    }
+    fn setup_creation_fixture() -> (test_fixture::Fixture, String) {
+        let (f, queued) = onboarding_worker_fixture();
+        // The fixture's own request was queued without admission; it ends.
+        refuse_unfinished(&f.m, &queued, "fixture").unwrap();
+        (f, queued)
+    }
+    #[test]
+    fn an_accepted_setup_creation_runs_after_an_unrelated_registry_change() {
+        // #382. Before its worker runs, a record it does not act on changes:
+        // here the plug-in registry's revision. Its worker creates the setup.
+        let (f, queued) = setup_creation_fixture();
+        let id = accepted_setup_creation(&f, &queued);
+        let mut db = f.m.registry().unwrap();
+        db.revision += 1;
+        atomic_json(&f.m.root.join("registry.json"), &db).unwrap();
+        worker_with_capacity(&f.m, &id, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        let r = worker_receipt(&f.m, &id);
+        assert_eq!(r["state"], "completed", "{r:#}");
+        assert_eq!(onboarding::history_records(&f.m).unwrap().len(), 1);
+    }
+    #[test]
+    fn an_accepted_setup_creation_is_refused_by_name_once_its_installer_has_a_setup() {
+        // #382. Two creations from the same Home are accepted; the first to
+        // run makes the installer's setup, so the second no longer applies.
+        // It is refused by what changed, and makes no second setup.
+        let (f, queued) = setup_creation_fixture();
+        let first = accepted_setup_creation(&f, &queued);
+        let second = accepted_setup_creation(&f, &queued);
+        worker_with_capacity(&f.m, &first, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        assert_eq!(worker_receipt(&f.m, &first)["state"], "completed");
+        worker_with_capacity(&f.m, &second, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        let r = worker_receipt(&f.m, &second);
+        assert_eq!(r["state"], "refused", "{r:#}");
+        assert_eq!(r["precondition"], "installer_setups", "{r:#}");
+        assert_eq!(r["reason"], "The setups made from this installer changed after you chose this. \
+            Look at them again, then choose again.");
+        assert_eq!(onboarding::history_records(&f.m).unwrap().len(), 1);
     }
     #[test]
     fn snapshot_capacity_and_creation_complete_without_reverse_wait_or_latest_theft() {

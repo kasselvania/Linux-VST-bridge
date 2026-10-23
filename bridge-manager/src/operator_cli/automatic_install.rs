@@ -2740,6 +2740,38 @@ mod tests {
         });
     }
     #[test]
+    fn an_accepted_setup_action_is_refused_by_name_when_an_app_starts_changing_its_setup() {
+        // #382. Choosing a setup's program is accepted from Home. Before its
+        // worker runs, an app's install starts changing that setup: the
+        // worker refuses, saying so, instead of asking for a refresh.
+        let (f,c,record,mut intent)=setup();
+        let environment=record.environment.id.clone();
+        let _service=crate::operator_cli::tests::idle_service(&f.m);
+        let unit=onboarding::unit(record.installation_operation.as_ref().unwrap()).unwrap();
+        readiness::with_unit_state_fixture(&[unit],"inactive",|| {
+            let home=current_overview(&f.m).unwrap().current;
+            let offered=available(&home).into_iter().find(|offer|matches!(&offer.action,
+                ui::Action::ProgramChoose {environment:chosen,..} if *chosen==environment))
+                .unwrap_or_else(||panic!("program choice not offered: {:#?}",available(&home)));
+            assert_eq!(offered.disabled_reason,None);
+            let request=ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:home.state_token.clone(),
+                action:offered.action.clone()};
+            let receipt=test_accept(&f.m,&request).unwrap();
+            assert!(receipt.accepted,"{:?}",receipt.refusal);
+            let id=receipt.operation.unwrap();
+            vendor_edge(&f,&c,&record,&mut intent);
+            reserve_vendor_revision(&f.m,&record,&intent).unwrap();
+            assert!(vendor_maintenance::blocks(&f.m,&record.environment).unwrap());
+            worker_with_capacity(&f.m,&id,OPERATOR_WAIT,&idle_capacity_test).unwrap();
+            let result:Value=read_json(&job_dir(&f.m,&id).unwrap().join("result.json")).unwrap();
+            assert_eq!(result["state"],"refused","{result:#}");
+            assert_eq!(result["precondition"],"setup_maintenance","{result:#}");
+            assert_eq!(result["reason"],"Another task, such as an installer or an app, is now changing this setup. \
+                Try again when it finishes.");
+            assert!(!f.m.root.join("operator/resume.json").exists(),"nothing was paused");
+        });
+    }
+    #[test]
     fn held_vendor_refuses_keeper_and_stop_uses_exact_job_without_global_pause() {
         let (f,c,record,mut intent)=setup();
         let after=vendor_edge(&f,&c,&record,&mut intent);
