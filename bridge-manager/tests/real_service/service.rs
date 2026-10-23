@@ -174,6 +174,20 @@ pub fn retained_runtime(m: &Manager) -> PathBuf {
     artifacts[0].path.clone()
 }
 
+/// The smallest 64-bit Windows executable the installer import accepts.
+pub fn windows_executable(marker: u8) -> Vec<u8> {
+    let mut bytes = vec![0; 1024];
+    bytes[..2].copy_from_slice(b"MZ");
+    bytes[60] = 128;
+    bytes[128..132].copy_from_slice(b"PE\0\0");
+    bytes[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+    bytes[148] = 2;
+    bytes[150] = 2;
+    bytes[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+    bytes[1023] = marker;
+    bytes
+}
+
 fn require_transport_root() {
     let runtime = PathBuf::from(format!("/run/user/{}", unsafe { libc::getuid() }));
     assert!(runtime.is_dir(), "{} is required: the service's memory transport root lives there. \
@@ -344,6 +358,57 @@ impl RealService {
         let ended: Value = read_json(&unit).unwrap();
         assert_eq!(ended, json!({"main":0,"stop_post":0}), "worker unit exit");
         result
+    }
+    fn units(&self) -> PathBuf {
+        self.published.stubs.join("units")
+    }
+    /// Operator workers started from now on wait, their units started,
+    /// until `release_workers`.
+    pub fn hold_workers(&self) {
+        fs::write(self.units().join("hold"), b"").unwrap();
+    }
+    pub fn release_workers(&self) {
+        fs::remove_file(self.units().join("hold")).unwrap();
+    }
+    /// Let one held worker run.
+    pub fn release_worker(&self, operation: &str) {
+        fs::write(self.units().join(format!("linux-vst-bridge-operator-{operation}.release")), b"").unwrap();
+    }
+    /// The operation's own final receipt, then the end of its worker unit:
+    /// for an operation the activity read no longer shows as the latest.
+    pub fn operation_result(&self, operation: &str) -> Value {
+        let path = self.published.fixture.m.root.join("operator").join(operation).join("result.json");
+        let unit = self.units().join(format!("linux-vst-bridge-operator-{operation}.done"));
+        let deadline = Instant::now() + OPERATION;
+        loop {
+            let result: Value = read_json(&path).unwrap_or(Value::Null);
+            if matches!(result["state"].as_str(), Some("completed" | "refused")) && unit.exists() {
+                assert_eq!(read_json::<Value>(&unit).unwrap(), json!({"main":0,"stop_post":0}), "worker unit exit");
+                return result;
+            }
+            assert!(Instant::now() < deadline, "operation {operation} unfinished: {result:#}");
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    }
+    /// Until the operation's worker unit has started and waits.
+    pub fn worker_held(&self, operation: &str) {
+        let held = self.units().join(format!("linux-vst-bridge-operator-{operation}.held"));
+        let deadline = Instant::now() + OPERATION;
+        while !held.exists() {
+            assert!(Instant::now() < deadline, "the worker for {operation} did not start");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+    /// The window's installer import: `bytes` under the file name `name`.
+    pub fn import_installer(&self, name: &str, bytes: &[u8]) -> Value {
+        let source = self.published.fixture.outer.join(format!("import-{}", random_id().unwrap()));
+        fs::write(&source, bytes).unwrap();
+        let request = contract::Request::ImportInstaller { name: name.into() };
+        let written = contract::Transport::exchange(&self.manager_command(None), &request,
+            Some(fs::File::open(&source).unwrap()))
+            .unwrap_or_else(|failure| panic!("{request:?}: {failure:?}"));
+        contract::decode(&request, &written).unwrap_or_else(|refused| panic!("{request:?}: {refused}"));
+        serde_json::from_slice(&written).unwrap()
     }
     /// A new native instance of `p` loaded by a separate DAW process.
     pub fn admit(&self, p: &Plugin) -> Instance {
@@ -613,8 +678,11 @@ print("LVO1 " + session + " retired", flush=True)
 
 /// `systemd-run --user` for transient operator units: run the command, then
 /// its ExecStopPost, detached, with the caller's environment and umask 077.
+/// While the test holds workers (`units/hold`), an operator worker unit is
+/// started but its worker waits, as a unit queued behind a busy system does,
+/// and says so (`<unit>.held`).
 const SYSTEMD_RUN: &str = r#"#!/usr/bin/python3 -I
-import json, os, pathlib, shlex, subprocess, sys
+import json, os, pathlib, shlex, subprocess, sys, time
 units = pathlib.Path("@UNITS@")
 known = {"UMask", "KillMode", "StandardOutput", "StandardError"}
 unit, stop_post, command = None, None, []
@@ -655,6 +723,10 @@ log = os.open(units / (unit + ".log"), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0
 os.dup2(null, 0)
 os.dup2(log, 1)
 os.dup2(log, 2)
+if unit.startswith("linux-vst-bridge-operator-") and (units / "hold").exists():
+    publish(unit + ".held", True)
+    while (units / "hold").exists() and not (units / (unit + ".release")).exists():
+        time.sleep(0.02)
 main = subprocess.run(command).returncode
 post = subprocess.run(stop_post).returncode if stop_post else 0
 publish(unit + ".done", {"main": main, "stop_post": post})

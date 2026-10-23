@@ -304,6 +304,80 @@ fn service_reads_follow_every_writer() {
     service.stop();
 }
 
+/// An offer the plug-in page shows, exactly as offered.
+fn offered_action(detail: &Value, kind: &str) -> Value {
+    service::offers(&detail["product"]).into_iter().find(|offer| offer["action"]["kind"] == kind)
+        .unwrap_or_else(|| panic!("no {kind} offer: {detail:#}"))["action"].clone()
+}
+
+/// Oracle 5 (#382). An offered action is validated once, when it is
+/// accepted. Records unrelated to it that change before its worker runs — a
+/// new installer arriving through the window's import, another plug-in of the
+/// setup playing and stopping — leave it to complete, although the page it
+/// was requested from is no longer current.
+#[test]
+fn an_accepted_action_completes_after_unrelated_changes_before_its_worker_runs() {
+    let service = RealService::start(service::published_classes(2));
+    let [first, second] = &service.published.plugins[..] else { unreachable!() };
+    let detail = service.read(contract::Read::Product(first.key()));
+    let request = json!({"schema":29,"state_token":detail["state_token"],
+        "action":{"kind":"buffering_set","class_id":first.class_id,"added_frames":256}});
+    service.hold_workers();
+    let receipt = service.request(&request);
+    assert_eq!(receipt["accepted"], true, "{receipt:#}");
+    let operation = receipt["operation"].as_str().unwrap().to_owned();
+    service.worker_held(&operation);
+
+    let imported = service.import_installer("Another Setup.exe", &service::windows_executable(1));
+    assert_eq!(imported["format"], "pe_executable", "{imported:#}");
+    let instance = service.admit(second);
+    service.capacity_when(|capacity| capacity["dsp"] == 1);
+    instance.release();
+    service.capacity_when(|capacity| capacity["dsp"] == 0);
+    let now = service.read(contract::Read::Product(first.key()));
+    assert_ne!(now["state_token"], detail["state_token"], "the requesting page is out of date");
+
+    service.release_workers();
+    let result = service.finished_operation(&operation);
+    assert_eq!(result["state"], "completed", "{result:#}");
+    assert_eq!(result["result"]["remembered_buffered_frames"], 256, "{result:#}");
+    service.stop();
+}
+
+/// Oracle 6 (#382). When what an accepted action acts on changes before its
+/// worker runs, the worker refuses and names what changed. Two offers of one
+/// plug-in's page are accepted together; the first to run removes the
+/// plug-in from the DAW, so the other, a buffer change, no longer applies to
+/// the plug-in it was chosen for.
+#[test]
+fn an_accepted_action_is_refused_by_name_when_its_plugin_changed_before_its_worker_runs() {
+    let service = RealService::start(service::published());
+    let class = service.plugin().class_id.clone();
+    let detail = service.product_detail();
+    let request = |action: Value| json!({"schema":29,"state_token":detail["state_token"],"action":action});
+    service.hold_workers();
+    let buffering = service.request(&request(json!({"kind":"buffering_set","class_id":class,"added_frames":256})));
+    assert_eq!(buffering["accepted"], true, "{buffering:#}");
+    let buffering = buffering["operation"].as_str().unwrap().to_owned();
+    service.worker_held(&buffering);
+    let removal = service.request(&request(offered_action(&detail, "plugin_remove_from_daw")));
+    assert_eq!(removal["accepted"], true, "{removal:#}");
+    let removal = removal["operation"].as_str().unwrap().to_owned();
+    service.worker_held(&removal);
+
+    service.release_worker(&removal);
+    let removed = service.operation_result(&removal);
+    assert_eq!(removed["state"], "completed", "{removed:#}");
+    service.release_worker(&buffering);
+    let refused = service.operation_result(&buffering);
+    assert_eq!(refused["state"], "refused", "{refused:#}");
+    assert_eq!(refused["reason"], "This plug-in changed after you chose this. Look at it again, then choose again.",
+        "{refused:#}");
+    assert_eq!(refused["precondition"], "plugin", "{refused:#}");
+    service.release_workers();
+    service.stop();
+}
+
 /// Not an oracle: the latency of each window status read on this fixture,
 /// through the manager command (one process per read, as the window read
 /// before #489 step 3) and from the running service.

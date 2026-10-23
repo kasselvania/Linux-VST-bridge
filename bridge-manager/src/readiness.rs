@@ -205,6 +205,12 @@ pub(super) fn with_unit_state_fixture<T>(units: &[String], state: &str, run: imp
         (unit.clone(),UNIT_STATE_FIXTURE.lock().unwrap().insert(unit.clone(),state.into()))).collect());
     run()
 }
+/// A unit `with_unit_state_fixture` models, for an owner that asks systemd
+/// about its unit another way (a renderer session's cohort).
+#[cfg(test)]
+pub(super) fn modelled_unit_state(unit: &str) -> Option<String> {
+    UNIT_STATE_FIXTURE.lock().unwrap().get(unit).cloned()
+}
 pub(super) fn bounded_user_unit_state(unit: &str) -> Result<String> {
     validate_user_unit(unit)?;
     #[cfg(test)]

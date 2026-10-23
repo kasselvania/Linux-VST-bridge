@@ -33,8 +33,10 @@ fn controls(operation:&str)->Vec<ui::AvailableAction> {
     vec![action("Show the plug-in window",ui::Action::PluginSetupFocus {operation:operation.into()},None),
         action("Stop finishing setup",ui::Action::PluginSetupStop {operation:operation.into()},None)]
 }
+/// A control of the exact running finish-setup session. As for an
+/// installer's controls, nothing else need be as the requesting view showed
+/// it (#382).
 pub(super) fn validate_control(m:&Manager,request:&ui::Request)->Result<()> {
-    require(request.state_token==token(m)?,"operator_stale_request_refresh")?;
     let operation=match &request.action {
         ui::Action::PluginSetupFocus {operation}|ui::Action::PluginSetupStop {operation}=>operation,
         _=>return Err("plugin_setup_control_action".into()),
