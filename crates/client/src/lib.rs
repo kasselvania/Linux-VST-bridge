@@ -8,11 +8,7 @@ use lvb_model::operator_model::{
 };
 use lvb_view_model::ProductKey;
 use std::path::PathBuf;
-#[derive(Clone, Debug)]
-pub struct SupportReport {
-    pub id: String,
-    pub sha256: String,
-}
+pub use lvb_view_model::request::SupportReport;
 pub enum Reply {
     Overview(Box<InteractiveOverview>),
     CurrentOverview(Box<CurrentOverview>),
@@ -26,9 +22,11 @@ pub enum Reply {
     ReportSaved(std::path::PathBuf),
     Cancelled,
     FrontendSuperseded,
+    CurrentManagerOpened,
     Error(String),
 }
 pub enum Query {
+    OpenCurrentManager,
     SaveSupportReport(SupportReport),
     PickInstaller,
     Overview,
@@ -73,7 +71,7 @@ fn request(query: Query) -> contract::Request {
         Query::Pulse => contract::Request::Read(Read::Pulse),
         Query::Operation(operation) => contract::Request::Read(Read::Operation(operation)),
         Query::Action(request) => contract::Request::Action(request),
-        Query::PickInstaller | Query::SaveSupportReport(_) => {
+        Query::OpenCurrentManager | Query::PickInstaller | Query::SaveSupportReport(_) => {
             unreachable!("file choices are handled before exchange")
         }
     }
@@ -105,7 +103,7 @@ pub mod native;
 #[cfg(target_os = "linux")]
 mod installed;
 #[cfg(target_os = "linux")]
-pub use installed::Client;
+pub use installed::{Client, launch_selected_with};
 
 #[cfg(test)]
 mod tests {

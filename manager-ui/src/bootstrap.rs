@@ -20,6 +20,7 @@ pub enum Entry {
     Ordinary,
 }
 
+#[cfg(test)]
 fn selected_frontend(home: &Path) -> PathBuf {
     home.join(".local/bin/linux-audio-compatibility-manager")
 }
@@ -45,41 +46,7 @@ pub fn entry() -> Result<Entry, String> {
     Ok(select_entry(&executable))
 }
 
-fn launch_selected_with(home: &Path, executable: &Path,
-    launch: impl FnOnce(&Path) -> Result<(), String>) -> Result<(), String> {
-    let route = selected_frontend(home);
-    let target = std::fs::canonicalize(&route)
-        .map_err(|_| "Selected application route is unavailable".to_owned())?;
-    if target == Path::new(SYSTEM_FRONTEND)
-        || executable == target {
-        return Err("Selected application route points back to the package launcher".into());
-    }
-    let root = home.join(".local/share/linux-vst-bridge/managed");
-    let software_path = root.join("software.json");
-    let (software, identity) = linux_vst_bridge::read_json_identity::<
-        linux_vst_bridge::catalogue::Software>(&software_path)
-        .map_err(|_| "Selected application identity is invalid".to_owned())?;
-    software.validate_record().map_err(|_| "Selected application identity is invalid".to_owned())?;
-    let frontend = software.operator_frontend.as_ref()
-        .ok_or_else(|| "Selected application is unavailable".to_owned())?;
-    let metadata = std::fs::metadata(&frontend.path)
-        .map_err(|_| "Selected application identity is unavailable".to_owned())?;
-    if frontend.path.parent() != software.manager.path.parent()
-        || !frontend.path.starts_with(root.join("software"))
-        || frontend.path.canonicalize().ok().as_ref() != Some(&frontend.path)
-        || target != frontend.path
-        || metadata.permissions().mode() & 0o222 != 0 {
-        return Err("Selected application identity is invalid".into());
-    }
-    frontend.verify().map_err(|_| "Selected application changed; reopen Setup".to_owned())?;
-    let unchanged = linux_vst_bridge::read_json_identity::<
-        linux_vst_bridge::catalogue::Software>(&software_path);
-    if !unchanged.is_ok_and(|(again, digest)|again==software && digest==identity)
-        || std::fs::canonicalize(&route).ok().as_ref() != Some(&frontend.path) {
-        return Err("Selected application changed; reopen Setup".into());
-    }
-    launch(&frontend.path)
-}
+use lvb_client::launch_selected_with;
 
 pub fn launch_selected() -> Result<(), String> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("Home directory unavailable")?);

@@ -1,7 +1,7 @@
 //! Installed Linux frontend identity, selected-file custody and report export.
 use super::{exchange, request, FileSelection, Query, Reply, SupportReport};
 use lvb_model::contract;
-use std::{io::Write, path::PathBuf};
+use std::{io::Write, path::{Path, PathBuf}};
 
 // Capture this immutable frontend's content once, before its first request.
 // Selection readback then remains a small record read even when an older
@@ -70,6 +70,7 @@ fn frontend_selected(
 /// Keep one client for the process lifetime so an update cannot replace its identity.
 pub struct Client {
     home: PathBuf,
+    executable: PathBuf,
     frontend: Option<linux_vst_bridge::Artifact>,
 }
 impl Client {
@@ -77,7 +78,7 @@ impl Client {
     /// Packaged live frontends should use [`Self::managed`].
     pub fn new(home: PathBuf, executable: PathBuf) -> Result<Self, String> {
         let frontend = frontend_identity(&home, &executable)?;
-        Ok(Self { home, frontend })
+        Ok(Self { home, executable, frontend })
     }
 
     /// Require the installed frontend identity used by packaged live windows.
@@ -101,6 +102,13 @@ impl Client {
         transport: impl contract::Transport,
     ) -> Result<Reply, String> {
         let home = &self.home;
+        if matches!(query, Query::OpenCurrentManager) {
+            launch_selected_with(home, &self.executable, |path| {
+                std::process::Command::new(path).spawn().map(|_| ())
+                    .map_err(|_| "Selected application could not be opened".into())
+            })?;
+            return Ok(Reply::CurrentManagerOpened);
+        }
         let identity = &self.frontend;
         if let Some(frontend) = identity {
             if !frontend_selected(home, frontend)? {
@@ -180,6 +188,45 @@ impl Client {
         exchange(transport, &request, input)
     }
 }
+/// Open only the owner-selected, verified frontend through its installed route.
+pub fn launch_selected_with(home: &Path, executable: &Path,
+    launch: impl FnOnce(&Path) -> Result<(), String>) -> Result<(), String> {
+    use std::os::unix::fs::PermissionsExt;
+    let route = home.join(".local/bin/linux-audio-compatibility-manager");
+    let target = std::fs::canonicalize(&route)
+        .map_err(|_| "Selected application route is unavailable".to_owned())?;
+    if target == Path::new("/usr/bin/linux-audio-compatibility-manager")
+        || executable == target {
+        return Err("Selected application route points back to the package launcher".into());
+    }
+    let root = home.join(".local/share/linux-vst-bridge/managed");
+    let software_path = root.join("software.json");
+    let (software, identity) = linux_vst_bridge::read_json_identity::<
+        linux_vst_bridge::catalogue::Software>(&software_path)
+        .map_err(|_| "Selected application identity is invalid".to_owned())?;
+    software.validate_record().map_err(|_| "Selected application identity is invalid".to_owned())?;
+    let frontend = software.operator_frontend.as_ref()
+        .ok_or_else(|| "Selected application is unavailable".to_owned())?;
+    let metadata = std::fs::metadata(&frontend.path)
+        .map_err(|_| "Selected application identity is unavailable".to_owned())?;
+    if frontend.path.parent() != software.manager.path.parent()
+        || !frontend.path.starts_with(root.join("software"))
+        || frontend.path.canonicalize().ok().as_ref() != Some(&frontend.path)
+        || target != frontend.path
+        || metadata.permissions().mode() & 0o222 != 0 {
+        return Err("Selected application identity is invalid".into());
+    }
+    frontend.verify().map_err(|_| "Selected application changed; reopen Setup".to_owned())?;
+    let unchanged = linux_vst_bridge::read_json_identity::<
+        linux_vst_bridge::catalogue::Software>(&software_path);
+    if !unchanged.is_ok_and(|(again, digest)|again==software && digest==identity)
+        || std::fs::canonicalize(&route).ok().as_ref() != Some(&frontend.path) {
+        return Err("Selected application changed; reopen Setup".into());
+    }
+    launch(&frontend.path)
+}
+
+
 // Read only the manager-created, bounded export named by the exact completion.
 // A stale/replaced report, symlink or caller-selected source is never shared.
 fn support_report(home: &std::path::Path, report: &SupportReport) -> Result<Vec<u8>, String> {
