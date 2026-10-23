@@ -69,8 +69,7 @@ class RecoveryInputs(unittest.TestCase):
    result=original(path);(self.prior/'installer.log').write_bytes(b'changed');return result
   with patch.object(ownership,'image_identity',side_effect=image),self.assertRaises(ValueError):self.verify()
  def test_production_python_and_rust_qualification_agree(self):
-  p=pathlib.Path(__file__).resolve().parents[1]/'src/native_access_recovery.json'
-  if not p.exists():self.skipTest('standalone staged runtime')
+  p=pathlib.Path(__file__).resolve().parents[2]/'crates/service/src/native_access_recovery.json'
   self.assertEqual(s.NAD1_RECOVERY,json.loads(p.read_bytes()))
   self.assertEqual(s.NAD1_RECOVERY['daemon']['sha256'],'e20b3d30b72d6a12e0a37b5fbd1a5c21e0db9e53459b4aab165270f7f739343b')
 
