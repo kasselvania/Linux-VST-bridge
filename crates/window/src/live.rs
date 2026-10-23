@@ -12,6 +12,24 @@ const LIMITATION: &str = "Sample controls are unavailable in the installed manag
 const UNKNOWN_ACK: &str = "The request acknowledgment is unconfirmed. It may have been accepted. No request will be repeated automatically.";
 const DETAILS_CHANGED: &str = "The records changed while loading. Try again to read the current records.";
 
+enum CurrentReadError {
+    Changed,
+    Failed(String),
+}
+impl CurrentReadError {
+    fn message(&self) -> &str {
+        match self { Self::Changed => DETAILS_CHANGED, Self::Failed(error) => error }
+    }
+}
+/// Exact refusals from the owner's optimistic current-view rechecks. An I/O,
+/// custody or capacity failure is not evidence that only the view changed.
+fn current_read_changed(error: &str) -> bool {
+    let code = error.trim().strip_prefix("Error: ").unwrap_or(error.trim()).trim_matches('"');
+    matches!(code, "operator_state_changed_refresh" | "operator_current_artifact_changed_refresh"
+        | "operator_vendor_state_changed_refresh" | "operator_cleanup_state_changed_refresh"
+        | "operator_installer_state_changed_refresh")
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Binding { token: String, generation: String }
 enum PendingDetails {
@@ -45,7 +63,8 @@ pub struct Live {
     details_notice: Option<String>,
     details_retried: bool,
     fresh: bool,
-    current_read_error: Option<String>,
+    current_read_error: Option<CurrentReadError>,
+    current_retried: bool,
     superseded: bool,
     product_attempted: bool,
     details_attempted: bool,
@@ -85,7 +104,7 @@ pub struct Live {
 impl Live {
     pub fn new(_posture: String, reveal: bool) -> Self {
         let mut live = Self { state: State::default(), built: Built::default(), ui: LocalUi::default(),
-            overview: None, readiness: None, pending_import: None, product: None, details: None, pending_details: None, details_notice: None, details_retried: false, fresh: false, current_read_error: None, superseded: false,
+            overview: None, readiness: None, pending_import: None, product: None, details: None, pending_details: None, details_notice: None, details_retried: false, fresh: false, current_read_error: None, current_retried: false, superseded: false,
             product_attempted: false, details_attempted: false, need_current: true, need_interactive: false, need_details: false,
             queued: None, in_flight: None, support: None, report_preview: None, report_reading: None, message: String::new(), reveal,
             epoch: 0, shown_binding: None, form_origin: None, form_generation: 0, last_current: Cx::monotonic_now(), operation_live: None, drawn: BTreeMap::new(), offers: BTreeMap::new(), log: vec![], clipboard: None,
@@ -306,6 +325,7 @@ impl Live {
             (Flight::OpenCurrent, Reply::CurrentManagerOpened) => { self.message = "The current manager was opened.".into(); }
             (Flight::Current, Reply::CurrentOverview(overview)) => {
                 self.current_read_error = None;
+                self.current_retried = false;
                 let changed = self.binding().as_ref() != Some(&Binding { token: overview.current.state_token.clone(), generation: overview.current_generation.clone() });
                 let system_changed = self.overview.as_ref().is_some_and(|old| old.current.system != overview.current.system);
                 self.state.observe(&overview.current);
@@ -411,8 +431,23 @@ impl Live {
         self.rebuild();
     }
     fn failed(&mut self, flight: Flight, error: String) {
-        if matches!(flight, Flight::Current | Flight::Overview | Flight::Pulse) {
-            self.current_read_error = Some(error);
+        if matches!(flight, Flight::Current | Flight::Overview) && current_read_changed(&error) {
+            self.fresh = false;
+            // One fresh composition, coalesced with any already-needed read.
+            // Passive polling cannot renew this budget; only a successful
+            // overview or the musician's explicit Refresh starts another cycle.
+            if !self.current_retried {
+                self.current_retried = true;
+                if matches!(flight, Flight::Overview) { self.need_interactive = true; }
+                else { self.need_current = true; }
+                return;
+            }
+            // A stale reply cannot clear an earlier real read failure.
+            if self.current_read_error.is_none() {
+                self.current_read_error = Some(CurrentReadError::Changed);
+            }
+        } else if matches!(flight, Flight::Current | Flight::Overview | Flight::Pulse) {
+            self.current_read_error = Some(CurrentReadError::Failed(error));
         } else if matches!(flight, Flight::Details { .. }) {
             // The owner refused an optimistic read because its records moved;
             // this is not a page failure. Validate current status before using
@@ -446,7 +481,7 @@ impl Live {
                 if self.pending_details.take().is_some() {
                     self.details_attempted = true; self.need_details = false;
                     self.details_notice = Some(format!("Current status could not validate this page. Try again. {}",
-                        self.current_read_error.as_deref().unwrap_or_default().chars().take(1024).collect::<String>()));
+                        self.current_read_error.as_ref().map(CurrentReadError::message).unwrap_or_default().chars().take(1024).collect::<String>()));
                 }
             },
             Flight::Import | Flight::OpenCurrent => {}
@@ -489,10 +524,12 @@ impl Live {
             self.shown_binding = binding.clone();
         }
         let current = self.overview.as_ref().map(|o| &o.current);
+        let changed_read = matches!(self.current_read_error, Some(CurrentReadError::Changed));
+        let retained_health = self.current_read_error.is_none() || changed_read;
         let actions = (self.fresh && !self.superseded).then_some(current).flatten();
         let records = Records { current, details: self.details.as_ref(), product: self.product.as_ref(), actions,
             readiness: self.readiness.as_ref().filter(|(value, requested)| binding.as_ref() == Some(requested) && current.is_some_and(|current| value.system == current.system)).map(|(value, _)| value),
-            health: self.current_read_error.is_none().then(|| current.map(|s| &s.system)).flatten() };
+            health: retained_health.then(|| current.map(|s| &s.system)).flatten() };
         if let Some(report) = self.support.as_ref().and_then(|s| s.report.as_ref()) {
             if self.ui.report.as_ref().is_none_or(|view| &view.identity != report) {
                 self.ui.report = Some(presentation::support::Report::new(report.clone()));
@@ -512,18 +549,25 @@ impl Live {
         let reading = Reading { fresh: self.fresh, renewing: current_pending,
             current_unavailable: self.current_read_error.is_some(),
             owned_pause: vm::service::owned_service_pause(current.and_then(|s| s.operation.as_ref())),
-            health_renewing: !self.fresh && !self.superseded && self.current_read_error.is_none(),
+            health_renewing: !self.fresh && !self.superseded && retained_health && (!changed_read || current_pending),
             controls_pending: blocked, in_flight: foreground, working: foreground,
             details_attempted: self.details_attempted && !details_pending,
             details_notice: self.details_notice.as_deref(),
             // The queue guard is set before dispatch; a pending attempt is not
             // the shared screen's completed-but-unavailable detail read.
             product_attempted: self.product_attempted && !product_pending,
-            superseded: self.superseded, message: self.current_read_error.as_deref().unwrap_or(&self.message), update_headline: self.update_headline.clone(),
+            superseded: self.superseded, message: self.current_read_error.as_ref().map(CurrentReadError::message).unwrap_or(&self.message), update_headline: self.update_headline.clone(),
             request: self.support.as_ref().map(|s| vm::window::Request { text: &s.text, journey: s.journey.as_ref(),
                 operation: s.operation.as_deref(), transitions: &s.transitions, report: s.report.is_some(), blocking: s.blocking }),
             ..Reading::default() };
-        let window = Window::build(&records, &reading, &self.state);
+        let mut window = Window::build(&records, &reading, &self.state);
+        if changed_read && !current_pending && !self.superseded {
+            // This is the controller's read lifecycle, not a new service fact.
+            // An exhausted reread is neither current health nor active loading.
+            window.frame.health.last_observed = current.is_some();
+            window.frame.health.note = "Last observed status · refresh needed";
+            if current.is_none() { window.frame.health.status.words = "Current records changed while loading"; }
+        }
         self.built = presentation::build(&window, self.product.as_ref().or(current).or(self.details.as_ref()), actions,
             &self.state, &self.ui, Why { fresh: self.fresh, pending: blocked || self.form_origin.as_ref().is_some_and(|(origin, _)| !self.fresh || Some(origin) != binding.as_ref()), in_flight: foreground, superseded: self.superseded },
             self.update_panel.as_ref(), self.reveal, self.form_generation);
@@ -676,6 +720,7 @@ impl Live {
         match effect {
             Effect::Refresh => {
                 self.fresh = false; self.need_interactive = true;
+                self.current_retried = false;
                 self.product_attempted = false; self.details_attempted = false;
                 self.details_retried = false;
                 self.pending_details = None; self.details_notice = None; self.message.clear(); self.invalidate_pages();
@@ -1370,6 +1415,182 @@ mod tests {
         assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
         live.receive(Reply::Error("service read unavailable".into()));
         assert!(format!("{:?}", live.built.header).contains("Bridge service status unavailable"));
+    }
+    #[test]
+    fn an_accepted_rescan_retains_health_through_one_obsolete_current_read() {
+        let mut s = snapshot(); s.system.dsp = 2;
+        let rescan = Action::EnvironmentRescan { environment: "12".repeat(16) };
+        s.actions.push(AvailableAction { label: "Find plug-ins in this setup".into(),
+            action: rescan.clone(), disabled_reason: None });
+        let mut live = Live::new(String::new(), false);
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        live.receive(overview(s.clone(), "generation-a"));
+        show_page(&mut live, Page::Diagnostics, &s);
+        let id = target(&live, |t| matches!(t, Target::Offer { offer, .. } if offer.intent == rescan));
+        assert_eq!(press(&mut live, &id), Outcome::Changed);
+        let Some(Query::Action(request)) = live.take_query() else { panic!("exact offered rescan") };
+        assert_eq!(request.action, rescan);
+        assert_eq!(request.state_token, s.state_token);
+        live.receive(Reply::Receipt(Receipt { schema: vm::model::OPERATOR_SCHEMA, accepted: true,
+            operation: Some("exact-rescan".into()), refusal: None }));
+        assert!(matches!(live.take_query(), Some(Query::Operation(id)) if id == "exact-rescan"));
+        live.receive(readback("exact-rescan", serde_json::json!({"operation":"exact-rescan","state":"running"})));
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        live.receive(Reply::Error("Error: \"operator_state_changed_refresh\"\n".into()));
+        let header = format!("{:?}", live.built.header);
+        assert!(header.contains("Plug-ins running") && header.contains("Last observed status"));
+        assert!(!header.contains("status unavailable"));
+        assert!(!live.fresh);
+        assert!(live.built.targets.values().all(|t| !matches!(t, Target::Offer { offer, .. }
+            if offer.availability.enabled())));
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        assert!(live.take_query().is_none(), "One coalesced read, never another action");
+        s.state_token = "after-rescan".into();
+        live.receive(overview(s, "generation-b"));
+        let support = live.support.as_ref().unwrap();
+        assert_eq!(support.operation.as_deref(), Some("exact-rescan"));
+        assert!(!support.acknowledgment_uncertain);
+        assert!(live.fresh && live.current_read_error.is_none());
+        assert!(!matches!(live.take_query(), Some(Query::Action(_))));
+    }
+    #[test]
+    fn explicit_current_composition_refusals_get_one_same_kind_read() {
+        for code in ["operator_state_changed_refresh", "operator_current_artifact_changed_refresh",
+            "operator_vendor_state_changed_refresh", "operator_cleanup_state_changed_refresh",
+            "operator_installer_state_changed_refresh"] {
+            for interactive_read in [false, true] {
+                let mut live = ready(); live.message = "A separate updater notice".into();
+                if interactive_read { refresh(&mut live); live.message = "A separate updater notice".into(); }
+                else { live.queue(Query::CurrentOverview, Flight::Current); }
+                assert!(matches!((interactive_read, live.take_query()),
+                    (false, Some(Query::CurrentOverview)) | (true, Some(Query::Overview))));
+                live.receive(Reply::Error(if interactive_read { format!("Error: \"{code}\"\n") } else { code.into() }));
+                assert!(!live.fresh && live.current_read_error.is_none());
+                assert!(format!("{:?}", live.built.header).contains("Last observed status"));
+                assert!(matches!((interactive_read, live.take_query()),
+                    (false, Some(Query::CurrentOverview)) | (true, Some(Query::Overview))));
+                assert!(live.take_query().is_none());
+                live.receive(if interactive_read { interactive(snapshot(), "generation-b") }
+                    else { overview(snapshot(), "generation-b") });
+                assert!(live.fresh && live.current_read_error.is_none());
+                assert_eq!(live.message, "A separate updater notice");
+                assert!(live.take_query().is_none());
+            }
+        }
+    }
+    #[test]
+    fn repeated_changed_reads_settle_initial_and_retained_views_without_a_retry_loop() {
+        for retained in [false, true] {
+            let mut live = if retained { ready() } else { Live::new(String::new(), false) };
+            if retained { live.queue(Query::CurrentOverview, Flight::Current); }
+            assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+            for attempt in 0..2 {
+                live.receive(Reply::Error("operator_state_changed_refresh".into()));
+                assert!(!live.fresh);
+                assert!(!format!("{:?}", live.built.header).contains("status unavailable"));
+                if attempt == 0 {
+                    assert!(live.current_read_error.is_none());
+                    assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+                }
+            }
+            assert!(live.take_query().is_none());
+            assert!(matches!(live.current_read_error, Some(CurrentReadError::Changed)));
+            let header = format!("{:?}", live.built.header);
+            assert!(header.contains(if retained { "Last observed status · refresh needed" }
+                else { "Current records changed while loading" }));
+            assert!(!header.contains("refreshing"));
+            if !retained {
+                assert!(live.overview.is_none());
+                assert!(format!("{:?}", live.built.page).contains("Current status could not be loaded. Try again."));
+            }
+            let retry = target(&live, |t| matches!(t, Target::Control(c) if c.does == Local::Refresh));
+            assert!(live.drawn[&retry].is_none());
+            // Existing periodic polling may recover, but cannot refill the
+            // immediate retry budget after another obsolete response.
+            live.next_poll = Cx::monotonic_now(); live.tick();
+            assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+            live.receive(Reply::Error("operator_state_changed_refresh".into()));
+            assert!(live.take_query().is_none());
+            assert_eq!(press(&mut live, &retry), Outcome::Changed);
+            assert!(matches!(live.take_query(), Some(Query::Overview)));
+            live.receive(Reply::Error("operator_state_changed_refresh".into()));
+            assert!(matches!(live.take_query(), Some(Query::Overview)));
+            assert!(live.take_query().is_none());
+            live.receive(interactive(snapshot(), "generation-b"));
+            assert!(live.fresh && live.current_read_error.is_none());
+            assert!(live.take_query().is_none());
+        }
+    }
+    #[test]
+    fn real_read_failures_are_not_cleared_or_retried_as_changed_records() {
+        for error in ["connection closed", "artifact missing or changed", "capacity_readback_unavailable",
+            "prefix operator_state_changed_refresh", "operator_state_changed_refresh suffix"] {
+            let mut live = ready();
+            live.queue(Query::CurrentOverview, Flight::Current);
+            assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+            live.receive(Reply::Error(error.into()));
+            assert!(live.take_query().is_none());
+            assert!(format!("{:?}", live.built.header).contains("Bridge service status unavailable"));
+            assert_eq!(live.current_read_error.as_ref().map(CurrentReadError::message), Some(error));
+            refresh(&mut live);
+            assert!(matches!(live.take_query(), Some(Query::Overview)));
+            live.receive(Reply::Error("operator_state_changed_refresh".into()));
+            assert!(matches!(live.take_query(), Some(Query::Overview)));
+            live.receive(Reply::Error("operator_state_changed_refresh".into()));
+            assert!(live.take_query().is_none());
+            assert_eq!(live.current_read_error.as_ref().map(CurrentReadError::message), Some(error));
+            assert!(format!("{:?}", live.built.header).contains("Bridge service status unavailable"));
+        }
+        // Pulse is not the optimistic composer, even if its unexpected error
+        // has the same words. No new read-success authority comes from Pulse.
+        let mut live = ready(); live.queue(Query::Pulse, Flight::Pulse);
+        assert!(matches!(live.take_query(), Some(Query::Pulse)));
+        live.receive(Reply::Error("operator_state_changed_refresh".into()));
+        assert!(live.take_query().is_none());
+        assert!(format!("{:?}", live.built.header).contains("Bridge service status unavailable"));
+    }
+    #[test]
+    fn unavailable_capacity_in_a_successful_overview_stays_unavailable() {
+        let mut live = ready(); live.queue(Query::CurrentOverview, Flight::Current);
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        live.receive(Reply::Error("operator_state_changed_refresh".into()));
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        let mut unavailable = snapshot(); unavailable.system.service = "capacity unavailable".into();
+        live.receive(overview(unavailable, "generation-b"));
+        assert!(live.fresh && live.current_read_error.is_none());
+        assert!(format!("{:?}", live.built.header).contains("Bridge service status unavailable"));
+        assert!(live.take_query().is_none());
+    }
+    #[test]
+    fn a_changed_read_cannot_submit_a_click_queued_against_its_old_offer() {
+        let mut live = ready_support();
+        live.queue(Query::CurrentOverview, Flight::Current);
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        let export = export(&live);
+        assert_eq!(press(&mut live, &export), Outcome::Changed);
+        live.receive(Reply::Error("operator_state_changed_refresh".into()));
+        assert!(live.take_query().is_none(), "The queued action must be refused, not retried");
+        let support = live.support.as_ref().unwrap();
+        assert!(support.terminal && support.operation.is_none() && !support.acknowledgment_uncertain);
+        live.next_poll = Cx::monotonic_now(); live.tick();
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        live.receive(overview(snapshot(), "generation-a"));
+        assert!(live.take_query().is_none(), "Even the same offer cannot replay the retired click");
+    }
+    #[test]
+    fn an_obsolete_current_read_does_not_discard_a_snapshot_awaiting_validation() {
+        let mut live = ready(); live.state.page = Page::Activity; live.need_details = true; live.drive();
+        assert!(matches!(live.take_query(), Some(Query::Snapshot)));
+        let mut newer = snapshot(); newer.state_token = "new-owner-state".into();
+        live.receive(Reply::Snapshot(Box::new(newer.clone())));
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        live.receive(Reply::Error("operator_state_changed_refresh".into()));
+        assert!(live.pending_details.is_some() && live.details_notice.is_none());
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        live.receive(overview(newer.clone(), "generation-a"));
+        assert_eq!(live.details.as_ref().map(|s| &s.state_token), Some(&newer.state_token));
+        assert!(live.pending_details.is_none() && live.details_notice.is_none());
+        assert!(live.take_query().is_none());
     }
     #[test]
     fn support_draws_the_exact_primary_export_once() {
