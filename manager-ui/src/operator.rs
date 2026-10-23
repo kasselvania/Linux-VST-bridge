@@ -5892,7 +5892,8 @@ mod tests {
                 bounds = navigation(ui, &mut page);
             });
             output.textures_delta.clear();
-            assert_eq!(bounds.len(), 6);
+            assert_eq!(bounds.iter().map(|(item, _, _)| item.label()).collect::<Vec<_>>(),
+                ["Home", "Plug-ins", "Activity", "Setup", "Diagnostics"]);
             assert_eq!(
                 bounds.iter().filter(|(_, selected, _)| *selected).count(),
                 1
