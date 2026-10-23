@@ -96,6 +96,11 @@ pub struct Frame {
 
 impl Frame {
     pub fn build(records: &Records, reading: &Reading, state: &State) -> Self {
+        let mut request = RequestBar::build(reading.request, reading.message, reading.working,
+            !reading.in_flight && !reading.superseded);
+        if reading.current_unavailable && reading.request.is_none() {
+            if let Some(request) = &mut request { request.dismiss = None; }
+        }
         Self {
             title: TitleRow::build(records.current.or(records.details), reading.own_version, reading.fresh,
                 reading.controls_pending, records.actions, reading.explicit_refresh),
@@ -103,9 +108,7 @@ impl Frame {
             preview: reading.preview.then_some(window::PREVIEW),
             health: HealthBar::build(records.health, reading.owned_pause, reading.health_renewing),
             headline: window::update_headline(reading.update_headline.clone().filter(|_| state.page != Page::Setup)),
-            request: RequestBar::build(reading.request, reading.message, reading.working,
-                !reading.in_flight && !reading.superseded
-                    && (!reading.current_unavailable || reading.request.is_some())),
+            request,
         }
     }
 }
@@ -288,6 +291,12 @@ mod tests {
                 assert_eq!(retry.does, crate::Local::Refresh);
             }
         }
+        let reading = Reading { current_unavailable: true, message: "Read unavailable", ..Default::default() };
+        assert!(Frame::build(&Records::default(), &reading, &State::default()).request.unwrap().dismiss.is_none());
+        let request = Request { text: "Report saved", journey: None, operation: None,
+            transitions: &[], report: false, blocking: false };
+        let reading = Reading { request: Some(request), ..reading };
+        assert!(Frame::build(&Records::default(), &reading, &State::default()).request.unwrap().dismiss.is_some());
     }
 
     #[test]
