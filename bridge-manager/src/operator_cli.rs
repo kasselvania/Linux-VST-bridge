@@ -5351,6 +5351,13 @@ pub(crate) mod tests {
         fs::create_dir_all(workspace.join("projects")).unwrap();
         fs::write(workspace.join("workspace.json"), br#"{"schema":2,"session_operation":null}"#).unwrap();
         fs::write(workspace.join("projects/song.flp"), b"song").unwrap();
+        for name in ["environment/compatdata/pfx/system.reg", "content/sound.wav",
+            "environment/compatdata/pfx/drive_c/Program Files/FL Studio/FL64.exe",
+            "sessions/old/result.json", "operations/uncertain/ownership.json"] {
+            let path = workspace.join(name);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, b"retained user or ownership fixture").unwrap();
+        }
         let before = test_fixture::snapshot(&workspace);
         let service = overview_service_reply(&f.m, capacity_json(false, 0, 0));
         let current = current_overview(&f.m).unwrap().current;

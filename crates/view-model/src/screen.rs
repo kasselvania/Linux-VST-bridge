@@ -117,8 +117,6 @@ pub enum Screen {
     Plugins { not_current: Option<Text>, list: Box<PluginList>, single: bool },
     /// The list from current status while the opened plug-in's records load.
     PluginsLoading(Box<LoadingList>),
-    /// Drawn by the window from the full records until it is removed (#504 E3).
-    Workspaces,
     Activity(Box<Activity>),
     Diagnostics(Box<Diagnostics>),
     /// Home or Setup before the manager's first answer.
@@ -159,7 +157,6 @@ impl Screen {
         match state.page {
             Page::Home | Page::Setup => Self::LoadingCurrent(window::LOADING_CURRENT),
             Page::Plugins => Self::plugins(details, actions_pending, None, state),
-            Page::Workspaces => Self::Workspaces,
             Page::Activity => Self::Activity(Box::new(Activity::build(details, actions_pending))),
             Page::Diagnostics => Self::Diagnostics(Box::new(Diagnostics::build(details, actions_pending,
                 reading.distribution))),
@@ -209,11 +206,28 @@ mod tests {
                 // Without an opened plug-in's own records, the list comes from current status.
                 Page::Plugins if !opened => matches!(screen, Screen::PluginsLoading(_)),
                 Page::Plugins => matches!(screen, Screen::Plugins { single: true, .. }),
-                Page::Workspaces => matches!(screen, Screen::Workspaces),
                 Page::Activity => matches!(screen, Screen::Activity(_)),
                 Page::Diagnostics => matches!(screen, Screen::Diagnostics(_)),
             };
             assert!(expected, "{}/{state}: {screen:?}", page.key());
+        }
+    }
+
+    #[test]
+    fn retired_schema29_workspace_records_create_no_screen_or_controls() {
+        assert_eq!(Page::from_key("workspaces"), None);
+        let workspace: crate::model::DawWorkspace = serde_json::from_value(serde_json::json!({
+            "id":"fl-studio", "name":"FL Studio", "state":"running",
+            "selected_installer":"old-installer", "selected_release":"26.1.6.0",
+            "application_installers":["old-installer"], "cleanup":"running",
+            "actions":[{"label":"Stop FL Studio", "action":{"kind":"workspace_stop"},
+                "disabled_reason":null}], "installer_choices":[], "details":{}
+        })).unwrap();
+        for page in Page::ALL {
+            let mut sample = Sample::new(Case::new(page, "populated"));
+            let before = sample.window(None);
+            sample.snapshot.workspaces.push(workspace.clone());
+            assert_eq!(sample.window(None), before, "{}", page.key());
         }
     }
 

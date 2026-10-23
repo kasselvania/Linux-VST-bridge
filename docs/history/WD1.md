@@ -1,5 +1,9 @@
 # WD1 — one directly hosted Windows VST3 in FL Studio
 
+> Retired on 2026-10-22 under #504 E3. This document records the former
+> FL Studio workspace; it is not current product authority. Existing
+> installations, projects, content and ownership records remain in place.
+
 ## Claim and fixture
 
 WD1 uses the existing manager-owned FL Studio workspace on the maintainer's
@@ -53,7 +57,7 @@ preset change, and parameter automation. If FL offers project save,
 retain an FLP without claiming trial-mode reopen. If it refuses, record the
 trial limitation and continue. Close FL normally, verify exact cohort retirement,
 launch a fresh session, add Serum again and confirm playback. Record only
-observed results in [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md) and the failure ledger.
+observed results in [SUPPORT_MATRIX.md](../SUPPORT_MATRIX.md) and the failure ledger.
 
 ## Current Deck result
 
@@ -74,5 +78,5 @@ products exact. The operator then opened FL again, loaded Serum into a fresh
 session, entered a pattern, and reported successful playback. That second exact
 session retired with confirmed cleanup and zero owned processes. This is fresh
 use, not FLP state recall. These limits are recorded in the
-[physical evidence](../evidence/wd1/deck-serum-direct-2026-09-25.md). A saved
+[physical evidence](../../evidence/wd1/deck-serum-direct-2026-09-25.md). A saved
 FLP and licensed project recall are also unclaimed.

@@ -1,5 +1,9 @@
 # Windows DAWs, Max for Live and Push 3 controller mode
 
+> Retired on 2026-10-22 under #504 E3. This document records the former
+> FL Studio workspace; it is not current product authority. Existing
+> installations, projects, content and ownership records remain in place.
+
 Research checked 2026-10-14. No installations, device changes or authorization
 actions were performed. The Test69 SteamOS/CachyOS private beta stays unchanged.
 
@@ -35,7 +39,7 @@ not recorded.
 
 ## Architectural boundary and existing licenses
 
-[WINDOWS_DAW_WORKSPACES.md](../WINDOWS_DAW_WORKSPACES.md) already selects the
+[WINDOWS_DAW_WORKSPACES.md](WINDOWS_DAW_WORKSPACES.md) already selects the
 correct path: Windows FL/Live directly host Windows plug-ins inside separate
 managed workspaces. Reuse installation supervision, runtime acquisition,
 environment identity, process ownership and recovery. The native Linux proxy

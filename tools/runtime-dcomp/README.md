@@ -102,5 +102,6 @@ This source-only recovery does not discharge those obligations.
 
 Existing [MSI](../runtime-msi-reader/), [UIA](../runtime-uia-guard/),
 [touch release](../x11-touch-release/), [touch routing](../touch-routing/) and
-[crypt32](../wd0/seal_fl_crypt32_runner.py) inputs remain the source of those
-corrections. Nothing here combines their prebuilt DLLs across Wine lineages.
+[crypt32](../history/fl-studio-workspace/seal_fl_crypt32_runner.py) inputs remain the source of those
+corrections. The crypt32 source is historical; the FL Studio workspace was
+retired under #504 E3. Nothing here combines their prebuilt DLLs across Wine lineages.

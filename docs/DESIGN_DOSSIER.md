@@ -15,11 +15,9 @@ Implementation remains paused. Explicit operator selections in the model are
 carried into the architecture or beta contract where applicable. The technical
 milestones and campaign selections below retain their historical scope.
 
-## Windows DAW architecture extension — 2026-09-24
+## Windows DAW workspace — removed 2026-10-22
 
-The native-Linux bridge remains the first release-driving product. The same canonical management platform now has a selected parallel Windows-DAW lane, beginning with [WD0 — FL Studio](WD0.md). In that lane the Windows DAW loads Windows plug-ins directly in its own coherent managed workspace; the Linux native proxy and bridge audio transport are not inserted between them.
-
-[WINDOWS_DAW_WORKSPACES.md](WINDOWS_DAW_WORKSPACES.md) defines this additional execution path, its reuse of installation/runtime/ownership primitives, its separate mutable prefix and project state, and its audio and licensing boundaries. [WORKSTREAMS.md](WORKSTREAMS.md) governs parallel ownership. This is an architecture selection, not a claim that FL Studio or Ableton already works. The existing four-plane architecture continues to govern native-Linux DAW bridging.
+The FL Studio workspace selected on 2026-09-24 was removed under #504 (E3). The relationship with DAWs is being redesigned as one `daw` area of the service (#504, stage G); FL Studio may return through it rather than as a separate workspace. [WORKSTREAMS.md](WORKSTREAMS.md) governs parallel ownership.
 
 The development baseline and campaign sections below retain historical reasoning. Current product/platform claims are in [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md), reusable mechanisms and remaining gaps in [FAILURE_CLASSES.md](FAILURE_CLASSES.md), and active branch work in [CURRENT_SLICE.md](../CURRENT_SLICE.md). Do not reactivate an old campaign from its historical wording.
 

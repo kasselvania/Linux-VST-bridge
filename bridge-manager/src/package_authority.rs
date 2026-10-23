@@ -4235,7 +4235,12 @@ assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
         let catalogue_bytes = fs::read(old.native_catalogue.as_ref().unwrap().path.clone()).unwrap();
         let registry_bytes = fs::read(f.base.m.root.join("registry.json")).unwrap();
         let mut retained = Vec::new();
-        for name in ["daw-workspaces/fl/workspace.json", "installers/a.json",
+        for name in ["daw-workspaces/fl-studio/workspace.json",
+            "daw-workspaces/fl-studio/projects/song.flp",
+            "daw-workspaces/fl-studio/content/sound.wav",
+            "daw-workspaces/fl-studio/environment/compatdata/pfx/system.reg",
+            "daw-workspaces/fl-studio/operations/uncertain/ownership.json",
+            "daw-workspaces/fl-studio/sessions/active/result.json", "installers/a.json",
             "compatibility/history/a.json", "vendor/app/a.json", "projects/a.flp"] {
             let path = f.base.m.root.join(name);
             fs::create_dir_all(path.parent().unwrap()).unwrap();

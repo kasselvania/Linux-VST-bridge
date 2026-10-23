@@ -52,9 +52,9 @@ Ordinary playback continues with the manager window closed. Returning to the
 manager resumes from the current situation, including already working plug-ins.
 
 The current product lane is Windows VST3 plug-ins used through native Linux
-DAWs. Instruments and effects are equal requirements. The previously selected
-[Windows DAW lane](../WINDOWS_DAW_WORKSPACES.md) and ARM work remain later work;
-this draft does not cancel them. The beta handles installations managed by this
+DAWs. Instruments and effects are equal requirements. ARM work remains later
+work; this draft does not cancel it. The FL Studio workspace was removed
+(#504 E3); DAWs are redesigned as one service area (#504 G). The beta handles installations managed by this
 product and coexists with external Wine/yabridge setups; migration from those
 setups is later work. Other formats, cloud services, product accounts and billing
 need explicit scope decisions.

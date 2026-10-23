@@ -10,8 +10,7 @@
 //! Screens built here: the window frame, Home, Setup (with install progress,
 //! required apps, existing setups and their runtime choice), the forms, the
 //! plug-in list and one plug-in's detail, Activity, Diagnostics and Setup's
-//! updates. Workspaces stays in the window until it is removed (#504 E3),
-//! and so does the first-run package screen.
+//! updates. The first-run package screen stays in the window.
 //!
 //! This crate depends only on the wire model (`lvb-model`) and `serde_json`,
 //! never on the manager service or a toolkit, so any frontend can build on it.

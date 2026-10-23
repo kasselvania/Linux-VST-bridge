@@ -93,8 +93,6 @@ pub struct Forms {
     pub daw: Option<DawChoice>,
     /// A test result or observation being recorded.
     pub record: Option<Action>,
-    /// An exact release being entered (Workspaces).
-    pub release: Option<Action>,
     /// An installer being named.
     pub rename: Option<Action>,
     /// A removal or deletion awaiting the musician's confirmation.
@@ -244,7 +242,6 @@ impl State {
             forms::Route::Send(action) => return Some(action),
             forms::Route::ChooseDaw(action) => self.forms.install = Some(action),
             forms::Route::Record(action) => self.forms.record = Some(action),
-            forms::Route::ChooseRelease(action) => self.forms.release = Some(action),
             forms::Route::Rename(action) => self.forms.rename = Some(action),
             forms::Route::Confirm(action) => {
                 // Another confirmation starts with its choice off.
@@ -259,7 +256,7 @@ impl State {
     /// including the confirmation it answers.
     pub fn sent(&mut self, action: &Action) {
         let forms = &mut self.forms;
-        for form in [&mut forms.record, &mut forms.release, &mut forms.rename, &mut forms.install] {
+        for form in [&mut forms.record, &mut forms.rename, &mut forms.install] {
             if form.as_ref() == Some(action) { *form = None; }
         }
         // The confirmed request differs from its offer only by the musician's answers.
@@ -281,13 +278,10 @@ impl State {
     }
 
     /// An installer was added (`newly_imported`) or found already added, under
-    /// `label`. Show the one setup or workspace it belongs to.
+    /// `label`. Show the one setup it belongs to.
     pub fn imported(&mut self, snapshot: &Snapshot, installer: &str, newly_imported: bool, label: &str) -> Imported {
-        let setups = snapshot.installer_setups.iter().filter(|setup| setup.installer == installer).count();
-        let workspaces = snapshot.workspaces.iter().filter(|workspace|
-            workspace.application_installers.iter().any(|id| id == installer)).count();
-        match (setups, workspaces) {
-            (1, 0) => {
+        match snapshot.installer_setups.iter().filter(|setup| setup.installer == installer).count() {
+            1 => {
                 self.page = Page::Setup;
                 self.focus.setup = None;
                 self.focus.setup_installer = Some(installer.to_owned());
@@ -297,13 +291,6 @@ impl State {
                 } else {
                     "This installer was already added. Showing its existing plug-in setup.".into()
                 })
-            }
-            (0, 1) => {
-                self.page = Page::Workspaces;
-                self.focus.setup = None;
-                self.focus.setup_installer = None;
-                self.focus.setup_scroll = false;
-                Imported::Shown("This installer belongs to the managed FL Studio application. Showing Workspaces.".into())
             }
             _ => Imported::NotYet("The installer was added, but its setup could not be loaded. Refresh before continuing."),
         }
@@ -429,11 +416,10 @@ mod tests {
         assert!(state.forms.confirm.is_some());
     }
 
-    fn snapshot_with(setups: &[(&str, DawChoice)], workspace_installers: &[&str]) -> Snapshot {
+    fn snapshot_with(setups: &[(&str, DawChoice)]) -> Snapshot {
         let journeyed = crate::samples::snapshot(Page::Setup, Some("install_progress"));
         let template = journeyed.installer_setups.iter().find(|setup| setup.journey.is_some())
             .expect("a sample setup with an installation journey").clone();
-        let workspace = crate::samples::snapshot(Page::Workspaces, Some("populated")).workspaces[0].clone();
         let mut snapshot = crate::samples::base();
         snapshot.installer_setups = setups.iter().map(|(installer, daw)| {
             let mut setup = template.clone();
@@ -441,39 +427,33 @@ mod tests {
             if let Some(journey) = &mut setup.journey { journey.daw = *daw; }
             setup
         }).collect();
-        snapshot.workspaces = workspace_installers.iter().map(|installer| crate::model::DawWorkspace {
-            application_installers: vec![(*installer).into()], ..workspace.clone() }).collect();
         snapshot
     }
 
     #[test]
     fn the_one_daw_every_setup_used_is_remembered_and_a_choice_is_never_replaced() {
         let mut state = State::default();
-        state.observe(&snapshot_with(&[("a", DawChoice::Bitwig), ("b", DawChoice::Reaper)], &[]));
+        state.observe(&snapshot_with(&[("a", DawChoice::Bitwig), ("b", DawChoice::Reaper)]));
         assert_eq!(state.forms.daw, None);
-        state.observe(&snapshot_with(&[("a", DawChoice::Bitwig), ("b", DawChoice::Bitwig)], &[]));
+        state.observe(&snapshot_with(&[("a", DawChoice::Bitwig), ("b", DawChoice::Bitwig)]));
         assert_eq!(state.forms.daw, Some(DawChoice::Bitwig));
-        state.observe(&snapshot_with(&[("a", DawChoice::Reaper)], &[]));
+        state.observe(&snapshot_with(&[("a", DawChoice::Reaper)]));
         assert_eq!(state.forms.daw, Some(DawChoice::Bitwig));
     }
 
     #[test]
     fn an_added_installer_opens_the_one_setup_it_belongs_to() {
         let mut state = State::default();
-        let shown = state.imported(&snapshot_with(&[("a", DawChoice::Bitwig)], &[]), "a", true, "Keys");
+        let shown = state.imported(&snapshot_with(&[("a", DawChoice::Bitwig)]), "a", true, "Keys");
         assert_eq!(shown, Imported::Shown("Added Keys. No native plug-in setup has started.".into()));
         assert_eq!((state.page, state.focus.setup_installer.as_deref(), state.focus.setup_scroll),
             (Page::Setup, Some("a"), true));
         let mut state = State::default();
-        assert!(matches!(state.imported(&snapshot_with(&[("a", DawChoice::Bitwig)], &[]), "a", false, "Keys"),
+        assert!(matches!(state.imported(&snapshot_with(&[("a", DawChoice::Bitwig)]), "a", false, "Keys"),
             Imported::Shown(words) if words.starts_with("This installer was already added")));
-        let mut state = State { focus: PageFocus { setup_installer: Some("x".into()), ..Default::default() },
-            ..Default::default() };
-        assert!(matches!(state.imported(&snapshot_with(&[], &["a"]), "a", true, "FL Studio"), Imported::Shown(_)));
-        assert_eq!((state.page, &state.focus), (Page::Workspaces, &PageFocus::default()));
         // Not shown yet, or not one place: nothing moves until the records name one.
-        for snapshot in [snapshot_with(&[], &[]), snapshot_with(&[("a", DawChoice::Bitwig)], &["a"]),
-            snapshot_with(&[("a", DawChoice::Bitwig), ("a", DawChoice::Reaper)], &[])] {
+        for snapshot in [snapshot_with(&[]),
+            snapshot_with(&[("a", DawChoice::Bitwig), ("a", DawChoice::Reaper)])] {
             let mut state = State::default();
             assert!(matches!(state.imported(&snapshot, "a", true, "Keys"), Imported::NotYet(_)));
             assert_eq!(state, State::default());

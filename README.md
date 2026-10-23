@@ -25,7 +25,6 @@ Use these documents instead of reconstructing status from chronological campaign
 - **Supported products and platforms:** [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md)
 - **Shared failures, accepted fixes, and remaining gaps:** [docs/FAILURE_CLASSES.md](docs/FAILURE_CLASSES.md)
 - **Native-bridge architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- **Windows-DAW architecture extension:** [docs/WINDOWS_DAW_WORKSPACES.md](docs/WINDOWS_DAW_WORKSPACES.md)
 - **Engineering rules:** [AGENTS.md](AGENTS.md)
 
 Historical AP/UIO/UIR/IF documents and `evidence/` remain authoritative for what a particular experiment observed. They are not, by themselves, current deployment or support authority.
@@ -51,12 +50,6 @@ The currently exercised fleet includes Pure LoFi, Efx FRAGMENTS, Pigments, Serum
 
 A source patch or built runner is not a physical product pass. A pass on one exact plug-in does not establish the same result for another plug-in. Shared mechanisms and product coverage are tracked separately in [docs/FAILURE_CLASSES.md](docs/FAILURE_CLASSES.md).
 
-## Selected Windows DAW direction — not yet qualified
-
-[WD0](docs/WD0.md) brings FL Studio into a separate managed Windows workspace as an active parallel implementation. FL hosts its Windows instruments and plug-ins directly; the Linux proxy and bridge audio transport are not inserted into that path. Installation, runtime identity, launch ownership, diagnostics and support records remain part of the same canonical management product.
-
-The first deliverable is normal launch, a usable stock project, audio/export, clean relaunch and licensed project recall. A later WD1 adds one third-party Windows VST3 in the same workspace. Ableton follows in another workspace; the ARM appliance retains its separately owned experiment. No FL Studio or Ableton support is claimed yet, and their work does not replace finishing the native-Linux bridge. See [workstreams](docs/WORKSTREAMS.md) and the [architecture extension](docs/WINDOWS_DAW_WORKSPACES.md).
-
 ## Architecture
 
 The native-Linux bridge separates four planes:
@@ -66,7 +59,7 @@ The native-Linux bridge separates four planes:
 - **Windows plug-in:** project-owned Windows host running the exact proprietary module under Proton.
 - **Transport:** versioned control/state/editor channels and preallocated real-time audio/event memory.
 
-Rust owns product state, supervision, transport, profiles, publication, and diagnostics. C++20 is contained at VST3 and Win32 SDK boundaries. Blocking I/O, allocation, process work, and logging remain outside audio callbacks. Managed Windows DAWs reuse management and ownership, not the native bridge's audio path.
+Rust owns product state, supervision, transport, profiles, publication, and diagnostics. C++20 is contained at VST3 and Win32 SDK boundaries. Blocking I/O, allocation, process work, and logging remain outside audio callbacks.
 
 ## Repository map
 

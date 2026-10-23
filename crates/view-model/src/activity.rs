@@ -309,7 +309,7 @@ impl Activity {
         let busy = snapshot.system.inactive_reason();
         Self {
             heading: "Activity",
-            intro: "Bridge sessions, manager work and retained incidents. Managed DAW workspaces will have separate application activity when the manager reports it.",
+            intro: "Bridge sessions, manager work and retained incidents.",
             live: Sessions::build(snapshot, false),
             recent: Sessions::build(snapshot, true),
             attention: Attentions::build(snapshot, usize::MAX),

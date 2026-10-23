@@ -14,7 +14,7 @@ const BITWIG_REF: &str = "app/com.bitwig.BitwigStudio/x86_64/stable";
 /// The FL Studio workspace earlier builds managed (#504 E3), in the managed
 /// root, and its FL Studio sessions' units. The bridge no longer manages or
 /// reads it, and never moves, deletes or stops any of it.
-const RETIRED_WORKSPACE: &str = "daw-workspaces";
+const RETIRED_WORKSPACE: &str = "daw-workspaces/fl-studio";
 const RETIRED_WORKSPACE_SESSIONS: &str = "linux-vst-bridge-daw-fl-";
 const BETA_PROFILE_IDS: [&str; 3] = [
     "arturia-pure-lofi",
@@ -1854,8 +1854,8 @@ mod tests {
         let listed = Probe::Observed(format!("{RETIRED_WORKSPACE_SESSIONS}{}.service loaded active running FL\n",
             "ab".repeat(16)));
         assert_eq!(retired_workspace(&f.m, &Probe::Observed(String::new())), RetiredWorkspace::default());
-        let folder = f.m.root.join("daw-workspaces");
-        fs::create_dir_all(folder.join("fl-studio/projects")).unwrap();
+        let folder = f.m.root.join("daw-workspaces/fl-studio");
+        fs::create_dir_all(folder.join("projects")).unwrap();
         p.retired_workspace = retired_workspace(&f.m, &Probe::Unavailable);
         assert_eq!(notice(&p).unwrap(), format!("No longer managed by the bridge. Its files, including \
             any FL Studio projects, are still in {}; nothing was moved or deleted.", folder.display()));
