@@ -46,6 +46,15 @@ impl Controller {
         }
     }
 
+    pub fn bootstrap_trace(&self) -> Option<(u64, &'static str)> {
+        match self {
+            #[cfg(feature = "samples")]
+            Self::Sample(_) => None,
+            #[cfg(feature = "live")]
+            Self::Live { model, .. } => model.bootstrap_trace(),
+        }
+    }
+
     pub fn built(&self) -> &Built {
         match self {
             #[cfg(feature = "samples")]
@@ -140,7 +149,14 @@ impl Controller {
                 if let Some(reply) = worker.receive() {
                     match reply {
                         WorkerReply::Stopped(error) => model.worker_stopped(error),
-                        WorkerReply::Bootstrap { panel, close } => model.bootstrap(panel, close),
+                        WorkerReply::Bootstrap { panel, close } => {
+                            let has_progress = panel.progress.is_some();
+                            makepad_product_ui::makepad_widgets::log!("[window] bootstrap ui_received has_progress={} close={}", has_progress, close);
+                            model.bootstrap(panel, close);
+                            if let Some((revision, phase)) = model.bootstrap_trace() {
+                                makepad_product_ui::makepad_widgets::log!("[window] bootstrap ui_applied revision={} phase={}", revision, phase);
+                            }
+                        },
                         WorkerReply::Client(reply) => model.receive(reply),
                         WorkerReply::ReportPreview(reply) => model.receive_report_preview(reply),
                         WorkerReply::Update { panel, headline, close, available } => model.update(panel, headline, close, available),
@@ -264,7 +280,9 @@ impl Worker {
                 if let Some(state) = &mut bootstrap {
                     let chosen = if let Some(WorkerRequest::Bootstrap(step)) = request { state.press(step); true } else { false };
                     if let Some(operation) = state.take_operation() {
+                        makepad_product_ui::makepad_widgets::log!("[window] bootstrap worker_taken operation={:?}", operation);
                         if outgoing.send(WorkerReply::Bootstrap { panel: state.panel(), close: false }).is_err() { break; }
+                        makepad_product_ui::makepad_widgets::log!("[window] bootstrap worker_sent_running operation={:?}", operation);
                         makepad_product_ui::makepad_widgets::SignalToUI::set_ui_signal();
                         let close = state.receive(lvb_client::bootstrap::run_and_open(operation));
                         if outgoing.send(WorkerReply::Bootstrap { panel: state.panel(), close }).is_err() { break; }

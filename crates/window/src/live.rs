@@ -105,6 +105,14 @@ impl Live {
     }
     /// Background transport work alone does not replace native nodes or focus.
     pub fn render_revision(&self) -> u64 { self.render_revision }
+    /// Fixed diagnostic vocabulary; never includes owner data or result text.
+    pub fn bootstrap_trace(&self) -> Option<(u64, &'static str)> {
+        self.bootstrap_panel.as_ref().map(|panel| (self.render_revision,
+            if self.bootstrap_waiting { "waiting_for_worker" }
+            else if panel.progress.is_some() { "progress_panel" }
+            else if panel.result.is_some() { "attention" }
+            else { "offered" }))
+    }
     fn render_matches(&self, other: &Built) -> bool {
         let built = &self.built;
         built.header == other.header && built.page == other.page && built.preview == other.preview

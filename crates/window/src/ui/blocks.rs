@@ -174,6 +174,8 @@ pub struct Blocks {
     walk: Walk,
     #[rust]
     area: Area,
+    #[rust]
+    bootstrap_draw: Option<(u64, &'static str)>,
     #[live]
     gap: f64,
     #[live]
@@ -340,6 +342,9 @@ impl Widget for Blocks {
         self.draw_nodes(cx, scope, &nodes);
         self.nodes = nodes;
         cx.end_turtle_with_area(&mut self.area);
+        if let Some((revision, phase)) = self.bootstrap_draw.take() {
+            log!("[window] bootstrap page_drawn revision={} phase={}", revision, phase);
+        }
         if let Some(id) = self.focus.take() {
             match self.control_area(&id) {
                 Some(area) => cx.set_key_focus(area),
@@ -869,6 +874,12 @@ impl Blocks {
 }
 
 impl BlocksRef {
+    /// One marker after these page nodes actually draw, not merely after an
+    /// app-level Draw event that might skip a cached page.
+    pub fn trace_bootstrap_draw(&self, marker: Option<(u64, &'static str)>) {
+        if let Some(mut inner) = self.borrow_mut() { inner.bootstrap_draw = marker; }
+    }
+
     pub fn set_nodes(&self, cx: &mut Cx, nodes: Vec<Node>) {
         if let Some(mut inner) = self.borrow_mut() {
             inner.set_nodes(cx, nodes);

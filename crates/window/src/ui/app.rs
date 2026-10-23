@@ -155,6 +155,8 @@ pub struct App {
     modal_size: Vec2d,
     #[rust]
     service_tick: Timer,
+    #[rust]
+    bootstrap_shown: Option<(u64, &'static str)>,
 }
 
 impl App {
@@ -166,12 +168,20 @@ impl App {
     fn show(&mut self, cx: &mut Cx) {
         let Some(controller) = self.controller.as_mut() else { return };
         let built = controller.built().clone();
+        let bootstrap = controller.bootstrap_trace();
         for line in controller.new_log() {
             log!("[window] {line}");
         }
         self.ui.blocks(cx, ids!(preview)).set_nodes(cx, if has("--presentation-only") { vec![] } else { built.preview });
         self.ui.blocks(cx, ids!(header)).set_nodes(cx, built.header);
         self.ui.blocks(cx, ids!(page)).set_nodes(cx, built.page);
+        if bootstrap != self.bootstrap_shown {
+            self.bootstrap_shown = bootstrap;
+            self.ui.blocks(cx, ids!(page)).trace_bootstrap_draw(bootstrap);
+            if let Some((revision, phase)) = bootstrap {
+                log!("[window] bootstrap show revision={} phase={}", revision, phase);
+            }
+        }
         let modal = self.ui.modal(cx, ids!(form_modal));
         match built.form {
             Some(form) => {
