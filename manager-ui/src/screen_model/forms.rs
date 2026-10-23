@@ -120,6 +120,41 @@ pub fn installation_form_offer(snapshot: Option<&Snapshot>, action: &Action)
     }
 }
 
+/// Where a pressed offer goes before anything is sent: to the manager as it
+/// is, or first to the form that completes or confirms it. Every frontend
+/// routes through this, so no confirmation or DAW choice can be skipped.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Route {
+    Send(Action),
+    /// Choose the DAW, then send the installation with it.
+    ChooseDaw(Action),
+    /// Record what was observed: a test result, or the maintainer's
+    /// observation or review.
+    Record(Action),
+    /// Enter the exact release to select (Workspaces).
+    ChooseRelease(Action),
+    /// Name the installer.
+    Rename(Action),
+    /// Confirm what the removal or deletion changes.
+    Confirm(Action),
+}
+
+/// `daw`: the musician's DAW choice for installations, when made.
+pub fn route(action: Action, daw: Option<DawChoice>) -> Route {
+    if let Some(installation) = installation_with_daw(&action, daw.unwrap_or(DawChoice::Other)) {
+        return if daw.is_some() { Route::Send(installation) } else { Route::ChooseDaw(installation) };
+    }
+    match action {
+        Action::CandidateObserve { .. } | Action::CandidateReview { .. } | Action::CompatibilityResult { .. } =>
+            Route::Record(action),
+        Action::WorkspaceSelectInstaller { .. } | Action::WorkspaceSelectProductInstaller { .. } =>
+            Route::ChooseRelease(action),
+        Action::InstallerRename { .. } => Route::Rename(action),
+        _ if needs_confirmation(&action) => Route::Confirm(action),
+        _ => Route::Send(action),
+    }
+}
+
 /// Removing from the DAW or deleting a setup always asks first.
 pub fn needs_confirmation(action: &Action) -> bool {
     matches!(action, Action::PluginRemoveFromDaw { .. } | Action::SetupRemoveFromDaw { .. }
@@ -283,7 +318,9 @@ impl RenameForm {
     }
 }
 
-/// The same bound the manager applies to an installer label.
+/// The same bound the manager applies to an installer label: a duplicate of
+/// its validation, kept so the form can refuse before sending. Retire it when
+/// the service supplies the refusal (#489).
 pub fn plausible_installer_label(label: &str) -> bool {
     !label.trim().is_empty()
         && label.trim() == label
@@ -425,5 +462,36 @@ pub fn compatibility_result_refusal<'a>(offer: Option<&'a Result<Option<String>,
         Some(Ok(reason)) if matches!(result, TestResultKind::Worked) => reason.as_deref(),
         Some(Ok(_)) => None,
         None => Some("Current test-result offer unavailable"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_removal_asks_first_and_an_installation_asks_for_the_daw_until_chosen() {
+        let identity = PublicationIdentity { id: "ab".repeat(16), sha256: "cd".repeat(32) };
+        for action in [
+            Action::PluginRemoveFromDaw { class_id: "exact".into(), expected_current: identity.clone() },
+            Action::SetupRemoveFromDaw { environment: "exact".into() },
+            Action::SetupDelete { installer: "ab".repeat(32), environment: "exact".into(), confirmed: false,
+                forget_installer: false },
+            Action::ProductUninstall { environment: "exact".into(), registration: "exact".into(),
+                command_sha256: "ef".repeat(32), confirmed: false },
+        ] {
+            assert_eq!(route(action.clone(), Some(DawChoice::Reaper)), Route::Confirm(action));
+        }
+        let install = Action::SoftwareInstall { installer: "ab".repeat(32), daw: DawChoice::Other };
+        assert_eq!(route(install.clone(), None), Route::ChooseDaw(install));
+        assert_eq!(route(Action::SoftwareInstall { installer: "ab".repeat(32), daw: DawChoice::Other }, Some(DawChoice::Bitwig)),
+            Route::Send(Action::SoftwareInstall { installer: "ab".repeat(32), daw: DawChoice::Bitwig }));
+        let rename = Action::InstallerRename { installer: "ab".repeat(32), label: String::new() };
+        assert_eq!(route(rename.clone(), None), Route::Rename(rename));
+        let rescan = Action::EnvironmentRescan { environment: "exact".into() };
+        assert_eq!(route(rescan.clone(), None), Route::Send(rescan));
+        let result = Action::CompatibilityResult { candidate: "exact".into(), expected_current: identity,
+            result: crate::model::TestResultKind::Worked, passed: vec![], failed_area: None, note: String::new() };
+        assert_eq!(route(result.clone(), None), Route::Record(result));
     }
 }

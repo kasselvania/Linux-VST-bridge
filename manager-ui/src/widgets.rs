@@ -46,8 +46,9 @@ pub fn offer_row(ui: &mut egui::Ui, row: &OfferRow, chosen: &mut Option<Action>)
             if response.clicked() {
                 *chosen = Some(offer.intent.clone());
             }
-            if let Some(reason) = offer.availability.reason() {
-                response.on_disabled_hover_text(reason);
+            // A held offer's reason is said once by its screen.
+            if let Availability::Waiting | Availability::Refused(_) = offer.availability {
+                if let Some(reason) = offer.availability.reason() { response.on_disabled_hover_text(reason); }
             }
         }
     });
@@ -143,7 +144,8 @@ pub fn main_offer(ui: &mut egui::Ui, offer: &offers::Offer, chosen: &mut Option<
     match &offer.availability {
         Availability::Refused(reason) => { ui.small(reason); }
         Availability::Waiting => { ui.small(offers::WAITING_TO_FINISH); }
-        Availability::Enabled => {}
+        // Held: the card's screen says once that actions wait for current status.
+        Availability::Enabled | Availability::Held => {}
     }
     if let Some(consequence) = offer.consequence { ui.small(consequence); }
 }

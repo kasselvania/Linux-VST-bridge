@@ -7,6 +7,8 @@ use crate::model::{AccessibilityChoice, Action, AvailableAction, Product};
 pub const WAITING: &str = "Waiting for the current request or manager readback";
 /// Said under a Home or Setup card's main step while a request is pending.
 pub const WAITING_TO_FINISH: &str = "Waiting for the current request to finish.";
+/// Why a held offer cannot be pressed. The screen that holds it says so once.
+pub const HELD: &str = "Actions wait for current status";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Importance {
@@ -21,11 +23,19 @@ pub enum Availability {
     Enabled,
     /// Another request or readback is in flight; the offer itself stands.
     Waiting,
+    /// The screen's status is not current, so its offers are held until it is.
+    Held,
     /// The manager, or the shared-resource rule, refuses it for this reason.
     Refused(String),
 }
 
 impl Availability {
+    /// Held while status is not current. A refusal or pending request still
+    /// says its own reason.
+    pub fn held(self, held: bool) -> Self {
+        if held && self == Self::Enabled { Self::Held } else { self }
+    }
+
     pub fn enabled(&self) -> bool {
         *self == Self::Enabled
     }
@@ -35,6 +45,7 @@ impl Availability {
         match self {
             Self::Enabled => None,
             Self::Waiting => Some(WAITING),
+            Self::Held => Some(HELD),
             Self::Refused(reason) => Some(reason),
         }
     }
@@ -52,6 +63,14 @@ pub struct Offer {
     pub intent: Action,
 }
 
+impl Offer {
+    /// This offer, held while its screen's status is not current.
+    pub fn held(mut self, held: bool) -> Self {
+        self.availability = self.availability.held(held);
+        self
+    }
+}
+
 /// A row of offers, with every refusal and consequence printed once below it.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct OfferRow {
@@ -61,6 +80,14 @@ pub struct OfferRow {
     /// Refusals stay visible for touch users, not only on hover.
     pub notes: Vec<String>,
     pub consequences: Vec<&'static str>,
+}
+
+impl OfferRow {
+    /// Every offer in the row, held while its screen's status is not current.
+    pub fn held(mut self, held: bool) -> Self {
+        self.offers = self.offers.into_iter().map(|offer| offer.held(held)).collect();
+        self
+    }
 }
 
 /// One setup a plug-in can switch to or restore, with its exact identity.

@@ -41,6 +41,10 @@ pub fn health(system: &System) -> Health {
 }
 
 /// The manager paused the bridge for its own automatic installation step.
+///
+/// The window reads this from the operation's raw record, and the two rules
+/// below from the service's counters. They duplicate what the service should
+/// report as one status; retire them when it does (#489).
 pub fn owned_service_pause(operation: Option<&serde_json::Value>) -> bool {
     let Some(operation) = operation else { return false; };
     let pause = &operation["owned_service_pause"];
@@ -54,15 +58,21 @@ pub fn owned_service_pause(operation: Option<&serde_json::Value>) -> bool {
         && operation["journey"]["failure"].is_null()
 }
 
+/// Whether the bridge is paused for the manager's own installation and left
+/// nothing else to resolve. `owned_pause` is `owned_service_pause` of the
+/// current operation; `system` the current or last observed service status.
+pub fn paused_for_installation(owned_pause: bool, system: Option<&System>) -> bool {
+    owned_pause && system.is_none_or(|system| system.pending_transactions == 0
+        && system.stale_transports == 0
+        && (!system.capacity_available() || !system.cleanup_unconfirmed))
+}
+
 /// A service problem the musician must resolve before anything else: the
 /// service cannot report, a setup change did not finish, or cleanup of an
 /// earlier plug-in or installer is unconfirmed. An installation the manager
 /// paused the bridge for is not one, unless it also left such a problem.
 pub fn problem(system: &System, operation: Option<&serde_json::Value>) -> Option<&'static str> {
-    let owned_pause = owned_service_pause(operation)
-        && system.pending_transactions == 0
-        && system.stale_transports == 0
-        && (!system.capacity_available() || !system.cleanup_unconfirmed);
+    let owned_pause = paused_for_installation(owned_service_pause(operation), Some(system));
     let problem = !system.capacity_available() || system.cleanup_unconfirmed
         || system.stale_transports > 0 || system.pending_transactions > 0;
     (problem && !owned_pause).then_some(if !system.capacity_available() {

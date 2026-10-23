@@ -53,6 +53,9 @@ fn no_setup_work(setup: &InstallerSetup) -> bool {
     setup.primary.is_none() && setup.secondary.iter().all(|offer| forms::removal_offer(&offer.action))
 }
 
+/// Read from the manager's raw installation record: a window derivation of
+/// what the service should say on the setup itself. Retire it when it does
+/// (#489).
 pub fn retained_records_need_refresh(setup: &InstallerSetup, snapshot: &Snapshot) -> bool {
     setup.journey.is_none() && setup.phase == SetupPhase::SetupNeedsAttention
         && no_setup_work(setup)
@@ -92,6 +95,8 @@ pub fn display_name(setup: &InstallerSetup, snapshot: &Snapshot) -> String {
     }
 }
 
+/// Read from the manager's raw installation record, like
+/// `retained_records_need_refresh`; retire it the same way (#489).
 pub fn partial_installation_needs_review(setup: &InstallerSetup, snapshot: &Snapshot) -> bool {
     setup.phase == SetupPhase::SetupNeedsAttention
         && snapshot.onboarding.iter().any(|attempt|
@@ -413,7 +418,8 @@ pub struct SetupCard {
     pub draft: Option<ReplacementDraft>,
     pub details: Disclosure,
     pub removal: Option<Disclosure>,
-    /// The offers are current; otherwise every one is held.
+    /// The offers are current; otherwise every one is held (`Availability::Held`)
+    /// and the card is drawn inactive.
     pub actionable: bool,
 }
 
@@ -461,8 +467,9 @@ pub struct SelectedInstaller {
 
 impl ReplacementDraft {
     /// The draft for this setup's installer, if one is being chosen for it.
+    /// Without current status (`fresh` false) its offer is held.
     pub fn build(snapshot: &Snapshot, installer: &str, replacement: Option<&InstallerReplacement>,
-        pending: bool) -> Option<Self> {
+        fresh: bool, pending: bool) -> Option<Self> {
         let busy = snapshot.system.inactive_reason();
         replacement.filter(|draft| draft.original == installer).map(|draft| Self {
             selected: draft.selected.as_ref().map(|selected| SelectedInstaller {
@@ -474,7 +481,7 @@ impl ReplacementDraft {
                         "Continue in this same setup.", target.consequence.clone(),
                         (!target.affected.is_empty()).then(|| format!("Affected plug-ins: {}", target.affected.join(", "))))),
                 offer: replacement_offer(snapshot, draft)
-                    .map(|offer| offers::offer(&offer, Importance::Primary, busy, pending)),
+                    .map(|offer| offers::offer(&offer, Importance::Primary, busy, pending).held(!fresh)),
                 focus_after: draft.environment.is_none().then(|| selected.clone()),
             }),
             keep: Control { label: "Keep current installer", importance: Importance::Secondary,
@@ -510,7 +517,8 @@ impl SetupCard {
                 Text::body(format!("{} plug-ins found. Open them to see their current DAW connection.", setup.discovered.len()))
             } else if setup.phase == SetupPhase::Imported && setup.primary.is_none() { Text::caution(&setup.status) }
             else { Text::body(&setup.status) };
-        let row = |actions: &[AvailableAction]| offers::row(actions, Importance::Secondary, busy, pending);
+        // Without current status every offer on the card is held.
+        let row = |actions: &[AvailableAction]| offers::row(actions, Importance::Secondary, busy, pending).held(!fresh);
         let secondary: Vec<_> = setup.secondary.iter().filter(|offer| !forms::removal_offer(&offer.action)
             && (continuation.is_none() || !obsolete_initial_installer_offer(offer)) && !reviewing
                 && offer.action.software_install().is_none_or(|(_,_,policy)|policy.is_none())
@@ -540,7 +548,7 @@ impl SetupCard {
             })),
             None => Replace::Waiting("To choose another installer, finish or stop the current operation and wait for cleanup."),
         };
-        let draft = ReplacementDraft::build(snapshot, &setup.installer, replacement, pending);
+        let draft = ReplacementDraft::build(snapshot, &setup.installer, replacement, fresh, pending);
         let held = |actions: &[AvailableAction]| Detail::Held { actionable: fresh, row: row(actions) };
         let mut details: Vec<Detail> = vec![Text::detail(format!("Recorded installer label: {}", setup.name)).into()];
         if let Some(environment) = &setup.environment {
@@ -593,7 +601,7 @@ impl SetupCard {
             title,
             status,
             journey: setup.journey.as_ref().map(|journey| Results::build(journey, current, shown_primary)),
-            primary: shown_primary.map(|offer| offers::offer(offer, Importance::Primary, busy, pending)),
+            primary: shown_primary.map(|offer| offers::offer(offer, Importance::Primary, busy, pending).held(!fresh)),
             discovered: (!setup.discovered.is_empty()).then(|| Control::go("View discovered plug-ins",
                 Importance::Secondary, Destination::Products(setup.discovered.iter().map(|product| ProductKey {
                     environment: product.environment.clone(),
@@ -668,6 +676,27 @@ pub struct InstallerChoice {
 }
 
 impl SetupControls {
+    /// Every offer, held while the screen's status is not current.
+    pub fn held(mut self, held: bool) -> Self {
+        let hold = |row: OfferRow| row.held(held);
+        self.programs = hold(self.programs);
+        self.running = hold(self.running);
+        self.continuation = hold(self.continuation);
+        if let Some(runtime) = &mut self.runtime {
+            for choice in &mut runtime.choices { choice.content = hold(std::mem::take(&mut choice.content)); }
+        }
+        for choice in &mut self.installers.choices {
+            let (run, advanced) = &mut choice.content;
+            *run = hold(std::mem::take(run));
+            if let Some(advanced) = advanced {
+                for detail in &mut advanced.content {
+                    if let Detail::Offers(row) = detail { *row = hold(std::mem::take(row)); }
+                }
+            }
+        }
+        self
+    }
+
     pub fn build(target: &EnvironmentInstaller, pending: bool) -> Self {
         let row = |actions: &[AvailableAction]| offers::row(actions, Importance::Secondary, None, pending);
         let filtered = |keep: &dyn Fn(&AvailableAction) -> bool| -> Vec<AvailableAction> {
@@ -776,14 +805,14 @@ impl ExistingSetups {
                 key: target.environment.clone(),
                 label: target.name.clone(),
                 content: ExistingSetup {
-                    controls: SetupControls::build(target, pending),
+                    controls: SetupControls::build(target, pending).held(!fresh),
                     programs: snapshot.vendor_applications.iter().filter(|app|
                         app.details["user_selected"] == true && app.details["environment"] == target.environment)
                         .map(|app| UserProgram { name: app.name.clone(), version: app.version.clone(),
                             path: app.details["executable"]["path"].as_str().map(str::to_owned),
-                            offers: offers::row(&app.actions, Importance::Secondary, busy, pending) }).collect(),
+                            offers: offers::row(&app.actions, Importance::Secondary, busy, pending).held(!fresh) }).collect(),
                     stop: target.actions.iter().any(|offer| matches!(offer.action, Action::EnvironmentInstallerStop { .. }))
-                        .then(|| offers::row(&target.actions, Importance::Secondary, None, pending)),
+                        .then(|| offers::row(&target.actions, Importance::Secondary, None, pending).held(!fresh)),
                 },
             }).collect(),
             actionable: fresh,
@@ -865,7 +894,7 @@ impl AppGroup {
                         Action::VendorApplicationFocus { .. } => matches!(app.state.as_str(), "starting" | "running"),
                         Action::VendorApplicationStop { .. } => app.state != "closed" || offer.disabled_reason.is_none(),
                         _ => true,
-                    }).cloned().collect::<Vec<_>>(), Importance::Secondary, busy, pending),
+                    }).cloned().collect::<Vec<_>>(), Importance::Secondary, busy, pending).held(!fresh),
                 }
             }).collect(),
             picker: (!choices.is_empty()).then(|| ProgramPicker {
@@ -875,7 +904,7 @@ impl AppGroup {
                 choices: choices.iter().map(|app| Choice { key: app.id.clone(), label: app.name.clone(),
                     content: app.actions.iter().find(|offer| matches!(offer.action, Action::VendorSoftwareInstall { .. }))
                         .map(|offer| ProgramOpen { consequence: product::vendor_install_consequence(snapshot, &offer.action),
-                            offer: offers::offer(offer, Importance::Primary, busy, pending) }) }).collect(),
+                            offer: offers::offer(offer, Importance::Primary, busy, pending).held(!fresh) }) }).collect(),
                 unchosen: "Open selected app",
                 forget_missing: fresh,
             }),
@@ -915,7 +944,7 @@ impl DeletedSetups {
                 _ => "Deleted. Its Windows files are gone; its history is kept.",
             },
             plugins: (!deleted.plugins.is_empty()).then(|| format!("Plug-ins it held: {}", deleted.plugins.join(", "))),
-            offers: offers::row(&deleted.actions, Importance::Secondary, busy, pending),
+            offers: offers::row(&deleted.actions, Importance::Secondary, busy, pending).held(!fresh),
         };
         Some(Self {
             title: format!("Deleted setups ({})", snapshot.deleted_setups.len()),
@@ -1041,10 +1070,16 @@ mod tests {
                 let setup = Setup::build(&snapshot, fresh, pending, Focus::default());
                 for (offer, notes) in offers(&setup) {
                     assert!(offered.contains(&&offer.intent), "{state}: {} is not a manager offer", offer.label);
-                    if let Some(reason) = offer.availability.reason() {
+                    if offer.availability == Availability::Held {
+                        // Held offers wait for current status, which the page says once.
+                        assert!(!fresh, "{state}: {} held with current status", offer.label);
+                        assert_eq!(setup.progress, Text::caution_hint("Refreshing setup · actions wait for current status"));
+                    } else if let Some(reason) = offer.availability.reason() {
                         assert!(notes.contains(&reason), "{state}: {} hides {reason}", offer.label);
                     }
-                    if pending { assert!(!offer.availability.enabled(), "{state}: {} pressable while pending", offer.label); }
+                    if pending || !fresh {
+                        assert!(!offer.availability.enabled(), "{state}: {} pressable while waiting", offer.label);
+                    }
                     checked += 1;
                 }
                 // Without current status every offer is shown but held.
