@@ -287,6 +287,38 @@ mod tests {
         assert_ne!(target(&f.m).unwrap().operation,job.operation_id);
     }
     #[test]
+    fn a_browser_return_finds_its_session_while_the_supervisor_rewrites_its_records() {
+        // The supervisor replaces its session record twice a second, and its
+        // report as the session progresses. A return that lands during a
+        // replacement still finds its session (#524).
+        let (f, app) = vendor_application::tests::selected_application();
+        let (directory, job) = managed_application(&f, app, "Rewritten session");
+        let expected = target(&f.m).unwrap();
+        let session: serde_json::Value = read_json(&directory.join("managed-session.json")).unwrap();
+        let report: serde_json::Value = read_json(&job.report).unwrap();
+        use std::sync::atomic::{AtomicU64, Ordering};
+        // Far more often than a supervisor does, while returns are read back to back.
+        let replaced = AtomicU64::new(0);
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                for heartbeat in 1..=200_u64 {
+                    let mut session = session.clone();
+                    session["heartbeat"] = heartbeat.into();
+                    atomic_json(&directory.join("managed-session.json"), &session).unwrap();
+                    let mut report = report.clone();
+                    report["discarded_diagnostic_bytes"] = heartbeat.into();
+                    atomic_json(&job.report, &report).unwrap();
+                    replaced.store(heartbeat, Ordering::Relaxed);
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+            });
+            while replaced.load(Ordering::Relaxed) < 200 {
+                assert_eq!(current_target(&f.m, false).unwrap(), expected);
+            }
+        });
+        assert_eq!(target(&f.m).unwrap(), expected);
+    }
+    #[test]
     fn opaque_uri_has_closed_extent_and_no_argument_injection() {
         for good in [
             "native-access://auth?code=fixture&state=test",

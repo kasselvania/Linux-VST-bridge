@@ -7042,6 +7042,34 @@ pub(crate) mod tests {
         });
     }
     #[test]
+    fn activity_reads_the_receipt_its_worker_replaces_while_it_reads() {
+        // A worker replaces operator/latest.json as it progresses. An
+        // Activity read that lands during a replacement reads the
+        // replacement instead of refusing (#516).
+        let f = test_fixture::Fixture::new();
+        let latest = f.m.root.join("operator/latest.json");
+        private_dir(latest.parent().unwrap()).unwrap();
+        let operation = random_id().unwrap();
+        let receipt = |progress: u64| json!({"schema":1,"operation":operation,"state":"running","progress":progress});
+        atomic_json(&latest, &receipt(0)).unwrap();
+        use std::sync::atomic::{AtomicU64, Ordering};
+        // Read back to back while the receipt is replaced 200 times.
+        let replaced = AtomicU64::new(0);
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                for progress in 1..=200_u64 {
+                    atomic_json(&latest, &receipt(progress)).unwrap();
+                    replaced.store(progress, Ordering::Relaxed);
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+            });
+            while replaced.load(Ordering::Relaxed) < 200 {
+                let activity = activity_with_capacity(&f.m, None).unwrap();
+                assert_eq!(activity.operation.unwrap()["operation"], operation.as_str());
+            }
+        });
+    }
+    #[test]
     fn diagnostics_and_the_problem_report_complete_with_more_history_than_one_watch_held() {
         // Three plug-ins, each prepared 350 times before its current
         // candidate: over 4,096 files in all, each plug-in within its own
