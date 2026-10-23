@@ -12,7 +12,7 @@ const DECK_VERSION: &str = "3.8.16";
 const BITWIG_VERSION: &str = "6.1";
 const BITWIG_REF: &str = "app/com.bitwig.BitwigStudio/x86_64/stable";
 /// The FL Studio workspace earlier builds managed (#504 E3), in the managed
-/// root, and its FL Studio sessions' units. The bridge no longer manages or
+/// root, and its operations' units. The bridge no longer manages or
 /// reads it, and never moves, deletes or stops any of it.
 const RETIRED_WORKSPACE: &str = "daw-workspaces/fl-studio";
 const RETIRED_WORKSPACE_SESSIONS: &str = "linux-vst-bridge-daw-fl-";
@@ -68,7 +68,7 @@ pub(super) struct PlatformReadback {
 pub(super) struct RetiredWorkspace {
     /// Its folder, while it is on disk.
     pub folder: Option<PathBuf>,
-    /// An FL Studio session it started is still running.
+    /// An earlier workspace operation is still active (application or uninstaller).
     pub running: bool,
 }
 fn retired_workspace(m: &Manager, sessions: &Probe<String>) -> RetiredWorkspace {
@@ -88,9 +88,14 @@ fn retired_workspace_notice(retired: &RetiredWorkspace) -> Option<String> {
         None => return None,
     };
     if retired.running {
-        notice.push_str(" FL Studio is still running from it; the bridge leaves it running.");
+        notice.push_str(" An earlier FL Studio workspace operation is still running; the bridge leaves it running.");
     }
     Some(notice)
+}
+
+#[cfg(test)]
+pub(super) fn retired_workspace_notice_for_test(m: &Manager, units: Probe<String>) -> Option<String> {
+    retired_workspace_notice(&retired_workspace(m, &units))
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1860,12 +1865,12 @@ mod tests {
         assert_eq!(notice(&p).unwrap(), format!("No longer managed by the bridge. Its files, including \
             any FL Studio projects, are still in {}; nothing was moved or deleted.", folder.display()));
         p.retired_workspace = retired_workspace(&f.m, &listed);
-        assert!(notice(&p).unwrap().ends_with("deleted. FL Studio is still running from it; \
+        assert!(notice(&p).unwrap().ends_with("deleted. An earlier FL Studio workspace operation is still running; \
             the bridge leaves it running."));
         fs::remove_dir_all(&folder).unwrap();
         p.retired_workspace = retired_workspace(&f.m, &listed);
-        assert_eq!(notice(&p).unwrap(), "No longer managed by the bridge. FL Studio is still running \
-            from it; the bridge leaves it running.");
+        assert_eq!(notice(&p).unwrap(), "No longer managed by the bridge. An earlier FL Studio workspace operation is still running; \
+            the bridge leaves it running.");
     }
     #[test]
     fn exact_ready_fixture_and_unobservable_audio_are_distinct() {
