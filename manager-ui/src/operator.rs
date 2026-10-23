@@ -755,6 +755,55 @@ impl Operator {
         self.updates = updates;
         self
     }
+    /// Sample request and window states for render checks. Nothing is sent.
+    #[cfg(test)]
+    pub const REQUEST_SAMPLES: [&'static str; 7] = ["journey", "report", "refused", "message", "importing",
+        "superseded", "renewing"];
+    #[cfg(test)]
+    pub fn with_request_sample(mut self, sample: &str) -> Self {
+        let settled = |action: Action, text: &str| {
+            let mut feedback = RequestFeedback::captured(action);
+            feedback.operation = Some("0a".repeat(16));
+            feedback.transition("accepted");
+            feedback.transition("completed");
+            feedback.text = text.into();
+            feedback.terminal = true;
+            feedback.blocking = false;
+            feedback
+        };
+        match sample {
+            "journey" => {
+                let mut feedback = settled(Action::SoftwareInstall { installer: "ab".repeat(32), daw: DawChoice::Reaper },
+                    "Installation or DAW connection needs attention. Its results and continuation are shown below.");
+                feedback.journey = serde_json::from_value(serde_json::json!({"daw": "reaper", "phase": "needs_attention",
+                    "failure": {"stage": "publication", "reason": "Run the same step again.", "code": "x", "retryable": true},
+                    "plugins": [{"selection": "s1", "class_id": "c1", "name": "Example Keys", "stage": "available", "failure": null},
+                        {"selection": "s2", "class_id": "c2", "name": "Example Pads", "stage": "needs_attention",
+                            "failure": {"stage": "preparation", "reason": "The native connection could not be prepared.",
+                                "code": "y", "retryable": true}},
+                        {"selection": "s3", "class_id": "c3", "name": "Example Echo", "stage": "replacement_required",
+                            "failure": null}]})).ok();
+                self.feedback = Some(feedback);
+            }
+            "report" => {
+                let mut feedback = settled(Action::SupportExport {},
+                    "Problem report created. Choose where to save the file to send.");
+                feedback.report = Some(client::SupportReport { id: "ab".repeat(16), sha256: "cd".repeat(32) });
+                self.feedback = Some(feedback);
+            }
+            "refused" => self.feedback = Some(settled(Action::RuntimeInstall {},
+                "This request was refused: Close active bridged instances before this action")),
+            "message" => self.message = format!("Operation accepted: {}", "0a".repeat(16)),
+            "importing" => self.queued_import = true,
+            "superseded" => self.frontend_superseded = true,
+            "renewing" => {
+                self.overview_fresh = false;
+                self.overview_renewing = true;
+            }
+            other => panic!("unknown request sample: {other}"),
+        }
+        self
+    }
     fn preparation_details(ui: &mut egui::Ui, v: &serde_json::Value) {
         if v["publication"] == "ordinary" {
             ui.strong("Ordinarily published");
