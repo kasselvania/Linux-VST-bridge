@@ -1462,10 +1462,14 @@ fn answer_command(m: &Manager, peer: &mut UnixStream) -> Result<()> {
 }
 pub fn serve(m: Manager) -> Result<()> {
     // Browser callbacks are delivered directly to this owner. They must never
-    // enter a process core dump, just as in the narrow CLI callback transport.
+    // enter a process core dump or remain accessible to same-user process
+    // inspection, just as in the narrow CLI callback transport.
     let no_core = libc::rlimit { rlim_cur:0, rlim_max:0 };
     require(unsafe { libc::setrlimit(libc::RLIMIT_CORE, &no_core) } == 0,
         "service_core_dump_protection")?;
+    #[cfg(target_os = "linux")]
+    require(unsafe { libc::prctl(libc::PR_SET_DUMPABLE, 0, 0, 0, 0) } == 0,
+        "service_process_privacy")?;
     let _lock = m.lock("service.lock")?;
     let s = software(&m)?;
     package_authority::reconcile_service_startup(&m, &s)?;

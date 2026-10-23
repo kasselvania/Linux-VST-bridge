@@ -184,6 +184,7 @@ fn browser_return_reaches_the_running_app_and_nothing_else() {
     let handler = slow.handler.as_ref().expect("the waiting handler was observed");
     assert!(handler.core_limit_zero && handler.environment_unreadable, "{handler:?}");
     assert_received(&setup, 2, &url);
+    service.assert_private();
     assert!(setup.received()[1].at_ms >= second.exited_ms, "the slow copy delivered while the second return waited");
     report_return(&setup, &mut report, "second copy held while another return waits", "dispatched", &slow);
     report_return(&setup, &mut report, "return sent during that wait", "refused: gave up after 25 s", &second);
@@ -286,6 +287,7 @@ fn browser_return_reaches_the_running_app_and_nothing_else() {
     assert_retired_processes(&setup, &session);
     drop(session);
 
+    service.assert_private();
     service.stop();
     search_for_codes(&setup, &inputs, &secrets, &mut report, "after both sessions and the bridge service ended", false);
 }

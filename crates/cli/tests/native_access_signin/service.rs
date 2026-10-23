@@ -31,6 +31,7 @@ impl BridgeService {
                 "the bridge service exited during startup; its output is in signin-service.log");
             if let Some(pulse) = pulse(&socket) {
                 assert_eq!(pulse, 0, "a fresh fixture has no unconfirmed cleanup");
+                service.assert_private();
                 return service;
             }
             assert!(started.elapsed() < STARTUP, "the bridge service did not become ready");
@@ -43,6 +44,27 @@ impl BridgeService {
             "the bridge service stopped before the fixture retired it");
         let status = self.terminate().expect("retire the bridge service normally");
         assert_eq!(status.signal(), Some(libc::SIGTERM), "bridge service exit: {status}");
+    }
+
+    /// The callback's long-lived owner has the same privacy protections as
+    /// the CLI handler. Never print or retain any process environment bytes.
+    pub fn assert_private(&self) {
+        let pid = self.child.as_ref().expect("an owned bridge service").id();
+        let process = std::path::PathBuf::from(format!("/proc/{pid}"));
+        let environment = fs::File::open(process.join("environ"));
+        assert!(matches!(environment, Err(error) if error.kind() == io::ErrorKind::PermissionDenied),
+            "the bridge service must be non-dumpable to its own user");
+        let limits = fs::read_to_string(process.join("limits")).unwrap();
+        let core = limits.lines().find_map(|line| line.strip_prefix("Max core file size"))
+            .expect("core limit is observable");
+        let fields: Vec<_> = core.split_whitespace().collect();
+        assert_eq!(&fields[..2], &["0", "0"], "bridge service core limits");
+        // Exact operation ownership still has a readable process generation;
+        // disabling ptrace access must not hide the retained executor identity.
+        let stat = fs::read_to_string(process.join("stat")).unwrap();
+        let start: u64 = stat.rsplit_once(") ").unwrap().1.split_whitespace().nth(19)
+            .unwrap().parse().unwrap();
+        assert!(start > 0, "bridge service start ticks stay readable");
     }
 
     fn terminate(&mut self) -> io::Result<ExitStatus> {
