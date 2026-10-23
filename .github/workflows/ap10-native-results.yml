@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/ap10-native-results.yml'
+      - '.github/scripts/apt-install.sh'
       - 'CMakeLists.txt'
       - 'cmake/HP0*.cmake'
       - 'native-vst3-proxy/**'
@@ -32,14 +33,11 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      # The helper refreshes only Ubuntu's sources: an unrelated preinstalled
+      # Chrome repository once returned inconsistent signed index hashes.
       - name: Install native build dependency
-        run: |
-          # These dependencies come from Ubuntu. An unrelated preinstalled
-          # Chrome repository returned inconsistent signed index/package hashes.
-          # Keep signature/hash verification and update only Ubuntu's sources.
-          test -f /etc/apt/sources.list.d/ubuntu.sources
-          sudo apt-get update -o Dir::Etc::sourcelist=sources.list.d/ubuntu.sources -o Dir::Etc::sourceparts=- -o APT::Get::List-Cleanup=0
-          sudo apt-get install -y libx11-dev libxcb1-dev libxtst-dev xvfb
+        timeout-minutes: 9
+        run: bash .github/scripts/apt-install.sh libx11-dev libxcb1-dev libxtst-dev xvfb
       - name: Acquire existing pinned official SDK
         run: python3 tools/wf0-factory-census/build.py acquire --sdk-root "${{ runner.temp }}/ap10-sdk"
       - name: Test production transport including first idle reply deadline

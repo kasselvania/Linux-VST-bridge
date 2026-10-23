@@ -191,7 +191,7 @@ pub fn incident_lines(v: &serde_json::Value) -> Vec<String> {
 }
 
 /// The Activity page.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Activity {
     pub heading: &'static str,
     pub intro: &'static str,
@@ -201,7 +201,7 @@ pub struct Activity {
     pub incidents: Incidents,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Sessions {
     pub title: &'static str,
     /// Said when the rows are not a live confirmation.
@@ -210,7 +210,7 @@ pub struct Sessions {
     pub rows: Vec<SessionRow>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SessionRow {
     pub recent: bool,
     /// Position in its list, for a row without a session identity.
@@ -224,7 +224,7 @@ pub struct SessionRow {
     pub record: Disclosure,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Attentions {
     pub title: &'static str,
     pub empty: Option<&'static str>,
@@ -233,14 +233,14 @@ pub struct Attentions {
     pub more: Option<Control>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AttentionItem {
     pub title: String,
     pub detail: String,
     pub open: Control,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Incidents {
     pub title: &'static str,
     pub empty: Option<&'static str>,
@@ -336,10 +336,10 @@ impl Activity {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::screen_model::product::{activity_certainty, ActivityCertainty};
+    use crate::product::{activity_certainty, ActivityCertainty};
 
     fn snapshot() -> Snapshot {
-        serde_json::from_str(include_str!("../../examples/library-preview.json")).unwrap()
+        crate::samples::base()
     }
 
     #[test]
@@ -487,13 +487,13 @@ mod tests {
             .any(|item| item.destination == Destination::Session("exact-session".into())));
     }
 
-    use crate::operator::Page;
-    use crate::preview_states::{self, STATES};
+    use crate::window::Page;
+    use crate::samples::{self, STATES};
 
     #[test]
     fn sample_states_list_sessions_attention_and_incidents_with_exact_offers() {
         for state in STATES {
-            let snapshot = preview_states::snapshot(Page::Activity, Some(state));
+            let snapshot = samples::snapshot(Page::Activity, Some(state));
             let view = Activity::build(&snapshot, false);
             let live = snapshot.active_sessions.iter().filter(|row| row["recent"] != true).count();
             assert_eq!(view.live.rows.len(), live, "{state}");
@@ -509,7 +509,7 @@ mod tests {
                 assert_eq!(row.open.is_some(), session_product(&snapshot, class).is_some(), "{state}");
             }
         }
-        let snapshot = preview_states::snapshot(Page::Activity, Some("incidents"));
+        let snapshot = samples::snapshot(Page::Activity, Some("incidents"));
         let view = Activity::build(&snapshot, false);
         let states: Vec<_> = view.live.rows.iter().map(|row| row.state.as_str()).collect();
         assert_eq!(states, ["Running bridge session", "Cleanup unconfirmed · this owner is not proof of live audio",
@@ -522,6 +522,6 @@ mod tests {
         assert!(saved.content.iter().any(|detail| matches!(detail, Detail::Offers(row)
             if row.offers[0].label == "Save incident report")));
         assert!(view.attention.items.iter().any(|item| item.title == "Installation needs attention"
-            && matches!(&item.open.does, crate::screen_model::Local::Go(Destination::Attempt(_)))));
+            && matches!(&item.open.does, crate::Local::Go(Destination::Attempt(_)))));
     }
 }

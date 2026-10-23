@@ -2471,6 +2471,9 @@ fn execute_with_receipt_policy_progress(
         timeout,
         waits,
     )?);
+    // The worker checked what this action acts on, then released
+    // serialization; check it again now that this executor holds it.
+    if let Some(owner) = operation { preconditions::recheck_accepted(m, owner, a)?; }
     if matches!(
         a,
         ui::Action::InstallerEnvironmentCreate { .. } | ui::Action::InstallerNewAttempt { .. }
@@ -4138,10 +4141,12 @@ fn worker_with_capacity_observed(
         false,
     )?;
     let mut waits = vec![];
+    let mut accepted_with_facts = false;
     let validation = timing::measure(Stage::WorkerValidation, || if matches!(request.action, ui::Action::SupportExport {}) {
         validate_current_request(m, &request)
     } else if let Some(facts) = preconditions::recorded(m, id, &request)? {
         // Admission validated the offer once and recorded what it acts on.
+        accepted_with_facts = true;
         validate_accepted_worker(m, &request, id, &facts, timeout, &mut waits, capacity_read)
     } else if current_offer_action(&request.action)
         || preparation_cli::is_action(&request.action)
@@ -4210,7 +4215,7 @@ fn worker_with_capacity_observed(
         &json!({"schema":1,"operation":id,"state":"running","action":request.action,"lock_waits":waits}),
         false,
     )?;
-    let result = execute_with_receipt_policy(
+    let mut execute = || execute_with_receipt_policy(
         m,
         &request.action,
         Some(id),
@@ -4218,6 +4223,7 @@ fn worker_with_capacity_observed(
         timeout,
         &mut waits,
     );
+    let result = if accepted_with_facts { preconditions::with_accepted(id, execute) } else { execute() };
     let value = match result {
         Ok(v) => {
             json!({"schema":1,"operation":id,"state":"completed","result":v,"lock_waits":waits})
@@ -4248,15 +4254,20 @@ fn worker_with_capacity_observed(
                     installer_launched: false,
                     lock: f.facts.clone(),
                 });
+            let changed = e.downcast_ref::<preconditions::Changed>().map(|changed| changed.0);
             let reason = if failure.as_ref().is_some_and(|f| f.retryable) {
                 format!("{} No setup was created and the installer did not start.",
                     linux_vst_bridge::operator_lock::BUSY_SENTENCE)
             } else if linux_vst_bridge::operator_lock::is_busy(e.as_ref()) {
                 linux_vst_bridge::operator_lock::BUSY_SENTENCE.to_owned()
+            } else if changed.is_some() {
+                e.to_string()
             } else {
                 format!("Operator action: {e}").chars().take(512).collect()
             };
-            json!({"schema":1,"operation":id,"state":"refused","reason":reason,"failure":failure,"preparation_failure":preparation_failure(&request.action,e.as_ref()),"lock_waits":waits})
+            let mut refused = json!({"schema":1,"operation":id,"state":"refused","reason":reason,"failure":failure,"preparation_failure":preparation_failure(&request.action,e.as_ref()),"lock_waits":waits});
+            if let Some(fact) = changed { refused["precondition"] = fact.name().into(); }
+            refused
         }
     };
     timing::measure(Stage::FinalReceipt, || write_operation(m, id, &value, false))

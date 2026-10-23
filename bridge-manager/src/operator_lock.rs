@@ -42,26 +42,15 @@ pub(crate) fn ensure_registry_writer_marker(m: &Manager) {
 pub fn registry_writer_waiting(m: &Manager) -> bool {
     matches!(m.try_lock_shared(REGISTRY_WRITER_WAITING), Ok(LockAttempt::Busy))
 }
-/// What a musician reads when an action or check met a lock still held after
-/// its bounded wait. Nothing was changed; the same step can simply run again.
-/// Where the card's next step is known, the window names its button instead
-/// (`busy_sentence_naming`); a card's "Retry" can start a new installer attempt.
-pub const BUSY_SENTENCE: &str = "The manager was busy finishing another task; run the same step again.";
-/// The same sentence naming the button that repeats the step on that card.
-pub fn busy_sentence_naming(button: &str) -> String {
-    format!("The manager was busy finishing another task; choose \u{201c}{button}\u{201d}.")
-}
+/// The busy refusal's words, shared with the windows: what a musician reads,
+/// the same sentence naming a card's button, and the same test as `is_busy`
+/// on retained text, for receipts and journey codes that only kept the words.
+pub use lvb_model::wording::{busy_sentence_naming, is_busy_text, BUSY_SENTENCE};
 /// A lock refusal a musician can retry: a bounded wait that expired, or a lock
 /// still busy after it. Other refusals keep their exact reason.
 pub fn is_busy(error: &(dyn std::error::Error + 'static)) -> bool {
     error.is::<LockBusy>() || error.downcast_ref::<AcquisitionFailure>()
         .is_some_and(|f| f.facts.outcome == LockOutcome::Timeout)
-}
-/// The same test on retained text, for receipts and journey codes that only
-/// kept the refusal's words.
-pub fn is_busy_text(text: &str) -> bool {
-    text == "operation already running"
-        || (text.starts_with("Manager ") && text.contains(" lock Timeout after "))
 }
 #[derive(Debug)]
 pub struct LockBusy;

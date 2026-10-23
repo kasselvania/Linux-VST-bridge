@@ -7,9 +7,7 @@ use linux_vst_bridge::operator_model as model;
 #[path = "../src/presentation.rs"]
 #[allow(dead_code)]
 mod presentation;
-#[path = "../src/screen_model/mod.rs"]
-#[allow(dead_code)]
-mod screen_model;
+use lvb_view_model as screen_model;
 #[path = "../src/widgets.rs"]
 #[allow(dead_code)]
 mod widgets;
@@ -17,7 +15,7 @@ use eframe::egui;
 
 struct Preview {
     snapshot: model::Snapshot,
-    library: library::Library,
+    library: library::PluginsView,
     output: Option<std::path::PathBuf>,
     frame: usize,
     diagnostics: bool,
@@ -51,8 +49,7 @@ impl eframe::App for Preview {
             ui.separator();
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let mut selected = None;
-                self.library
-                    .show(ui, &self.snapshot, false, &mut selected, |ui, p| {
+                library::show(ui, &mut self.library, &self.snapshot, None, false, &mut selected, |ui, p| {
                         ui.label(format!(
                             "Example metadata for {}. No installed product was inspected.",
                             p.name
@@ -85,10 +82,9 @@ fn main() -> eframe::Result {
         .get(1)
         .map(|s| s.parse::<f32>().expect("width"))
         .unwrap_or(960.0);
-    let mut library = library::Library::default();
-    library.search = args.get(2).cloned().unwrap_or_default();
     let diagnostics = args.get(3).is_some_and(|arg| arg == "--diagnostics");
-    library.expand_details = diagnostics;
+    let library = library::PluginsView { search: args.get(2).cloned().unwrap_or_default(), expanded: diagnostics,
+        ..Default::default() };
     let mut snapshot: model::Snapshot =
         serde_json::from_str(include_str!("library-preview.json")).expect("preview data");
     if diagnostics {

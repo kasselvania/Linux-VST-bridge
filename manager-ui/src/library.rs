@@ -1,160 +1,137 @@
-//! egui drawing of the Plug-ins screens from the screen model. The list,
-//! search and selection state lives here; decisions and words do not.
+//! egui drawing of the Plug-ins screens from the screen model. The search,
+//! filters and opened plug-ins live in the window's state; decisions and
+//! words live in the screen model.
 use crate::model::{Action, Product, Snapshot};
 use crate::screen_model::plugins::{self, LoadingList, PluginCard, PluginList, RoleFilter, StatusFilter};
 use crate::screen_model::setup::SetupControls;
-use crate::screen_model::{fact_line, ProductKey};
+use crate::screen_model::fact_line;
 use crate::widgets::{self, warning_color};
 use eframe::egui;
 
-#[derive(Default)]
-pub struct Library {
-    pub search: String,
-    /// Used by the local preview; production preserves normal collapsed state.
-    pub expand_details: bool,
-    role: RoleFilter,
-    status: StatusFilter,
-    focus: Option<Vec<ProductKey>>,
-    scroll_focus: bool,
+/// The Plug-ins page's search, filters and opened plug-ins, kept in the
+/// window's state.
+pub use crate::screen_model::state::PluginsView;
+
+/// Current product identity remains visible while the separately requested
+/// compatibility/history readback loads. It carries no action authority.
+/// `built`: the list as the window's screen built it, if it did.
+pub fn show_current(ui: &mut egui::Ui, state: &mut PluginsView, current: &Snapshot, built: Option<LoadingList>,
+    fresh: bool, details_attempted: bool, retry_details: &mut bool) {
+    if state.scroll_to_focus {
+        ui.scroll_to_cursor(Some(egui::Align::Min));
+        state.scroll_to_focus = false;
+    }
+    ui.heading(plugins::HEADING);
+    let mut view = built.unwrap_or_else(|| LoadingList::build(current, &state.query(), fresh, details_attempted));
+    if let Some(title) = view.focus_title {
+        ui.strong(title);
+        if ui.add_sized([180.0, 44.0], egui::Button::new(plugins::SHOW_ALL)).clicked() {
+            state.focus = None;
+            view = LoadingList::build(current, &state.query(), fresh, details_attempted);
+        }
+    }
+    widgets::text(ui, &view.notice);
+    if let Some(retry) = view.retry {
+        if ui.add_sized([240.0, 44.0], egui::Button::new(retry)).clicked() {
+            *retry_details = true;
+        }
+    }
+    let searched = state.search.clone();
+    ui.add(egui::TextEdit::singleline(&mut state.search)
+        .hint_text(plugins::SEARCH_HINT)
+        .desired_width(f32::INFINITY));
+    if !state.search.is_empty() && ui.button(plugins::CLEAR_SEARCH).clicked() {
+        state.search.clear();
+    }
+    if state.search != searched {
+        view = LoadingList::build(current, &state.query(), fresh, details_attempted);
+    }
+    ui.small(&view.count);
+    if let Some(empty) = view.empty {
+        ui.label(empty);
+    }
+    let mut selected = None;
+    for row in &view.rows {
+        ui.push_id((&row.key.environment, &row.key.class_id, &row.key.module_sha256), |ui| {
+            egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
+                ui.label(egui::RichText::new(&row.name).size(19.0).strong());
+                ui.small(fact_line(&row.facts));
+                if let Some(status) = row.status { ui.label(status); }
+                for note in &row.notes { widgets::text(ui, note); }
+                if let Some(manage) = row.manage {
+                    if ui.add_sized([240.0, 44.0], egui::Button::new(manage)).clicked() {
+                        selected = Some(row.key.clone());
+                    }
+                }
+            });
+        });
+    }
+    if let Some(key) = selected { state.focus_product(key); }
 }
 
-impl Library {
-    pub fn focused_product(&self) -> Option<&ProductKey> {
-        self.focus.as_deref().and_then(|keys| (keys.len() == 1).then_some(&keys[0]))
+/// The list or the opened plug-in. `built`: the list as the window's screen
+/// built it, with whether one plug-in was open; a search or filter changed
+/// here rebuilds it, so the change shows in this frame.
+pub fn show(
+    ui: &mut egui::Ui,
+    state: &mut PluginsView,
+    snapshot: &Snapshot,
+    built: Option<(PluginList, bool)>,
+    pending: bool,
+    chosen: &mut Option<Action>,
+    details: impl Fn(&mut egui::Ui, &Product),
+) {
+    if state.scroll_to_focus {
+        ui.scroll_to_cursor(Some(egui::Align::Min));
+        state.scroll_to_focus = false;
     }
-
-    pub fn focus_product(&mut self, key: ProductKey) {
-        self.search.clear();
-        self.role = RoleFilter::All;
-        self.status = StatusFilter::All;
-        self.focus = Some(vec![key]);
-        self.scroll_focus = true;
-    }
-    pub fn focus_products(&mut self, keys: Vec<ProductKey>) {
-        self.search.clear();
-        self.role = RoleFilter::All;
-        self.status = StatusFilter::All;
-        self.focus = Some(keys);
-        self.scroll_focus = true;
-    }
-
-    fn query(&self) -> plugins::Query<'_> {
-        plugins::Query { search: &self.search, role: self.role, status: self.status,
-            focus: self.focus.as_deref() }
-    }
-
-    /// Current product identity remains visible while the separately requested
-    /// compatibility/history readback loads. It carries no action authority.
-    pub fn show_current(&mut self, ui: &mut egui::Ui, current: &Snapshot,
-        fresh: bool, details_attempted: bool, retry_details: &mut bool) {
-        if self.scroll_focus {
-            ui.scroll_to_cursor(Some(egui::Align::Min));
-            self.scroll_focus = false;
-        }
+    let before = state.clone();
+    let single_product = built.as_ref().map_or_else(|| state.focused_product().is_some(), |(_, single)| *single);
+    ui.horizontal_wrapped(|ui| {
         ui.heading(plugins::HEADING);
-        let mut view = LoadingList::build(current, &self.query(), fresh, details_attempted);
-        if let Some(title) = view.focus_title {
-            ui.strong(title);
-            if ui.add_sized([180.0, 44.0], egui::Button::new(plugins::SHOW_ALL)).clicked() {
-                self.focus = None;
-                view = LoadingList::build(current, &self.query(), fresh, details_attempted);
-            }
-        }
-        widgets::text(ui, &view.notice);
-        if let Some(retry) = view.retry {
-            if ui.add_sized([240.0, 44.0], egui::Button::new(retry)).clicked() {
-                *retry_details = true;
-            }
-        }
-        let searched = self.search.clone();
-        ui.add(egui::TextEdit::singleline(&mut self.search)
+        if state.focus.is_some() && ui.add_sized([180.0, 44.0],
+            egui::Button::new(plugins::SHOW_ALL)).clicked() {state.focus = None;}
+    });
+    if !single_product {
+        ui.add(egui::TextEdit::singleline(&mut state.search)
             .hint_text(plugins::SEARCH_HINT)
             .desired_width(f32::INFINITY));
-        if !self.search.is_empty() && ui.button(plugins::CLEAR_SEARCH).clicked() {
-            self.search.clear();
-        }
-        if self.search != searched {
-            view = LoadingList::build(current, &self.query(), fresh, details_attempted);
-        }
-        ui.small(&view.count);
-        if let Some(empty) = view.empty {
-            ui.label(empty);
-        }
-        let mut selected = None;
-        for row in &view.rows {
-            ui.push_id((&row.key.environment, &row.key.class_id, &row.key.module_sha256), |ui| {
-                egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
-                    ui.label(egui::RichText::new(&row.name).size(19.0).strong());
-                    ui.small(fact_line(&row.facts));
-                    if let Some(status) = row.status { ui.label(status); }
-                    for note in &row.notes { widgets::text(ui, note); }
-                    if let Some(manage) = row.manage {
-                        if ui.add_sized([240.0, 44.0], egui::Button::new(manage)).clicked() {
-                            selected = Some(row.key.clone());
-                        }
-                    }
-                });
-            });
-        }
-        if let Some(key) = selected { self.focus_product(key); }
-    }
-
-    pub fn show(
-        &mut self,
-        ui: &mut egui::Ui,
-        snapshot: &Snapshot,
-        pending: bool,
-        chosen: &mut Option<Action>,
-        details: impl Fn(&mut egui::Ui, &Product),
-    ) {
-        if self.scroll_focus {
-            ui.scroll_to_cursor(Some(egui::Align::Min));
-            self.scroll_focus = false;
-        }
-        let single_product = self.focused_product().is_some();
         ui.horizontal_wrapped(|ui| {
-            ui.heading(plugins::HEADING);
-            if self.focus.is_some() && ui.add_sized([180.0, 44.0],
-                egui::Button::new(plugins::SHOW_ALL)).clicked() {self.focus = None;}
-        });
-        if !single_product {
-            ui.add(egui::TextEdit::singleline(&mut self.search)
-                .hint_text(plugins::SEARCH_HINT)
-                .desired_width(f32::INFINITY));
-            ui.horizontal_wrapped(|ui| {
-                egui::ComboBox::from_id_salt("library-role")
-                    .selected_text(self.role.label()).show_ui(ui, |ui| {
-                    for choice in RoleFilter::CHOICES {
-                        ui.selectable_value(&mut self.role, choice, choice.label());
-                    }
-                });
-                egui::ComboBox::from_id_salt("library-status")
-                    .selected_text(self.status.label()).show_ui(ui, |ui| {
-                    for choice in StatusFilter::CHOICES {
-                        ui.selectable_value(&mut self.status, choice, choice.label());
-                    }
-                });
-                if self.query().filtered() && ui.button(plugins::CLEAR_FILTERS).clicked() {*self = Self::default();}
+            egui::ComboBox::from_id_salt("library-role")
+                .selected_text(state.role.label()).show_ui(ui, |ui| {
+                for choice in RoleFilter::CHOICES {
+                    ui.selectable_value(&mut state.role, choice, choice.label());
+                }
             });
+            egui::ComboBox::from_id_salt("library-status")
+                .selected_text(state.status.label()).show_ui(ui, |ui| {
+                for choice in StatusFilter::CHOICES {
+                    ui.selectable_value(&mut state.status, choice, choice.label());
+                }
+            });
+            if state.query().filtered() && ui.button(plugins::CLEAR_FILTERS).clicked() {*state = PluginsView::default();}
+        });
+    }
+    let list = match built {
+        Some((list, _)) if *state == before => list,
+        _ => PluginList::build(snapshot, &state.query(), single_product, plugins::Context {
+            busy: snapshot.system.inactive_reason(), pending, expanded: state.expanded }),
+    };
+    for line in &list.summary { ui.small(line); }
+    if let Some((title, hint)) = list.empty {
+        ui.add_space(16.0);
+        ui.strong(title);
+        ui.label(hint);
+    }
+    for group in &list.groups {
+        if let Some(heading) = &group.heading {
+            ui.add_space(12.0);
+            ui.strong(heading);
         }
-        let list = PluginList::build(snapshot, &self.query(), single_product, plugins::Context {
-            busy: snapshot.system.inactive_reason(), pending, expanded: self.expand_details });
-        for line in &list.summary { ui.small(line); }
-        if let Some((title, hint)) = list.empty {
-            ui.add_space(16.0);
-            ui.strong(title);
-            ui.label(hint);
-        }
-        for group in &list.groups {
-            if let Some(heading) = &group.heading {
-                ui.add_space(12.0);
-                ui.strong(heading);
-            }
-            for card in &group.cards {
-                plugin_card(ui, card, chosen, |ui| {
-                    if let Some(record) = card.record { details(ui, &snapshot.products[record]); }
-                });
-            }
+        for card in &group.cards {
+            plugin_card(ui, card, chosen, |ui| {
+                if let Some(record) = card.record { details(ui, &snapshot.products[record]); }
+            });
         }
     }
 }
@@ -263,6 +240,7 @@ pub(crate) fn setup_controls(ui: &mut egui::Ui, controls: &SetupControls, chosen
 
 #[cfg(test)]
 mod tests {
+    use crate::screen_model::ProductKey;
     use super::*;
     use crate::model::{AvailableAction, CompatibilityWorkflow, CompatibilityPhase};
     use crate::presentation;
@@ -314,8 +292,8 @@ mod tests {
                 ui.set_max_width(width - 32.0);
                 let mut current = snapshot();
                 current.products = vec![product.clone()];
-                let mut library = Library { expand_details: true, ..Default::default() };
-                library.show(ui, &current, false, &mut None, |_,_|{});
+                let mut library = PluginsView { expanded: true, ..Default::default() };
+                show(ui, &mut library, &current, None, false, &mut None, |_,_|{});
             });
             let mut labels = vec![];
             for clipped in &output.shapes { texts(&clipped.shape,&mut labels); }
@@ -375,7 +353,7 @@ mod tests {
             snapshot.system.dsp = 1;
             snapshot.environments.clear();snapshot.vendor_applications.clear();
             assert!(snapshot.system.inactive_reason().is_some());
-            let mut library = Library {expand_details:true,..Default::default()};
+            let mut library = PluginsView {expanded:true,..Default::default()};
             let ctx = egui::Context::default();
             let mut point = egui::Pos2::ZERO;
             let mut chosen = None;
@@ -384,7 +362,7 @@ mod tests {
                     egui::Event::PointerButton {pos:point,button:egui::PointerButton::Primary,
                         pressed,modifiers:egui::Modifiers::NONE}]).unwrap_or_default();
                 let mut output = ctx.run_ui(egui::RawInput {events,..Default::default()}, |ui| {
-                    library.show(ui,&snapshot,false,&mut chosen,|_,_|{});
+                    show(ui, &mut library, &snapshot, None,false,&mut chosen,|_,_|{});
                 });
                 if pressed.is_none() {
                     point = output.shapes.iter().find_map(|shape|trial_position(&shape.shape)).unwrap();
@@ -424,11 +402,11 @@ mod tests {
         });
         for width in [960.0, 560.0] {
             let ctx = egui::Context::default();
-            let mut library = Library::default();
+            let mut library = PluginsView::default();
             let mut chosen = None;
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
                 ui.set_max_width(width - 32.0);
-                library.show(ui, &snapshot, false, &mut chosen, |_, _| {});
+                show(ui, &mut library, &snapshot, None, false, &mut chosen, |_, _| {});
             });
             let mut labels = vec![];
             for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
@@ -483,10 +461,10 @@ mod tests {
             Some("Cleanup unconfirmed")), Some("Cleanup unconfirmed"));
         for width in [560.0,960.0] {
             let ctx=egui::Context::default();
-            let mut library=Library::default();
+            let mut library=PluginsView::default();
             let mut output=ctx.run_ui(egui::RawInput::default(),|ui| {
                 ui.set_max_width(width-32.0);
-                library.show(ui,&snapshot,false,&mut None,|_,_|{});
+                show(ui, &mut library, &snapshot, None,false,&mut None,|_,_|{});
             });
             fn labels(shape:&egui::epaint::Shape,out:&mut Vec<String>) {
                 match shape {
@@ -501,7 +479,7 @@ mod tests {
             assert!(text.iter().any(|line|line=="Finish plug-in recovery"));
             assert!(text.iter().any(|line|line=="Cleanup unconfirmed"));
             assert!(!text.iter().any(|line|line==product::daw_guidance(None)));
-            assert!(!library.expand_details);
+            assert!(!library.expanded);
             output.textures_delta.clear();
         }
     }
@@ -536,10 +514,10 @@ mod tests {
                 disabled_reason:None},
         ];
         for (width,expanded) in [(960.0,false),(560.0,false),(960.0,true),(560.0,true)] {
-            let ctx=egui::Context::default();let mut library=Library {expand_details:expanded,..Default::default()};let mut chosen=None;
+            let ctx=egui::Context::default();let mut library=PluginsView {expanded,..Default::default()};let mut chosen=None;
             let mut output=ctx.run_ui(egui::RawInput::default(),|ui| {
                 ui.set_max_width(width-32.0);
-                library.show(ui,&snapshot,false,&mut chosen,|_,_|{});
+                show(ui, &mut library, &snapshot, None,false,&mut chosen,|_,_|{});
             });
             let mut labels=vec![];for clipped in &output.shapes {texts(&clipped.shape,&mut labels);}
             output.textures_delta.clear();
@@ -550,7 +528,7 @@ mod tests {
                 "Installed module changed; rescan first","Restore previous setup · dddddddddddd"] {
                 assert_eq!(labels.iter().any(|s|s==expected),expanded,"{expected} at {width}");
             }
-            assert_eq!(library.expand_details,expanded);assert!(chosen.is_none());
+            assert_eq!(library.expanded,expanded);assert!(chosen.is_none());
         }
     }
 
@@ -566,10 +544,10 @@ mod tests {
         }
         let render = |snapshot: &Snapshot| {
             let ctx = egui::Context::default();
-            let mut library = Library::default();
+            let mut library = PluginsView::default();
             let mut chosen = None;
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-                library.show(ui, snapshot, false, &mut chosen, |_,_| {});
+                show(ui, &mut library, snapshot, None, false, &mut chosen, |_,_| {});
             });
             let mut labels = vec![];
             for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
@@ -654,11 +632,11 @@ mod tests {
         for (width, expanded) in [(960.0,false),(560.0,false),(960.0,true),(560.0,true)] {
             let ctx = egui::Context::default();
             ctx.global_style_mut(|style| style.animation_time = 0.0);
-            let mut library = Library {expand_details:expanded,..Default::default()};
+            let mut library = PluginsView {expanded,..Default::default()};
             let mut chosen = None;
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
                 ui.set_max_width(width - 32.0);
-                library.show(ui, &snapshot, false, &mut chosen, |_,_| {});
+                show(ui, &mut library, &snapshot, None, false, &mut chosen, |_,_| {});
             });
             let mut labels = vec![];
             for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
@@ -673,7 +651,7 @@ mod tests {
             assert_eq!(labels.iter().any(|label|Some(label)==stale.disabled_reason.as_ref()),expanded);
             assert_eq!(labels.iter().filter(|label| **label == expert.label).count(), usize::from(expanded),
                 "expert section must actually be open only when requested");
-            assert_eq!(library.expand_details, expanded);
+            assert_eq!(library.expanded, expanded);
             assert!(chosen.is_none());
         }
     }
@@ -704,14 +682,14 @@ mod tests {
             let expected=product.actions[2].action.clone();
             let ctx=egui::Context::default();presentation::configure_style(&ctx);
             ctx.global_style_mut(|style|style.animation_time=0.0);
-            let mut library=Library::default();let mut chosen=None;let mut point=egui::Pos2::ZERO;
+            let mut library=PluginsView::default();let mut chosen=None;let mut point=egui::Pos2::ZERO;
             for frame in 0..9 {
                 let click=matches!(frame,3|4|7|8);
                 let events=if click {vec![egui::Event::PointerMoved(point),egui::Event::PointerButton {
                     pos:point,button:egui::PointerButton::Primary,pressed:matches!(frame,3|7),modifiers:egui::Modifiers::NONE}]} else {vec![]};
                 let mut output=ctx.run_ui(egui::RawInput {events,screen_rect:Some(egui::Rect::from_min_size(
                     egui::Pos2::ZERO,egui::vec2(560.0,2000.0))),..Default::default()},|ui| {
-                    library.show(ui,&snapshot,pending,&mut chosen,|_,_|{});
+                    show(ui, &mut library, &snapshot, None,pending,&mut chosen,|_,_|{});
                 });
                 let mut text=vec![];for shape in &output.shapes {centers(&shape.shape,&mut text);}
                 if frame==2 {
@@ -770,7 +748,7 @@ mod tests {
             product.details["preparation"] = serde_json::json!({"candidates":(0..22).map(|index|
                 serde_json::json!({"id":format!("exact-candidate-{index}"),"lineage":{"ordinal":index+1}})).collect::<Vec<_>>()});
             let expected=product.actions[4].action.clone();
-            let mut library=Library::default();library.focus_product(ProductKey::from(&*product));
+            let mut library=PluginsView::default();library.focus_product(ProductKey::from(&*product));
             let ctx=egui::Context::default();presentation::configure_style(&ctx);
             ctx.global_style_mut(|style|style.animation_time=0.0);
             let mut chosen=None;let mut point=egui::Pos2::ZERO;
@@ -778,7 +756,7 @@ mod tests {
                 let events=if matches!(frame,3|4|7|8) {vec![egui::Event::PointerMoved(point),egui::Event::PointerButton {
                     pos:point,button:egui::PointerButton::Primary,pressed:matches!(frame,3|7),modifiers:egui::Modifiers::NONE}]} else {vec![]};
                 let mut output=ctx.run_ui(egui::RawInput {events,screen_rect:Some(egui::Rect::from_min_size(
-                    egui::Pos2::ZERO,egui::vec2(560.0,2400.0))),..Default::default()},|ui|library.show(ui,&snapshot,pending,&mut chosen,|_,_|{}));
+                    egui::Pos2::ZERO,egui::vec2(560.0,2400.0))),..Default::default()},|ui|show(ui, &mut library, &snapshot, None,pending,&mut chosen,|_,_|{}));
                 let mut text=vec![];for shape in &output.shapes {centers(&shape.shape,&mut text);}
                 if frame==2 {
                     for label in ["Help and testing", "Open vendor application","DAW availability","Previous setups (15)"] {
@@ -803,7 +781,7 @@ mod tests {
         let snapshot = snapshot();
         let exact = ProductKey::from(&snapshot.products[0]);
         let other = ProductKey::from(&snapshot.products[1]);
-        let mut library = Library::default();
+        let mut library = PluginsView::default();
         assert_eq!(library.focused_product(), None);
         library.focus_products(vec![exact.clone(), other]);
         assert_eq!(library.focused_product(), None);
@@ -825,12 +803,12 @@ mod tests {
         let first = ProductKey::from(&snapshot.products[0]);
         let second = ProductKey::from(&snapshot.products[1]);
         for fresh in [true, false] {
-            let mut library = Library::default();
+            let mut library = PluginsView::default();
             library.focus_products(vec![first.clone(), second.clone()]);
             assert!(library.focused_product().is_none());
             let ctx = egui::Context::default();
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-                library.show_current(ui, &snapshot, fresh, false, &mut false);
+                show_current(ui, &mut library, &snapshot, None, fresh, false, &mut false);
             });
             let mut labels = vec![];
             for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
@@ -867,7 +845,7 @@ mod tests {
                 remaining: vec!["Saved-project recall".into()], current_inspection: None, current_candidate: None,
                 primary: Some(AvailableAction { label: "Old primary label".into(), action: report.clone(),
                     disabled_reason: Some("Successful result needs clean retirement".into()) }), alternatives: vec![] });
-            let mut library = Library::default(); library.focus_product(ProductKey::from(&*product));
+            let mut library = PluginsView::default(); library.focus_product(ProductKey::from(&*product));
             let ctx = egui::Context::default(); presentation::configure_style(&ctx);
             ctx.global_style_mut(|style| style.animation_time = 0.0);
             let mut chosen = None; let mut point = egui::Pos2::ZERO;
@@ -877,7 +855,7 @@ mod tests {
                         pressed:matches!(frame,3|7), modifiers:egui::Modifiers::NONE }] } else { vec![] };
                 let mut output = ctx.run_ui(egui::RawInput { events, screen_rect:Some(egui::Rect::from_min_size(
                     egui::Pos2::ZERO, egui::vec2(560.0, 1200.0))), ..Default::default() },
-                    |ui| library.show(ui, &snapshot, pending, &mut chosen, |_,_|{}));
+                    |ui| show(ui, &mut library, &snapshot, None, pending, &mut chosen, |_,_|{}));
                 let mut text = vec![]; for shape in &output.shapes { centers(&shape.shape, &mut text); }
                 output.textures_delta.clear();
                 if frame == 2 {
@@ -930,7 +908,7 @@ mod tests {
                 s.environments[0].actions[0].disabled_reason = refusal.map(str::to_owned);
                 s.system.dsp = dsp;
                 let ctx = egui::Context::default();
-                let mut library = Library::default();
+                let mut library = PluginsView::default();
                 let mut point = egui::Pos2::ZERO;
                 let mut chosen = None;
                 for pressed in [None,Some(true),Some(false)] {
@@ -939,7 +917,7 @@ mod tests {
                             pressed,modifiers:egui::Modifiers::NONE}]).unwrap_or_default();
                     let mut output = ctx.run_ui(egui::RawInput {events,..Default::default()},|ui| {
                         ui.set_max_width(width-32.0);
-                        library.show(ui,&s,false,&mut chosen,|_,_|{});
+                        show(ui, &mut library, &s, None,false,&mut chosen,|_,_|{});
                     });
                     if pressed.is_none() {
                         point = output.shapes.iter().find_map(|shape|position(&shape.shape))
@@ -947,7 +925,7 @@ mod tests {
                     }
                     output.textures_delta.clear();
                 }
-                assert!(!library.expand_details);
+                assert!(!library.expanded);
                 assert_eq!(chosen,clickable.then(||action.clone()));
             }
         }
@@ -956,7 +934,7 @@ mod tests {
     #[test]
     fn focused_product_is_selected_by_exact_identity_even_after_search() {
         let mut s = snapshot();
-        let mut library = Library {
+        let mut library = PluginsView {
             search: "other".into(),
             ..Default::default()
         };
@@ -964,7 +942,7 @@ mod tests {
         library.focus_product(key);
         assert_eq!(plugins::matching(&s, &library.query()).len(), 1);
         assert_eq!(plugins::matching(&s, &library.query())[0].name, "Serum 2 FX");
-        assert!(library.scroll_focus);
+        assert!(library.scroll_to_focus);
         let mut quarantined = s.products[0].clone();
         quarantined.name = "Quarantined module".into();
         quarantined.class_id.clear();

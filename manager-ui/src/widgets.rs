@@ -1,5 +1,7 @@
 //! egui drawing of the screen-model vocabulary: words, offers, setup choices
 //! and disclosures. Drawing only; every decision and word comes from the model.
+//! A pressed offer is taken with `Offer::pressed` and routed with
+//! `State::press` when the frame ends: the two halves of `State::press_offer`.
 use crate::model::{Action, AvailableAction};
 use crate::screen_model::journey::Results;
 use crate::screen_model::offers::{self, Availability, Importance, OfferRow, SetupChoice};
@@ -44,7 +46,7 @@ pub fn offer_row(ui: &mut egui::Ui, row: &OfferRow, chosen: &mut Option<Action>)
                 egui::Button::new(&offer.label).min_size(egui::vec2(0.0, 44.0)),
             );
             if response.clicked() {
-                *chosen = Some(offer.intent.clone());
+                if let Some(action) = offer.pressed() { *chosen = Some(action); }
             }
             // A held offer's reason is said once by its screen.
             if let Availability::Waiting | Availability::Refused(_) = offer.availability {
@@ -72,7 +74,9 @@ pub fn action_buttons(
 pub fn setup_choice(ui: &mut egui::Ui, choice: &SetupChoice, chosen: &mut Option<Action>) {
     ui.push_id(&choice.exact_action, |ui| {
         if ui.add_enabled(choice.offer.availability.enabled(), egui::Button::new(&choice.offer.label)
-            .min_size(egui::vec2(0.0, 44.0))).clicked() { *chosen = Some(choice.offer.intent.clone()); }
+            .min_size(egui::vec2(0.0, 44.0))).clicked() {
+            if let Some(action) = choice.offer.pressed() { *chosen = Some(action); }
+        }
         for note in &choice.notes { ui.small(note); }
         if let Some(description) = &choice.description { ui.small(description); }
         if let Some(consequence) = choice.offer.consequence { ui.small(consequence); }
@@ -126,7 +130,7 @@ pub fn lead_offer(ui: &mut egui::Ui, offer: &offers::Offer, chosen: &mut Option<
         .fill(ui.visuals().selection.bg_fill)
         .min_size(egui::vec2(0.0, 46.0));
     if ui.add_enabled(offer.availability.enabled(), button).clicked() {
-        *chosen = Some(offer.intent.clone());
+        if let Some(action) = offer.pressed() { *chosen = Some(action); }
     }
     if offer.availability == Availability::Waiting {
         ui.small(offers::WAITING);
@@ -139,7 +143,7 @@ pub fn lead_offer(ui: &mut egui::Ui, offer: &offers::Offer, chosen: &mut Option<
 pub fn main_offer(ui: &mut egui::Ui, offer: &offers::Offer, chosen: &mut Option<Action>) {
     if ui.add_enabled(offer.availability.enabled(), crate::presentation::primary_button(
         egui::RichText::new(&offer.label).strong(), ui)).clicked() {
-        *chosen = Some(offer.intent.clone());
+        if let Some(action) = offer.pressed() { *chosen = Some(action); }
     }
     match &offer.availability {
         Availability::Refused(reason) => { ui.small(reason); }

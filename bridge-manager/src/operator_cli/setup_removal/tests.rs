@@ -905,3 +905,50 @@ fn only_a_session_folder_changed_just_now_counts_as_recent() {
     at(3600);
     assert!(!recently_changed(&session).unwrap());
 }
+
+#[test]
+fn delete_accepted_beside_a_retry_is_refused_once_the_retry_made_another_attempt() {
+    // #382. Retry and Delete are accepted from one Home page. Retry runs
+    // first and makes a new attempt. Delete removes every attempt made from
+    // the installer, so it would remove one the musician never saw: it is
+    // refused by name, and the new attempt stays.
+    let (f, environment, installer) = created_setup();
+    let ran = "cd".repeat(16);
+    onboarding::reserve(&f.m, &environment, &ran).unwrap();
+    atomic_json(&onboarding::directory(&f.m, &environment).unwrap().join(format!("{ran}-result.json")),
+        &json!({"schema":2,"operation":ran,"state":"cancelled","cleanup_confirmed":true,"owned_live":0,"raw_exit":-15}))
+        .unwrap();
+    let _service = crate::operator_cli::tests::idle_service(&f.m);
+    readiness::with_unit_state_fixture(&[onboarding::unit(&ran).unwrap()], "inactive", || {
+        let home = current_overview(&f.m).unwrap().current;
+        let retry = available(&home).into_iter().find(|offer| matches!(&offer.action,
+            ui::Action::InstallerNewAttempt { previous, .. } if *previous == environment)).cloned()
+            .unwrap_or_else(|| panic!("retry not offered: {:#?}", available(&home)));
+        let delete = delete_offer(&home, &installer).expect("delete offered");
+        assert_eq!((retry.disabled_reason.as_deref(), delete.disabled_reason.as_deref()), (None, None));
+        let accept = |action: ui::Action| {
+            let receipt = test_accept(&f.m, &ui::Request { schema: ui::OPERATOR_SCHEMA,
+                state_token: home.state_token.clone(), action }).unwrap();
+            assert!(receipt.accepted, "{:?}", receipt.refusal);
+            receipt.operation.unwrap()
+        };
+        let delete = accept(confirmed(&delete.action));
+        let retry = accept(retry.action);
+        let result = |id: &str| -> Value { read_json(&job_dir(&f.m, id).unwrap().join("result.json")).unwrap() };
+        worker_with_capacity(&f.m, &retry, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        assert_eq!(result(&retry)["state"], "completed", "{}", result(&retry));
+        let attempts = || onboarding::history_records(&f.m).unwrap().into_iter()
+            .filter(|record| record.installer == installer).collect::<Vec<_>>();
+        assert_eq!(attempts().len(), 2);
+        worker_with_capacity(&f.m, &delete, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        let refused = result(&delete);
+        assert_eq!(refused["state"], "refused", "{refused}");
+        assert_eq!(refused["precondition"], "installer_setups", "{refused}");
+        assert_eq!(attempts().len(), 2, "both attempts remain");
+        assert!(deleted_setup::load(&f.m, &environment).unwrap().is_none());
+        for attempt in attempts() {
+            assert!(attempt.environment.root.join("compatdata").is_dir(), "{:?} kept", attempt.environment.root);
+        }
+        assert!(f.m.root.join("installers").join(format!("{installer}.json")).exists());
+    });
+}

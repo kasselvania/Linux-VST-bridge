@@ -2766,8 +2766,7 @@ mod tests {
             let result:Value=read_json(&job_dir(&f.m,&id).unwrap().join("result.json")).unwrap();
             assert_eq!(result["state"],"refused","{result:#}");
             assert_eq!(result["precondition"],"setup_maintenance","{result:#}");
-            assert_eq!(result["reason"],"Another task, such as an installer or an app, is now changing this setup. \
-                Try again when it finishes.");
+            assert_eq!(result["reason"],"An app is now installing or updating in this setup. Try again when it finishes.");
             assert!(!f.m.root.join("operator/resume.json").exists(),"nothing was paused");
         });
     }

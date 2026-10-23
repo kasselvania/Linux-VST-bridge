@@ -106,7 +106,8 @@ pub(super) fn watch_paths(m:&Manager)->Result<Vec<PathBuf>> {
     }
     Ok(out)
 }
-fn latest(m:&Manager)->Result<Option<Continuation>> {
+/// The current journey: the retained continuation no later one replaced.
+pub(super) fn latest(m:&Manager)->Result<Option<Continuation>> {
     let records=records(m)?;
     let predecessors=records.iter().filter_map(|r|r.intent.previous.as_ref())
         .filter_map(|p|p.path.parent()?.file_name()?.to_str()).collect::<Vec<_>>();
@@ -555,6 +556,13 @@ pub(super) fn finish(m:&Manager,operation:&str,action:&ui::Action)->Result<()> {
         let mut changed=optional(&spec).unwrap();changed["renderer_policy"]=json!("changed");
         atomic_json(&spec,&changed).unwrap();
         assert_eq!(captured.recheck(&f.m).unwrap_err().to_string(),"operator_current_artifact_changed_refresh");
+        // A report too large to be a record is not taken as running; the
+        // check itself refuses nothing.
+        let large=report.with_file_name("large-result.json");
+        fs::write(&large,vec![b' ';(8*1024*1024)+1]).unwrap();
+        let saved=fs::read(&report).unwrap();fs::rename(&large,&report).unwrap();
+        assert!(!super::current::renderer_session_running(&f.m,&retained.intent.owner).unwrap());
+        atomic_json(&report,&serde_json::from_slice::<Value>(&saved).unwrap()).unwrap();
         // A session that ends while Home is read is not shown running.
         let captured=super::current::capture(&f.m).unwrap();
         let mut ended=running.clone();

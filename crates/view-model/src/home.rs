@@ -8,6 +8,7 @@ use super::{product, service, setup, AttemptKey, Control, Destination, Detail, D
 use crate::model::{Action, DawChoice, InstallationHealth, ReadinessAssessment, ReadinessOutcome,
     ReadinessProduct, Snapshot, SupportQualification};
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct Home {
     pub heading: &'static str,
     pub add: Control,
@@ -21,6 +22,7 @@ pub struct Home {
 }
 
 /// The one thing to do next, most urgent first.
+#[derive(Clone, Debug, PartialEq)]
 pub enum Next {
     /// The bridge service itself needs the musician first.
     Service {
@@ -60,6 +62,7 @@ pub enum Next {
 }
 
 /// One plug-in at a glance.
+#[derive(Clone, Debug, PartialEq)]
 pub struct HomePlugin {
     pub key: ProductKey,
     pub name: String,
@@ -72,6 +75,7 @@ pub struct HomePlugin {
 }
 
 /// The computer setup check and the support report.
+#[derive(Clone, Debug, PartialEq)]
 pub struct ComputerCheck {
     pub title: &'static str,
     pub intro: &'static str,
@@ -79,6 +83,7 @@ pub struct ComputerCheck {
     pub result: Option<CheckResult>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct CheckResult {
     pub blockers: Vec<String>,
     pub export: OfferRow,
@@ -270,13 +275,13 @@ impl Next {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::operator::Page;
-    use crate::preview_states::{self, STATES};
-    use crate::screen_model::offers::Availability;
+    use crate::window::Page;
+    use crate::samples::{self, STATES};
+    use crate::offers::Availability;
 
     fn sample(state: &str) -> (Snapshot, Option<ReadinessAssessment>) {
-        let snapshot = preview_states::snapshot(Page::Home, Some(state));
-        let readiness = preview_states::readiness(Some(state), &snapshot);
+        let snapshot = samples::snapshot(Page::Home, Some(state));
+        let readiness = samples::readiness(Some(state), &snapshot);
         (snapshot, readiness)
     }
 

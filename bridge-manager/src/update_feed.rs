@@ -359,14 +359,8 @@ pub fn verify_feed(bytes: &[u8], signature: &[u8], trust: &Trust) -> Result<Veri
     Ok(Verified::Current(feed))
 }
 
-/// `0.12.0test148` is shown as `Test148`, the build number testers know.
-pub fn display_version(version: &str) -> String {
-    match version.rsplit_once("test") {
-        Some((_, number)) if !number.is_empty() && number.bytes().all(|b| b.is_ascii_digit()) =>
-            format!("Test{number}"),
-        _ => version.to_owned(),
-    }
-}
+/// `0.12.0test148` is shown as `Test148`; shared with the windows.
+pub use lvb_model::wording::display_version;
 
 /// The system's own name first, then the systems it is like, from os-release.
 pub fn system_names(os_release: &str) -> Vec<String> {

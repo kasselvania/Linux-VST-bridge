@@ -137,7 +137,7 @@ pub struct Context<'a> {
 }
 
 /// The full Plug-ins list, or one opened plug-in's detail.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PluginList {
     /// Count and rescan hint, when listing rather than showing one plug-in.
     pub summary: Vec<String>,
@@ -145,7 +145,7 @@ pub struct PluginList {
     pub groups: Vec<VendorGroup>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct VendorGroup {
     pub heading: Option<String>,
     pub cards: Vec<PluginCard>,
@@ -186,7 +186,7 @@ impl PluginList {
 }
 
 /// One plug-in with its status, guidance and every offered control.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PluginCard {
     pub key: ProductKey,
     /// Position in the manager's product list, for records drawn by the caller.
@@ -225,7 +225,7 @@ pub struct Uninstall {
 }
 
 /// The plug-in's shared setup controls, the same ones Setup shows for it.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SharedSetup {
     pub title: &'static str,
     pub start_open: bool,
@@ -758,7 +758,7 @@ mod tests {
     use crate::model::{CompatibilityWorkflow, NativeAvailability};
 
     fn snapshot() -> Snapshot {
-        serde_json::from_str(include_str!("../../examples/library-preview.json")).unwrap()
+        crate::samples::base()
     }
 
     fn query(search: &str) -> Query<'_> {
@@ -899,12 +899,12 @@ mod tests {
         assert!(card.offers.offers.is_empty());
     }
 
-    use crate::operator::Page;
-    use crate::preview_states::{self, STATES};
+    use crate::window::Page;
+    use crate::samples::{self, STATES};
     use offers::Availability;
 
     fn sample(page: Page, state: &str) -> Snapshot {
-        preview_states::snapshot(page, Some(state))
+        samples::snapshot(page, Some(state))
     }
 
     fn context(snapshot: &Snapshot, pending: bool, expanded: bool) -> Context<'_> {
@@ -1046,7 +1046,7 @@ mod tests {
             let card = card(&snapshot, 0, false, false);
             assert_eq!(card.status, Status { words: "Available in your DAW", class: StatusClass::Ready }, "{state}");
             assert_eq!(card.notes[0], Text::body(daw_guidance(None)), "{state}");
-            assert_eq!(crate::screen_model::fact_line(&card.facts), "Instrument · 8.13.1");
+            assert_eq!(crate::fact_line(&card.facts), "Instrument · 8.13.1");
         }
         let snapshot = sample(Page::Plugins, "plugin_ready");
         assert!(card(&snapshot, 0, false, false).lead.is_none());
@@ -1101,7 +1101,7 @@ mod tests {
         let lead = beam.lead.unwrap();
         assert_eq!(lead.offer.label, "Finish plug-in recovery");
         assert_eq!(lead.offer.availability, Availability::Refused("Previous instance cleanup is unconfirmed".into()));
-        assert_eq!(beam.notes[0].role, crate::screen_model::TextRole::Caution);
+        assert_eq!(beam.notes[0].role, crate::TextRole::Caution);
     }
 
     #[test]

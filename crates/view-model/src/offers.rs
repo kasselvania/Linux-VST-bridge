@@ -69,6 +69,13 @@ impl Offer {
         self.availability = self.availability.held(held);
         self
     }
+
+    /// The intent a press emits, or None while the offer can't be pressed
+    /// (held, waiting or refused). Route it with `state::State::press`, or do
+    /// both with `State::press_offer`.
+    pub fn pressed(&self) -> Option<crate::model::Action> {
+        self.availability.enabled().then(|| self.intent.clone())
+    }
 }
 
 /// A row of offers, with every refusal and consequence printed once below it.
@@ -310,7 +317,7 @@ mod tests {
     use super::*;
 
     fn snapshot() -> crate::model::Snapshot {
-        serde_json::from_str(include_str!("../../examples/library-preview.json")).unwrap()
+        crate::samples::base()
     }
 
     #[test]
