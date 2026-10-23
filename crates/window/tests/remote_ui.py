@@ -63,6 +63,7 @@ class App:
                 return int(match[1]) if match else None
 
             self.port = wait_until(listening, "the owned app's remote port", 30)
+            self.before_remote()
             status = self.request("/s")
             assert status["pid"] == self.process.pid, "Remote server is not the process this test launched"
             size = next((arg.removeprefix("--size=") for arg in self.args if arg.startswith("--size=")), None)
@@ -70,12 +71,16 @@ class App:
                 expected = [int(value) for value in size.split("x")]
                 wait_until(lambda: any(window["sz"] == expected for window in self.request("/s")["w"]),
                            f"the requested {size} window size", 30)
-            wait_until(lambda: self.find(self.ready_control, kind="ActionButton") and self.find(prefix="page_scroll"),
+            wait_until(lambda: (self.ready_control is None or self.find(self.ready_control, kind="ActionButton"))
+                       and self.find(prefix="page_scroll"),
                        "the first rendered preview controls", 30)
             return self
         except BaseException:
             self.close()
             raise
+
+    def before_remote(self):
+        """Optional passive evidence check before any remote event or capture."""
 
     def __exit__(self, kind, value, traceback):
         if kind is not None and self.port is not None:

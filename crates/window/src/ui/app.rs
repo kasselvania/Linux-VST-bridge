@@ -372,6 +372,9 @@ impl AppMain for App {
         }
         self.match_event(cx, event);
         self.ui.handle_event(cx, event, &mut Scope::empty());
+        #[cfg(all(feature = "samples", feature = "live"))]
+        let fixture_queued = matches!(event, Event::Draw(_)) && self.controller.as_mut()
+            .is_some_and(Controller::queue_bootstrap_draw_fixture);
         // Makepad intentionally ignores ordinary area redraw requests during
         // Draw. Consuming a worker reply here after the widget tree drew would
         // replace its nodes without scheduling another frame. Leave replies in
@@ -385,6 +388,11 @@ impl AppMain for App {
                 if close { self.ui.window(cx, ids!(main_window)).close(cx); }
                 if changed { self.show(cx); }
             }
+        }
+        #[cfg(all(feature = "samples", feature = "live"))]
+        if fixture_queued {
+            let (revision, phase) = self.controller().bootstrap_trace().expect("fixture bootstrap");
+            log!("[window] bootstrap fixture_draw_return revision={} phase={}", revision, phase);
         }
         if let Event::Draw(_) = event {
             self.frames += 1;

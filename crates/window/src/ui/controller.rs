@@ -25,6 +25,10 @@ impl Controller {
         }
         #[cfg(feature = "samples")]
         {
+            #[cfg(feature = "live")]
+            if args.iter().any(|arg| arg == "--bootstrap-draw-fixture") {
+                return Self::bootstrap_draw_fixture(posture, reveal);
+            }
             let mut model = Preview::new(Selection::from_args(args));
             model.posture = posture;
             model.reveal = reveal;
@@ -35,6 +39,48 @@ impl Controller {
         }
         #[cfg(not(feature = "samples"))]
         unreachable!("a frontend feature is required")
+    }
+
+    /// Preview-only scheduling fixture. It uses the real bootstrap model and
+    /// reply channel, but never starts a client, worker thread or package task.
+    #[cfg(all(feature = "samples", feature = "live"))]
+    fn bootstrap_draw_fixture(posture: String, reveal: bool) -> Self {
+        use lvb_client::bootstrap::{Completion, Operation, State};
+        use std::sync::mpsc::sync_channel;
+        let mut setup = State::checking();
+        assert_eq!(setup.take_operation(), Some(Operation::Status));
+        setup.receive(Ok(Completion::UpdateActive));
+        let step = setup.panel().controls[0].step;
+        let mut model = Live::new(posture, reveal);
+        model.bootstrap(setup.panel(), false);
+        let id = model.built.targets.iter().find_map(|(id, target)|
+            matches!(target, crate::presentation::Target::Bootstrap(offered) if *offered == step)
+                .then(|| id.clone())).expect("offered update control");
+        assert_eq!(model.press(&id, InputPath::Pointer), Outcome::Changed);
+        assert_eq!(model.take_bootstrap_step(), Some(step));
+        assert!(setup.press(step));
+        assert_eq!(setup.take_operation(), Some(Operation::Update));
+        let (requests, _) = sync_channel(1);
+        let (sender, replies) = sync_channel(1);
+        Self::Live { model: Box::new(model), worker: Worker {
+            requests, replies, disconnected: false, reading: None,
+            draw_fixture: Some(DrawReplyFixture { sender, panel: Some(setup.panel()) }),
+        } }
+    }
+
+    /// Called once the old widgets have drawn, immediately before the normal
+    /// pump boundary. Keeping the sender alive prevents a fake worker failure.
+    #[cfg(all(feature = "samples", feature = "live"))]
+    pub fn queue_bootstrap_draw_fixture(&mut self) -> bool {
+        let Self::Live { model, worker } = self else { return false };
+        let Some(fixture) = &mut worker.draw_fixture else { return false };
+        let Some(panel) = fixture.panel.take() else { return false };
+        let (revision, phase) = model.bootstrap_trace().expect("waiting bootstrap");
+        assert_eq!(phase, "waiting_for_worker");
+        assert!(fixture.sender.try_send(WorkerReply::Bootstrap { panel, close: false }).is_ok());
+        makepad_product_ui::makepad_widgets::log!("[window] bootstrap fixture_queued_after_draw revision={}", revision);
+        makepad_product_ui::makepad_widgets::SignalToUI::set_ui_signal();
+        true
     }
 
     pub fn is_live(&self) -> bool {
@@ -223,6 +269,13 @@ pub struct Worker {
     replies: std::sync::mpsc::Receiver<WorkerReply>,
     disconnected: bool,
     reading: Option<(bool, f64)>,
+    #[cfg(feature = "samples")]
+    draw_fixture: Option<DrawReplyFixture>,
+}
+#[cfg(all(feature = "samples", feature = "live"))]
+struct DrawReplyFixture {
+    sender: std::sync::mpsc::SyncSender<WorkerReply>,
+    panel: Option<lvb_client::bootstrap::Panel>,
 }
 #[cfg(feature = "live")]
 impl Worker {
@@ -401,7 +454,10 @@ impl Worker {
                 }
             }
         }).expect("start the Bridge client worker");
-        Self { requests, replies, disconnected: false, reading: None }
+        Self { requests, replies, disconnected: false, reading: None,
+            #[cfg(feature = "samples")]
+            draw_fixture: None,
+        }
     }
     fn send(&self, query: lvb_client::Query) -> Result<(), String> {
         self.requests.try_send(WorkerRequest::Client(query)).map_err(|_|

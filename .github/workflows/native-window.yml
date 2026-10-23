@@ -59,7 +59,7 @@ jobs:
           ssh-key: ${{ secrets.MAKEPAD_READONLY_DEPLOY_KEY }}
           persist-credentials: false
       - name: Native build prerequisites
-        run: bash bridge/.github/scripts/apt-install.sh libssl-dev libxcursor-dev libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev libpulse-dev libwayland-dev libxkbcommon-dev
+        run: bash bridge/.github/scripts/apt-install.sh libssl-dev libxcursor-dev libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev libpulse-dev libwayland-dev libxkbcommon-dev xvfb xauth libgl1-mesa-dri
       - run: rustup toolchain install 1.95.0 --profile minimal
       - name: Compile and test the Bridge-owned application
         run: |
@@ -69,7 +69,23 @@ jobs:
           export GIT_CONFIG_KEY_0="url.$GITHUB_WORKSPACE/makepad.insteadOf"
           export GIT_CONFIG_VALUE_0=https://github.com/kasselvania/makepad.git
           cargo +1.95.0 test --manifest-path bridge/crates/window/Cargo.toml --locked --release --all-features --lib -j2
+          cargo +1.95.0 build --manifest-path bridge/crates/window/Cargo.toml --locked --release --all-features --bin bridge-window-preview -j2
           cargo +1.95.0 build --manifest-path bridge/crates/window/Cargo.toml --locked --release --no-default-features --features live --bin linux-audio-compatibility-manager -j2
+      - name: Bootstrap progress redraw after a queued worker reply
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          env -u WAYLAND_DISPLAY xvfb-run -a -s '-screen 0 1440x1000x24' \
+            python3 bridge/crates/window/tests/bootstrap_redraw.py \
+            --binary bridge/crates/window/target/release/bridge-window-preview \
+            --artifacts "${{ runner.temp }}/bootstrap-redraw"
+      - name: Retain bootstrap redraw failure logs
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: bootstrap-redraw
+          path: ${{ runner.temp }}/bootstrap-redraw
+          if-no-files-found: ignore
       - name: Check production dependency and source declaration
         working-directory: bridge
         run: |
