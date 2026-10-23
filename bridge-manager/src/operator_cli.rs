@@ -6912,8 +6912,8 @@ pub(crate) mod tests {
         // hives, and what the supervisor observed of each installer run.
         for record in onboarding::history_records(&f.m).unwrap() {
             let prefix = record.environment.root.join("compatdata/pfx");
-            fs::write(prefix.join("system.reg"), "[Software\\Vendor] 1\n".repeat(50_000)).unwrap();
-            fs::write(prefix.join("user.reg"), "[Software\\Vendor] 1\n".repeat(12_500)).unwrap();
+            fs::write(prefix.join("system.reg"), "[Software\\Vendor] 1\n".repeat(500_000)).unwrap();
+            fs::write(prefix.join("user.reg"), "[Software\\Vendor] 1\n".repeat(50_000)).unwrap();
             let runs = linux_vst_bridge::environment_revision::installer_records(&f.m).unwrap().into_iter()
                 .filter(|run| run.environment.id == record.id).map(|run| (job_dir(&f.m, &run.operation).unwrap(), run.operation))
                 .chain(record.installation_operation.iter().map(|operation|
@@ -6926,7 +6926,8 @@ pub(crate) mod tests {
         (f, candidates, units)
     }
     /// Not a check: what the window's reads cost on a Deck-shaped
-    /// installation with 1,188 retained candidates (#503, #504): files
+    /// installation with 1,188 retained candidates and 10 MB registry hives
+    /// (#503, #504), and the current overview composed again: files
     /// opened, bytes read from them, this process's read calls and bytes,
     /// CPU and wall time, and the records read most, by kind.
     #[test]
@@ -6945,6 +6946,8 @@ pub(crate) mod tests {
             ms(usage.ru_utime) + ms(usage.ru_stime)
         }
         let (f, candidates, units) = deck_shaped(43);
+        // A real setup's hives last changed long before a page reads them.
+        std::thread::sleep(Duration::from_millis(2100));
         let s = &candidates[0].selection;
         let kind = |path: &Path| path.strip_prefix(&f.m.root).unwrap_or(path).iter().map(|part| {
             let part = part.to_string_lossy();
@@ -6954,7 +6957,7 @@ pub(crate) mod tests {
         let read = |name: &str| -> Result<Vec<u8>> {
             let served = (name != "snapshot").then(|| overview_service_reply(&f.m, capacity_json(false, 0, 0)));
             let reply = match name {
-                "current overview" => serde_json::to_vec(&current_overview(&f.m)?)?,
+                "current overview" | "current overview, recomposed" => serde_json::to_vec(&current_overview(&f.m)?)?,
                 "plug-in page" => serde_json::to_vec(&product_detail(&f.m, &s.environment.id,
                     &s.module.sha256, &s.class.id)?)?,
                 _ => serde_json::to_vec(&snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![],
@@ -6964,7 +6967,7 @@ pub(crate) mod tests {
             Ok(reply)
         };
         readiness::with_unit_state_fixture(&units, "inactive", || {
-            for name in ["current overview", "plug-in page", "snapshot"] {
+            for name in ["current overview", "plug-in page", "snapshot", "current overview, recomposed"] {
                 let ((calls, bytes), cpu_before, started) = (io(), cpu(), Instant::now());
                 let (composed, opened) = linux_vst_bridge::with_opened_reads(|| read(name));
                 let (wall, cpu_ms, (calls_after, bytes_after)) = (started.elapsed(), cpu() - cpu_before, io());
