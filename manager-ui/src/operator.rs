@@ -88,6 +88,7 @@ pub struct Operator {
     overview_fresh: bool,
     // Age expiry keeps the last observed display; a failed or changed readback does not.
     overview_renewing: bool,
+    current_read_error: Option<String>,
     details_attempted: bool,
     sender: mpsc::Sender<Reply>,
     receiver: mpsc::Receiver<Reply>,
@@ -179,6 +180,7 @@ impl Operator {
             product_attempted: None,
             overview_fresh: false,
             overview_renewing: false,
+            current_read_error: None,
             details_attempted: false,
             sender,
             receiver,
@@ -222,6 +224,7 @@ impl Operator {
             product_attempted: None,
             overview_fresh: false,
             overview_renewing: false,
+            current_read_error: None,
             details_attempted: false,
             sender,
             receiver,
@@ -393,6 +396,7 @@ impl Operator {
         } else { Query::CurrentOverview }
     }
     fn apply_current_overview(&mut self, mut bundle: CurrentOverview) {
+        self.current_read_error = None;
         if bundle.current.system.capacity_available() {
             self.cleanup_failure_observed = bundle.current.system.cleanup_unconfirmed;
         }
@@ -715,6 +719,10 @@ impl Operator {
                     return;
                 }
                 let deferred = readback_deferred(&e);
+                if matches!(origin, RequestOrigin::InitialSnapshot | RequestOrigin::ExplicitRefresh
+                    | RequestOrigin::SilentPostMutationRefresh | RequestOrigin::BackgroundActivity) && !deferred {
+                    self.current_read_error = Some(e.clone());
+                }
                 if origin == RequestOrigin::ProductDetail {
                     self.product_detail = None;
                     return;
@@ -735,7 +743,7 @@ impl Operator {
                         self.refresh_after = true;
                     }
                 }
-                if origin.foreground() || matches!(origin, RequestOrigin::InitialSnapshot | RequestOrigin::ExplicitRefresh) {
+                if origin.foreground() {
                     self.message = e;
                 }
                 // Background readback errors stay quiet as requests, but the
@@ -1377,6 +1385,7 @@ impl Operator {
         let reading = Reading {
             fresh: self.overview_fresh,
             renewing: self.overview_renewing,
+            current_unavailable: self.current_read_error.is_some(),
             health_renewing: self.health_refreshing(),
             owned_pause: self.current_owned_pause(),
             controls_pending,
@@ -1393,7 +1402,7 @@ impl Operator {
             request: self.feedback.as_ref().map(|feedback| screen_model::window::Request {
                 text: &feedback.text, journey: feedback.journey.as_ref(), operation: feedback.operation.as_deref(),
                 transitions: &feedback.transitions, report: feedback.report.is_some(), blocking: feedback.blocking }),
-            message: &self.message,
+            message: self.current_read_error.as_deref().unwrap_or(&self.message),
         };
         (records, reading)
     }
@@ -1528,9 +1537,14 @@ impl eframe::App for Operator {
                     },
                     Screen::Activity(view) => Self::activity_page(ui, &view, &mut self.window, &mut chosen),
                     Screen::Diagnostics(view) => Self::diagnostics_page(ui, &view, &mut chosen),
-                    Screen::Checking { heading, words } => {
+                    Screen::Checking { heading, words, retry } => {
                         ui.heading(heading);
                         ui.label(words);
+                        if let Some(retry) = retry {
+                            if ui.add_enabled(retry.enabled, egui::Button::new(retry.label)).clicked() {
+                                refresh = true;
+                            }
+                        }
                     }
                     Screen::LoadingDetails { words, retry } => {
                         ui.label(words);
@@ -3007,6 +3021,7 @@ mod tests {
             product_attempted: None,
             overview_fresh: false,
             overview_renewing: false,
+            current_read_error: None,
             details_attempted: false,
             sender,
             receiver,
@@ -4689,6 +4704,23 @@ mod tests {
         assert!(operator.refresh_after);
         assert!(operator.queued_action.is_none());
     }
+    #[test]
+    fn initial_status_failure_offers_retry_until_actual_status_arrives() {
+        let mut operator = state_fixture();
+        operator.origin = Some(RequestOrigin::InitialSnapshot);
+        operator.handle_reply(Reply::Error("status unavailable".into()));
+        assert!(matches!(operator.screen_view(None, false, false),
+            Screen::Checking { retry: Some(ref retry), .. } if retry.enabled));
+        operator.origin = Some(RequestOrigin::BackgroundActivity);
+        operator.handle_reply(Reply::Pulse(pulse_fixture(false)));
+        assert!(operator.current_read_error.is_some(), "A pulse is not the missing overview");
+        operator.origin = Some(RequestOrigin::SilentPostMutationRefresh);
+        operator.handle_reply(Reply::Overview(Box::new(overview_fixture())));
+        assert!(operator.current_read_error.is_none());
+        assert!(operator.frame_view(None, false, false).request.is_none());
+        assert!(matches!(operator.screen_view(None, false, false), Screen::Home(_)));
+    }
+
     #[test]
     fn repeated_readback_errors_have_bounded_retry_and_no_action_authority() {
         let mut operator=state_fixture();

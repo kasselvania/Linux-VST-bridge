@@ -40,6 +40,8 @@ pub struct Reading<'a> {
     pub fresh: bool,
     /// It aged and is being read again.
     pub renewing: bool,
+    /// The current-status read failed; retain the failure until status arrives.
+    pub current_unavailable: bool,
     /// The health row's status is being read again.
     pub health_renewing: bool,
     /// The manager paused the bridge for its own installation.
@@ -102,7 +104,8 @@ impl Frame {
             health: HealthBar::build(records.health, reading.owned_pause, reading.health_renewing),
             headline: window::update_headline(reading.update_headline.clone().filter(|_| state.page != Page::Setup)),
             request: RequestBar::build(reading.request, reading.message, reading.working,
-                !reading.in_flight && !reading.superseded),
+                !reading.in_flight && !reading.superseded
+                    && (!reading.current_unavailable || reading.request.is_some())),
         }
     }
 }
@@ -120,7 +123,7 @@ pub enum Screen {
     Activity(Box<Activity>),
     Diagnostics(Box<Diagnostics>),
     /// Home or Setup before the manager's first answer.
-    Checking { heading: &'static str, words: &'static str },
+    Checking { heading: &'static str, words: &'static str, retry: Option<Control> },
     /// A technical page before its records arrive.
     LoadingDetails { words: &'static str, retry: Option<Control> },
     /// Home or Setup with full records but no current status yet.
@@ -131,6 +134,13 @@ impl Screen {
     pub fn build(records: &Records, reading: &Reading, state: &State) -> Self {
         let actions_pending = reading.actions_pending(records);
         let fresh = records.actions.is_some();
+        if records.current.is_none() && reading.current_unavailable && !reading.preview {
+            return Self::Checking { heading: state.page.label(),
+                words: "Current status could not be loaded. Try again.",
+                retry: Some(Control { label: "Try again", importance: crate::offers::Importance::Secondary,
+                    enabled: !reading.controls_pending && !reading.in_flight && !reading.renewing
+                        && !reading.superseded, does: crate::Local::Refresh }) };
+        }
         if records.current.is_some() || !reading.preview {
             if let Some(current) = records.current {
                 match state.page {
@@ -147,7 +157,7 @@ impl Screen {
                     _ => {}
                 }
             } else if matches!(state.page, Page::Home | Page::Setup) {
-                return Self::Checking { heading: state.page.label(), words: window::CHECKING };
+                return Self::Checking { heading: state.page.label(), words: window::CHECKING, retry: None };
             }
         }
         let Some(details) = records.details else {
@@ -263,6 +273,21 @@ mod tests {
             assert_eq!(sample.window(None).frame.headline.is_some(), shown, "{}", page.key());
         }
         assert!(Sample::new(Case::new(Page::Home, "available")).with_update("idle").window(None).frame.headline.is_none());
+    }
+
+    #[test]
+    fn failed_initial_status_is_retryable_on_every_page_without_inventing_records() {
+        for page in [Page::Home, Page::Setup, Page::Plugins, Page::Activity, Page::Diagnostics] {
+            let state = State { page, ..Default::default() };
+            for pending in [false, true] {
+                let reading = Reading { current_unavailable: true, renewing: pending, ..Default::default() };
+                let Screen::Checking { words, retry: Some(retry), .. } =
+                    Screen::build(&Records::default(), &reading, &state) else { panic!("missing retry") };
+                assert_eq!(words, "Current status could not be loaded. Try again.");
+                assert_eq!(retry.enabled, !pending);
+                assert_eq!(retry.does, crate::Local::Refresh);
+            }
+        }
     }
 
     #[test]
