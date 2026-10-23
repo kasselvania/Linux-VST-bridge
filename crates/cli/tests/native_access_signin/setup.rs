@@ -313,7 +313,7 @@ fn installation_receipts(m: &Manager, environment: &Environment, installer: &[u8
     private_dir(&onboarding).unwrap();
     atomic_json(&onboarding.join("record.json"), &json!({"schema":1,"id":environment.id,"installer":sha,
         "environment":environment,"created_at":now,"creation_operation":random_id().unwrap(),
-        "installation_operation":operation,"published":true})).unwrap();
+        "installation_operation":operation,"published":false})).unwrap();
     let receipt = onboarding.join(format!("{operation}-result.json"));
     atomic_json(&receipt, &json!({"schema":2,"operation":operation,"state":"completed","raw_exit":0,
         "owned_live":0,"cleanup_confirmed":true,"error":null})).unwrap();

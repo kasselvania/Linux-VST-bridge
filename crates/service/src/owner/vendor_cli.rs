@@ -1,5 +1,6 @@
 use super::*;
 pub(super) mod selection;
+pub(super) mod registration;
 use serde_json::json;
 use linux_vst_bridge::vendor_application::{
     self, Application, ApplicationId, LaunchMode, OperationResult,
@@ -560,6 +561,10 @@ pub(super) mod interruption_tests {
 fn register_application(m: &Manager, app: &Application, guard: &Lock) -> Result<()> {
     guard.require_registry(m)?;
     app.verify(&m.root)?;
+    publish_application(m, app, guard)
+}
+fn publish_application(m: &Manager, app: &Application, guard: &Lock) -> Result<()> {
+    guard.require_registry(m)?;
     let selector = app.selector()?;
     let directory = directory(m, &selector)?;
     private_dir(&directory)?;

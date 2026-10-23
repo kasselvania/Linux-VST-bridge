@@ -13,6 +13,8 @@ pub(super) fn all_retired(m: &Manager) -> Result<bool> {
 }
 pub(super) fn launch(m: &Manager, op: &str) -> Result<life::Submission> {
     let application=renderer_cli::current_application(m)?;
+    require(!vendor_cli::registration::renderer_selected(m, &application)?,
+        "This application's ordinary Open action prepares its support service")?;
     application.verify(&m.root)?;
     let software = linux_vst_bridge::preparation::build::launch_software(m)?;
     let directory = life::operation_dir(m, op)?;
