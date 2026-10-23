@@ -30,9 +30,15 @@ fn registrations(hive: &str) -> Result<BTreeSet<String>> {
     let dependencies:Vec<Dependency>=serde_json::from_str(include_str!("plugin_services.json"))?;
     Ok(dependencies.into_iter().filter(|d| registered(hive,&d.service)).map(|d|d.service).collect())
 }
-/// A hive file as it is on disk: any write to it changes one of these.
+/// A hive file as it is on disk: any write to it, or a replacement, changes
+/// one of these. (The library's file identity is private to its digest
+/// cache; this also needs the change time on its own.)
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct HiveIdentity { device: u64, inode: u64, size: u64, modified: (i64, i64), changed: (i64, i64) }
+/// How long before a read a hive must have last changed for its facts to be
+/// kept: a filesystem's timestamps can be a second coarse, and the kernel's
+/// clock tick lags the system clock.
+const SETTLED: Duration = Duration::from_secs(2);
 impl HiveIdentity {
     fn of(path: &Path) -> std::io::Result<Self> {
         use std::os::unix::fs::MetadataExt;
@@ -40,13 +46,14 @@ impl HiveIdentity {
         Ok(Self { device: m.dev(), inode: m.ino(), size: m.len(),
             modified: (m.mtime(), m.mtime_nsec()), changed: (m.ctime(), m.ctime_nsec()) })
     }
-    /// Whether it last changed over a second before `read`, so a later write
-    /// cannot share its change time.
+    /// Whether it last changed `SETTLED` before `read`, so a later write
+    /// cannot share its change time. An absurd change time never is.
     fn settled_before(self, read: std::time::SystemTime) -> bool {
         let (seconds, nanoseconds) = self.changed;
-        u64::try_from(seconds).ok().zip(u32::try_from(nanoseconds).ok())
-            .map(|(seconds, nanoseconds)| std::time::UNIX_EPOCH + Duration::new(seconds, nanoseconds))
-            .is_some_and(|changed| changed + Duration::from_secs(1) < read)
+        u64::try_from(seconds).ok().zip(u32::try_from(nanoseconds).ok().filter(|n| *n < 1_000_000_000))
+            .and_then(|(seconds, nanoseconds)| std::time::UNIX_EPOCH.checked_add(Duration::new(seconds, nanoseconds)))
+            .and_then(|changed| changed.checked_add(SETTLED))
+            .is_some_and(|settled| settled < read)
     }
 }
 /// What this process learnt from each setup's hive, with the hive's identity
@@ -58,17 +65,28 @@ static REGISTRATIONS: std::sync::Mutex<BTreeMap<PathBuf, (HiveIdentity, BTreeSet
 /// recomposition, so it reads a hive again only after it changed. Launch
 /// selection (`selected`) always reads the hive itself.
 fn registered_services(environment: &Environment) -> Result<Option<BTreeSet<String>>> {
-    let path=environment.root.join("compatdata/pfx/system.reg");
+    registered_services_read_at(environment, std::time::SystemTime::now())
+}
+/// As `registered_services`, reading at `read`.
+fn registered_services_read_at(environment: &Environment, read: std::time::SystemTime)
+    -> Result<Option<BTreeSet<String>>> {
+    let path = environment.root.join("compatdata/pfx/system.reg");
+    let mut kept = REGISTRATIONS.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let before = match HiveIdentity::of(&path) {
         Ok(identity) => identity,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            kept.remove(&path);
+            return Ok(None);
+        }
         Err(error) => return Err(error.into()),
     };
-    let known = REGISTRATIONS.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).get(&path)
-        .filter(|(identity, _)| *identity == before).map(|(_, services)| services.clone());
-    if let Some(services) = known { return Ok(Some(services)); }
-    let read = std::time::SystemTime::now();
-    let Some(hive)=registry(environment)? else {return Ok(None)};
+    if let Some((_, services)) = kept.get(&path).filter(|(identity, _)| *identity == before) {
+        // The page still depends on this file: name it for the view's watch.
+        linux_vst_bridge::record_opened(&path, 0, 0);
+        return Ok(Some(services.clone()));
+    }
+    drop(kept);
+    let Some(hive) = registry(environment)? else { return Ok(None) };
     let services = registrations(&hive)?;
     // Keep only what was read from one unchanged, settled file.
     if HiveIdentity::of(&path)? == before && before.settled_before(read) {
@@ -252,22 +270,47 @@ mod tests {
         let environment=&f.r.environment;
         let path=environment.root.join("compatdata/pfx/system.reg");
         fs::write(&path,"[System\\\\ControlSet001\\\\Services\\\\PaceLicenseDServices] 1\n").unwrap();
-        let read=|| {
-            let (services,opened)=linux_vst_bridge::with_opened_reads(|| registered_services(environment).unwrap());
-            (services.unwrap(),opened.unwrap().get(&path).map_or(0,|(_,bytes)|*bytes))
+        let written=std::time::SystemTime::now();
+        let read_at=|read| {
+            let (services,opened)=linux_vst_bridge::with_opened_reads(||
+                registered_services_read_at(environment,read).unwrap());
+            (services.unwrap(),opened.unwrap().get(&path).map(|(_,bytes)|*bytes))
         };
         let pace=BTreeSet::from(["PaceLicenseDServices".to_owned()]);
-        // A hive written within the last second is read every time: a later
-        // write could still share its change time.
-        assert!(matches!(read(),(ref services,bytes) if *services==pace && bytes>0));
-        assert!(matches!(read(),(ref services,bytes) if *services==pace && bytes>0));
-        std::thread::sleep(Duration::from_millis(1100));
-        assert!(matches!(read(),(ref services,bytes) if *services==pace && bytes>0));
-        assert_eq!(read(),(pace,0),"an unchanged, settled hive is not read again");
+        // Read within two seconds of its last change, a hive is read every
+        // time: a later write could still share its change time.
+        assert!(matches!(read_at(written),(ref services,Some(bytes)) if *services==pace && bytes>0));
+        assert!(matches!(read_at(written),(ref services,Some(bytes)) if *services==pace && bytes>0));
+        let later=written+Duration::from_secs(3);
+        assert!(matches!(read_at(later),(ref services,Some(bytes)) if *services==pace && bytes>0));
+        assert_eq!(read_at(later),(pace.clone(),Some(0)),
+            "an unchanged, settled hive is not read again, but is still named for the view's watch");
+        // A replacement of the same size and modification time is read again.
+        let replacement=path.with_file_name("system.reg.new");
+        fs::write(&replacement,"[System\\\\ControlSet001\\\\Services\\\\PaceLicenseDServicex] 1\n").unwrap();
+        let modified=fs::metadata(&path).unwrap().modified().unwrap();
+        fs::File::options().write(true).open(&replacement).unwrap().set_modified(modified).unwrap();
+        assert_eq!(fs::metadata(&replacement).unwrap().len(),fs::metadata(&path).unwrap().len());
+        fs::rename(&replacement,&path).unwrap();
+        assert!(matches!(read_at(later),(ref services,Some(bytes)) if services.is_empty() && bytes>0),
+            "a replaced hive is read again");
         fs::write(&path,"[System\\\\ControlSet001\\\\Services\\\\Other] 1\n").unwrap();
-        assert!(matches!(read(),(ref services,bytes) if services.is_empty() && bytes>0),
-            "a changed hive is read again");
+        assert!(matches!(read_at(later),(ref services,Some(bytes)) if services.is_empty() && bytes>0),
+            "a rewritten hive is read again");
         fs::remove_file(&path).unwrap();
-        assert_eq!(registered_services(environment).unwrap(),None);
+        assert_eq!(registered_services_read_at(environment,later).unwrap(),None);
+        assert!(!REGISTRATIONS.lock().unwrap().contains_key(&path),"a removed hive leaves nothing kept");
+    }
+    #[test]
+    fn a_hive_is_settled_only_two_seconds_after_its_last_change() {
+        let changed=|seconds,nanoseconds| HiveIdentity {device:0,inode:0,size:0,modified:(0,0),
+            changed:(seconds,nanoseconds)};
+        let at=|seconds| std::time::UNIX_EPOCH+Duration::from_secs(seconds);
+        assert!(!changed(100,0).settled_before(at(101)));
+        assert!(!changed(100,0).settled_before(at(102)));
+        assert!(changed(100,0).settled_before(at(103)));
+        assert!(!changed(-1,0).settled_before(at(103)),"a change time before 1970 never is");
+        assert!(!changed(i64::MAX,0).settled_before(at(103)));
+        assert!(!changed(100,2_000_000_000).settled_before(at(103)));
     }
 }

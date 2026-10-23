@@ -6920,7 +6920,7 @@ pub(crate) mod tests {
         }
         let (f, candidates, units) = deck_shaped(43);
         // A real setup's hives last changed long before a page reads them.
-        std::thread::sleep(Duration::from_millis(1100));
+        std::thread::sleep(Duration::from_millis(2100));
         let s = &candidates[0].selection;
         let kind = |path: &Path| path.strip_prefix(&f.m.root).unwrap_or(path).iter().map(|part| {
             let part = part.to_string_lossy();
