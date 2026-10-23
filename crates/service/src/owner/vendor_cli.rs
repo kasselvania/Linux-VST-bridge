@@ -2,8 +2,10 @@ use super::*;
 pub(super) mod selection;
 pub(super) mod registration;
 use serde_json::json;
+#[cfg(test)]
+use linux_vst_bridge::vendor_application::LaunchMode;
 use linux_vst_bridge::vendor_application::{
-    self, Application, ApplicationId, LaunchMode, OperationResult,
+    self, Application, ApplicationId, OperationResult,
 };
 
 pub(super) fn launch_owned(m: &Manager, application: &str, operation: &str) -> Result<()> {

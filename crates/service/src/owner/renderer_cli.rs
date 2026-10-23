@@ -18,6 +18,7 @@ fn operation_dir(m: &Manager, op: &str) -> Result<PathBuf> {
     require(valid_hex(op,32),"renderer_operation_identity")?;
     Ok(directory(m).join("operations").join(op))
 }
+#[cfg(test)]
 fn unit(op: &str) -> Result<String> {require(valid_hex(op,32),"renderer_operation_identity")?;Ok(format!("linux-vst-bridge-renderer-{op}.service"))}
 pub(super) fn live(op: &str) -> Result<bool> {
     #[cfg(test)]

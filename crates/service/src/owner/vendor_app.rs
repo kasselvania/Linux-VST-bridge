@@ -827,6 +827,9 @@ mod tests {
                     }),
                 );
                 let before = fs::read(&lease).unwrap();
+                // Establish the ordinary lock files before comparing retained
+                // records. Refusal may acquire them, but must change no data.
+                drop(f.m.lock("registry.lock").unwrap());
                 let inputs = test_fixture::snapshot(&f.m.root);
                 let submitted = Cell::new(0);
                 let outcome = readiness::with_unit_state_fixture(&units, "inactive", || {
@@ -892,6 +895,7 @@ mod tests {
                 )
                 .unwrap();
             }
+            drop(f.m.lock("registry.lock").unwrap());
             let before = test_fixture::snapshot(&f.m.root);
             let error = readiness::with_unit_state_fixture(&units, "inactive", || {
                 execute_with(
