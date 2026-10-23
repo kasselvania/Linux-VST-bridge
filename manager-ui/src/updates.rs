@@ -26,13 +26,10 @@ enum Event {
 }
 
 use crate::screen_model::updates::{self as panel, Block, Link, Panel, Phase, Step, UpdateNotice as Notice};
-impl From<UpdateError> for Notice {
-    fn from(error: UpdateError) -> Self {
-        Self { technical: error.technical().map(str::to_owned), text: error.to_string() }
-    }
-}
-impl From<&str> for Notice {
-    fn from(text: &str) -> Self { Self { text: text.into(), technical: None } }
+/// The updater's refusal as a notice: its sentence, with the exact reason kept
+/// for technical details.
+fn error_notice(error: UpdateError) -> Notice {
+    Notice { technical: error.technical().map(str::to_owned), text: error.to_string() }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -127,13 +124,13 @@ impl Updates {
             ("editing", Self { editing: true, draft: "https://example".into(),
                 link_message: Some("This is not a beta link.".into()), ..with(Status::Idle) }),
             ("checking", with(Status::Checking)),
-            ("failed", with(Status::Failed(UpdateError::Install("user_package_intake_busy".into()).into()))),
+            ("failed", with(Status::Failed(error_notice(UpdateError::Install("user_package_intake_busy".into()))))),
             ("up_to_date", with(Status::UpToDate("0.12.0test146".into()))),
             ("no_package", with(Status::NoPackage("0.12.0test148".into()))),
             ("manual", with(Status::Manual(Some("0.12.0test148".into())))),
             ("manual_unknown", with(Status::Manual(None))),
             ("available", with(Status::Available(offer()))),
-            ("available_notice", Self { notice: Some(UpdateError::DownloadStopped.into()),
+            ("available_notice", Self { notice: Some(error_notice(UpdateError::DownloadStopped)),
                 ..with(Status::Available(offer())) }),
             ("downloading", with(Status::Downloading { offer: offer(), done: 4_000_000, total: 10_000_000 })),
             ("waiting", with(Status::WaitingForDaw { offer: offer(), frontend: "/nonexistent/setup".into(),
@@ -193,7 +190,7 @@ impl Updates {
                         Ok(Check::UpToDate { installed }) => Status::UpToDate(installed),
                         Ok(Check::NoPackage { latest, .. }) => Status::NoPackage(latest),
                         Ok(Check::ManualUpdate { latest }) => Status::Manual(latest),
-                        Err(error) => Status::Failed(error.into()),
+                        Err(error) => Status::Failed(error_notice(error)),
                     };
                 }
                 Event::Progress(done, total) => {
@@ -208,7 +205,7 @@ impl Updates {
                         Ok(frontend) => Status::WaitingForDaw { offer: offer.clone(), frontend,
                             since: Instant::now(), observed: false },
                         Err(error) => {
-                            self.notice = Some(error.into());
+                            self.notice = Some(error_notice(error));
                             Status::Available(offer.clone())
                         }
                     };
@@ -641,7 +638,7 @@ mod tests {
         // An install refusal shows plain words; its code only under Technical details.
         let mut updates = updates_with_link(Updates::disabled());
         updates.status = Status::Available(offer());
-        updates.notice = Some(UpdateError::Install("user_package_intake_busy".into()).into());
+        updates.notice = Some(error_notice(UpdateError::Install("user_package_intake_busy".into())));
         let labels = rendered(&mut updates);
         assert!(labels.iter().any(|l| l == "Setup is already installing something; try again when it finishes."));
         assert!(labels.iter().any(|l| l == "Technical details"));
@@ -683,7 +680,7 @@ mod tests {
         assert!(labels.iter().any(|l| l == "Download and update"));
         assert!(labels.iter().any(|l| l == "What's new"));
         assert!(labels.iter().all(|l| !l.contains("s3cret") && !l.contains("pw=") && !l.contains("ts.net")));
-        updates.status = Status::Failed(UpdateError::Offline.into());
+        updates.status = Status::Failed(error_notice(UpdateError::Offline));
         let labels = rendered(&mut updates);
         assert!(labels.iter().any(|l| l == "Couldn't check for updates right now."));
         assert!(labels.iter().any(|l| l == "Check for updates"));

@@ -6,10 +6,12 @@ on:
     paths:
       - 'tools/direct-audio-handoff/**'
       - '.github/workflows/direct-audio-helper.yml'
+      - '.github/scripts/apt-install.sh'
   pull_request:
     paths:
       - 'tools/direct-audio-handoff/**'
       - '.github/workflows/direct-audio-helper.yml'
+      - '.github/scripts/apt-install.sh'
 permissions:
   contents: read
 jobs:
@@ -40,7 +42,7 @@ jobs:
   linux-helper:
     needs: helper
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -49,12 +51,15 @@ jobs:
         with:
           name: direct-audio-helper
           path: raw-windows
+      # Only the package file is fetched, for its winebuild; nothing is installed.
+      - name: Download Wine's build tools
+        timeout-minutes: 9
+        run: bash .github/scripts/apt-install.sh --download wine64-tools
       - name: Build original ELF and mark its original builtin PE companion
         run: |
           set -eu
           mkdir -p paired/x86_64-windows paired/x86_64-unix wine-tools
           rustc --edition 2024 --crate-type cdylib -C panic=abort -C opt-level=3 tools/direct-audio-handoff/linux_wait.rs -o paired/x86_64-unix/lvb-direct-wait.so
-          apt-get download wine64-tools
           dpkg-deb -x wine64-tools_*.deb wine-tools
           cp raw-windows/lvb-direct-wait.dll paired/x86_64-windows/
           wine-tools/usr/lib/wine/winebuild --builtin paired/x86_64-windows/lvb-direct-wait.dll
