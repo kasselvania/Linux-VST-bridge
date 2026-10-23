@@ -1479,11 +1479,13 @@ fn snapshot_readonly_depth(
     }
     let owners = capacity::owners(m)?;
     let cap = cap.filter(|c| c.owners == owners);
-    let before = token(m)?;
+    // The composition's registry read: the snapshot and its token both come
+    // from it, and every later composed read is this one.
+    let db = (*m.composed_registry()?).clone();
+    let before = token_with_registry(m, &db)?;
     // The same change samples the overview takes: scan results, pending
     // updates and buffer settings are not all in the state token.
     let generation = pulse_generation(m)?;
-    let db = m.registry()?;
     drop(registry);
     // Digests, runner verification, systemd and presentation run outside the
     // registry lock. The captured registry is checked again after projection.
@@ -7031,6 +7033,41 @@ pub(crate) mod tests {
         let report = problem_report_snapshot(&f.m, &token).unwrap();
         server.join().unwrap();
         every_history_shown(&report.products);
+    }
+    #[test]
+    fn a_page_parses_each_installer_observation_once() {
+        // An observation lists every file before and after its installer ran.
+        // The plug-in page parsed each setup's latest one twice (#504).
+        let (f, c) = preparation_cli::tests::projection_fixture();
+        linux_vst_bridge::preparation::record_candidate(&f.m, &c).unwrap();
+        linux_vst_bridge::preparation::enable(&f.m, &c, false).unwrap();
+        let units: Vec<String> = test_fixture::retained_history(&f, test_fixture::Changes::Installers, 3, 2, 0)
+            .iter().map(|operation| onboarding::unit(operation).unwrap()).collect();
+        let mut observations = vec![];
+        for run in linux_vst_bridge::environment_revision::installer_records(&f.m).unwrap() {
+            let path = job_dir(&f.m, &run.operation).unwrap().join(format!("{}-transaction-private.json", run.operation));
+            atomic_json(&path, &json!({"schema":1,"operation":run.operation,"ledger":{"processes":[]},
+                "windows_trace":{"observed":"x".repeat(65536)}})).unwrap();
+            observations.push((fs::metadata(&path).unwrap().len(), path));
+        }
+        readiness::with_unit_state_fixture(&units, "inactive", || {
+            let s = &c.selection;
+            for page in ["current overview", "plug-in page"] {
+                let server = overview_service_reply(&f.m, capacity_json(false, 0, 0));
+                let (composed, opened) = linux_vst_bridge::with_opened_reads(|| if page == "current overview" {
+                    current_overview(&f.m).map(|_| ())
+                } else {
+                    product_detail(&f.m, &s.environment.id, &s.module.sha256, &s.class.id).map(|_| ())
+                });
+                composed.unwrap();
+                server.join().unwrap();
+                let opened = opened.unwrap();
+                let read: Vec<_> = observations.iter().filter_map(|(size, path)|
+                    opened.get(path).map(|(_, bytes)| (*size, *bytes))).collect();
+                assert_eq!(read.len(), 3, "{page}: each setup's latest observation is read");
+                assert!(read.iter().all(|(size, bytes)| bytes == size), "{page}: {read:?}");
+            }
+        });
     }
     /// A Deck-shaped installation (#503): 27 published plug-ins on one
     /// runtime of 20,000 files, each prepared `earlier` times before its

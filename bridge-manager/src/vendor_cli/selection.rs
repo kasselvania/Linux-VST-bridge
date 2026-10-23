@@ -101,6 +101,7 @@ pub(crate) fn superseded(m: &Manager) -> Result<std::collections::BTreeSet<Strin
     Ok(previous)
 }
 
+#[derive(Clone)]
 pub(crate) struct Choice {
     pub application: Application,
     pub name: String,
@@ -139,7 +140,12 @@ fn non_app_images(transaction: &Value) -> std::collections::BTreeSet<String> {
     images
 }
 
+/// The app choices this setup's installation observation offers, read once
+/// for each composition: an observation can be several megabytes.
 pub(crate) fn choices(m: &Manager, record: &onboarding::Record) -> Result<Vec<Choice>> {
+    m.derive_once(&format!("vendor_choices:{}", serde_json::to_string(record)?), || observed_choices(m, record))
+}
+fn observed_choices(m: &Manager, record: &onboarding::Record) -> Result<Vec<Choice>> {
     let (operation,installer,receipt,result)=if let Some(replacement)=operator_cli::environment_install::latest(m,&record.id)? {
         let receipt=Artifact {path:operator_cli::job_dir(m,&replacement.operation)?.join("installation-result.json"),
             sha256:digest(&operator_cli::job_dir(m,&replacement.operation)?.join("installation-result.json"))?};
