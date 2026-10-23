@@ -531,6 +531,9 @@ pub(super) fn finish(m:&Manager,operation:&str,action:&ui::Action)->Result<()> {
         running["state"]=json!("running");running["cleanup_confirmed"]=json!(false);running["owned_live"]=json!(1);
         atomic_json(&report,&running).unwrap();
         let _service=crate::operator_cli::tests::idle_service(&f.m);
+        // Its unit runs, as systemd reports it.
+        let unit=format!("linux-vst-bridge-renderer-{}.service",retained.intent.owner);
+        readiness::with_unit_state_fixture(&[unit],"active",|| {
         let stop=std::sync::atomic::AtomicBool::new(false);
         let refused=std::thread::scope(|scope| {
             scope.spawn(|| {
@@ -558,6 +561,7 @@ pub(super) fn finish(m:&Manager,operation:&str,action:&ui::Action)->Result<()> {
         ended["state"]=json!("completed");ended["cleanup_confirmed"]=json!(true);ended["owned_live"]=json!(0);
         atomic_json(&report,&ended).unwrap();
         assert_eq!(captured.recheck(&f.m).unwrap_err().to_string(),"operator_vendor_state_changed_refresh");
+        });
     }
     #[test] fn connection_after_native_access_waits_out_a_status_read_instead_of_refusing() {
         use linux_vst_bridge::operator_lock::{with_operator_registry_wait,LockBusy};

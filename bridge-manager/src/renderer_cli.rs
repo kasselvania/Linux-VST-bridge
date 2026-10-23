@@ -20,6 +20,8 @@ fn operation_dir(m: &Manager, op: &str) -> Result<PathBuf> {
 }
 fn unit(op: &str) -> Result<String> {require(valid_hex(op,32),"renderer_operation_identity")?;Ok(format!("linux-vst-bridge-renderer-{op}.service"))}
 pub(super) fn live(op: &str) -> Result<bool> {
+    #[cfg(test)]
+    if let Some(state)=readiness::modelled_unit_state(&unit(op)?) {return operator_cli::vendor_state_live(&state);}
     // Unavailable state keeps recovery controls usable and new launches blocked.
     Ok(lifecycle::inspect(op).map_or(true,|p|!p.empty))
 }
