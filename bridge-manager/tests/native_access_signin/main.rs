@@ -38,11 +38,12 @@
 //!
 //! ```text
 //! mkdir -p /var/tmp/lvb-archives
-//! x86_64-w64-mingw32-gcc -std=c11 -O2 -municode -mwindows -o /tmp/stand-in.exe \
-//!     windows-fixtures/browser-return/single_instance_app.c -lbcrypt -lws2_32 -lshell32
 //! python3 -m venv /tmp/lvb-zig && /tmp/lvb-zig/bin/pip install ziglang==0.14.1
 //! /tmp/lvb-zig/bin/python -c 'import pathlib,sys,ziglang; sys.path.insert(0,"tools/naui2"); import package; \
 //!     package.build_adapter(pathlib.Path(ziglang.__file__).with_name("zig"), "tools/is2/launch.cpp", "/tmp/adapter.exe")'
+//! /tmp/lvb-zig/bin/python -m ziglang cc -target x86_64-windows-gnu -std=c11 -O2 -municode \
+//!     -Wl,--subsystem,windows -o /tmp/stand-in.exe \
+//!     windows-fixtures/browser-return/single_instance_app.c -lbcrypt -lws2_32 -lshell32
 //! LVB_DISPOSABLE_ACCOUNT=1 LVB_SIGNIN_RUNTIME=managed-ge-proton11-7-slr4-20260805-r7 \
 //!     LVB_SIGNIN_ARCHIVES=/var/tmp/lvb-archives LVB_SIGNIN_ADAPTER=/tmp/adapter.exe \
 //!     LVB_SIGNIN_STAND_IN=/tmp/stand-in.exe \

@@ -44,26 +44,15 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Windows cross compilers
-        timeout-minutes: 15
+      # Nothing here comes from Ubuntu's package mirrors, whose downloads
+      # stalled this job for minutes at a time on some runners (2026-10-22/23).
+      # The runner image already has the X server and the user session bus;
+      # both Windows programs are built with the zig from PyPI below.
+      - name: The runner's X server and session bus
         run: |
-          # Package downloads stalled this step for 30 minutes on West US
-          # runners (2026-10-22). Retry only the download, which is safe to
-          # cut off; then install once from the local cache, so dpkg is never
-          # killed part-way and retried. Output stays visible and nothing may
-          # prompt.
-          sudo rm -f /var/lib/man-db/auto-update
-          export DEBIAN_FRONTEND=noninteractive
-          apt=(apt-get -q -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o DPkg::Lock::Timeout=60)
-          pkgs=(gcc-mingw-w64-x86-64 xvfb dbus-user-session)
-          for attempt in 1 2 3; do
-            timeout 90 sudo -E "${apt[@]}" update &&
-              timeout 150 sudo -E "${apt[@]}" install -y --download-only "${pkgs[@]}" >/dev/null && break
-            test "$attempt" -lt 3 || exit 1
-            echo "Package download attempt $attempt failed or timed out; trying again."
-            sleep 10
-          done
-          sudo -E "${apt[@]}" install -y --no-download "${pkgs[@]}" >/dev/null
+          dpkg-query -W -f='${Package} ${Version} ${db:Status-Abbrev}\n' xvfb dbus-user-session
+          test -x /usr/bin/Xvfb
+          test -f /usr/lib/systemd/user/dbus.socket
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -73,7 +62,8 @@ jobs:
           sudo ln -sfn "$(command -v python3)" /usr/bin/python3
           /usr/bin/python3 -I -B -c 'import sys; print(sys.version)'
       # The launch adapter through its recorded recipe (build_adapter in
-      # tools/naui2/package.py), and the stand-in with mingw-w64.
+      # tools/naui2/package.py), and the stand-in with the same zig: a GUI
+      # program entered at wWinMain, as Native Access is.
       - name: Build the launch adapter and the stand-in app
         run: |
           mkdir -p "$FIXTURE"
@@ -86,7 +76,8 @@ jobs:
           except subprocess.CalledProcessError as error:
               sys.exit(error.stderr.decode(errors='replace'))
           PY
-          x86_64-w64-mingw32-gcc -std=c11 -O2 -Wall -Wextra -Werror -municode -mwindows \
+          python -m ziglang cc -target x86_64-windows-gnu -std=c11 -O2 -Wall -Wextra -Werror \
+            -municode -Wl,--subsystem,windows \
             -o "$FIXTURE/stand-in.exe" windows-fixtures/browser-return/single_instance_app.c \
             -lbcrypt -lws2_32 -lshell32
           sha256sum "$FIXTURE"/*.exe
@@ -117,12 +108,14 @@ jobs:
           sudo loginctl enable-linger "$USER"
           uid=$(id -u)
           for _ in $(seq 1 120); do test -S /run/user/$uid/bus && test -S /run/user/$uid/systemd/private && break; sleep 0.5; done
+          test -S /run/user/$uid/bus && test -S /run/user/$uid/systemd/private
           echo "XDG_RUNTIME_DIR=/run/user/$uid" >> "$GITHUB_ENV"
           echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus" >> "$GITHUB_ENV"
           export XDG_RUNTIME_DIR=/run/user/$uid
           systemd-run --user --unit=lvb-test-display.service /usr/bin/Xvfb :99 -screen 0 1280x800x24 -nolisten tcp
           systemctl --user set-environment DISPLAY=:99
           for _ in $(seq 1 60); do test -S /tmp/.X11-unix/X99 && break; sleep 0.5; done
+          test -S /tmp/.X11-unix/X99
           sudo useradd --system --no-create-home lvb-other
       - name: Browser return on ${{ matrix.runtime }}
         timeout-minutes: 20
