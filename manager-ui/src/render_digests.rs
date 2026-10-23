@@ -15,7 +15,8 @@
 //!
 //! The list stays outside Git. Nothing here contacts the manager.
 use crate::operator::{Operator, Page};
-use crate::{preview_states, presentation, updates::Updates};
+use crate::{presentation, updates::Updates};
+use lvb_view_model::samples;
 use eframe::egui;
 use std::hash::{Hash, Hasher};
 
@@ -143,8 +144,8 @@ fn cases(name: &str, out: &mut Vec<String>, mut build: impl FnMut() -> Box<dyn F
 }
 
 fn operator(page: Page, state: &str) -> Operator {
-    let snapshot = preview_states::snapshot(page, Some(state));
-    let readiness = preview_states::readiness(Some(state), &snapshot);
+    let snapshot = samples::snapshot(page, Some(state));
+    let readiness = samples::readiness(Some(state), &snapshot);
     Operator::preview_current(snapshot, readiness, page,
         page == Page::Plugins && state != "current_loading", state == "pending",
         matches!(state, "plugin_details" | "plugin_history_open" | "plugin_technical"), state == "stale")
@@ -157,7 +158,7 @@ fn render_digests() {
     let only = std::env::var("LVB_RENDER_ONLY").ok();
     let mut out = Vec::new();
     for (page, page_name) in PAGES {
-        for state in preview_states::STATES {
+        for state in samples::STATES {
             let name = format!("{page_name}/{state}");
             if only.as_deref().is_some_and(|prefix| !name.starts_with(prefix)) { continue; }
             cases(&name, &mut out, || {

@@ -142,6 +142,7 @@ check_build() {
 # --no-fail-fast: one failing test binary must not hide the next one's results.
 check_model() {
     cargo test --locked --no-fail-fast --manifest-path crates/model/Cargo.toml
+    cargo test --locked --no-fail-fast --manifest-path crates/view-model/Cargo.toml
 }
 
 check_manager() {

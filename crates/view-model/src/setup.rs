@@ -986,12 +986,12 @@ mod tests {
         assert_eq!(vendor_default_notice(&plain), None);
     }
 
-    use crate::operator::Page;
-    use crate::preview_states::{self, STATES};
-    use crate::screen_model::offers::Availability;
+    use crate::window::Page;
+    use crate::samples::{self, STATES};
+    use crate::offers::Availability;
 
     fn sample(state: &str) -> Snapshot {
-        preview_states::snapshot(Page::Setup, Some(state))
+        samples::snapshot(Page::Setup, Some(state))
     }
 
     fn rows(details: &[Detail]) -> Vec<&OfferRow> {
@@ -1196,7 +1196,7 @@ mod tests {
         assert!(rows(&removal.content)[1].notes.contains(&"Close Serum 2 FX first".to_owned()));
         assert!(serum.secondary.offers.is_empty(), "removal lives in its own section");
         let unreadable = setup.cards.iter().find(|card| card.title == "Ready to set up").unwrap();
-        assert_eq!(unreadable.status.role, crate::screen_model::TextRole::Caution);
+        assert_eq!(unreadable.status.role, crate::TextRole::Caution);
         let deleted = setup.deleted.as_ref().unwrap();
         assert_eq!(deleted.title, "Deleted setups (3)");
         assert!(deleted.start_open);

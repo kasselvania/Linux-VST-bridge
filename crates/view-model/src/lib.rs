@@ -12,6 +12,13 @@
 //! plug-in list and one plug-in's detail, Activity, Diagnostics and Setup's
 //! updates. Workspaces stays in the window until it is removed (#504 E3),
 //! and so does the first-run package screen.
+//!
+//! This crate depends only on the wire model (`lvb-model`) and `serde_json`,
+//! never on the manager service or a toolkit, so any frontend can build on it.
+//! Each screen is built by its `build` function from the manager's
+//! `model::Snapshot` (see `window::Page` for the pages); `forms::route` says
+//! where a pressed offer goes. The `samples` feature adds the named sample
+//! states the previews and tests use.
 pub mod activity;
 pub mod diagnostics;
 pub mod forms;
@@ -27,10 +34,14 @@ pub mod setup;
 pub mod updates;
 pub mod version;
 pub mod window;
+#[cfg(any(test, feature = "samples"))]
+pub mod samples;
 #[cfg(test)]
 mod tests;
 
-use crate::model::Product;
+/// The manager's wire model, which every screen is built from.
+pub use lvb_model::operator_model as model;
+use model::Product;
 
 /// What a line of words is for. Each frontend chooses the look.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

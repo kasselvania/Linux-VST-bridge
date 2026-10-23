@@ -347,7 +347,7 @@ mod tests {
     use crate::model::{CompatibilityWorkflow, NativeAvailability};
 
     fn snapshot() -> Snapshot {
-        serde_json::from_str(include_str!("../../examples/library-preview.json")).unwrap()
+        crate::samples::base()
     }
 
     #[test]

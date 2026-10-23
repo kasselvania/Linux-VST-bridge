@@ -1,0 +1,10 @@
+[package]
+name = "lvb-view-model"
+version = "0.1.0"
+edition = "2021"
+[features]
+# The named sample states for previews, galleries and tests. Never in packages.
+samples = []
+[dependencies]
+lvb-model = { path = "../model" }
+serde_json = "=1.0.150"

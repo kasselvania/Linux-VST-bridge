@@ -17,6 +17,7 @@ on:
       - 'evidence/lc2/generated.json'
       - 'bridge-manager/**'
       - 'crates/model/**'
+      - 'crates/view-model/**'
       # Read by problem.rs's explanation-completeness test.
       - 'windows-factory-probe/source/inspect_module.cpp'
       - 'windows-factory-probe/source/ap8_state.h'
@@ -58,6 +59,7 @@ on:
       - 'evidence/lc2/generated.json'
       - 'bridge-manager/**'
       - 'crates/model/**'
+      - 'crates/view-model/**'
       # Read by problem.rs's explanation-completeness test.
       - 'windows-factory-probe/source/inspect_module.cpp'
       - 'windows-factory-probe/source/ap8_state.h'
@@ -130,6 +132,9 @@ jobs:
       - run: rustup toolchain install 1.95.0 --profile minimal --component clippy
       - run: cargo +1.95.0 test --manifest-path manager-ui/Cargo.toml --locked
       - run: cargo +1.95.0 clippy --manifest-path manager-ui/Cargo.toml --locked --all-targets -- -D warnings
+      # The window's screen model, built on its own with nothing but the wire model.
+      - run: cargo +1.95.0 test --manifest-path crates/view-model/Cargo.toml --locked
+      - run: cargo +1.95.0 clippy --manifest-path crates/view-model/Cargo.toml --locked --all-targets --all-features -- -D warnings
   manager:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -167,9 +172,10 @@ jobs:
       - run: cargo test --manifest-path bridge-manager/Cargo.toml --example uir1_report --locked
       - run: cargo test --manifest-path crates/model/Cargo.toml --locked
       - run: cargo clippy --manifest-path crates/model/Cargo.toml --locked --all-targets -- -D warnings
-      # Until one workspace lockfile replaces them, the model crate's lockfile
-      # must pin every crate it shares with the manager's exactly as it does.
-      - name: Model and manager lockfiles agree
+      # Until one workspace lockfile replaces them, each crate's own lockfile
+      # must pin every crate it shares with the manager's and the window's
+      # exactly as they do.
+      - name: Crate, manager and window lockfiles agree
         run: |
           python3 - <<'PY'
           import sys, tomllib
@@ -177,14 +183,18 @@ jobs:
               with open(path, 'rb') as lock:
                   return {(p['name'], p['version'], p.get('checksum'))
                           for p in tomllib.load(lock)['package']}
-          model = entries('crates/model/Cargo.lock')
-          manager = entries('bridge-manager/Cargo.lock')
-          names = {name for name, _, _ in manager}
-          drift = sorted((e for e in model if e[0] in names and e not in manager), key=str)
-          for name, version, checksum in drift:
-              pinned = sorted(f'{v} {c}' for n, v, c in manager if n == name)
-              print(f'{name}: crates/model has {version} {checksum}; bridge-manager has {pinned}')
-          sys.exit(1 if drift else 0)
+          failed = False
+          for crate in ('crates/model', 'crates/view-model'):
+              own = entries(f'{crate}/Cargo.lock')
+              for user in ('bridge-manager', 'manager-ui'):
+                  theirs = entries(f'{user}/Cargo.lock')
+                  names = {name for name, _, _ in theirs}
+                  drift = sorted((e for e in own if e[0] in names and e not in theirs), key=str)
+                  for name, version, checksum in drift:
+                      pinned = sorted(f'{v} {c}' for n, v, c in theirs if n == name)
+                      print(f'{name}: {crate} has {version} {checksum}; {user} has {pinned}')
+                  failed = failed or bool(drift)
+          sys.exit(1 if failed else 0)
           PY
       - run: cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings
       - run: python3 -m unittest discover -s bridge-manager/runtime -v
