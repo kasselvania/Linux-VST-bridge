@@ -3,10 +3,13 @@
 //!
 //! Draws every page in every sample state, in both themes at two widths, and
 //! again after one click on each short label drawn there (opening a
-//! disclosure, a form or a choice). Setup's update panel is drawn in each of
-//! its states the same way. Each case's digest covers every frame's meshes
-//! (clip rectangles, vertices, colours, indices) and texture updates, so equal
-//! digests mean equal pixels. Run it on two trees and compare the lists:
+//! disclosure, a form or a choice), and after a second click on each label
+//! that click revealed (a confirmation, a checkbox, a dropdown's choices).
+//! Setup's update panel is drawn in each of its states the same way. Each
+//! case's digest covers every frame's meshes (clip rectangles, vertices,
+//! colours, indices), texture updates, and what the window chose to send or
+//! do, so equal digests mean equal pixels and equal intents. Run it on two
+//! trees and compare the lists:
 //!
 //! `LVB_RENDER_DIGESTS=/tmp/digests.tsv cargo test --release --locked render_digests -- --ignored`
 //!
@@ -24,6 +27,8 @@ const PAGES: [(Page, &str); 6] = [(Page::Home, "home"), (Page::Plugins, "plugins
     (Page::Diagnostics, "diagnostics")];
 /// Clicks only labels this short: buttons, headings and choices, not prose.
 const CLICKABLE: usize = 90;
+/// Second clicks per first click, at most.
+const REVEALED: usize = 40;
 
 fn hash_output(ctx: &egui::Context, output: egui::FullOutput, hasher: &mut impl Hasher) {
     let mut textures: Vec<_> = output.textures_delta.set.iter().collect();
@@ -67,49 +72,71 @@ fn labels(shape: &egui::epaint::Shape, out: &mut Vec<(String, egui::Pos2)>) {
     }
 }
 
-/// One case: frames 0-2, or with a click on `click` at frames 3 and 4 and
-/// frames up to 8. Returns the digest and the labels drawn on frame 2.
-fn render(theme: egui::Theme, width: f32, click: Option<egui::Pos2>,
+/// One case: frames 0-2, then for each click a press and release and four
+/// more frames. Returns the digest and the labels drawn on the last frame.
+fn render(theme: egui::Theme, width: f32, clicks: &[egui::Pos2],
     mut draw: impl FnMut(&mut egui::Ui)) -> (u64, Vec<(String, egui::Pos2)>) {
     let ctx = egui::Context::default();
     ctx.set_theme(theme);
     presentation::configure_style(&ctx);
     ctx.global_style_mut(|style| style.animation_time = 0.0);
+    crate::operator::PREVIEW_INTENT.with(|intent| intent.borrow_mut().clear());
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     let mut seen = Vec::new();
-    let last = if click.is_some() { 8 } else { 2 };
+    let last = 2 + 6 * clicks.len();
     for frame in 0..=last {
-        let events = match click {
-            Some(pos) if matches!(frame, 3 | 4) => vec![egui::Event::PointerMoved(pos),
-                egui::Event::PointerButton { pos, button: egui::PointerButton::Primary,
-                    pressed: frame == 3, modifiers: egui::Modifiers::NONE }],
+        let events = match clicks.get(frame.saturating_sub(3) / 6) {
+            Some(pos) if frame >= 3 && matches!((frame - 3) % 6, 0 | 1) => vec![egui::Event::PointerMoved(*pos),
+                egui::Event::PointerButton { pos: *pos, button: egui::PointerButton::Primary,
+                    pressed: (frame - 3) % 6 == 0, modifiers: egui::Modifiers::NONE }],
             _ => vec![],
         };
         let output = ctx.run_ui(egui::RawInput { events, screen_rect: Some(egui::Rect::from_min_size(
             egui::Pos2::ZERO, egui::vec2(width, HEIGHT))), ..Default::default() }, &mut draw);
-        if frame == 2 {
-            seen.clear();
+        if frame == last {
             for clipped in &output.shapes { labels(&clipped.shape, &mut seen); }
         }
         hash_output(&ctx, output, &mut hasher);
+        crate::operator::PREVIEW_INTENT.with(|intent| std::mem::take(&mut *intent.borrow_mut())).hash(&mut hasher);
     }
     (hasher.finish(), seen)
 }
 
-/// The base case, then one case per distinct short label clicked.
+fn clickable(label: &str) -> bool {
+    !label.trim().is_empty() && label.len() <= CLICKABLE && !label.contains('\n')
+}
+
+/// Labels drawn after a click that were not drawn before it: new words, or
+/// more of the same words (a confirmation repeating its button's label).
+fn revealed(before: &[(String, egui::Pos2)], after: Vec<(String, egui::Pos2)>) -> Vec<(String, egui::Pos2)> {
+    let mut counts = std::collections::HashMap::new();
+    for (label, _) in before { *counts.entry(label.clone()).or_insert(0usize) += 1; }
+    let mut chosen = std::collections::BTreeSet::new();
+    after.into_iter().filter(|(label, _)| {
+        let count = counts.entry(label.clone()).or_insert(0usize);
+        if *count > 0 { *count -= 1; return false; }
+        clickable(label) && chosen.insert(label.clone())
+    }).take(REVEALED).collect()
+}
+
+/// The base case, then one case per distinct short label clicked, then one
+/// per label that click revealed.
 fn cases(name: &str, out: &mut Vec<String>, mut build: impl FnMut() -> Box<dyn FnMut(&mut egui::Ui)>) {
     for (theme, theme_name) in [(egui::Theme::Light, "light"), (egui::Theme::Dark, "dark")] {
         for width in WIDTHS {
-            let (digest, seen) = render(theme, width, None, build());
+            let (digest, seen) = render(theme, width, &[], build());
             out.push(format!("{name}/{theme_name}/{width}\t{digest:016x}"));
             // Clicks change state, not colour: one theme is enough.
             if theme == egui::Theme::Light { continue; }
             let mut clicked = std::collections::BTreeSet::new();
-            for (label, pos) in seen {
-                if label.trim().is_empty() || label.len() > CLICKABLE || label.contains('\n')
-                    || !clicked.insert(label.clone()) { continue; }
-                let (digest, _) = render(theme, width, Some(pos), build());
+            for (label, pos) in &seen {
+                if !clickable(label) || !clicked.insert(label.clone()) { continue; }
+                let (digest, after) = render(theme, width, &[*pos], build());
                 out.push(format!("{name}/{theme_name}/{width}/click:{label}\t{digest:016x}"));
+                for (second, then) in revealed(&seen, after) {
+                    let (digest, _) = render(theme, width, &[*pos, then], build());
+                    out.push(format!("{name}/{theme_name}/{width}/click:{label}/then:{second}\t{digest:016x}"));
+                }
             }
         }
     }
@@ -158,6 +185,7 @@ fn render_digests() {
         });
     }
     let clicks = out.iter().filter(|line| line.contains("/click:")).count();
+    let seconds = out.iter().filter(|line| line.contains("/then:")).count();
     std::fs::write(&path, out.join("\n") + "\n").expect("write render digests");
-    eprintln!("{} cases ({} after a click) written to {path}", out.len(), clicks);
+    eprintln!("{} cases ({} after a click, {} of them after a second) written to {path}", out.len(), clicks, seconds);
 }

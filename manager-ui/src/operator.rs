@@ -11,6 +11,13 @@ use std::{
     sync::mpsc,
     time::{Duration, Instant},
 };
+#[cfg(test)]
+thread_local! {
+    /// What the preview window chose on its last frame: the manager action and
+    /// the window's own requests. Render checks hash it, so equal digests also
+    /// mean equal intents.
+    pub static PREVIEW_INTENT: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
+}
 fn runtime_verification_label(op: &serde_json::Value) -> Option<String> {
     let checked = op["runtime_verification"]["checked"].as_u64()?;
     let total = op["runtime_verification"]["total"].as_u64()?;
@@ -2645,6 +2652,9 @@ impl eframe::App for Operator {
             }
         }
         if self.preview {
+            #[cfg(test)]
+            PREVIEW_INTENT.with(|intent| *intent.borrow_mut() =
+                format!("{chosen:?} refresh={refresh} pick={pick} retry={retry_details}"));
             ui.ctx().request_repaint_after(Duration::from_millis(500));
             return;
         }
