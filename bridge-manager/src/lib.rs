@@ -759,7 +759,7 @@ pub struct Entry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub managed_revision: Option<publication::RevisionRef>,
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Registry {
     pub schema: u32,
@@ -1090,6 +1090,11 @@ impl Manager {
             name: name.into(),
             exclusive,
         }))
+    }
+    /// The registry as this composition read it: once for each composition,
+    /// otherwise on every use ([`derive_once`](Self::derive_once)).
+    pub fn composed_registry(&self) -> Result<std::sync::Arc<Registry>> {
+        self.derive_once("registry", || self.registry().map(std::sync::Arc::new))
     }
     pub fn registry(&self) -> Result<Registry> {
         let p = self.root.join("registry.json");
