@@ -6,8 +6,9 @@ Current release treatment (2026-10-24):
   a mutable pathname does not establish stable mount identity or read-only access.
   Fix the general mount mechanism and execute substitution/write controls.
 - Bitwig playback/recall and physical Deck input: **P1 qualification blockers**.
-  Resolve the legitimate activation prerequisite before attributing the silent
-  reopen to the Bridge. Input needs physical target acceptance.
+  Activation is resolved; Test258 passed Reference save/reopen playback on its
+  recorded build. Repeat on the frozen integrated package. Input still needs
+  physical target acceptance.
 - JUCE 6 legal controller/bus answers (#358/#359): **fixed in mechanism; current
   candidate qualification required**. Retain host regressions and qualify the
   Valhalla/CHOW canaries before closing the issues.

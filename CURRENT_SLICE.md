@@ -10,11 +10,11 @@ Reference:
 - Approved 27-screen Console proof: docs/design-dossier/console-journeys.html.
 - Native Home, Plug-ins, Activity, Support, Setup, repair, update, recovery,
   presets and sample locations; no prototype chrome or UI ownership fallback.
-- Test254 proves scoped first-party update/recovery/repair/recall. Bitwig reopen
-  produced silence with an activation-limit message; that target remains open.
+- Test254 proves scoped first-party update/recovery/repair/recall. Test258 proves
+  activated Bitwig Reference save/reopen playback on its recorded build.
 
 Next changes, in order:
-1. Finish #536's failed check, final-head review and installed target acceptance;
+1. Finish #536's review repairs, integrated checks and installed target acceptance;
    land the live state, recovery, display and standalone-window increment.
 2. Rebase #538 on main; final-head review and land preset maintenance protection.
 3. Repair #537's stable directory/mount custody and kernel-enforced access;
