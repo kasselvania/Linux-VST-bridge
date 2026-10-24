@@ -34,6 +34,7 @@ mod test_fixture;
 pub mod vendor_application;
 pub mod vendor_profile;
 pub mod renderer_application;
+mod application_session;
 pub mod renderer_session;
 pub mod native_access_callback;
 pub mod ui_observation;

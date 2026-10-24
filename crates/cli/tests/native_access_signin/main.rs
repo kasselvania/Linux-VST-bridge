@@ -24,8 +24,8 @@
 //! - the setup is test data (`setup.rs`): the stand-in sits in Native
 //!   Access's install location under the names the bundled profile declares,
 //!   with the receipts a completed installation leaves;
-//! - the session is submitted as the window's Open submits it (`session.rs`),
-//!   through the same `vendor_application::session_command`;
+//! - Open and Stop submit the service's exact current offers (`session.rs`);
+//!   the service creates the session and owns its retained completion;
 //! - the `runtime-revision-fixture` feature lets the test acquire retained
 //!   revisions, not only the recommended one, through the same delivery path.
 //!

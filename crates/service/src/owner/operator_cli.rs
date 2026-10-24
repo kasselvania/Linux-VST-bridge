@@ -1353,7 +1353,71 @@ fn renderer_projection(m:&Manager,busy:Option<&str>,retired:Option<bool>,
     setups:Option<&mut [ui::InstallerSetup]>)->Result<Option<ui::VendorApplication>> {
     let Some(mut app)=renderer_cli::project_with_retired(m,busy,retired)? else {return Ok(None)};
     renderer_continuation::project(m,&mut app,setups,busy)?;
-    dependency_cli::project(m,&mut app,busy)?;Ok(Some(app))
+    dependency_cli::project(m,&mut app,busy)?;
+    let transition = (|| -> Result<(bool, bool)> {
+        if !renderer_cli::directory(m).join("application.json").try_exists()? {return Ok((false, true));}
+        let retained = renderer_cli::current_application(m)?;
+        let selected = vendor_cli::registration::renderer_selected(m, &retained)?;
+        Ok((selected, selected || vendor_cli::registration::rendering_compatible(m, &retained)?))
+    })();
+    match transition {
+        Ok((selected, compatible)) => return ordinary_application_projection(m, app, selected, compatible),
+        Err(error) => {
+            // A missing historical binding cannot authorize migration or a new
+            // session; retain the exact old operation's recovery controls.
+            ordinary_application_transition(&mut app, false, true);
+            for offer in &mut app.actions {
+                if matches!(offer.action, ui::Action::RendererDiscover {}) {
+                    offer.disabled_reason = Some(error.to_string());
+                }
+            }
+        }
+    }
+    Ok(Some(app))
+}
+fn ordinary_application_projection(m: &Manager, mut app: ui::VendorApplication,
+    selected: bool, compatible: bool) -> Result<Option<ui::VendorApplication>> {
+    let unfinished = app.actions.iter().any(|offer|
+        matches!(offer.action, ui::Action::EnvironmentRefreshResume {..}))
+        || app.details.get("journey").map(|value| serde_json::from_value::<ui::InstallationJourney>(value.clone()))
+            .transpose()?.is_some_and(|journey| !matches!(journey.phase,
+                ui::InstallationPhase::Available | ui::InstallationPhase::AwaitingApplication));
+    // Retired application processes do not imply completed connection work.
+    // Keep its exact recovery offer, including a currently disabled Resume.
+    if selected && !unfinished && renderer_cli::all_retired(m)? && dependency_cli::all_retired(m)? {
+        return Ok(None);
+    }
+    ordinary_application_transition(&mut app, selected, compatible);
+    Ok(Some(app))
+}
+/// Old connection work retains its own Resume. A rendering choice that the
+/// ordinary contract cannot preserve keeps its existing application controls.
+fn ordinary_application_transition(app: &mut ui::VendorApplication, selected: bool, compatible: bool) {
+    if !selected && !compatible {
+        app.actions.push(action("Use ordinary application controls", ui::Action::RendererDiscover {},
+            Some(vendor_cli::registration::RENDERING_UNSUPPORTED)));
+        return;
+    }
+    let mut transition = None;
+    app.actions.retain(|offer| {
+        if matches!(offer.action, ui::Action::RendererOpen {..} | ui::Action::RendererSoftwareInstall {..}
+            | ui::Action::RendererDiscover {..}) {
+            if !selected && transition.is_none() {
+                transition = Some(action("Use ordinary application controls", ui::Action::RendererDiscover {},
+                    offer.disabled_reason.as_deref()));
+            }
+            false
+        } else { !matches!(offer.action, ui::Action::DependencyPrepare {}) }
+    });
+    if let Some(offer) = transition {app.actions.insert(0, offer);}
+}
+pub(super) fn renderer_registration_allowed(m: &Manager) -> Result<()> {
+    if let Some(retained) = renderer_continuation::latest(m)? {
+        require(matches!(renderer_continuation::current_journey(m, &retained)?.phase,
+            ui::InstallationPhase::Available | ui::InstallationPhase::AwaitingApplication),
+            "Finish or recover this setup's retained connection before changing application controls")?;
+    }
+    Ok(())
 }
 fn scoped_product_context_from(m: &Manager, sw: &Software, db: &Registry,
     bindings: &[catalogue::EnvironmentBinding], environment: &str, busy: Option<&str>,
@@ -8735,6 +8799,54 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
     fn idle_test_capacity() -> Option<CapacityReadback> {
         Some(serde_json::from_value(capacity_json(false, 0, 0)["capacity"].clone()).unwrap())
     }
+    #[test]
+    fn ordinary_transition_keeps_old_recovery_and_exact_connection_resume_only() {
+        let operation = "ab".repeat(16);
+        let mut row = ui::VendorApplication {id: "native-access".into(), name: "Native Access".into(),
+            version: String::new(), state: "cleanup pending".into(), details: json!({}), actions: vec![
+                action("Open", ui::Action::RendererOpen {application: "cd".repeat(32),
+                    policy: ui::RendererPolicy::Inherited}, Some("Retire the exact current application operation first")),
+                action("Prepare", ui::Action::DependencyPrepare {}, None),
+                action("Stop", ui::Action::RendererStop {operation: operation.clone()}, None),
+                action("Connect", ui::Action::EnvironmentRefreshResume {operation}, None),
+            ]};
+        let recovery = row.actions[2..].to_vec();
+        let mut incompatible = row.clone();
+        ordinary_application_transition(&mut incompatible, false, false);
+        assert_eq!(serde_json::to_value(&incompatible.actions[..row.actions.len()]).unwrap(),
+            serde_json::to_value(&row.actions).unwrap(), "an unsupported rendering choice keeps its exact old controls");
+        assert_eq!(incompatible.actions.last().unwrap().disabled_reason.as_deref(),
+            Some(vendor_cli::registration::RENDERING_UNSUPPORTED));
+        ordinary_application_transition(&mut row, false, true);
+        assert!(matches!(row.actions[0].action, ui::Action::RendererDiscover {}));
+        assert_eq!(row.actions[0].disabled_reason.as_deref(), Some("Retire the exact current application operation first"));
+        assert_eq!(serde_json::to_value(&row.actions[1..]).unwrap(), serde_json::to_value(&recovery).unwrap());
+        ordinary_application_transition(&mut row, true, true);
+        assert_eq!(serde_json::to_value(&row.actions).unwrap(), serde_json::to_value(&recovery).unwrap());
+    }
+    #[test]
+    fn selected_ordinary_application_keeps_unfinished_legacy_projection() {
+        let f = test_fixture::Fixture::new();
+        assert!(renderer_cli::all_retired(&f.m).unwrap());
+        assert!(dependency_cli::all_retired(&f.m).unwrap());
+        let operation = "ab".repeat(16);
+        let resume = action("Continue connecting plug-ins", ui::Action::EnvironmentRefreshResume {
+            operation: operation.clone()}, Some("Exact setup is busy"));
+        for phase in [ui::InstallationPhase::Discovering, ui::InstallationPhase::NeedsAttention,
+            ui::InstallationPhase::Available, ui::InstallationPhase::AwaitingApplication] {
+            let mut row = ui::VendorApplication {id: "native-access".into(), name: "Native Access".into(),
+                version: String::new(), state: "closed".into(), actions: vec![resume.clone()],
+                details: json!({"journey":ui::InstallationJourney {daw:ui::DawChoice::Reaper,
+                    phase,plugins:vec![],failure:None}})};
+            let projected = ordinary_application_projection(&f.m, row.clone(), true, true).unwrap().unwrap();
+            assert_eq!(serde_json::to_value(&projected.actions).unwrap(), json!([resume]));
+            assert_eq!(projected.details, row.details);
+            row.actions.clear();
+            let projected = ordinary_application_projection(&f.m, row, true, true).unwrap();
+            assert_eq!(projected.is_some(), !matches!(phase,
+                ui::InstallationPhase::Available | ui::InstallationPhase::AwaitingApplication));
+        }
+    }
     fn renderer_preflight_fixture() -> (test_fixture::Fixture, ui::Action) {
         use linux_vst_bridge::renderer_application as renderer;
         let (f, _) = onboarding_worker_fixture();
@@ -8764,6 +8876,30 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         let action = ui::Action::RendererOpen { application: application.identity().unwrap(),
             policy: renderer::RendererPolicy::SoftwareRendering };
         (f, action)
+    }
+    #[test]
+    fn retained_rendering_must_equal_the_ordinary_profile_before_transition() {
+        let (f, _) = renderer_preflight_fixture();
+        let app = renderer_cli::current_application(&f.m).unwrap();
+        let operation = "ab".repeat(16);
+        let directory = renderer_session::operation_dir(&f.m, &operation).unwrap();
+        private_dir(&directory).unwrap();
+        assert_eq!(vendor_profile::native_access().unwrap().rendering, ui::RendererPolicy::SoftwareRendering);
+        for (policy, compatible) in [(ui::RendererPolicy::Inherited, false),
+            (ui::RendererPolicy::SoftwareRendering, true)] {
+            let current = json!({"operation":operation,"application":app.identity().unwrap(),"policy":policy});
+            let spec = json!({"operation":operation,"application":app,"renderer_policy":policy});
+            atomic_json(&renderer_cli::directory(&f.m).join("current.json"), &current).unwrap();
+            atomic_json(&directory.join("spec.json"), &spec).unwrap();
+            let before = test_fixture::snapshot(&f.m.root);
+            assert_eq!(vendor_cli::registration::saved_rendering(&f.m, &app).unwrap(), policy);
+            assert_eq!(vendor_cli::registration::rendering_compatible(&f.m, &app).unwrap(), compatible);
+            assert_eq!(test_fixture::snapshot(&f.m.root), before);
+        }
+        let mut spec: Value = read_json(&directory.join("spec.json")).unwrap();
+        spec["renderer_policy"] = json!(ui::RendererPolicy::Inherited);
+        atomic_json(&directory.join("spec.json"), &spec).unwrap();
+        assert!(vendor_cli::registration::rendering_compatible(&f.m, &app).is_err());
     }
     #[test]
     fn preparation_inspection_admission_waits_for_polling_registry() {

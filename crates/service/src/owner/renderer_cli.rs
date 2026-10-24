@@ -18,6 +18,7 @@ fn operation_dir(m: &Manager, op: &str) -> Result<PathBuf> {
     require(valid_hex(op,32),"renderer_operation_identity")?;
     Ok(directory(m).join("operations").join(op))
 }
+#[cfg(test)]
 fn unit(op: &str) -> Result<String> {require(valid_hex(op,32),"renderer_operation_identity")?;Ok(format!("linux-vst-bridge-renderer-{op}.service"))}
 pub(super) fn live(op: &str) -> Result<bool> {
     #[cfg(test)]
@@ -32,32 +33,15 @@ pub(super) fn all_retired(m: &Manager) -> Result<bool> {
     lifecycle::retired(m,op)
 }
 pub(super) fn discover(m: &Manager) -> Result<Value> {
-    // Census, hashing and runner checks stay outside registry authority.
-    let app=renderer::discover(&m.root)?;
-    let _guard=m.lock("registry.lock")?;capacity::require_environment_inactive(m,&app.environment)?;
-    require(all_retired(m)?,"renderer_previous_cleanup_unconfirmed")?;
-    let d=directory(m);private_dir(&d)?;let p=d.join("application.json");
-    if p.exists(){require(current_application(m)?==app,"renderer_application_update_requires_transition")?;}
-    else{atomic_json(&p,&app)?;}
-    Ok(json!({"application":app.identity()?,"installed_identity":"verified","renderer_cause":"unresolved"}))
+    vendor_cli::registration::retained_renderer(m)
 }
 pub(super) fn launch(m: &Manager, identity: &str, policy: renderer::RendererPolicy, op: &str) -> Result<lifecycle::Submission> {
-    let app=current_application(m)?;
-    require(app.identity()?==identity,"renderer_application_selection_changed")?;app.verify(&m.root)?;
-    let sw=linux_vst_bridge::preparation::build::launch_software(m)?;let d=operation_dir(m,op)?;
-    let spec=native_access_dependency::bind_session(m,&app,&sw,op,policy,&d.join("result.json"))?;
-    let _guard=m.lock("registry.lock")?;capacity::require_environment_inactive(m,&app.environment)?;
-    require(!operator_cli::vendor_maintenance::blocks(m,&app.environment)?,"setup_maintenance_active")?;
-    require(all_retired(m)?,"renderer_previous_cleanup_unconfirmed")?;
-    lifecycle::submit_with(m,&spec,|path|Ok(Command::new("systemd-run").args(["--user","--collect","--slice=app.slice","--property=UMask=0077","--property=KillMode=mixed",
-        "--property=TimeoutStopSec=90","--property=StandardOutput=null","--property=StandardError=null"])
-        .arg(format!("--unit={}",unit(op)?)).arg("/usr/bin/python3").args(linux_vst_bridge::supervisor::arguments(&sw.supervisor, &sw.ownership)?)
-        .arg("--vendor-application").arg(path).status()?.success()),||lifecycle::inspect(op))
+    vendor_app::open_retained(m, identity, policy, op)
 }
 
 fn exact_current(m: &Manager, op: &str) -> Result<()> {require(current(m)?["operation"]==op,"renderer_operation_changed")}
 pub(super) fn stop(m: &Manager, op: &str) -> Result<()> {
-    let _guard=m.lock("registry.lock")?;lifecycle::stop(m,op)
+    vendor_app::stop_retained(m, op, false)
 }
 pub(super) fn reconcile(m:&Manager,op:&str)->Result<lifecycle::Submission>{lifecycle::reconcile(m,op)}
 fn focus_with(m:&Manager,op:&str,running:impl FnOnce()->Result<bool>,response:impl FnOnce(&str)->Result<Value>)->Result<Value> {

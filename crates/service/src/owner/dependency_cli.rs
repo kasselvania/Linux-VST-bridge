@@ -12,43 +12,7 @@ pub(super) fn all_retired(m: &Manager) -> Result<bool> {
     life::retired(m, c["operation"].as_str().ok_or("dependency_current")?)
 }
 pub(super) fn launch(m: &Manager, op: &str) -> Result<life::Submission> {
-    let application=renderer_cli::current_application(m)?;
-    application.verify(&m.root)?;
-    let software = linux_vst_bridge::preparation::build::launch_software(m)?;
-    let directory = life::operation_dir(m, op)?;
-    let spec = dep::bind(&application, &software, op, &directory.join("result.json"))?;
-    let _guard = m.lock("registry.lock")?;
-    require(!operator_cli::vendor_maintenance::blocks(m,&application.environment)?,"setup_maintenance_active")?;
-    capacity::require_environment_inactive(m,&application.environment)?;
-    require(
-        all_retired(m)? && renderer_cli::all_retired(m)?,
-        "dependency_previous_operation_live",
-    )?;
-    life::submit_with(
-        m,
-        &spec,
-        |path| {
-            Ok(Command::new("systemd-run")
-                .args([
-                    "--user",
-                    "--collect",
-                    "--slice=app.slice",
-                    "--property=UMask=0077",
-                    "--property=KillMode=mixed",
-                    "--property=TimeoutStopSec=90",
-                    "--property=StandardOutput=null",
-                    "--property=StandardError=null",
-                ])
-                .arg(format!("--unit={}", life::unit(op)?))
-                .arg("/usr/bin/python3")
-                .args(linux_vst_bridge::supervisor::arguments(&software.supervisor, &software.ownership)?)
-                .arg("--vendor-application")
-                .arg(path)
-                .status()?
-                .success())
-        },
-        || life::inspect(op),
-    )
+    vendor_app::prepare_retained_service(m, op)
 }
 pub(super) fn retain(m: &Manager, op: &str) -> Result<()> {
     let application=renderer_cli::current_application(m)?;
