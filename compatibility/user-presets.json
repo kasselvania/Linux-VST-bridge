@@ -1,4 +1,19 @@
 {
   "schema": 1,
-  "profiles": []
+  "profiles": [
+    {
+      "id": "serum2-2.1.5-instrument-user",
+      "module_sha256": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+      "class_id": "56534558667350736572756D20320000",
+      "root": {
+        "kind": "configured_json",
+        "file": "compatdata/pfx/drive_c/users/steamuser/AppData/Roaming/Xfer/Serum 2/Serum2Prefs.json",
+        "key": "Serum Presets Path",
+        "drive_c": "compatdata/pfx/drive_c",
+        "suffix": "Presets/User"
+      },
+      "extensions": ["SerumPreset"],
+      "compatibility": "serum2-2.1.5-instrument-user"
+    }
+  ]
 }

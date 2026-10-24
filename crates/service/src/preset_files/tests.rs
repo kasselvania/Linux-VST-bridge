@@ -284,7 +284,10 @@ fn incomplete_and_changed_backups_never_restore() {
 }
 #[test]
 fn unknown_catalog_never_qualifies_historical_vendor_paths() {
-    assert!(profiles().unwrap().is_empty());
+    assert!(profiles()
+        .unwrap()
+        .iter()
+        .all(|profile| profile.module_sha256 != "aa".repeat(32)));
     let f = fixture();
     let mut other = f.binding.product.clone();
     other.module_sha256 = "aa".repeat(32);
