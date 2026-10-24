@@ -930,10 +930,16 @@ mod tests {
                 let class = key.class_id.clone();
                 let (began, copying) = std::sync::mpsc::channel();
                 let (resume, resumed) = std::sync::mpsc::channel();
+                let (contended, contention) = std::sync::mpsc::channel();
                 files::COPY_CHECKPOINT.with(|hook| {
                     *hook.borrow_mut() = Some(Box::new(move || {
                         began.send(()).unwrap();
                         resumed.recv_timeout(Duration::from_secs(10)).unwrap();
+                        if matches!(change, "reader" | "reader_unwaited") {
+                            linux_vst_bridge::operator_lock::BUSY_OBSERVER.with(|observer| {
+                                *observer.borrow_mut() = Some(Box::new(move || contended.send(()).unwrap()));
+                            });
+                        }
                     }))
                 });
                 let observer = std::thread::spawn(move || {
@@ -982,24 +988,22 @@ mod tests {
                         .then(|| manager.lock("registry.lock").unwrap());
                     resume.send(()).unwrap();
                     if reader.is_some() {
-                        std::thread::sleep(Duration::from_millis(250));
+                        contention.recv_timeout(Duration::from_secs(10)).unwrap();
                     }
                     drop(reader);
                 });
-                // The unscoped counterexample reproduces the old transport
-                // path. The public action must wait through the same reader.
-                let dispatch = if change == "reader_unwaited" { answer_waiting } else { answer };
-                let receipt = dispatch(
-                    &f.m,
-                    ui::Request {
+                // Zero waiting reproduces the old fail-fast transport while
+                // exposing the actual busy attempt to the synchronization hook.
+                // The public action must wait through the same reader.
+                let request = ui::Request {
                         schema: ui::OPERATOR_SCHEMA,
                         state_token: detail.state_token,
                         action,
-                    },
-                    None,
-                    None,
-                )
-                .unwrap();
+                    };
+                let receipt = if change == "reader_unwaited" {
+                    linux_vst_bridge::operator_lock::with_operator_registry_wait(Duration::ZERO,
+                        || answer_waiting(&f.m, request, None, None))
+                } else { answer(&f.m, request, None, None) }.unwrap();
                 observer.join().unwrap();
                 assert_eq!(receipt.receipt.accepted, matches!(change, "none" | "reader"), "{change}");
                 assert_eq!(
