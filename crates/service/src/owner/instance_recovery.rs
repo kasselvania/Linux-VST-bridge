@@ -296,8 +296,8 @@ pub(super) fn validate(m: &Manager, action: &ui::Action) -> Result<()> {
         return Err("proxy_restart_action".into());
     };
     let entry = entry(instance)?;
-    let state = entry.state.lock().map_err(|_| "proxy_state_poisoned")?;
-    admissible(m, &entry, &state, &command(action, [1; 16])?)
+    checked_restart(m, instance, &entry.state, &command(action, [1; 16])?, None,
+        |state| require_connected(&entry, state)).map(|_| ())
 }
 pub(super) fn execute(
     m: &Manager,
@@ -309,11 +309,7 @@ pub(super) fn execute(
     };
     let entry = entry(instance)?;
     let command = command(action, wire::decode_id(operation)?)?;
-    {
-        let mut state = entry.state.lock().map_err(|_| "proxy_state_poisoned")?;
-        require_connected(&entry, &state)?;
-        begin_restart(m, instance, &mut state, command)?;
-    }
+    begin_restart(m, instance, &entry.state, command, |state| require_connected(&entry, state))?;
     let deadline = Instant::now() + Duration::from_secs(wire::RECOVERY_SECONDS);
     loop {
         let mut state = entry.state.lock().map_err(|_| "proxy_state_poisoned")?;
@@ -448,7 +444,7 @@ fn connected() -> Vec<Arc<Entry>> {
 }
 pub(super) fn project(m: &Manager, products: &mut [ui::Product]) -> Result<()> {
     for entry in connected() {
-        let state = entry.state.lock().map_err(|_| "proxy_state_poisoned")?;
+        let state = snapshot_state(&entry.state)?;
         if !state.connected || state.seen.elapsed() >= Duration::from_secs(2) {
             continue;
         }
@@ -475,7 +471,7 @@ pub(super) fn augment_activity(m: &Manager, activity: &mut ui::LiveActivity) -> 
         return Ok(());
     };
     for entry in connected() {
-        let state = entry.state.lock().map_err(|_| "proxy_state_poisoned")?;
+        let state = snapshot_state(&entry.state)?;
         if !state.connected || state.seen.elapsed() >= Duration::from_secs(2) {
             continue;
         }
@@ -760,6 +756,48 @@ mod tests {
                     revision:9, sha256:hex(&[8;32]) }});
             assert!(state.pending.is_none());
             assert!(!binding_path(&f.m, &entry.original).unwrap().exists());
+        }
+    }
+    #[test]
+    fn legacy_restart_offer_recording_and_admission_cross_retained_history_boundary() {
+        for count in [2047, 4096] {
+            let f = Fixture::new();
+            retain_unrelated_test_history(&f.m, count);
+            let entry = entry(&f);
+            {
+                let mut state = entry.state.lock().unwrap();
+                state.status.revision = 9;
+                state.status.digest = [8;32];
+            }
+            let path = report(&f.m, &entry.original).with_extension("ownership.json");
+            private_dir(path.parent().unwrap()).unwrap();
+            atomic_json(&path, &serde_json::json!({"session":entry.original,
+                "cleanup_confirmed":true,"transport_retired":true})).unwrap();
+            let before = snapshot_state(&entry.state).unwrap();
+            let offer = observed(&entry, &before, &f.m).restart.unwrap();
+            assert!(offer.disabled_reason.is_none(), "{count}: {:?}", offer.disabled_reason);
+            assert_eq!(fs::read_dir(f.m.root.join("operator")).unwrap().count(), count as usize + 1);
+            assert!(!binding_path(&f.m, &entry.original).unwrap().exists());
+            let request = ui::Request { schema:ui::OPERATOR_SCHEMA,
+                state_token:"exact-live-instance".into(), action:offer.action };
+            // Use the same durable request writer as dispatch_recorded, before
+            // the owner's admission check. The new directory crosses 2048.
+            let operation = operator_cli::test_begin_request(&f.m, &request).unwrap();
+            assert_eq!(fs::read_dir(f.m.root.join("operator")).unwrap().count(), count as usize + 2);
+            let command = command(&request.action, wire::decode_id(&operation).unwrap()).unwrap();
+            drop(checked_restart(&f.m, &entry.original, &entry.state, &command, None,
+                |state| require_connected(&entry, state)).unwrap());
+            assert!(!binding_path(&f.m, &entry.original).unwrap().exists());
+            atomic_json(&f.m.root.join("operator").join(&operation).join("result.json"),
+                &serde_json::json!({"schema":1,"operation":operation,
+                    "state":"running","action":request.action})).unwrap();
+            begin_restart(&f.m, &entry.original, &entry.state, command,
+                |state| require_connected(&entry, state)).unwrap();
+            let mut state = entry.state.lock().unwrap();
+            assert_eq!(state.status, before.status);
+            assert_eq!(retained_restart(&f.m, &entry.original).unwrap(), Some(command));
+            assert_eq!(outgoing(&f.m, &mut state), command);
+            assert_eq!(outgoing(&f.m, &mut state), wire::Command::default());
         }
     }
     #[test]
