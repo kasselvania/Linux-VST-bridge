@@ -8,9 +8,15 @@ pub use ap1_native_client::admission::Refusal;
 #[serde(rename_all = "snake_case")]
 pub enum Kind {
     Dsp,
+    /// Ordinary plug-in instance with an editor and no audio-device connection.
+    Detached,
     Keeper,
     Inspection,
     VendorAccess,
+}
+
+impl Kind {
+    pub fn is_instance(self) -> bool { matches!(self, Self::Dsp | Self::Detached) }
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -267,6 +273,18 @@ pub fn status(m: &Manager, limits: Limits, workers: usize, blocked: bool) -> Res
     status_with_wait(m, limits, workers, blocked, std::time::Duration::from_secs(2))
 }
 
+/// Read the same census without waiting behind a mutation. A missed read is
+/// unavailable, never a cached idle result. Yield to an already waiting writer.
+pub fn status_observed(m: &Manager, limits: Limits, workers: usize, blocked: bool) -> Result<Status> {
+    limits.verify()?;
+    require(!operator_lock::registry_writer_waiting(m), "capacity_observation_busy")?;
+    let _lock = match m.try_lock_shared("registry.lock")? {
+        operator_lock::LockAttempt::Acquired(lock) => lock,
+        operator_lock::LockAttempt::Busy => return Err("capacity_observation_busy".into()),
+    };
+    status_locked(m, limits, workers, blocked)
+}
+
 fn status_with_wait(
     m: &Manager,
     limits: Limits,
@@ -285,6 +303,11 @@ fn status_with_wait(
         None,
         wait,
     )?;
+    status_locked(m, limits, workers, blocked)
+}
+
+/// Caller holds shared or exclusive registry custody.
+fn status_locked(m: &Manager, limits: Limits, workers: usize, blocked: bool) -> Result<Status> {
     // The envelope describes the sealed historical fixture policy. Production
     // admission is a different policy and claims no qualification envelope.
     let envelope = if limits == fixture_limits() {
@@ -317,7 +340,7 @@ fn status_with_wait(
         setups.insert(key, e.registration.environment);
     }
     let owners = owners(m)?;
-    let dsp = owners.iter().filter(|o| o.kind == Kind::Dsp).count();
+    let dsp = owners.iter().filter(|o| o.kind.is_instance()).count();
     let maintenance = owners
         .iter()
         .filter(|o| matches!(o.kind, Kind::Inspection | Kind::VendorAccess))
@@ -444,11 +467,11 @@ fn session_identity(session: &str) -> Result<[u8; 16]> {
     Ok(result)
 }
 
-fn terminal_status_from(
+pub(crate) fn terminal_file_from(
     durable: &Path,
     source_directory: &Path,
     session: &str,
-) -> Result<Option<InstanceTerminal>> {
+) -> Result<Option<File>> {
     use std::os::unix::fs::FileExt;
     let target = durable.join("if1.terminal");
     let target_metadata = match fs::symlink_metadata(&target) {
@@ -478,6 +501,14 @@ fn terminal_status_from(
         && u32::from_le_bytes(header[4..8].try_into().unwrap()) == 1
         && u32::from_le_bytes(header[8..12].try_into().unwrap()) == 2048
         && header[16..32] == identity, "terminal_status_binding")?;
+    Ok(Some(file))
+}
+
+fn terminal_status_from(durable: &Path, source_directory: &Path, session: &str)
+    -> Result<Option<InstanceTerminal>> {
+    use std::os::unix::fs::FileExt;
+    let Some(file) = terminal_file_from(durable, source_directory, session)? else { return Ok(None) };
+    let identity = session_identity(session)?;
     for _ in 0..3 {
         let mut before = [0u8; 8];
         file.read_exact_at(&mut before, 64)?;
@@ -533,7 +564,30 @@ fn terminal_status(
 pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
     owners_for(m, None)
 }
+/// Exact retained records under registry custody; shared by admission and observation.
+/// The observation path must not resolve instances through today's publication.
+pub(crate) struct ActiveRecord {
+    pub owner: Owner,
+    pub document: serde_json::Value,
+    pub path: PathBuf,
+    pub report: PathBuf,
+}
+
 pub fn owners_for(m: &Manager, environment: Option<&Environment>) -> Result<Vec<Owner>> {
+    active_records_for(m, environment)?.into_iter().map(|mut record| {
+        let transport = match record.document.get("transport") {
+            Some(value) if !value.is_null() => Some(serde_json::from_value::<transport_storage::MemoryTransport>(value.clone())?),
+            _ => None,
+        };
+        if record.owner.kind == Kind::Dsp {
+            record.owner.terminal = terminal_status(record.path.parent().unwrap(),
+                &record.owner.session, transport.as_ref())?;
+        }
+        Ok(record.owner)
+    }).collect()
+}
+
+pub(crate) fn active_records_for(m: &Manager, environment: Option<&Environment>) -> Result<Vec<ActiveRecord>> {
     let leases = m.root.join("runtime/leases");
     if !leases.try_exists()? {
         return Ok(Vec::new());
@@ -575,6 +629,12 @@ pub fn owners_for(m: &Manager, environment: Option<&Environment>) -> Result<Vec<
             None => false,
             Some(v) => v.as_bool().ok_or("active_lease_unresolved")?,
         };
+        let detached = match o.get("detached") {
+            None => false,
+            Some(v) => v.as_bool().ok_or("active_lease_unresolved")?,
+        };
+        require(!detached || (!keeper && !inspect && !access && o["shared_runtime"] == true
+            && o["finish_setup"].as_bool().is_none_or(|flag| !flag)), "lease_identity")?;
         // The existing standalone module census intentionally has no selected
         // class yet. It is maintenance, never an unclassified DSP admission.
         let module_census = class.is_empty()
@@ -620,28 +680,18 @@ pub fn owners_for(m: &Manager, environment: Option<&Environment>) -> Result<Vec<
                 Kind::Inspection
             } else if access {
                 Kind::VendorAccess
+            } else if detached {
+                Kind::Detached
             } else {
                 Kind::Dsp
             }
         };
-        let transport = match o.get("transport") {
-            Some(value) if !value.is_null() => {
-                Some(serde_json::from_value::<transport_storage::MemoryTransport>(value.clone())?)
-            }
-            _ => None,
-        };
-        result.push(Owner {
-            session: sid.into(),
-            class_id: class.to_uppercase(),
-            kind,
-            terminal: if kind == Kind::Dsp {
-                terminal_status(owner_path.parent().unwrap(), sid, transport.as_ref())?
-            } else {
-                None
-            },
+        result.push(ActiveRecord {
+            owner: Owner { session: sid.into(), class_id: class.to_uppercase(), kind, terminal: None },
+            document: o, path: owner_path, report,
         });
     }
-    result.sort_by(|a, b| a.session.cmp(&b.session));
+    result.sort_by(|a, b| a.owner.session.cmp(&b.owner.session));
     Ok(result)
 }
 
@@ -652,7 +702,7 @@ pub fn require_environment_inactive(m: &Manager, environment: &Environment) -> R
         if owner.kind == Kind::Keeper { continue; }
         require(m.lease_environment(&owner.session).is_ok_and(|scope|
             scope.id != environment.id && scope.root != environment.root),
-            if owner.kind == Kind::Dsp { "active_device_lease" } else { "active_maintenance_lease" })?;
+            if owner.kind.is_instance() { "active_device_lease" } else { "active_maintenance_lease" })?;
     }
     Ok(())
 }
@@ -668,7 +718,7 @@ fn check_selected(
     {
         return Err(Refusal::MaintenanceActive.into());
     }
-    let dsp = owners.iter().filter(|o| o.kind == Kind::Dsp).count();
+    let dsp = owners.iter().filter(|o| o.kind.is_instance()).count();
     let Some(class) = class else {
         return if dsp == 0 {
             Ok(())
@@ -733,6 +783,31 @@ pub fn reserve_environment(
     let image = if limits.classes.iter().any(|policy| policy.class_id == class) { None }
         else { image_capacity(m, limits.native_image_hard, class)? };
     check_selected(&records, limits, Some(class), image)?;
+    Ok(lock)
+}
+
+/// A detached instance owns a Windows host, but no slot in a loaded native
+/// engine image. It shares the finite service instance budget and exact setup
+/// exclusion with DAW instances; it never acquires maintenance authority.
+pub fn reserve_detached(m: &Manager, limits: &Limits, environment: &Environment,
+    blocked: impl FnOnce() -> Result<bool>) -> Result<Lock> {
+    let lock = m.lock("registry.lock").map_err(|error| {
+        if error.is::<crate::operator_lock::LockBusy>() { Refusal::ServiceBusy.into() } else { error }
+    })?;
+    limits.verify()?;
+    if blocked()? { return Err(Refusal::CleanupUnconfirmed.into()); }
+    let records = owners_for(m, Some(environment)).map_err(|_| Refusal::CleanupUnconfirmed)?;
+    for owner in &records {
+        if matches!(owner.kind, Kind::Inspection | Kind::VendorAccess) {
+            let scope = m.lease_environment(&owner.session)?;
+            if scope.id == environment.id || scope.root == environment.root {
+                return Err(Refusal::MaintenanceActive.into());
+            }
+        }
+    }
+    if records.iter().filter(|owner| owner.kind.is_instance()).count() >= limits.global_dsp {
+        return Err(Refusal::GlobalCapacity.into());
+    }
     Ok(lock)
 }
 
@@ -855,7 +930,8 @@ mod tests {
             &path,
             &serde_json::json!({"session":sid,"report":report,
             "keeper":kind==Kind::Keeper,"inspect":matches!(kind, Kind::Keeper|Kind::Inspection),
-            "vendor_access":kind==Kind::VendorAccess,
+            "vendor_access":kind==Kind::VendorAccess,"detached":kind==Kind::Detached,
+            "shared_runtime":kind==Kind::Detached,
             "registration":{"metadata":{"class_id":class}}}),
         )
         .unwrap();
@@ -1013,6 +1089,23 @@ mod tests {
         assert_eq!(error.downcast_ref::<operator_lock::AcquisitionFailure>().unwrap()
             .facts.outcome,operator_model::LockOutcome::Timeout);
         drop(held);
+    }
+    #[test]
+    fn observed_status_yields_to_writer_and_preserves_the_actual_census() {
+        let f = Fixture::new();
+        let held = f.m.lock("registry.lock").unwrap();
+        assert_eq!(status_observed(&f.m, limits(), 1, false).unwrap_err().to_string(),
+            "capacity_observation_busy");
+        lease(&f, &limits().classes[0].class_id, Kind::Inspection);
+        drop(held);
+        let expected = status(&f.m, limits(), 1, true).unwrap();
+        let shared = f.m.try_lock_shared("registry.lock").unwrap();
+        assert!(matches!(shared, operator_lock::LockAttempt::Acquired(_)));
+        let observed = status_observed(&f.m, limits(), 1, true).unwrap();
+        assert_eq!(serde_json::to_value(observed).unwrap(), serde_json::to_value(expected).unwrap());
+        drop(shared);
+        fs::write(f.m.root.join("runtime/leases/broken.json"), b"invalid").unwrap();
+        assert!(status_observed(&f.m, limits(), 1, false).is_err());
     }
     #[test]
     fn status_waits_for_contention_and_reads_new_owners() {
@@ -1660,7 +1753,7 @@ mod tests {
                 owners(&f.m)
                     .unwrap()
                     .iter()
-                    .filter(|o| o.kind == Kind::Dsp)
+                    .filter(|o| o.kind.is_instance())
                     .count(),
                 0
             );
@@ -1687,7 +1780,8 @@ mod tests {
         private_dir(owner.parent().unwrap()).unwrap();
         atomic_json(&owner, &serde_json::json!({"session":sid,"report":report,"lease":lease,
             "keeper":kind==Kind::Keeper,"inspect":matches!(kind, Kind::Keeper|Kind::Inspection),
-            "vendor_access":kind==Kind::VendorAccess,
+            "vendor_access":kind==Kind::VendorAccess,"detached":kind==Kind::Detached,
+            "shared_runtime":kind==Kind::Detached,
             "registration":{"environment":environment,"metadata":{"class_id":class}}})).unwrap();
         f.m.retain_lease_owner(&owner).unwrap();
         private_dir(lease.parent().unwrap()).unwrap();
@@ -1701,6 +1795,39 @@ mod tests {
         crate::preparation::enable(&f.m, &candidate, false).unwrap();
         let other = other_environment(&f);
         (f, candidate.selection.class.id.clone(), other)
+    }
+    #[test]
+    fn detached_windows_share_instance_budget_and_setup_custody_but_not_native_image_slots() {
+        let (f,class,other)=production_fixture();
+        let limits=service_limits();
+        let mut leases=vec![];
+        for _ in 0..limits.native_image_hard {
+            let _guard=reserve_environment(&f.m,&limits,&class,&f.r.environment,||Ok(false)).unwrap();
+            leases.push(lease_in(&f,&class,Kind::Dsp,&f.r.environment));
+        }
+        assert_eq!(reason(reserve_environment(&f.m,&limits,&class,&f.r.environment,||Ok(false))),
+            Refusal::NativeImageCapacity.code());
+        // A full native image does not own this separate host's editor.
+        {
+            let _guard=reserve_detached(&f.m,&limits,&f.r.environment,||Ok(false)).unwrap();
+            leases.push(lease_in(&f,&class,Kind::Detached,&f.r.environment));
+        }
+        assert!(require_environment_inactive(&f.m,&f.r.environment).is_err());
+        assert!(require_environment_inactive(&f.m,&other).is_ok());
+        assert_eq!(owners(&f.m).unwrap().iter().filter(|o|o.kind.is_instance()).count(),5);
+        let other_maintenance=lease_in(&f,&class,Kind::Inspection,&other);
+        drop(reserve_detached(&f.m,&limits,&f.r.environment,||Ok(false)).unwrap());
+        assert_eq!(reason(reserve_detached(&f.m,&limits,&other,||Ok(false))),Refusal::MaintenanceActive.code());
+        fs::remove_file(other_maintenance).unwrap();
+        while leases.len()<limits.global_dsp {
+            let _guard=reserve_detached(&f.m,&limits,&f.r.environment,||Ok(false)).unwrap();
+            leases.push(lease_in(&f,&class,Kind::Detached,&f.r.environment));
+        }
+        assert_eq!(reason(reserve_detached(&f.m,&limits,&other,||Ok(false))),Refusal::GlobalCapacity.code());
+        // Exact retirement returns only its ordinary unit, preserving siblings.
+        fs::remove_file(leases.pop().unwrap()).unwrap();
+        drop(reserve_detached(&f.m,&limits,&other,||Ok(false)).unwrap());
+        assert!(leases.iter().all(|path|path.exists()));
     }
     /// The production admission path: reserve, then publish the lease under the reservation.
     fn admit(f: &Fixture, class: &str) -> Result<PathBuf> {

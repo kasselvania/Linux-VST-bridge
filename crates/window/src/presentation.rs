@@ -628,7 +628,7 @@ impl<'a> Builder<'a> {
         }
         match screen {
             Screen::Home(home) => self.home(home),
-            Screen::Setup(setup) => self.setup(setup, state, update),
+            Screen::Setup(setup) => self.setup(setup, state, update, snapshot),
             Screen::Plugins { not_current, list, single } => snapshot.map(|snapshot| self.plugins(not_current.as_ref(), list, *single, snapshot, state))
                 .unwrap_or_else(|| vec![words(Role::Body, "Reading plug-ins…")]),
             Screen::PluginsLoading(list) => self.loading(list, state),

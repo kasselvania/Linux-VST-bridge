@@ -129,7 +129,7 @@ pub enum Route {
     Record(Action),
     /// Name the installer.
     Rename(Action),
-    /// Confirm what the removal or deletion changes.
+    /// Review a setup change, removal or deletion before sending it.
     Confirm(Action),
 }
 
@@ -150,7 +150,7 @@ pub fn route(action: Action, daw: Option<DawChoice>) -> Route {
 /// Removing from the DAW or deleting a setup always asks first.
 pub fn needs_confirmation(action: &Action) -> bool {
     matches!(action, Action::PluginRemoveFromDaw { .. } | Action::SetupRemoveFromDaw { .. }
-        | Action::SetupDelete { .. } | Action::ProductUninstall { .. })
+        | Action::SetupDelete { .. } | Action::ProductUninstall { .. } | Action::EnvironmentRuntimeSelect { .. })
 }
 /// Setup-level removal offers live in their own section of the setup card.
 pub fn removal_offer(action: &Action) -> bool {
@@ -213,6 +213,26 @@ fn confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirmation {
             forget: None };
     };
     match action {
+        Action::EnvironmentRuntimeSelect { .. } => {
+            let preview = snapshot.presentation.observed().and_then(|p|
+                p.change_previews.iter().find(|p| p.action == offered));
+            let mut body = vec![];
+            if let Some(preview) = preview {
+                body.push(preview.consequence.clone());
+                for setup in &preview.affected {
+                    body.push(format!("Changes: {}{}", setup.name, setup_members(setup)));
+                }
+                for setup in &preview.unchanged {
+                    body.push(format!("Unchanged: {}{}", setup.name, setup_members(setup)));
+                }
+            }
+            let offer = if preview.is_some() {
+                current(snapshot.environment_installers.iter().flat_map(|t| &t.runtime)
+                    .flat_map(|r| &r.choices).collect())
+            } else { Err("The current setup impact is unavailable. Refresh before changing its runtime.".into()) };
+            Confirmation { title: "Review this runtime change", body, confirm: "Change this setup's runtime",
+                cancel: "Not now", offer, forget: None }
+        }
         Action::PluginRemoveFromDaw { class_id, .. } => {
             let product = snapshot.products.iter().find(|p| p.class_id.eq_ignore_ascii_case(class_id)
                 && p.actions.iter().any(|offer| offer.action == *action));
@@ -285,6 +305,11 @@ fn confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirmation {
         _ => Confirmation { title: "Check current status", body: vec![], confirm: "Continue", cancel: "Close",
             offer: Err(CHANGED.into()), forget: None },
     }
+}
+
+fn setup_members(setup: &crate::model::SetupSummary) -> String {
+    if setup.product_names.is_empty() { String::new() }
+    else { format!(" — {}", setup.product_names.join(", ")) }
 }
 
 /// Naming an installer for display.
@@ -463,6 +488,31 @@ pub fn compatibility_result_refusal<'a>(offer: Option<&'a Result<Option<String>,
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn runtime_change_requires_an_exact_current_impact_and_offer() {
+        use crate::model::{ChangePreview, Observation, SetupSummary};
+        let mut snapshot = crate::samples::snapshot(crate::window::Page::Setup, Some("existing_setup"));
+        let action = snapshot.environment_installers.iter().flat_map(|t| &t.runtime)
+            .flat_map(|r| &r.choices).find(|o| o.disabled_reason.is_none()).unwrap().action.clone();
+        assert_eq!(route(action.clone(), Some(DawChoice::Reaper)), Route::Confirm(action.clone()));
+        assert!(removal_confirmation(Some(&snapshot), &action).offer.is_err());
+        let setup = SetupSummary { environment: "exact-setup".into(), name: "Affected setup".into(),
+            products: vec![], product_names: vec!["Instrument".into()], runtime: Observation::Observed("kept-runtime".into()) };
+        let Observation::Observed(view) = &mut snapshot.presentation else { panic!() };
+        view.change_previews.push(ChangePreview { action: action.clone(), affected: vec![setup],
+            unchanged: vec![], consequence: "Other setups keep playing".into() });
+        let confirmation = removal_confirmation(Some(&snapshot), &action);
+        assert!(confirmation.offer.is_ok());
+        assert!(confirmation.body.iter().any(|line| line.contains("Affected setup") && line.contains("Instrument")));
+        let mut changed = action.clone();
+        if let Action::EnvironmentRuntimeSelect { expected_environment, .. } = &mut changed { *expected_environment = "new-revision".into(); }
+        assert!(removal_confirmation(Some(&snapshot), &changed).offer.is_err());
+        for target in &mut snapshot.environment_installers {
+            if let Some(runtime) = &mut target.runtime { runtime.choices.clear(); }
+        }
+        assert!(removal_confirmation(Some(&snapshot), &action).offer.is_err(), "a preview never grants an offer");
+    }
 
     #[test]
     fn every_removal_asks_first_and_an_installation_asks_for_the_daw_until_chosen() {

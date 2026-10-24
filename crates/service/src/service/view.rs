@@ -59,6 +59,10 @@ impl Views {
     pub fn cover(&self, changes: Changes) {
         let _ = self.changes.set(changes);
     }
+    /// Drain the same watch used by current reads. A push never grants offers.
+    pub fn records_revision(&self) -> Option<u64> {
+        self.changes.get().and_then(Changes::generation)
+    }
     fn held(&self) -> std::sync::MutexGuard<'_, Held> {
         self.held.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
     }

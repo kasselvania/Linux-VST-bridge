@@ -91,6 +91,12 @@ pub struct Preview {
 }
 
 impl Preview {
+    /// Owner-shaped fixture only; no service or real window is opened.
+    pub fn display_fixture(&mut self) {
+        samples::display_fixture(&mut self.sample.snapshot);
+        self.state.go(&Destination::Product(ProductKey::from(&self.sample.snapshot.products[0])));
+        self.rebuild();
+    }
     /// Sample-only report data for rendered interaction checks; never writes a file.
     pub fn report_fixture(&mut self) {
         self.state.page = Page::Diagnostics;

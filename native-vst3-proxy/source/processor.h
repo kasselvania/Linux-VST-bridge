@@ -2,6 +2,7 @@
 #include "public.sdk/source/vst/vstaudioeffect.h"
 #include "admission_refusal.h"
 #include "host_block.h"
+#include "host_application.h"
 #include <atomic>
 #include <cstdint>
 #include <memory>
@@ -88,6 +89,7 @@ private:
     Terminated,
     ContainedTerminal
   };
+  LVBHost::Name host_name_; // Captured only during initialize, before activation.
   std::atomic<Phase> phase_{New};
   std::atomic<bool> terminal_latched_{false};
   bool terminal();

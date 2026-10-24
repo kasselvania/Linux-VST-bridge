@@ -3041,6 +3041,7 @@ pub(crate) mod tests {
     pub(crate) fn projection_product(c: &prep::Candidate) -> ui::Product {
         let s = &c.selection;
         ui::Product {
+            display:ui::DisplayConfiguration::unavailable(),
             class_id: s.class.id.clone(),
             name: s.class.name.clone(),
             vendor: s.class.vendor.clone(),

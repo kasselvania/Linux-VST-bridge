@@ -46,6 +46,29 @@ pub struct PeerProcess {
     pub start_ticks: u64,
 }
 
+use crate::operator_model::ConsumerIdentity;
+
+/// A negative identity result is not cleanup evidence and never releases a lease.
+#[cfg(target_os = "linux")]
+pub fn consumer_current(identity: &ConsumerIdentity) -> Result<bool> {
+    require(crate::owner::valid_kernel_boot(&identity.boot_id) && identity.pid > 0 && identity.start_ticks > 0
+        && identity.uid == unsafe { libc::getuid() }, "consumer_identity")?;
+    if Some(identity.boot_id.as_str()) != crate::owner::kernel_boot()?.as_deref() { return Ok(false); }
+    // /proc/<pid> ownership can become root when a same-user peer disables
+    // dumpability. Its inode UID is not the authenticated consumer's UID.
+    match process_state(identity.pid) {
+        Ok((ticks, state)) => Ok(ticks == identity.start_ticks && !matches!(state, 'Z' | 'X')),
+        Err(error) if error.downcast_ref::<std::io::Error>().is_some_and(|error|
+            matches!(error.kind(), std::io::ErrorKind::NotFound)) => Ok(false),
+        Err(error) => Err(error), // a racing/malformed proc read remains unavailable
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn consumer_current(_identity: &ConsumerIdentity) -> Result<bool> {
+    Err("consumer_identity_requires_linux".into())
+}
+
 impl GraphicalSession {
     pub fn same_display_context(&self, other: &Self) -> bool {
         self.display == other.display
@@ -418,15 +441,24 @@ pub fn require_same_user(_peer: &std::os::unix::net::UnixStream) -> Result<()> {
 }
 #[cfg(target_os = "linux")]
 pub(crate) fn process_start_ticks(pid: i32) -> Result<u64> {
+    Ok(process_state(pid)?.0)
+}
+#[cfg(target_os = "linux")]
+fn process_state(pid: i32) -> Result<(u64, char)> {
     let stat = fs::read_to_string(format!("/proc/{pid}/stat"))?;
+    parse_process_state(&stat)
+}
+#[cfg(any(target_os = "linux", test))]
+fn parse_process_state(stat: &str) -> Result<(u64, char)> {
     let (_, fields) = stat.rsplit_once(") ").ok_or("peer_process_stat")?;
-    let start = fields
-        .split_ascii_whitespace()
-        .nth(19)
+    let mut fields = fields.split_ascii_whitespace();
+    let state = fields.next().ok_or("peer_process_stat")?;
+    require(state.len() == 1, "peer_process_stat")?;
+    let start = fields.nth(18)
         .ok_or("peer_process_stat")?
         .parse()?;
     require(start > 0, "peer_process_generation")?;
-    Ok(start)
+    Ok((start, state.chars().next().unwrap()))
 }
 #[cfg(target_os = "linux")]
 impl PeerProcess {
@@ -634,6 +666,55 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+    #[test]
+    fn process_stat_preserves_generation_and_zombie_state() {
+        for state in ["S", "Z", "X"] {
+            let stat = format!("42 (name with ) parentheses) {state} {} 9001 0", vec!["0"; 18].join(" "));
+            assert_eq!(parse_process_state(&stat).unwrap(), (9001, state.chars().next().unwrap()));
+        }
+        assert!(parse_process_state("42 (partial) S 0").is_err());
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn nondumpable_consumer_remains_the_same_authenticated_generation() {
+        let mut ready = [-1; 2];
+        let mut release = [-1; 2];
+        assert_eq!(unsafe { libc::pipe2(ready.as_mut_ptr(), libc::O_CLOEXEC) }, 0);
+        assert_eq!(unsafe { libc::pipe2(release.as_mut_ptr(), libc::O_CLOEXEC) }, 0);
+        let ready_read = unsafe { OwnedFd::from_raw_fd(ready[0]) };
+        let ready_write = unsafe { OwnedFd::from_raw_fd(ready[1]) };
+        let release_read = unsafe { OwnedFd::from_raw_fd(release[0]) };
+        let release_write = unsafe { OwnedFd::from_raw_fd(release[1]) };
+        let pid = unsafe { libc::fork() };
+        if pid == 0 {
+            // Only async-signal-safe syscalls after fork in the test process.
+            unsafe {
+                libc::close(ready_read.as_raw_fd());
+                libc::close(release_write.as_raw_fd());
+                let byte = [u8::from(libc::prctl(libc::PR_SET_DUMPABLE, 0, 0, 0, 0) == 0)];
+                let _ = libc::write(ready_write.as_raw_fd(), byte.as_ptr().cast(), 1);
+                libc::close(ready_write.as_raw_fd());
+                let mut release_byte = 0u8;
+                let _ = libc::read(release_read.as_raw_fd(), std::ptr::from_mut(&mut release_byte).cast(), 1);
+                libc::_exit(0);
+            }
+        }
+        assert!(pid > 0);
+        let child = ForkedChild { pid, release: release_write };
+        drop(ready_write);
+        drop(release_read);
+        let mut pollfd = libc::pollfd { fd:ready_read.as_raw_fd(), events:libc::POLLIN, revents:0 };
+        assert_eq!(unsafe { libc::poll(&mut pollfd, 1, 5_000) }, 1);
+        let mut byte = 0u8;
+        assert_eq!(unsafe { libc::read(ready_read.as_raw_fd(), std::ptr::from_mut(&mut byte).cast(), 1) }, 1);
+        assert_eq!(byte, 1, "child must actually disable dumpability");
+        let identity = ConsumerIdentity { boot_id:crate::owner::kernel_boot().unwrap().unwrap(),
+            pid, uid:unsafe { libc::getuid() }, start_ticks:process_start_ticks(pid).unwrap() };
+        assert!(consumer_current(&identity).unwrap());
+        let status = child.release_and_wait();
+        assert!(libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0);
+        assert!(!consumer_current(&identity).unwrap());
     }
     #[test]
     fn graphical_context_uses_only_the_authenticated_peer_allowlist() {

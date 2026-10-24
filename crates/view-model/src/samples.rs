@@ -6,7 +6,9 @@ use crate::{model, window::Page};
 
 /// The recorded preview records every sample state starts from.
 pub fn base() -> model::Snapshot {
-    serde_json::from_str(include_str!("../../../manager-ui/examples/library-preview.json")).expect("preview fixture")
+    let mut snapshot = serde_json::from_str(include_str!("../../../manager-ui/examples/library-preview.json")).expect("preview fixture");
+    presentation(&mut snapshot, "recorded");
+    snapshot
 }
 
 /// Every named state the preview accepts, other than recorded snapshots.
@@ -324,7 +326,90 @@ pub fn snapshot(page: Page, requested: Option<&str>) -> model::Snapshot {
                 {"area": "editor", "status": "failed", "witness": "operator", "detail": "Blank editor"}],
             "unmet_requirements": ["Saved-project recall on this computer"]}});
     }
+    presentation(&mut snapshot, state);
     snapshot
+}
+
+/// Explicit synthetic owner readback. Production never links this sample
+/// builder; retained JSON is deliberately not an input to its declarations.
+pub fn presentation(snapshot: &mut model::Snapshot, sample: &str) {
+    use model::{Attention, AttentionPurpose as Purpose, AttentionTarget as Target,
+        ConnectionDisposition as Connection, Observation as O, SetupDisposition as Disposition};
+    let mut attention = Vec::new();
+    if sample == "service_problem" {
+        attention.push(Attention { purpose: Purpose::Service, target: Target::Service,
+            title: "Resolve the bridge service problem".into(), detail: "The service retained an interrupted transaction.".into(),
+            action: snapshot.actions.iter().find(|a| matches!(a.action, model::Action::TransactionReconcile {})).map(|a| a.action.clone()) });
+    }
+    let mut setups: Vec<_> = snapshot.installer_setups.iter().map(|setup| {
+        let complete = setup.journey.as_ref().map_or(setup.phase == model::SetupPhase::DiscoveryComplete,
+            |journey| journey.phase == model::InstallationPhase::Available);
+        let disposition = if complete { Disposition::Complete }
+            else if matches!(sample, "install_attention" | "install_paused" | "retained_installation")
+                || (setup.phase == model::SetupPhase::Imported && setup.primary.is_none()) { Disposition::NeedsAttention }
+            else { Disposition::InProgress };
+        let headline = setup.journey.as_ref().map(crate::journey::phase_label)
+            .unwrap_or_else(|| crate::setup::phase_label(&setup.phase));
+        if !complete {
+            attention.push(Attention { purpose: Purpose::Installation, target: Target::Setup {
+                installer: setup.installer.clone(), environment: setup.environment.clone() },
+                title: format!("{} · {headline}", setup.name), detail: setup.status.clone(),
+                action: setup.primary.as_ref().map(|a| a.action.clone()) });
+        }
+        let connections = setup.journey.iter().flat_map(|j| &j.plugins).map(|plugin| {
+            // These synthetic journeys name synthetic products. Their exact
+            // generated key is written here, not recovered by the screen.
+            let product = snapshot.products.iter().find(|p| setup.environment.as_ref() == Some(&p.environment)
+                && p.class_id == plugin.class_id);
+            model::JourneyConnection { selection: plugin.selection.clone(),
+                product: product.map(|p| O::Observed(model::ProductIdentity::from(p))).unwrap_or_else(|| O::Unavailable("Sample exact build unavailable".into())),
+                disposition: product.map(|p| O::Observed(if p.disposition == "removed_from_daw" { Connection::Removed }
+                    else if p.availability.as_ref().is_some_and(|a| a.available) { Connection::Available }
+                    else { Connection::NeedsAttention })).unwrap_or_else(|| O::Unavailable("Sample current connection unavailable".into())),
+                reason: None }
+        }).collect();
+        model::SetupState { installer: setup.installer.clone(), environment: setup.environment.clone(), name: setup.name.clone(),
+            disposition, headline: headline.into(), status: setup.status.clone(), connections }
+    }).collect();
+    // Synthetic owner order, including the running installer fixture.
+    setups.sort_by_key(|state| snapshot.installer_setups.iter().find(|setup| setup.installer == state.installer
+        && setup.environment == state.environment).map_or(4, |setup| match setup.phase {
+            model::SetupPhase::InstallerRunning => 0, model::SetupPhase::CleanupUnconfirmed => 1,
+            model::SetupPhase::SetupNeedsAttention => 2, model::SetupPhase::Imported => 3, _ => 4 }));
+    if sample == "incidents" {
+        attention.push(Attention { purpose: Purpose::Installation,
+            target: Target::Setup { installer: "b4".repeat(32), environment: Some("ec".repeat(16)) },
+            title: "Installation needs attention".into(), detail: "The installer exited with an error. Open Setup to review it.".into(), action: None });
+    }
+    for product in &snapshot.products {
+        if matches!(product.disposition.as_str(), "removed_from_daw" | "uninstalled") { continue; }
+        let recovery = crate::product::recovery_pending(product);
+        if recovery || !product.availability.as_ref().is_some_and(|a| a.available) {
+            attention.push(Attention { purpose: if recovery { Purpose::Recovery } else { Purpose::Connection },
+                target: Target::Product { product: model::ProductIdentity::from(product) },
+                title: if recovery { format!("Recover {}", product.name) } else { format!("Set up {} for your DAW", product.name) },
+                detail: product.compatibility.as_ref().map_or_else(|| "Review this exact sample plug-in.".into(), |c| c.summary.clone()), action: None });
+        }
+    }
+    let mut progress = vec![];
+    if sample == "install_progress" || sample == "install_paused" {
+        for setup in &snapshot.installer_setups {
+            for plugin in setup.journey.iter().flat_map(|journey| &journey.plugins) {
+                let Some(product) = snapshot.products.iter().find(|p| setup.environment.as_ref() == Some(&p.environment)
+                    && p.module_sha256 == plugin.selection && p.class_id == plugin.class_id) else { continue; };
+                let stage = match plugin.stage {
+                    model::InstallationPluginStage::Pending => model::ConnectionProgress::Waiting,
+                    model::InstallationPluginStage::Inspecting => model::ConnectionProgress::Inspecting,
+                    model::InstallationPluginStage::Preparing => model::ConnectionProgress::Preparing,
+                    model::InstallationPluginStage::Publishing => model::ConnectionProgress::Publishing,
+                    _ => continue,
+                };
+                progress.push(model::ProductProgress { product: model::ProductIdentity::from(product), stage });
+            }
+        }
+    }
+    snapshot.presentation = O::Observed(model::CurrentPresentation { setups, attention, progress, change_previews: vec![], package_update: model::PackageUpdatePreview { preserved_setups: vec![] },
+        settled_message: "Plug-ins available in your DAW".into() });
 }
 
 /// Records for the screens beyond the plug-in list: install progress, required
@@ -1015,6 +1100,7 @@ impl Sample {
                 && readiness.system == self.snapshot.system),
             health: current.map(|snapshot| &snapshot.system),
             support: None,
+            activity: None,
         }
     }
 
@@ -1048,4 +1134,62 @@ impl Sample {
     pub fn window(&self, distribution: Option<&str>) -> crate::screen::Window {
         crate::screen::Window::build(&self.records(), &self.reading(distribution), &self.state())
     }
+}
+
+/// Sample-only exact display trial and detached-window journey for native checks.
+pub fn display_fixture(snapshot: &mut model::Snapshot) {
+    use model::*;
+    use serde_json::json;
+    snapshot.products.truncate(1);
+    snapshot.environment_installers.clear(); snapshot.vendor_applications.clear(); snapshot.environments.clear();
+    let p = &mut snapshot.products[0];
+    p.compatibility = None;
+    p.actions.clear();
+    p.details = json!({});
+    let current = PublicationIdentity { id:"ab".repeat(16), sha256:"cd".repeat(32) };
+    let original = "ab".repeat(32); let alternate = "cd".repeat(32);
+    let settings = LocalSettings { graphics:Some(GraphicsBackend::WineD3d11), accessibility:AccessibilityChoice::ProfileDefault };
+    let open = Action::PluginOpen { product:ProductIdentity::from(&*p), expected_current:current.clone() };
+    let focus = Action::PluginFocus { operation:"ab".repeat(16), session:"cd".repeat(16) };
+    let close = Action::PluginClose { operation:"ab".repeat(16), session:"cd".repeat(16) };
+    let prepare = Action::CandidateSettingsPrepare {candidate:original.clone(), settings:settings.clone(), expected_current:Some(current.clone())};
+    let choose = Action::CompatibilityPublishTest {candidate:alternate.clone(), expected_current:Some(current.clone())};
+    let record = Action::CompatibilityResult {candidate:original.clone(), expected_current:current,
+        result:TestResultKind::Worked, passed:vec![], failed_area:None, note:String::new()};
+    let accessibility = Action::CandidateSettingsPrepare {candidate:original.clone(),
+        settings:LocalSettings {graphics:None,accessibility:AccessibilityChoice::DisabledForHost},
+        expected_current:None};
+    for (label, action, reason) in [
+        ("Open on its own", open.clone(), None), ("Show the plug-in window", focus, None), ("Close this plug-in window", close, None),
+        ("Prepare display trial", prepare.clone(), None), ("Try this prepared display mode", choose.clone(), None),
+        ("Record this editor result", record.clone(), None),
+        ("Prepare accessibility trial", accessibility.clone(), Some("Close this exact plug-in window before preparing its accessibility trial.")),
+    ] { p.actions.push(AvailableAction {label:label.into(),action,disabled_reason:reason.map(str::to_owned)}); }
+    let failed = DisplayResult {candidate:original.clone(), ordinal:2, recorded_at:1_700_000_000,
+        status:DisplayTestStatus::Failed, witness:DisplayWitness::Operator, detail:"The editor remained blank after opening it in the DAW.".into()};
+    let passed = DisplayResult {candidate:alternate.clone(), ordinal:4, recorded_at:1_700_000_100,
+        status:DisplayTestStatus::Passed, witness:DisplayWitness::Machine,
+        detail:"The supervised editor opened and closed; sound and project recall were not tested.".into()};
+    p.display = Observation::Observed(DisplayConfiguration {observed_candidate:original.clone(), selected_candidate:Some(original.clone()),
+        modes:vec![DisplayModeChoice {backend:None,label:"Runtime defaults".into(),selected:true,suggested:false,prepare:None,
+            last_result:Observation::Observed(Some(failed.clone())), trials:vec![DisplayTrial {candidate:original.clone(),
+                settings:LocalSettings::default(),predecessor:None,previous_publication:None,current_inputs:true,selected:true,last_result:Observation::Observed(Some(failed)),
+                evidence:DisplayEvidenceState::FailureRetained,actions:vec![record]}]},
+            DisplayModeChoice {backend:Some(GraphicsBackend::WineD3d11),label:"Wine Direct3D 11".into(),selected:false,suggested:true,
+                prepare:Some(prepare.clone()),last_result:Observation::Observed(Some(passed.clone())),
+                trials:vec![DisplayTrial {candidate:alternate,settings,predecessor:Some(original.clone()),
+                    previous_publication:Some(PublicationIdentity {id:"ab".repeat(16),sha256:"cd".repeat(32)}),current_inputs:true,selected:false,
+                    last_result:Observation::Observed(Some(passed)), evidence:DisplayEvidenceState::FailureRetained, actions:vec![choose]}]}],
+        repair:RepairLadder {profile_id:"sample-editor-profile".into(),profile_revision:3,
+            evidence:vec!["Synthetic profile recipe for the native layout check.".into()], steps:vec![
+                RepairStep {kind:RepairStepKind::OpenStandalone,label:"Open the plug-in on its own".into(),
+                    detail:"Inspect the separate window without changing the DAW instance.".into(),action:Some(open),unavailable_reason:None},
+                RepairStep {kind:RepairStepKind::TryDisplayMode,label:"Try another display mode".into(),
+                    detail:"Prepare one reversible launch choice, then explicitly select its exact trial.".into(),action:Some(prepare),unavailable_reason:None},
+                RepairStep {kind:RepairStepKind::ProfileAccessibility,label:"Try the profile accessibility choice".into(),
+                    detail:"This profile proposes a launch-only change for this plug-in host.".into(),action:Some(accessibility),unavailable_reason:None},
+                RepairStep {kind:RepairStepKind::RestorePrevious,label:"Return to a previous setup".into(),
+                    detail:"A previous setup can be selected only when its owner offers it.".into(),action:None,
+                    unavailable_reason:Some("No previous working setup is retained for this exact plug-in.".into())},
+            ]} });
 }

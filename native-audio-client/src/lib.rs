@@ -1,5 +1,6 @@
 pub mod endpoint;
 pub mod admission;
+pub mod host_identity;
 pub mod events;
 pub mod mapping;
 pub mod notification;

@@ -2071,7 +2071,7 @@ pub(crate) mod tests {
             None,
         )
         .unwrap();
-        let snapshot = ui::Snapshot {
+        let snapshot = ui::Snapshot { presentation: ui::Observation::Unavailable("Fixture presentation not supplied".into()),
             managed_runtime_records:vec![],
             schema: ui::OPERATOR_SCHEMA,
             state_token: "fixture".into(),
@@ -2091,7 +2091,6 @@ pub(crate) mod tests {
             environments,
             vendor_applications: vec![],
             products: vec![],
-            workspaces: vec![],
             active_sessions: vec![],
             capture: Value::Null,
             recent_incidents: vec![],

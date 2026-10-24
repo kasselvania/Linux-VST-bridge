@@ -3,8 +3,10 @@ use super::*;
 
 impl Builder<'_> {
     pub(super) fn activity(&mut self, activity: &Activity) -> Vec<Node> {
-        let Activity { heading, intro, live, recent, attention, incidents } = activity;
+        let Activity { heading, intro, notice, retry, live, recent, attention, incidents } = activity;
         let mut out = vec![Node::Title((*heading).into()), words(Role::Lead, *intro)];
+        if let Some(notice) = notice { out.push(text(notice)); }
+        if let Some(retry) = retry { let retry = self.control(retry); out.push(self.one(retry)); }
         out.push(self.attentions(attention));
         out.push(self.sessions(live));
         out.push(self.sessions(recent));

@@ -33,6 +33,8 @@ pub struct Records<'a> {
     pub health: Option<&'a System>,
     /// Independent Support reads, when this frontend loads sections separately.
     pub support: Option<crate::diagnostics::SupportRead<'a>>,
+    /// Ordinary Activity is a separate bounded read, not the deep snapshot.
+    pub activity: Option<crate::diagnostics::Section<'a, &'a crate::model::Activity>>,
 }
 
 /// How current the records are and what the window is doing.
@@ -146,6 +148,8 @@ impl Screen {
     pub fn build(records: &Records, reading: &Reading, state: &State) -> Self {
         let actions_pending = reading.actions_pending(records);
         let fresh = records.actions.is_some();
+        let activity = if reading.superseded { crate::diagnostics::Section::Failed("Window paused") }
+            else { records.activity.unwrap_or(crate::diagnostics::Section::NotRequested) };
         if records.current.is_none() && reading.current_unavailable && !reading.preview {
             return Self::Checking { heading: state.page.label(),
                 words: "Current status could not be loaded. Try again.",
@@ -156,19 +160,21 @@ impl Screen {
         if records.current.is_some() || !reading.preview {
             if let Some(current) = records.current {
                 match state.page {
-                    Page::Home => return Self::Home(Box::new(Home::build(current, records.readiness, fresh,
-                        reading.health_renewing, reading.controls_pending))),
+                    Page::Home => return Self::Home(Box::new(Home::build_observed(current, records.readiness, fresh,
+                        reading.health_renewing, reading.controls_pending, activity))),
                     Page::Setup => return Self::Setup(Box::new(Setup::build(current, fresh,
                         reading.controls_pending, state.focus.setup_focus()))),
                     Page::Plugins => return match records.product {
                         Some(product) => Self::plugins(product, actions_pending,
-                            (!reading.fresh).then(|| window::plugins_not_current(reading.renewing)), state),
+                            (!reading.fresh).then(|| window::plugins_not_current(reading.renewing)), state, activity),
                         None => Self::PluginsLoading(Box::new(LoadingList::build(current, &state.plugins.query(),
                             fresh, reading.product_attempted))),
                     },
                     Page::Diagnostics if records.support.is_some() => return Self::Diagnostics(Box::new(
                         Diagnostics::from_current(current, records.support.unwrap(), actions_pending,
                             reading.in_flight, reading.superseded, reading.distribution))),
+                    Page::Activity if records.activity.is_some() || !reading.preview => return Self::Activity(Box::new(
+                        Activity::from_current(current, activity, reading.in_flight, reading.superseded))),
                     _ => {}
                 }
             } else if matches!(state.page, Page::Home | Page::Setup) {
@@ -183,18 +189,19 @@ impl Screen {
         };
         match state.page {
             Page::Home | Page::Setup => Self::LoadingCurrent(window::LOADING_CURRENT),
-            Page::Plugins => Self::plugins(details, actions_pending, None, state),
+            Page::Plugins => Self::plugins(details, actions_pending, None, state, activity),
             Page::Activity => Self::Activity(Box::new(Activity::build(details, actions_pending))),
             Page::Diagnostics => Self::Diagnostics(Box::new(Diagnostics::build(details, actions_pending,
                 reading.distribution))),
         }
     }
 
-    fn plugins(snapshot: &Snapshot, pending: bool, not_current: Option<Text>, state: &State) -> Self {
+    fn plugins(snapshot: &Snapshot, pending: bool, not_current: Option<Text>, state: &State,
+        activity: crate::diagnostics::Section<'_, &crate::model::Activity>) -> Self {
         let single = state.plugins.focused_product().is_some();
         Self::Plugins { not_current, single, list: Box::new(PluginList::build(snapshot, &state.plugins.query(),
             single, plugins::Context { busy: snapshot.system.inactive_reason(), pending,
-                expanded: state.plugins.expanded })) }
+                expanded: state.plugins.expanded, activity })) }
     }
 }
 
@@ -241,21 +248,11 @@ mod tests {
     }
 
     #[test]
-    fn retired_schema29_workspace_records_create_no_screen_or_controls() {
+    fn retired_workspace_wire_records_are_not_schema30_views() {
         assert_eq!(Page::from_key("workspaces"), None);
-        let workspace: crate::model::DawWorkspace = serde_json::from_value(serde_json::json!({
-            "id":"fl-studio", "name":"FL Studio", "state":"running",
-            "selected_installer":"old-installer", "selected_release":"26.1.6.0",
-            "application_installers":["old-installer"], "cleanup":"running",
-            "actions":[{"label":"Stop FL Studio", "action":{"kind":"workspace_stop"},
-                "disabled_reason":null}], "installer_choices":[], "details":{}
-        })).unwrap();
-        for page in Page::ALL {
-            let mut sample = Sample::new(Case::new(page, "populated"));
-            let before = sample.window(None);
-            sample.snapshot.workspaces.push(workspace.clone());
-            assert_eq!(sample.window(None), before, "{}", page.key());
-        }
+        let mut record = serde_json::to_value(crate::samples::base()).unwrap();
+        record["workspaces"] = serde_json::json!([]);
+        assert!(serde_json::from_value::<Snapshot>(record).is_err());
     }
 
     #[test]
@@ -332,7 +329,7 @@ mod tests {
         assert!(matches!(Screen::build(&records, &live, &sample.state()), Screen::Checking { heading: "Setup", .. }));
     }
     #[test]
-    fn support_sections_do_not_turn_partial_activity_into_a_complete_activity_page() {
+    fn ordinary_activity_uses_explicit_sections_without_a_technical_snapshot() {
         use crate::diagnostics::{Section, SupportRead};
         let sample = Sample::new(Case::new(Page::Diagnostics, "populated"));
         let records = Records { details: None, support: Some(SupportRead {
@@ -342,8 +339,131 @@ mod tests {
         let state = State { page: Page::Diagnostics, ..State::default() };
         assert!(matches!(Screen::build(&records, &reading, &state), Screen::Diagnostics(_)));
         let state = State { page: Page::Activity, ..State::default() };
-        assert!(matches!(Screen::build(&records, &reading, &state), Screen::LoadingDetails { .. }),
-            "Activity still needs session and incident records not present in Read::Activity");
+        let Screen::Activity(activity) = Screen::build(&records, &reading, &state) else { panic!() };
+        assert!(activity.notice.is_some() && activity.live.empty.is_none(),
+            "An unrequested observation cannot fall back to raw session history");
+        let records = Records { activity: Some(Section::Loading), ..records };
+        let Screen::Activity(activity) = Screen::build(&records, &reading, &state) else { panic!("Activity must not request Snapshot") };
+        assert!(activity.notice.is_some() && activity.live.empty.is_none());
+        let records = Records { activity: Some(Section::Failed("Disconnected")), ..records };
+        let Screen::Activity(activity) = Screen::build(&records, &reading, &state) else { panic!() };
+        assert!(activity.retry.is_some() && activity.live.empty.is_none());
+    }
+
+    fn live_activity(snapshot: &Snapshot) -> crate::model::Activity {
+        use crate::model::{self, Observation as O};
+        model::Activity { schema: model::OPERATOR_SCHEMA, system: snapshot.system.clone(),
+            capture: serde_json::Value::Null, operation: None, incidents: O::Observed(vec![]),
+            recent: O::Observed(vec![]), live: model::LiveActivity { instances: O::Observed(vec![model::LiveInstance {
+                kind: model::InstanceKind::Daw,
+                session: "exact-session".into(), product: O::Observed(model::ProductIdentity::from(&snapshot.products[0])),
+                consumer: O::Unavailable("Fixture has no process".into()),
+                daw: O::Observed(model::HostApplication { name: "Example DAW".into(), source: model::HostIdentitySource::Vst3HostApplication }),
+                transport: O::Unavailable("Fixture has no mapping".into()), lifecycle: O::Unavailable("No phase read".into()),
+                processing: model::ProcessingObservation::Advancing { epoch: 1, completed_end: 512, observed_age_ms: 2 },
+                signal: model::SignalObservation::NotMeasured, terminal: O::Observed(None), cleanup: model::CleanupState::NotReported,
+            }]) } }
+    }
+
+    #[test]
+    fn home_and_detail_use_exact_pushed_instances_without_changing_offers() {
+        use crate::diagnostics::Section;
+        let mut snapshot = samples::base();
+        // Neither a digest-only nor an environment-only join may attach the
+        // first product's instance to a same-class sibling.
+        let mut other_build = snapshot.products[0].clone();
+        other_build.module_sha256 = "another-build".into();
+        let mut other_setup = snapshot.products[0].clone();
+        other_setup.environment = "another-setup".into();
+        snapshot.products = vec![snapshot.products[0].clone(), other_build, other_setup];
+        let activity = live_activity(&snapshot);
+        let records = Records { current: Some(&snapshot), product: Some(&snapshot), actions: Some(&snapshot),
+            activity: Some(Section::Loaded(&activity)), ..Default::default() };
+        let reading = Reading { fresh: true, ..Default::default() };
+        let mut state = State { page: Page::Home, ..Default::default() };
+        let Screen::Home(home) = Screen::build(&records, &reading, &state) else { panic!() };
+        assert!(home.plugins[0].activity.contains("1 observed instance(s)"));
+        assert!(home.plugins[0].activity.contains("Host reports Example DAW (VST3 host name)"));
+        assert!(home.plugins[0].activity.contains("audible output is not measured"));
+        for sibling in &home.plugins[1..] {
+            assert_eq!(sibling.activity, "0 observed instance(s)");
+        }
+        let Screen::Home(before) = Screen::build(&Records { activity: None, ..records }, &reading, &state) else { panic!() };
+        assert_eq!(before.next, home.next, "observation never supplies the next action");
+        for (before, after) in before.plugins.iter().zip(&home.plugins) {
+            assert_eq!(before.manage, after.manage); assert_eq!(before.status, after.status);
+        }
+        state.go(&crate::Destination::Product(crate::ProductKey::from(&snapshot.products[0])));
+        let Screen::Plugins { list, .. } = Screen::build(&records, &reading, &state) else { panic!() };
+        let card = &list.groups[0].cards[0];
+        assert!(card.notes.iter().any(|text| text.words.contains("Host reports Example DAW")
+            && text.words.contains("audible output is not measured")));
+        let Screen::Plugins { list: before, .. } = Screen::build(&Records { activity: None, ..records }, &reading, &state) else { panic!() };
+        let before = &before.groups[0].cards[0];
+        assert_eq!(before.lead, card.lead); assert_eq!(before.offers, card.offers);
+        assert_eq!(before.readiness, card.readiness);
+    }
+
+    #[test]
+    fn live_absence_and_supersession_do_not_claim_zero_or_use_raw_history() {
+        use crate::{diagnostics::Section, model::Observation as O};
+        let mut snapshot = samples::base();
+        snapshot.active_sessions = vec![serde_json::json!({"class_id":snapshot.products[0].class_id,
+            "state":"active","recent":false})];
+        let mut activity = live_activity(&snapshot);
+        let reading = Reading { fresh: true, ..Default::default() };
+        let state = State { page: Page::Home, ..Default::default() };
+        for (read, expected) in [(Section::NotRequested, "not been observed"),
+            (Section::Loading, "Reading live activity"), (Section::Failed("Disconnected"), "unavailable")] {
+            let records = Records { current: Some(&snapshot), details: Some(&snapshot), activity: Some(read), ..Default::default() };
+            let Screen::Home(home) = Screen::build(&records, &reading, &state) else { panic!() };
+            assert!(home.plugins[0].activity.contains(expected));
+            assert!(!home.plugins[0].activity.contains("0 observed"));
+        }
+        activity.live.instances = O::Unavailable("Registry busy".into());
+        let view = crate::product::product_activity(Section::Loaded(&activity), &snapshot.products[0]);
+        assert!(view.detail_label().contains("unavailable"));
+        activity.live.instances = O::Observed(vec![]);
+        let view = crate::product::product_activity(Section::Loaded(&activity), &snapshot.products[0]);
+        assert_eq!(view.detail_label(), "0 observed instance(s)");
+        let activity = live_activity(&snapshot);
+        let records = Records { current: Some(&snapshot), details: Some(&snapshot), product: Some(&snapshot),
+            activity: Some(Section::Loaded(&activity)), ..Default::default() };
+        let paused = Reading { superseded: true, controls_pending: true, ..Default::default() };
+        let Screen::Home(home) = Screen::build(&records, &paused, &state) else { panic!() };
+        assert_eq!(home.plugins[0].activity, "Current live activity unavailable");
+        let mut state = state;
+        state.go(&crate::Destination::Product(crate::ProductKey::from(&snapshot.products[0])));
+        let Screen::Plugins { list, .. } = Screen::build(&records, &paused, &state) else { panic!() };
+        assert!(list.groups[0].cards[0].notes.iter().any(|text| text.words == "Current live activity unavailable"));
+        assert!(!list.groups[0].cards[0].notes.iter().any(|text| text.words.contains("Example DAW")));
+        state.page = Page::Activity;
+        let Screen::Activity(view) = Screen::build(&records, &paused, &state) else { panic!() };
+        assert!(view.live.rows.is_empty() && view.live.empty.is_none());
+        assert!(!view.retry.unwrap().enabled);
+    }
+
+    #[test]
+    fn processing_observation_never_turns_an_unchanged_counter_into_a_stop() {
+        use crate::{diagnostics::Section, model::{Observation as O, ProcessingObservation as P}};
+        let snapshot = samples::base();
+        let mut activity = live_activity(&snapshot);
+        for (processing, words) in [
+            (P::Advancing { epoch:1, completed_end:512, observed_age_ms:2 }, "Processing is advancing; audible output is not measured"),
+            (P::LastReportedStopped { epoch:1, observed_age_ms:2 }, "Processing last reported stopped"),
+            (P::NotObservedAdvancing { epoch:1, completed_end:512, observed_age_ms:2 }, "Processing progress not observed; a stop is not established"),
+            (P::Unavailable { reason:"Mapping changed".into() }, "Processing observation unavailable"),
+        ] {
+            let O::Observed(instances) = &mut activity.live.instances else { panic!() };
+            instances[0].processing = processing;
+            let view = crate::product::product_activity(Section::Loaded(&activity), &snapshot.products[0]);
+            assert_eq!(view.lines, vec![format!("Host reports Example DAW (VST3 host name) · {words}")]);
+        }
+        let O::Observed(instances) = &mut activity.live.instances else { panic!() };
+        instances[0].product = O::Unavailable("Retained owner missing".into());
+        let view = crate::product::product_activity(Section::Loaded(&activity), &snapshot.products[0]);
+        assert_eq!(view.detail_label(), "Some admitted instance identities are unavailable");
+        assert!(view.lines.is_empty());
     }
 
 }

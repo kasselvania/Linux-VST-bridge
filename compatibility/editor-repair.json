@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "steps": [
+    {"kind":"open_standalone","label":"Open on its own","detail":"Inspect this plug-in outside the DAW; this does not test DAW audio."},
+    {"kind":"assess_display","label":"Check the current display configuration","detail":"Record the editor and graphics observations before selecting another mode."},
+    {"kind":"try_display_mode","label":"Choose a display mode","detail":"Prepare one launch-settings trial. Applying it is a separate explicit action; the previous selection is retained."},
+    {"kind":"profile_accessibility","label":"Use profile accessibility advice","detail":"Prepare the profile's accessibility choice for this plug-in's next launch. The current selection stays in place."},
+    {"kind":"repair_installation","label":"Review installation repair","detail":"Use only the repair or installer continuation offered for this setup. Vendor installation changes are separate from reversible display settings."},
+    {"kind":"restore_previous","label":"Restore the previous settings","detail":"Restore the exact predecessor offered for this trial; this does not roll back vendor installation changes."},
+    {"kind":"report_problem","label":"Record what happened","detail":"Record the result for the exact tested configuration. A failed trial uses the existing recovery route before another trial."}
+  ]
+}

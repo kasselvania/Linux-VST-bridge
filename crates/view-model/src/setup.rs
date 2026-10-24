@@ -9,7 +9,7 @@ use super::journey::{self, Results};
 use super::offers::{self, Importance, Offer, OfferRow};
 use super::{forms, installer, product, AttemptKey, Choice, Control, Destination, Detail, Disclosure,
     Local, ProductKey, Text};
-use crate::model::{Action, AvailableAction, DeletedSetup, EnvironmentInstaller, InstallationPhase,
+use crate::model::{Action, AvailableAction, DeletedSetup, EnvironmentInstaller,
     InstallerSetup, SetupPhase, Snapshot, VendorApplication};
 
 pub fn phase_label(phase: &SetupPhase) -> &'static str {
@@ -24,122 +24,15 @@ pub fn phase_label(phase: &SetupPhase) -> &'static str {
     }
 }
 
-fn phase_priority(phase: &SetupPhase) -> u8 {
-    match phase {
-        SetupPhase::InstallerRunning => 0,
-        SetupPhase::CleanupUnconfirmed => 1,
-        SetupPhase::SetupNeedsAttention => 2,
-        SetupPhase::EnvironmentReady => 3,
-        SetupPhase::InstallerRetired | SetupPhase::ScanReady => 4,
-        SetupPhase::Imported => 5,
-        SetupPhase::DiscoveryComplete => 6,
-    }
+/// Exact owner-composed setup state. Absence is unavailable, never reconstructed
+/// from retained JSON or another plug-in build.
+pub fn observed_state<'a>(setup: &InstallerSetup, snapshot: &'a Snapshot) -> Option<&'a crate::model::SetupState> {
+    snapshot.presentation.observed()?.setups.iter().find(|state|
+        state.installer == setup.installer && state.environment == setup.environment)
 }
 
-/// Setups that need the musician sort first.
-pub fn attention_priority(setup: &InstallerSetup) -> u8 {
-    setup.journey.as_ref().map(|journey| match journey.phase {
-        InstallationPhase::VendorRunning => 0,
-        InstallationPhase::NeedsAttention => 2,
-        InstallationPhase::AwaitingApplication => 2,
-        InstallationPhase::PreparingEnvironment | InstallationPhase::Discovering
-            | InstallationPhase::PreparingPlugins => 3,
-        InstallationPhase::Available => 6,
-    }).unwrap_or_else(|| phase_priority(&setup.phase))
-}
-
-/// Removal choices sit on every settled card; they are not pending setup work.
-fn no_setup_work(setup: &InstallerSetup) -> bool {
-    setup.primary.is_none() && setup.secondary.iter().all(|offer| forms::removal_offer(&offer.action))
-}
-
-/// Read from the manager's raw installation record: a window derivation of
-/// what the service should say on the setup itself. Retire it when it does
-/// (#489).
-pub fn retained_records_need_refresh(setup: &InstallerSetup, snapshot: &Snapshot) -> bool {
-    setup.journey.is_none() && setup.phase == SetupPhase::SetupNeedsAttention
-        && no_setup_work(setup)
-        && setup.environment.is_some() && !setup.discovered.is_empty()
-        && snapshot.onboarding.iter().any(|attempt|
-            attempt.installer == setup.installer && attempt.environment == setup.environment
-                && attempt.state == "needs_attention" && attempt.failure.is_none()
-                && attempt.actions.is_empty() && attempt.details["managed_product"] == true
-                && attempt.details["scan"].is_object()
-                && attempt.details["installation"]["state"] == "completed"
-                && attempt.details["installation"]["cleanup_confirmed"] == true
-                && attempt.details["installation"]["owned_live"] == 0
-                && attempt.details["installation"]["error"].is_null()
-                && attempt.details["installation"]["failure"].is_null()
-                && matches!(attempt.details["installation"]["transaction"]["outcome"].as_str(),
-                    None | Some("installed")))
-}
-
-/// A generated installer label gives way to the names of the current
-/// plug-ins it installed.
 pub fn display_name(setup: &InstallerSetup, snapshot: &Snapshot) -> String {
-    if setup.label_source != "generated" { return setup.name.clone(); }
-    let mut names = Vec::new();
-    for discovered in &setup.discovered {
-        if snapshot.products.iter().any(|product|
-            product.environment == discovered.environment
-                && product.module_sha256 == discovered.module_sha256
-                && product.class_id == discovered.class_id)
-            && !names.contains(&discovered.name) {
-            names.push(discovered.name.clone());
-        }
-    }
-    match names.as_slice() {
-        [] => setup.name.clone(),
-        [name] => name.clone(),
-        [first, rest @ ..] => format!("{first} and {} other plug-ins", rest.len()),
-    }
-}
-
-/// Read from the manager's raw installation record, like
-/// `retained_records_need_refresh`; retire it the same way (#489).
-pub fn partial_installation_needs_review(setup: &InstallerSetup, snapshot: &Snapshot) -> bool {
-    setup.phase == SetupPhase::SetupNeedsAttention
-        && snapshot.onboarding.iter().any(|attempt|
-            attempt.installer == setup.installer && attempt.environment == setup.environment
-                && attempt.state == "needs_attention" && attempt.failure.is_none()
-                && attempt.details["installation"]["state"] == "completed"
-                && attempt.details["installation"]["cleanup_confirmed"] == true
-                && attempt.details["installation"]["owned_live"] == 0
-                && attempt.details["installation"]["error"].is_null()
-                && attempt.details["installation"]["failure"].is_null()
-                && attempt.details["installation"]["transaction"]["outcome"] == "partial_installation")
-}
-
-/// A retained installation record whose plug-ins are all available now is
-/// history, not unfinished setup. The window decides this from the records;
-/// the service should say it on the setup (#489).
-pub fn history_settled_by_current_products(setup: &InstallerSetup, snapshot: &Snapshot) -> bool {
-    setup.journey.is_none() && setup.phase == SetupPhase::SetupNeedsAttention
-        && no_setup_work(setup)
-        && setup.environment.is_some() && !setup.discovered.is_empty()
-        && (retained_records_need_refresh(setup, snapshot)
-            || partial_installation_needs_review(setup, snapshot))
-        && !snapshot.onboarding.iter().any(|attempt|
-            attempt.installer == setup.installer && attempt.environment == setup.environment
-                && (attempt.failure.is_some() || !attempt.actions.is_empty()
-                    || !attempt.details["installation"]["error"].is_null()
-                    || !attempt.details["installation"]["failure"].is_null()
-                    || !attempt.details["installation"]["transaction"]["first_failure"].is_null()))
-        && setup.discovered.iter().all(|discovered|
-            setup.environment.as_deref() == Some(discovered.environment.as_str())
-                && snapshot.products.iter().any(|product|
-                    product.environment == discovered.environment
-                        && product.module_sha256 == discovered.module_sha256
-                        && product.class_id == discovered.class_id
-                        && product.availability.as_ref().is_some_and(|availability| availability.available)))
-}
-
-/// Whether a setup still has work: an unfinished journey or setup phase that
-/// its current plug-ins have not settled.
-pub fn unfinished(setup: &InstallerSetup, snapshot: &Snapshot) -> bool {
-    setup.journey.as_ref().map(|journey| journey.phase != InstallationPhase::Available)
-        .unwrap_or(setup.phase != SetupPhase::DiscoveryComplete)
-        && !history_settled_by_current_products(setup, snapshot)
+    observed_state(setup, snapshot).map_or_else(|| setup.name.clone(), |state| state.name.clone())
 }
 
 /// What the Setup page is narrowed to and the musician's unsent choices.
@@ -397,7 +290,9 @@ pub fn history() -> Control {
 pub fn listed<'a>(snapshot: &'a Snapshot, installer: Option<&str>) -> Vec<&'a InstallerSetup> {
     let mut setups: Vec<_> = snapshot.installer_setups.iter().filter(|setup|
         installer.is_none_or(|id| id == setup.installer)).collect();
-    setups.sort_by_key(|setup| attention_priority(setup));
+    setups.sort_by_key(|setup| snapshot.presentation.observed().and_then(|view|
+        view.setups.iter().position(|state| state.installer == setup.installer
+            && state.environment == setup.environment)).unwrap_or(usize::MAX));
     setups
 }
 
@@ -406,7 +301,7 @@ pub fn listed<'a>(snapshot: &'a Snapshot, installer: Option<&str>) -> Vec<&'a In
 pub struct SetupCard {
     pub installer: String,
     pub name: String,
-    pub title: &'static str,
+    pub title: String,
     pub status: Text,
     pub journey: Option<Results>,
     pub primary: Option<Offer>,
@@ -494,29 +389,20 @@ impl SetupCard {
     pub fn build(snapshot: &Snapshot, setup: &InstallerSetup, fresh: bool, pending: bool,
         replacement: Option<&InstallerReplacement>) -> Self {
         let busy = snapshot.system.inactive_reason();
-        let retained_refresh = retained_records_need_refresh(setup, snapshot);
-        let partial = partial_installation_needs_review(setup, snapshot);
-        let settled = history_settled_by_current_products(setup, snapshot);
+        let observed = observed_state(setup, snapshot);
         let current = setup.environment.as_deref().map(|environment| (snapshot, environment));
-        let title = if let Some(journey) = &setup.journey { journey::current_label(journey, current) }
-            else if settled {"Plug-ins available in your DAW"}
-            else if retained_refresh {"Installation records need attention"}
-            else if partial {"Review earlier installation"}
-            else {phase_label(&setup.phase)};
+        let title = observed.map_or_else(|| "Setup status unavailable".into(), |state| state.headline.clone());
         let continuation = snapshot.environment_installers.iter().find(|target|
             setup.environment.as_ref() == Some(&target.environment) && target.operation.is_some());
         let reviewing = replacement.is_some_and(|draft| draft.original == setup.installer);
         let shown_primary = setup.primary.as_ref().filter(|offer| (continuation.is_none()
             || !obsolete_initial_installer_offer(offer))
             && !reviewing && !offer_uses_program_choice(snapshot, setup, offer));
-        let status = if setup.journey.is_some() { Text::body(&setup.status) }
-            else if settled { Text::body(format!("{} plug-ins available in your DAW.", setup.discovered.len())) }
-            else if retained_refresh { Text::body("Installation records need refreshing before making setup changes.") }
-            else if partial { Text::body("A complete installation was not confirmed. Review the installation result before making setup changes. Plug-ins already available in your DAW remain available.") }
-            else if setup.phase == SetupPhase::DiscoveryComplete {
-                Text::body(format!("{} plug-ins found. Open them to see their current DAW connection.", setup.discovered.len()))
-            } else if setup.phase == SetupPhase::Imported && setup.primary.is_none() { Text::caution(&setup.status) }
-            else { Text::body(&setup.status) };
+        let status = observed.map_or_else(|| Text::caution("The service has not supplied this setup's current state."),
+            |state| if matches!(state.disposition, crate::model::SetupDisposition::NeedsAttention
+                | crate::model::SetupDisposition::RecordsNeedRefresh | crate::model::SetupDisposition::PartialInstallation) {
+                Text::caution(&state.status)
+            } else { Text::body(&state.status) });
         // Without current status every offer on the card is held.
         let row = |actions: &[AvailableAction]| offers::row(actions, Importance::Secondary, busy, pending).held(!fresh);
         let secondary: Vec<_> = setup.secondary.iter().filter(|offer| !forms::removal_offer(&offer.action)

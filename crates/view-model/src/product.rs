@@ -1,8 +1,7 @@
 //! What is true about one plug-in, in a musician's words. Several screens
 //! read these: the plug-in list and detail, Home, Setup and Activity.
 use super::{Status, StatusClass};
-use crate::model::{Action, CompatibilityPhase, DawChoice, InstallationJourney, InstallationPhase,
-    InstallationPluginStage, Product, Snapshot, System};
+use crate::model::{Action, CompatibilityPhase, DawChoice, Product, Snapshot, System};
 
 /// Current DAW availability. It follows the native connection, independently
 /// of compatibility checks or reports.
@@ -99,45 +98,12 @@ pub fn vendor_install_consequence(snapshot: &Snapshot, action: &Action) -> Optio
 }
 
 pub fn installation_progress(snapshot: &Snapshot, product: &Product) -> Option<&'static str> {
-    let operation = snapshot.operation.as_ref()?;
-    let revalidation = &product.details["automatic_revalidation"];
-    let rechecking = revalidation["operation"] == operation["operation"]
-        && operation["operation"].as_str().is_some_and(|id| !id.is_empty())
-        && revalidation["predecessor"]["id"].as_str().is_some_and(|id| !id.is_empty())
-        && revalidation["predecessor"]["sha256"].as_str().is_some_and(|sha|
-            sha.len() == 64 && sha.bytes().all(|byte| byte.is_ascii_hexdigit()));
-    if product.availability.as_ref().is_some_and(|availability| availability.available)
-        || (!rechecking && (!matches!(product.disposition.as_str(), "installed_unqualified" | "prepared")
-            || !product.details["refusal"].is_null()))
-        || product.disposition == "quarantined" || product.details["current"] == false
-        || product.compatibility.as_ref().is_some_and(|workflow|
-            workflow.phase == CompatibilityPhase::AwaitingRetirement) {
-        return None;
-    }
-    if !matches!(operation["state"].as_str(), Some("waiting" | "running")) { return None; }
-    let journey: InstallationJourney = serde_json::from_value(operation["journey"].clone()).ok()?;
-    if journey.phase != InstallationPhase::PreparingPlugins || journey.failure.is_some() { return None; }
-    let environment = operation["onboarding"].as_str()?;
-    let mut setups = snapshot.installer_setups.iter().filter(|setup|
-        setup.environment.as_deref() == Some(environment) && setup.journey.is_some());
-    let setup = setups.next()?;
-    if setups.next().is_some() { return None; }
-    let mut discovered = setup.discovered.iter().filter(|found| found.class_id == product.class_id);
-    let found = discovered.next()?;
-    if discovered.next().is_some() || found.environment != product.environment
-        || found.environment != environment || found.module_sha256 != product.module_sha256 {
-        return None;
-    }
-    let mut plugins = journey.plugins.iter().filter(|plugin| plugin.class_id == product.class_id);
-    let plugin = plugins.next()?;
-    if plugins.next().is_some() || plugin.failure.is_some() { return None; }
-    match plugin.stage {
-        InstallationPluginStage::Pending => Some("Waiting to connect to your DAW"),
-        InstallationPluginStage::Inspecting => Some("Checking this plug-in"),
-        InstallationPluginStage::Preparing => Some("Preparing its DAW connection"),
-        InstallationPluginStage::Publishing => Some("Connecting to your DAW"),
-        _ => None,
-    }
+    use crate::model::ConnectionProgress as P;
+    let observed = snapshot.presentation.observed()?.progress.iter().find(|p| p.product.matches(product))?;
+    Some(match observed.stage {
+        P::Waiting => "Waiting to connect to your DAW", P::Inspecting => "Checking this plug-in",
+        P::Preparing => "Preparing its DAW connection", P::Publishing => "Connecting to your DAW",
+    })
 }
 
 pub fn terminal_text(terminal: &str) -> &'static str {
@@ -187,60 +153,82 @@ pub struct ProductActivity {
     pub failed_live: Vec<&'static str>,
     pub recent_failure: Option<&'static str>,
     pub recent_cleanup_unconfirmed: bool,
-    /// The manager's session record names a class, not an installed build.
-    pub shared_class: bool,
+    pub lines: Vec<String>,
+    pub notice: Option<String>,
 }
-
 impl ProductActivity {
     pub fn detail_label(&self) -> String {
-        match self.certainty {
-            ActivityCertainty::Confirmed if self.shared_class => format!(
-                "{} active in this plug-in class · exact build unavailable",
-                self.active
-            ),
-            ActivityCertainty::Confirmed => format!("{} active instance(s)", self.active),
-            ActivityCertainty::CleanupUncertain => {
-                "Cleanup unresolved · current instances not confirmed".into()
-            }
-            ActivityCertainty::Unavailable => "Current activity unavailable".into(),
-        }
+        self.notice.clone().unwrap_or_else(|| match self.certainty {
+            ActivityCertainty::Confirmed => format!("{} observed instance(s)", self.active),
+            _ => "Current activity unavailable".into(),
+        })
+    }
+    pub fn short(&self) -> String {
+        if self.lines.is_empty() { self.detail_label() }
+        else { format!("{} · {}", self.detail_label(), self.lines.join("; ")) }
     }
 }
-
-pub fn product_activity(snapshot: &Snapshot, product: &Product) -> ProductActivity {
-    let mut result = ProductActivity {
-        certainty: activity_certainty(&snapshot.system),
-        ..ProductActivity::default()
+/// Display-only matching of the owner's admitted identities. Raw snapshot
+/// session history never supplies current instance or processing claims.
+pub fn product_activity(read: crate::diagnostics::Section<'_, &crate::model::Activity>, product: &Product) -> ProductActivity {
+    use crate::{diagnostics::Section, model::Observation as O};
+    let mut result = ProductActivity::default();
+    let activity = match read {
+        Section::Loaded(activity) => activity,
+        Section::NotRequested => { result.notice = Some("Live activity has not been observed".into()); return result; },
+        Section::Loading => { result.notice = Some("Reading live activity…".into()); return result; },
+        Section::Failed(_) => { result.notice = Some("Current live activity unavailable".into()); return result; },
     };
-    if product.class_id.is_empty() {
-        return result;
-    }
-    result.shared_class = snapshot
-        .products
-        .iter()
-        .filter(|other| other.class_id == product.class_id)
-        .count()
-        > 1;
-    for row in snapshot
-        .active_sessions
-        .iter()
-        .filter(|row| row["class_id"].as_str() == Some(product.class_id.as_str()))
-    {
-        if row["recent"] == true {
-            if let Some(terminal) = row["terminal"].as_str() {
-                result.recent_failure = Some(terminal_text(terminal));
-                result.recent_cleanup_unconfirmed |=
-                    row["cleanup_confirmed"] != true || row["transport_retired"] != true;
-            }
-        } else if result.certainty == ActivityCertainty::Confirmed {
-            if let Some(terminal) = row["terminal"].as_str() {
-                result.failed_live.push(terminal_text(terminal));
-            } else if row["state"] == "active" {
+    match &activity.live.instances {
+        O::Unavailable(_) => result.notice = Some("Current live activity unavailable".into()),
+        O::Observed(instances) => {
+            let unresolved = instances.iter().any(|instance| instance.product.observed().is_none());
+            result.certainty = if unresolved { ActivityCertainty::Unavailable } else { ActivityCertainty::Confirmed };
+            if unresolved { result.notice = Some("Some admitted instance identities are unavailable".into()); }
+            for instance in instances.iter().filter(|instance| instance.product.observed().is_some_and(|key| key.matches(product))) {
                 result.active += 1;
+                result.lines.push(format!("{} · {}", host_text(instance), processing_text(instance)));
+                if let O::Observed(Some(failure)) = &instance.terminal { result.failed_live.push(instance_failure(*failure)); }
             }
+        }
+    }
+    if let O::Observed(recent) = &activity.recent {
+        if let Some(recent) = recent.iter().filter(|item| item.product.observed().is_some_and(|key| key.matches(product)))
+            .max_by_key(|item| item.observed_at) {
+            result.recent_failure = Some(instance_failure(recent.failure));
+            result.recent_cleanup_unconfirmed = !recent.cleanup_confirmed || !recent.transport_retired;
         }
     }
     result
+}
+pub fn host_text(instance: &crate::model::LiveInstance) -> String {
+    if instance.kind == crate::model::InstanceKind::Standalone { return "Opened on its own".into(); }
+    match &instance.daw {
+        crate::model::Observation::Observed(host) => match host.source {
+            crate::model::HostIdentitySource::Vst3HostApplication => format!("Host reports {} (VST3 host name)", host.name),
+        },
+        crate::model::Observation::Unavailable(_) => "Host name unavailable".into(),
+    }
+}
+pub fn processing_text(instance: &crate::model::LiveInstance) -> String {
+    use crate::model::{Observation as O, ProcessingObservation as P};
+    if let O::Observed(Some(failure)) = &instance.terminal { return instance_failure(*failure).into(); }
+    if instance.kind == crate::model::InstanceKind::Standalone {
+        return "No DAW audio device; sound is not measured".into();
+    }
+    match &instance.processing {
+        P::Advancing { .. } => "Processing is advancing; audible output is not measured".into(),
+        P::LastReportedStopped { .. } => "Processing last reported stopped".into(),
+        P::NotObservedAdvancing { .. } => "Processing progress not observed; a stop is not established".into(),
+        P::Unavailable { .. } => "Processing observation unavailable".into(),
+    }
+}
+fn instance_failure(failure: crate::model::InstanceFailure) -> &'static str {
+    match failure {
+        crate::model::InstanceFailure::WindowsHostExited => "Windows plug-in host exited unexpectedly",
+        crate::model::InstanceFailure::EditorControllerFailed => "Editor or controller failed",
+        crate::model::InstanceFailure::TransportFailed => "Bridge transport failed",
+    }
 }
 
 /// The manager's plain explanation of a retained failure, when it has one.

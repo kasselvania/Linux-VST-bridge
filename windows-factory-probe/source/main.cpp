@@ -152,8 +152,8 @@ std::map<std::string, std::string> parse_args(int argc, char** argv) {
          result["--mode"] != "ap0-offline-again-processing" &&
          result["--mode"] != "ap1-linux-windows-audio-roundtrip" &&
          result["--mode"] != "ap2-native-vst3-offline-bridge" &&
-         result["--mode"] != "ap3-queued-audio-preview" && result["--mode"] != "ap4-plugin-state-recall" && result["--mode"] != "ap18-bus-lifecycle" && result["--mode"] != "ap18-stereo-negotiation" && result["--mode"] != "graphics-assessment" && result["--mode"] != "ap8-module-inspection" && result["--mode"] != "ap8-commercial-preview" && result["--mode"] != "ap9-reference" && result["--mode"] != "ap9-commercial" && result["--mode"] != "ap12-vendor-access" && result["--mode"] != "ap8-finish-setup") ||
-        ((result["--mode"] == "ap18-bus-lifecycle" || result["--mode"] == "ap18-stereo-negotiation" || result["--mode"] == "graphics-assessment" || result["--mode"] == "ap8-module-inspection" || result["--mode"] == "ap8-commercial-preview" || result["--mode"] == "ap9-commercial" || result["--mode"] == "ap12-vendor-access" || result["--mode"] == "ap8-finish-setup")
+         result["--mode"] != "ap3-queued-audio-preview" && result["--mode"] != "ap4-plugin-state-recall" && result["--mode"] != "ap18-bus-lifecycle" && result["--mode"] != "ap18-stereo-negotiation" && result["--mode"] != "graphics-assessment" && result["--mode"] != "ap8-module-inspection" && result["--mode"] != "ap8-commercial-preview" && result["--mode"] != "ap9-reference" && result["--mode"] != "ap9-commercial" && result["--mode"] != "ap12-vendor-access" && result["--mode"] != "ap8-finish-setup" && result["--mode"] != "detached-instance") ||
+        ((result["--mode"] == "ap18-bus-lifecycle" || result["--mode"] == "ap18-stereo-negotiation" || result["--mode"] == "graphics-assessment" || result["--mode"] == "ap8-module-inspection" || result["--mode"] == "ap8-commercial-preview" || result["--mode"] == "ap9-commercial" || result["--mode"] == "ap12-vendor-access" || result["--mode"] == "ap8-finish-setup" || result["--mode"] == "detached-instance")
             ? (result["--component-case"]!="first-audio" &&
                 !(result["--component-case"].size()==38 && result["--component-case"].rfind("class:",0)==0 &&
                     std::all_of(result["--component-case"].begin()+6,result["--component-case"].end(),[](unsigned char c){return std::isxdigit(c)!=0;})))
@@ -345,10 +345,11 @@ int main(int argc, char** argv) {
         std::unique_ptr<wf0::UiApartment> apartment;
         const bool graphics_probe=args.at("--mode")=="graphics-assessment";
         const bool setup_mode=args.at("--mode")=="ap8-finish-setup";
+        const bool detached_mode=args.at("--mode")=="detached-instance";
         const bool check_mode=args.at("--mode")=="ap8-module-inspection";
         const std::wstring session_directory=ready_path.substr(0,ready_path.find_last_of(L"\\/"));
         const bool stereo_probe=args.at("--mode")=="ap18-stereo-negotiation";
-        if (access_mode || ap8_mode || args.at("--mode") == "ap18-bus-lifecycle" || stereo_probe || graphics_probe || check_mode || setup_mode) {
+        if (access_mode || ap8_mode || args.at("--mode") == "ap18-bus-lifecycle" || stereo_probe || graphics_probe || check_mode || setup_mode || detached_mode) {
             apartment = std::make_unique<wf0::UiApartment>();
             events.lifecycle("ap11_ui_apartment", ",\"initial_result\":" +
                 std::to_string(apartment->initial) + ",\"initialize_result\":" +
@@ -394,9 +395,9 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (factory != nullptr && primary == 0 && (args.at("--mode")=="ap18-bus-lifecycle"||stereo_probe||graphics_probe||check_mode||setup_mode||ap8_mode||access_mode)) {
+        if (factory != nullptr && primary == 0 && (args.at("--mode")=="ap18-bus-lifecycle"||stereo_probe||graphics_probe||check_mode||setup_mode||detached_mode||ap8_mode||access_mode)) {
             events.lifecycle("ap8_factory", wf0::census_json_fields(census.census));
-            primary=wf0::inspect_module(factory,events,args.at("--component-case")=="first-audio"?"":args.at("--component-case").substr(6),mapped.get(),access_mode?ready_path.substr(0,ready_path.find_last_of(L"\\/")):L"",args.at("--mode")=="ap18-bus-lifecycle",stereo_probe,graphics_probe,setup_mode?session_directory:std::wstring());
+            primary=wf0::inspect_module(factory,events,args.at("--component-case")=="first-audio"?"":args.at("--component-case").substr(6),mapped.get(),access_mode?ready_path.substr(0,ready_path.find_last_of(L"\\/")):L"",args.at("--mode")=="ap18-bus-lifecycle",stereo_probe,graphics_probe,setup_mode?session_directory:std::wstring(),detached_mode?session_directory:std::wstring());
             if(first_primary==0)first_primary=primary;
         } else if (factory != nullptr && primary == 0) {
             component = wf0::admit_component(
@@ -429,7 +430,7 @@ int main(int argc, char** argv) {
         }
         if (primary != 0) return primary;
         window_watch.reset();
-        if((args.at("--mode")=="ap18-bus-lifecycle"||stereo_probe||graphics_probe||check_mode||setup_mode||ap8_mode||access_mode)) {
+        if((args.at("--mode")=="ap18-bus-lifecycle"||stereo_probe||graphics_probe||check_mode||setup_mode||detached_mode||ap8_mode||access_mode)) {
             events.final_lifecycle("scanner_completed", ",\"inspection_complete\":true");
             return 0;
         }

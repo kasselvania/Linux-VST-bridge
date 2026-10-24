@@ -9,6 +9,7 @@
 #include "ap2_backend.h"
 #include "ap3_backend.h"
 #include "ap4_backend.h"
+#include "host_identity.h"
 #include "input_silence.h"
 #ifdef AP8_PREVIEW
 #include "ap10_backend.h"
@@ -235,7 +236,8 @@ bool Processor::stateSession() {
   if (
 #ifdef AP8_PREVIEW
 #ifdef LVB_RUNTIME_DESCRIPTOR
-      ap24_open(AP8::identity,AP8::engine_sha256,AP8::descriptor_sha256,&handle_)
+      lvb_open_with_host_v1(AP8::identity,AP8::engine_sha256,AP8::descriptor_sha256,
+                            host_name_.words.data(),host_name_.length,&handle_)
 #else
       ap9_open(AP8::identity,&handle_)
 #endif
@@ -853,6 +855,7 @@ tresult PLUGIN_API Processor::initialize(FUnknown *context) {
   auto result = AudioEffect::initialize(context);
   if (result != kResultOk)
     return result;
+  host_name_.capture(context);
 #ifdef AP8_PREVIEW
   size_t ordinal=0;
   const int audio_inputs=std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& b){return b.media==kAudio&&b.direction==kInput;});

@@ -97,7 +97,7 @@ fn status(system: &System, capture: &serde_json::Value, operation: Option<&serde
         }
     }
     if let Some(operation) = operation {
-        content.push(Detail::Disclosure(Disclosure::new("Last operation receipt", vec![record(operation)])));
+        content.push(Detail::Disclosure(Disclosure::new(if operation["summary"] == true { "Last operation summary" } else { "Last operation receipt" }, vec![record(operation)])));
     }
     Disclosure { start_open: expanded, ..Disclosure::new("System status and diagnostics", content) }
 }
@@ -372,8 +372,8 @@ mod tests {
             (serde_json::json!({"armed": false,"active_retention":1}), "retaining an active instance"),
             (serde_json::json!({"armed": false,"active_retention":0}), "Crash capture: off"),
         ] {
-            let activity = Activity { schema: crate::model::OPERATOR_SCHEMA, system: current.system.clone(),
-                capture, operation: None, workspace_product_install_ready: false };
+            let activity = Activity { schema: crate::model::OPERATOR_SCHEMA, live: crate::model::LiveActivity::unavailable("fixture"), recent: crate::model::Observation::Unavailable("fixture".into()), incidents: crate::model::Observation::Unavailable("fixture".into()), system: current.system.clone(),
+                capture, operation: None, };
             let view = Diagnostics::from_current(&current, SupportRead { status: Section::Loaded(&activity),
                 technical: Section::Failed("technical fixture failure") }, true, false, false, None);
             assert!(format!("{:?}", view.system).contains(expected));

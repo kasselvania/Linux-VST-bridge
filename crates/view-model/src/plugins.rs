@@ -1,6 +1,7 @@
 //! The Plug-ins screens: the searchable list, one plug-in's detail, and the
 //! read-only list shown while a plug-in's controls load. No discovery,
 //! publication or launch authority: every control is a manager offer.
+pub mod display;
 use super::offers::{self, Importance, Offer, OfferRow};
 use super::product::{self, daw_guidance, installation_progress, last_load_text, product_activity,
     product_daw, product_issue, recovery_pending, vendor_install_consequence};
@@ -134,6 +135,7 @@ pub struct Context<'a> {
     pub pending: bool,
     /// Hold every disclosure open (previews and tests).
     pub expanded: bool,
+    pub activity: crate::diagnostics::Section<'a, &'a crate::model::Activity>,
 }
 
 /// The full Plug-ins list, or one opened plug-in's detail.
@@ -202,6 +204,9 @@ pub struct PluginCard {
     /// The one everyday next step, when there is one.
     pub lead: Option<LeadOffer>,
     pub offers: OfferRow,
+    /// Exact owner offers, grouped by detached window identity.
+    pub standalone: Vec<OfferRow>,
+    pub display: display::DisplayView,
     pub uninstallers: Vec<Uninstall>,
     pub settings: Option<Disclosure>,
     pub help: Option<Disclosure>,
@@ -276,13 +281,15 @@ pub struct SharedSetup {
 
 impl PluginCard {
     pub fn build(snapshot: &Snapshot, p: &Product, context: Context) -> Self {
-        let Context { busy, pending, expanded } = context;
+        let Context { busy, pending, expanded, activity } = context;
         let status = product::status(p);
         let related = related_actions(p, snapshot);
         let progress = installation_progress(snapshot, p);
+        let display_actions = display::references(p);
         let primary = p.compatibility.as_ref().and_then(|workflow| workflow.primary.clone())
             .or_else(|| p.compatibility.is_none().then(||
                 emphasized_action(p, &related, busy)).flatten())
+            .filter(|offer| !display_actions.contains(&offer.action) && !standalone_action(&offer.action))
             .map(|mut offer| {
                 if recovery_pending(p) && matches!(offer.action, Action::CompatibilityFinishResult { .. }) {
                     offer.label = "Finish plug-in recovery".into();
@@ -294,7 +301,8 @@ impl PluginCard {
             (status.class == StatusClass::Ready || progress.is_some()) && other_setup_option(&offer.action));
         let everyday_primary = primary.clone().filter(|_| optional_result.is_none()
             && optional_preparation.is_none());
-        let management = ordinary_actions(p, &related, primary.as_ref());
+        let management: Vec<_> = ordinary_actions(p, &related, primary.as_ref()).into_iter()
+            .filter(|offer| !display_actions.contains(&offer.action)).collect();
 
         let mut notes = Vec::new();
         if recovery_pending(p) {
@@ -316,13 +324,14 @@ impl PluginCard {
                 "The native bridge is prepared. Make it available below, then choose it in your DAW."
             } else { workflow.summary.as_str() }));
         }
-        let instances = product_activity(snapshot, p);
-        let class_level = if instances.shared_class { "Class-level " } else { "" };
+        let instances = product_activity(activity, p);
+        notes.push(Text::detail(instances.detail_label()));
+        notes.extend(instances.lines.iter().map(Text::body));
         for failure in &instances.failed_live {
-            notes.push(Text::caution(format!("{class_level}live session: {failure}")));
+            notes.push(Text::caution(format!("Live session: {failure}")));
         }
         if let Some(failure) = instances.recent_failure {
-            notes.push(Text::caution(format!("{class_level}most recent session: {failure}")));
+            notes.push(Text::caution(format!("Most recent session: {failure}")));
             notes.push(Text::detail(if instances.recent_cleanup_unconfirmed {
                 "Cleanup remains unconfirmed."
             } else {
@@ -348,7 +357,7 @@ impl PluginCard {
             offer: offers::offer(action, Importance::Primary, busy, pending),
         });
         let offered = management.iter().chain(p.compatibility.iter()
-            .flat_map(|workflow| workflow.alternatives.iter())).chain(optional_preparation);
+            .flat_map(|workflow| workflow.alternatives.iter())).chain(optional_preparation).filter(|offer| !display_actions.contains(&offer.action));
         let (previous, current): (Vec<_>, Vec<_>) = offered.cloned()
             .partition(|offer| matches!(offer.action,
                 Action::OrdinaryRollback { .. } | Action::OrdinaryRestoreRecommended { .. }));
@@ -374,7 +383,7 @@ impl PluginCard {
             }).collect();
 
         let editor_checks: Vec<_> = settings_actions(p).into_iter()
-            .filter(|offer| matches!(offer.action, Action::CandidateGraphicsAssess { .. })).collect();
+            .filter(|offer| matches!(offer.action, Action::CandidateGraphicsAssess { .. }) && !display_actions.contains(&offer.action)).collect();
         let help = (p.compatibility.is_some() || !editor_checks.is_empty()).then(|| {
             let mut content = Vec::new();
             if let Some(offer) = optional_result {
@@ -430,6 +439,7 @@ impl PluginCard {
                     | Action::CandidateGraphicsAssess { .. }
                     | Action::CandidateGraphicsPrepare { .. }
                     | Action::CandidateSettingsPrepare { .. })
+                    && !standalone_action(&action.action) && !display_actions.contains(&action.action)
                     && !management.iter().any(|shown| shown.action == action.action)
                     && !guided_action_shown(p, primary.as_ref(), &action.action)
             })
@@ -444,6 +454,9 @@ impl PluginCard {
             technical.extend(observed(&workflow.established));
         }
 
+        let standalone = standalone_controls(p, everyday_primary.as_ref(), busy, pending);
+        let already_shown: Vec<_> = standalone.iter().flat_map(|row| &row.offers).map(|offer| offer.intent.clone()).collect();
+        let display = display::build(p, busy, pending, &already_shown);
         Self {
             key: ProductKey::from(p),
             record: snapshot.products.iter().position(|candidate| std::ptr::eq(candidate, p)),
@@ -457,10 +470,12 @@ impl PluginCard {
             ],
             readiness: readiness(p),
             notes,
+            standalone,
+            display,
             lead,
             offers: everyday,
             uninstallers,
-            settings: settings::section(p, busy, pending, expanded),
+            settings: settings::section_omitting(p, busy, pending, expanded, &display_actions),
             help,
             availability,
             other_setups,
@@ -471,6 +486,38 @@ impl PluginCard {
             } else { "Technical details and advanced actions" }, technical).forced_open(expanded),
         }
     }
+}
+
+fn standalone_action(action: &Action) -> bool {
+    matches!(action, Action::PluginOpen { .. } | Action::PluginFocus { .. } | Action::PluginClose { .. })
+}
+
+/// Group only exact owner-issued window controls. A pair never borrows another
+/// window's focus/close target, even when their labels and product are equal.
+fn standalone_controls(product: &Product, primary: Option<&AvailableAction>, busy: Option<&str>, pending: bool) -> Vec<OfferRow> {
+    let mut groups: Vec<(Option<(&str, &str)>, Vec<AvailableAction>)> = vec![];
+    for offer in product.actions.iter().filter(|offer| standalone_action(&offer.action)
+        && !primary.is_some_and(|shown| shown.action == offer.action)) {
+        let identity = match &offer.action {
+            Action::PluginFocus { operation, session } | Action::PluginClose { operation, session } =>
+                Some((operation.as_str(), session.as_str())),
+            _ => None,
+        };
+        if let Some((_, actions)) = groups.iter_mut().find(|(key, _)| *key == identity) {
+            if !actions.iter().any(|old| old.action == offer.action) { actions.push(offer.clone()); }
+        } else { groups.push((identity, vec![offer.clone()])); }
+    }
+    groups.into_iter().map(|(_, actions)| {
+        let mut row = offers::row(&actions, Importance::Secondary, busy, pending);
+        if primary.is_none() {
+            for offer in &mut row.offers {
+                if matches!(offer.intent, Action::PluginOpen { .. } | Action::PluginFocus { .. }) {
+                    offer.importance = Importance::Primary;
+                }
+            }
+        }
+        row
+    }).collect()
 }
 
 fn observed(established: &[String]) -> impl Iterator<Item = Detail> + '_ {
@@ -923,7 +970,7 @@ mod tests {
             alternatives: vec![],
         });
         let card = PluginCard::build(&s, &s.products[0],
-            Context { busy: Some("Cleanup unconfirmed"), pending: false, expanded: false });
+            Context { activity: crate::diagnostics::Section::NotRequested, busy: Some("Cleanup unconfirmed"), pending: false, expanded: false });
         let lead = card.lead.expect("recovery leads");
         assert_eq!(lead.offer.label, "Finish plug-in recovery");
         assert_eq!(lead.offer.availability, offers::Availability::Refused("Cleanup unconfirmed".into()));
@@ -948,9 +995,9 @@ mod tests {
             action: Action::PluginAddBackToDaw { class_id: class,
                 expected_removed: crate::model::PublicationIdentity { id: "ac".repeat(16), sha256: "bd".repeat(32) } },
             disabled_reason: None }];
-        let card = PluginCard::build(&s, &s.products[0], Context { busy: None, pending: false, expanded: false });
+        let card = PluginCard::build(&s, &s.products[0], Context { activity: crate::diagnostics::Section::NotRequested, busy: None, pending: false, expanded: false });
         assert_eq!(card.status, Status { words: "Removed from your DAW", class: StatusClass::NeedsYou });
-        assert_eq!(card.notes, [Text::body(removed)]);
+        assert_eq!(card.notes, [Text::body(removed), Text::detail("Live activity has not been observed")]);
         assert_eq!(card.lead.unwrap().offer.label, "Add back to my DAW");
         assert!(card.offers.offers.is_empty());
     }
@@ -964,7 +1011,7 @@ mod tests {
     }
 
     fn context(snapshot: &Snapshot, pending: bool, expanded: bool) -> Context<'_> {
-        Context { busy: snapshot.system.inactive_reason(), pending, expanded }
+        Context { activity: crate::diagnostics::Section::NotRequested, busy: snapshot.system.inactive_reason(), pending, expanded }
     }
 
     fn card(snapshot: &Snapshot, index: usize, pending: bool, expanded: bool) -> PluginCard {
@@ -1194,19 +1241,19 @@ mod tests {
     }
 
     #[test]
-    fn shared_class_sessions_stay_class_level_and_recent_failures_say_cleanup() {
+    fn raw_session_history_does_not_supply_live_product_claims() {
         let snapshot = sample(Page::Plugins, "shared");
         let fragments: Vec<_> = snapshot.products.iter().enumerate()
             .filter(|(_, p)| p.class_id == "fixture-fragments").map(|(index, _)| index).collect();
         assert_eq!(fragments.len(), 2);
         for index in fragments {
-            assert_eq!(card(&snapshot, index, false, false).technical.content[0],
-                Text::detail("1 active in this plug-in class · exact build unavailable").into());
+            let card = card(&snapshot, index, false, false);
+            assert_eq!(card.technical.content[0], Text::detail("Live activity has not been observed").into());
+            assert!(!card.notes.iter().any(|note| note.words.contains("active instance")));
         }
         let kontakt = snapshot.products.iter().position(|p| p.class_id == "fixture-kontakt").unwrap();
         let card = card(&snapshot, kontakt, false, false);
-        assert!(card.notes.contains(&Text::caution("most recent session: Editor or controller failed")));
-        assert!(card.notes.contains(&Text::detail("Cleanup and transport retirement confirmed.")));
+        assert!(!card.notes.iter().any(|note| note.words.contains("most recent session") || note.words.contains("Cleanup and transport retirement confirmed")));
     }
 
     #[test]
@@ -1260,4 +1307,45 @@ mod tests {
         assert!(candidates.start_open, "several generations start open");
         assert!(candidates.content.iter().all(|detail| matches!(detail, Detail::Group(_))));
     }
+    #[test]
+    fn standalone_controls_bind_each_exact_window_and_preserve_refusals() {
+        let mut snapshot = snapshot();
+        snapshot.products.truncate(1);
+        snapshot.environment_installers.clear(); snapshot.vendor_applications.clear(); snapshot.environments.clear();
+        let p = &mut snapshot.products[0]; p.compatibility = None;
+        let open = Action::PluginOpen { product: crate::model::ProductIdentity::from(&*p),
+            expected_current: crate::model::PublicationIdentity { id:"ab".repeat(16), sha256:"cd".repeat(32) } };
+        let mut actions = vec![AvailableAction { label:"Open on its own".into(), action:open.clone(),
+            disabled_reason:Some("This setup is being changed".into()) }];
+        for value in ["ab", "cd"] {
+            let operation = value.repeat(16); let session = value.repeat(16);
+            for (label, action) in [("Show the plug-in window", Action::PluginFocus {operation:operation.clone(),session:session.clone()}),
+                ("Close this plug-in window", Action::PluginClose {operation,session})] {
+                actions.push(AvailableAction {label:label.into(),action,disabled_reason:None});
+            }
+        }
+        p.actions = actions.clone();
+        let view = card(&snapshot, 0, false, false);
+        assert_eq!(view.standalone.len(), 3);
+        assert_eq!(view.standalone[0].offers[0].intent, open);
+        assert_eq!(view.standalone[0].offers[0].availability, Availability::Refused("This setup is being changed".into()));
+        assert!(view.standalone[0].notes.iter().any(|text| text == "This setup is being changed"));
+        assert_eq!(view.standalone.iter().flat_map(|row| &row.offers).map(|offer| offer.intent.clone()).collect::<Vec<_>>(),
+            actions.iter().map(|offer| offer.action.clone()).collect::<Vec<_>>());
+        for (row, expected) in view.standalone[1..].iter().zip(actions[1..].chunks(2)) {
+            assert_eq!(row.offers[0].pressed(), Some(expected[0].action.clone()));
+            assert_eq!(row.offers[1].pressed(), Some(expected[1].action.clone()));
+            assert_eq!(row.offers[0].importance, Importance::Primary);
+            assert_eq!(row.offers[1].importance, Importance::Secondary);
+        }
+        assert!(view.offers.offers.is_empty() && view.lead.is_none());
+        assert!(!format!("{:?}", view.technical).contains("PluginFocus"), "ordinary controls are not duplicated in expert actions");
+        let pending = card(&snapshot, 0, true, false);
+        assert_eq!(pending.standalone[0].offers[0].availability, view.standalone[0].offers[0].availability);
+        assert!(pending.standalone[1..].iter().flat_map(|row| &row.offers)
+            .all(|offer| offer.availability == Availability::Waiting && offer.pressed().is_none()));
+        snapshot.products[0].actions.clear();
+        assert!(card(&snapshot, 0, false, false).standalone.is_empty(), "observed windows never manufacture controls");
+    }
+
 }

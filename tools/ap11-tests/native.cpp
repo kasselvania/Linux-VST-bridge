@@ -70,6 +70,18 @@ struct Host final : HostApplication,
   bool flush = true, reentrant = false;
   uint32 dirty = 0, restarts = 0, reload_calls = 0, restart_calls=0, refuse_restarts=0, midi_restarts=0;
   unsigned refuse_allocations = 0;
+  unsigned name_calls=0;
+  int name_mode=0;
+  tresult PLUGIN_API getName(String128 name) override {
+    ++name_calls;
+    check(std::this_thread::get_id()==owner,"host identity captured only on SDK owner thread");
+    if(name_mode==1)return kResultFalse;
+    if(name_mode==2){std::fill_n(name,128,static_cast<TChar>('X'));return kResultOk;}
+    std::fill_n(name,128,0);
+    const TChar declared[]={ 'U','n','f','a','m','i','l','i','a','r',' ','h','o','s','t',0 };
+    std::copy(std::begin(declared),std::end(declared),name);
+    return kResultOk;
+  }
   void (*midi_restart_observer)(Host &) = nullptr;
   tresult PLUGIN_API createInstance(TUID cid, TUID iid, void **out) override {
     if (refuse_allocations) { --refuse_allocations; *out = nullptr; return kResultFalse; }
@@ -1103,6 +1115,17 @@ void presentation_focus_regression() {
   check(c->terminate()==kResultOk&&processor.terminate()==kResultOk,"presentation focus normal retirement");c->release();
 }
 int main(int argc,char** argv) {
+  {
+    Host host;LVBHost::Name name;
+    name.capture(static_cast<IHostApplication*>(&host));
+    check(name.length==15 && name.words[0]=='U' && name.words[14]=='t' && host.name_calls==1,
+          "actual VST3 name is captured without a known-DAW list");
+    host.name_mode=1;name.capture(static_cast<IHostApplication*>(&host));
+    check(name.length==0,"failed SDK name does not retain an earlier name");
+    host.name_mode=2;name.capture(static_cast<IHostApplication*>(&host));
+    check(name.length==0,"unterminated 128-unit name is unavailable");
+    name.capture(nullptr);check(name.length==0,"absent host is unavailable");
+  }
   if(argc>1){
     if(!std::strcmp(argv[1],"--state-migration")){historical_controller_regression();processing_state_restore_regression();failed_restore_retirement_regression();}
     else if(!std::strcmp(argv[1],"--curve-refusal"))curve_refusal_regression();

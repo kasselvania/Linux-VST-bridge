@@ -6,6 +6,7 @@ pub mod environment_revision;
 pub mod runtime_delivery;
 pub mod acceptance;
 pub mod capacity;
+pub mod instance;
 pub mod transport_storage;
 pub mod mapped_file;
 pub mod catalogue;
@@ -908,6 +909,19 @@ impl Manager {
         }
         atomic_json(&destination, &LeaseOwner { schema:1, temporary_owner:path.into(), owner })
     }
+    /// Read only the exact durable manager pointer. Observation callers must
+    /// not search every setup when a historical session has no retained pointer.
+    /// Caller holds shared or exclusive registry custody.
+    pub(crate) fn retained_lease_owner(&self, sid: &str, report: &Path) -> Result<serde_json::Value> {
+        require(valid_hex(sid, 32)
+            && report.parent() == Some(self.root.join("runtime/results").as_path()), "lease_identity")?;
+        let retained = self.root.join("runtime/lease-owners").join(format!("{sid}.json"));
+        let record: LeaseOwner = read_json(&retained)?;
+        require(record.schema == 1
+            && self.lease_owner_location(sid, report, &record.owner)? == record.temporary_owner,
+            "lease_identity")?;
+        Ok(record.owner)
+    }
     /// Caller holds registry.lock. The manager record remains authoritative
     /// until lease release. Legacy leases retain their original exact lookup.
     pub fn lease_owner(&self, sid: &str, report: &Path)
@@ -961,7 +975,7 @@ impl Manager {
         for owner in capacity::owners_for(self, environment.as_ref())? {
             match owner.kind {
                 capacity::Kind::Keeper => {}
-                capacity::Kind::Dsp => require(
+                capacity::Kind::Dsp | capacity::Kind::Detached => require(
                     class.is_some_and(|c| !c.eq_ignore_ascii_case(&owner.class_id)),
                     "active_device_lease",
                 )?,

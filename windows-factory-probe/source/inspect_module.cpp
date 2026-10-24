@@ -6,6 +6,7 @@
 #include "vendor_handler.h"
 #include "ap8_state.h"
 #include "vendor_view.h"
+#include "retirement_status.h"
 #include "component_instance_session.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
@@ -48,7 +49,7 @@ template<size_t N> std::string bounded(const char (&value)[N]) {
 }
 
 }
-int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id, ExternalProcessing* external, const std::wstring& access_directory, bool bus_probe, bool stereo_probe, bool graphics_probe, const std::wstring& setup_directory) {
+int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id, ExternalProcessing* external, const std::wstring& access_directory, bool bus_probe, bool stereo_probe, bool graphics_probe, const std::wstring& setup_directory, const std::wstring& detached_directory) {
     const bool setup=!setup_directory.empty();
     using namespace Steinberg;using namespace Steinberg::Vst;
     HostApplication host;VendorHandler handler;handler.external=external;
@@ -147,6 +148,37 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         controller->queryInterface(IConnectionPoint::iid,reinterpret_cast<void**>(&cc));
         // A combined component/controller is already connected to itself.
         if(controller_initialized&&cp&&cc){step("connectComponent");ok(cp->connect(cc),"connectComponent");connected_pc=true;step("connectController");ok(cc->connect(cp),"connectController");connected_cp=true;}
+        if(!detached_directory.empty()) {
+            // An ordinary, exact-class instance with its own editor. No audio
+            // device, inspection, state capture, or setup maintenance is implied.
+            if(class_id.empty()||external||setup||!access_directory.empty()||bus_probe||stereo_probe||graphics_probe)
+                throw std::runtime_error("detached instance mode binding");
+            VendorView view;
+            step("openDetachedEditor");
+            if(!view.open(*controller))throw std::runtime_error("detached editor open failed");
+            ok(kResultOk,"openDetachedEditor");
+            events.lifecycle("detached_instance_opened");
+            bool pumped=true;
+            while((pumped=VendorView::pump())&&!view.close_requested()&&!view.window_lost()
+                  &&GetFileAttributesW((detached_directory+L"\\instance.close").c_str())==INVALID_FILE_ATTRIBUTES)
+                Sleep(10);
+            const char* ended=GetFileAttributesW((detached_directory+L"\\instance.close").c_str())!=INVALID_FILE_ATTRIBUTES
+                ?"requested":view.window_lost()?"window_lost":!pumped?"host_ended":"closed";
+            step("closeDetachedEditor");
+            const bool process_scoped=RetirementStatus::selected();
+            if(!view.close(process_scoped))ExitProcess(92);
+            ok(kResultOk,"closeDetachedEditor");
+            events.lifecycle("detached_instance_closed",",\"reason\":"+quoted(ended)+
+                ",\"process_scoped\":"+(process_scoped?"true":"false"));
+            if(process_scoped) {
+                // No processor activation, processing worker or state request
+                // exists in this mode. The view/frame/parent are detached; keep
+                // vendor objects owned until this exact process is contained.
+                Sleep(5000);
+                TerminateProcess(GetCurrentProcess(),92);
+                std::terminate();
+            }
+        } else {
         for(int media=0;media<2;++media)for(int dir=0;dir<2;++dir){
             step("getBusCount");int n=component->getBusCount(media,dir);
             if(n<0||n>64)throw std::runtime_error("bus count bound");
@@ -286,6 +318,7 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             external->retire_vendor_process(retirement_ready);
             if(!result.quiescent)ExitProcess(92); // default policy containment remains unchanged
             if(!result.success)throw std::runtime_error("commercial processing failed");
+        }
         }
         }
     } catch(const std::exception& e){primary=90;events.lifecycle("ap8_failure",",\"reason\":"+quoted(e.what()));}

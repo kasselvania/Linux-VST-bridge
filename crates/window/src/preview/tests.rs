@@ -225,10 +225,11 @@ fn published_product_recovery_stays_visible_beside_healthy_siblings() {
         });
         let key = ProductKey::from(&products[0]);
         assert!(products[0].active_revision.is_some());
+        samples::presentation(&mut preview.sample.snapshot, "available");
         preview.rebuild();
         let callout = preview.built.page.iter().find_map(|node| match node {
             Node::Panel { children, .. } if children.iter().any(|node|
-                matches!(node, Node::Heading(title) if title == "Next: recover Affected instrument")) => Some(children),
+                matches!(node, Node::Heading(title) if title == "Recover Affected instrument")) => Some(children),
             _ => None,
         }).expect("recovery callout outside disclosures on populated Home");
         assert!(outside_folds(callout).iter().any(|node| matches!(node, Node::Text(_, text)
@@ -347,7 +348,9 @@ fn every_destructive_offer_opens_its_confirmation_first() {
                 assert_eq!(preview.state.forms.confirm.as_ref(), Some(&offer.intent), "{}", name(&selection));
                 let confirm = form_control(&preview, FormStep::Confirm).expect("the confirmation's own button");
                 let cancel = form_control(&preview, FormStep::CancelConfirm).expect("a way back");
-                assert_eq!(confirm.importance, Importance::Destructive);
+                assert_eq!(confirm.importance, if matches!(offer.intent, Action::EnvironmentRuntimeSelect {..}) {
+                    Importance::Primary
+                } else { Importance::Destructive });
                 // The safe answer has focus when the confirmation opens.
                 assert_eq!(preview.built.form_focus.as_deref(), Some(cancel.id.0.as_str()));
                 let mut cancelled = preview.clone();
@@ -635,4 +638,41 @@ fn a_closed_forms_confirm_cannot_confirm_a_new_form() {
         return;
     }
     panic!("no enabled destructive sample");
+}
+
+#[test]
+fn display_and_standalone_journey_keeps_exact_visible_controls_and_result_form() {
+    let mut preview = Preview::new(Selection {state:state_index("plugin_ready"),page:Page::Plugins,..Selection::default()});
+    preview.display_fixture();
+    let visible: Vec<_> = outside_folds(&preview.built.page).into_iter().flat_map(|node| match node {
+        Node::Actions {actions, ..} => actions.iter().map(|action| action.id.0.clone()).collect::<Vec<_>>(),
+        _ => vec![],
+    }).collect();
+    let owner = preview.sample.snapshot.products[0].actions.clone();
+    for available in &owner {
+        let ids: Vec<_> = visible.iter().filter(|id| matches!(preview.built.targets.get(*id),
+            Some(Target::Offer {offer, ..}) if offer.intent == available.action)).collect();
+        assert_eq!(ids.len(), 1, "each exact current action appears once outside folds: {:?}", available.action);
+    }
+    let blocked = visible.iter().find(|id| matches!(preview.built.targets.get(*id),
+        Some(Target::Offer {offer, ..}) if offer.availability.reason() == Some("Close this exact plug-in window before preparing its accessibility trial.")))
+        .unwrap().to_string();
+    assert_eq!(preview.press(&blocked, InputPath::Pointer), Outcome::Refused);
+    assert!(preview.captured.is_empty());
+    let choose = visible.iter().find(|id| matches!(preview.built.targets.get(*id),
+        Some(Target::Offer {offer, ..}) if matches!(offer.intent, Action::CompatibilityPublishTest {..}))).unwrap().to_string();
+    let Some(Target::Offer {offer, ..}) = preview.built.targets.get(&choose).cloned() else { panic!() };
+    preview.press(&choose, InputPath::Keyboard);
+    assert_eq!(preview.captured.last().unwrap().0, offer.intent);
+    // A separately reconstructed exact fixture still routes results through
+    // the existing form. Opening/cancelling the form sends no guessed outcome.
+    preview.display_fixture();
+    let id = preview.built.targets.iter().find_map(|(id, target)| matches!(target,
+        Target::Offer {offer, ..} if matches!(offer.intent, Action::CompatibilityResult {..})).then(|| id.clone())).unwrap();
+    let before = preview.captured.len();
+    preview.press(&id, InputPath::Pointer);
+    assert!(matches!(preview.state.forms.record, Some(Action::CompatibilityResult {..})));
+    assert_eq!(preview.captured.len(), before);
+    preview.dismiss_form("fixture Escape");
+    assert_eq!(preview.captured.len(), before);
 }

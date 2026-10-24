@@ -43,7 +43,9 @@ impl Builder<'_> {
             Ok(_) if pending => Some(offers::WAITING.to_string()),
             Ok(_) => None,
         };
-        let confirm = self.local(confirm, Importance::Destructive, Target::Form(FormStep::Confirm), reason);
+        let importance = if matches!(form, Action::EnvironmentRuntimeSelect { .. }) { Importance::Primary }
+            else { Importance::Destructive };
+        let confirm = self.local(confirm, importance, Target::Form(FormStep::Confirm), reason);
         let cancel = self.local(cancel, Importance::Secondary, Target::Form(FormStep::CancelConfirm), None);
         let focus = cancel.id.0.clone();
         out.push(self.actions("confirm", vec![cancel, confirm]));

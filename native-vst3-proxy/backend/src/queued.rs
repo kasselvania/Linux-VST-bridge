@@ -296,6 +296,7 @@ struct Shared {
     generation: u64,
     identity: Option<state::Identity>,
     execution: Option<ap1_native_client::admission::ExecutionIdentity>,
+    host_name: Option<String>, // SDK self-report, owner-thread startup/recovery only.
     notices: AtomicU64,
     notice_traits: AtomicU64,
     last_edit: AtomicU64,
@@ -401,6 +402,7 @@ impl Shared {
             generation: 1,
             identity: None,
             execution: None,
+            host_name: None,
             notices: AtomicU64::new(0),
             notice_traits: AtomicU64::new(0),
             last_edit: AtomicU64::new(0),
@@ -2307,6 +2309,11 @@ pub(crate) unsafe fn open(
 ) -> u32 {
     open_execution(max, handle, minor, identity, None)
 }
+#[derive(Default)]
+struct Opening {
+    execution: Option<ap1_native_client::admission::ExecutionIdentity>,
+    host_name: Option<String>,
+}
 unsafe fn open_execution(
     max: u32,
     handle: *mut u64,
@@ -2314,7 +2321,12 @@ unsafe fn open_execution(
     identity: Option<state::Identity>,
     execution: Option<ap1_native_client::admission::ExecutionIdentity>,
 ) -> u32 {
-    open_with(max, handle, minor, identity, execution, None, || {
+    open_identified(max, handle, minor, identity, Opening { execution, host_name:None })
+}
+unsafe fn open_identified(max: u32, handle: *mut u64, minor: u64,
+    identity: Option<state::Identity>, opening: Opening) -> u32 {
+    let execution = opening.execution;
+    open_with(max, handle, minor, identity, opening, None, || {
         if minor >= 6 {
             crate::preview::discover_performance(identity, execution)
         } else if let Some(identity) = identity {
@@ -2333,7 +2345,7 @@ pub(crate) unsafe fn open_bound(
     binding: crate::preview::Binding,
 ) -> u32 {
     let report = binding.directory.join("rpi0.performance.jsonl");
-    open_with(max, handle, 12, Some(identity), None, Some(report), || Ok(binding))
+    open_with(max, handle, 12, Some(identity), Opening::default(), Some(report), || Ok(binding))
 }
 
 unsafe fn open_with(
@@ -2341,7 +2353,7 @@ unsafe fn open_with(
     handle: *mut u64,
     minor: u64,
     identity: Option<state::Identity>,
-    execution: Option<ap1_native_client::admission::ExecutionIdentity>,
+    opening: Opening,
     report_override: Option<std::path::PathBuf>,
     binding_source: impl FnOnce() -> io::Result<crate::preview::Binding>,
 ) -> u32 {
@@ -2351,6 +2363,11 @@ unsafe fn open_with(
     crate::ffi(|| {
         match INSTANCES.insert(|| {
             let binding = binding_source()?;
+            if cfg!(feature = "registered") && binding.owner.is_some() && opening.execution.is_some() {
+                if let Some(name) = &opening.host_name {
+                    crate::host_identity::report(&crate::preview::performance_root(true), binding.session, name);
+                }
+            }
             let report = report_override.or_else(|| binding.owner.as_ref().map(|_| {
                 if minor >= 6 {
                     crate::preview::performance_root(identity.is_some())
@@ -2378,7 +2395,8 @@ unsafe fn open_with(
             shared.gui = session.gui.clone();
             shared.terminal = session.fault_status.as_ref().map(|f| f.terminal.clone());
             shared.identity = identity;
-            shared.execution = execution;
+            shared.execution = opening.execution;
+            shared.host_name = opening.host_name;
             shared.observer = session.witness.as_ref().map(|w| w.shared.clone());
             let shared = Arc::new(shared);
             shared.state_capable.store(minor >= 4, Ordering::Release);
@@ -2530,6 +2548,11 @@ unsafe fn recover_state(id: u64, revision: u64, capacity: usize) -> Result<Vec<u
             } else {
                 crate::preview::report_path(binding.session)
             });
+            if cfg!(feature = "registered") && l.shared.execution.is_some() {
+                if let Some(name) = &l.shared.host_name {
+                    crate::host_identity::report(&crate::preview::performance_root(true), binding.session, name);
+                }
+            }
             let preparation = crate::scheduling::Preparation::from_binding(&binding);
             let mut shared = Shared::try_new()?;
             let mut session = Session::open(binding, l.max.min(if crate::performance::whole_block(l.minor) { CAP } else { LEGACY_CAP }), l.minor)?;
@@ -2568,6 +2591,7 @@ unsafe fn recover_state(id: u64, revision: u64, capacity: usize) -> Result<Vec<u
             shared.snapshots = l.shared.snapshots.clone();
             shared.identity = l.shared.identity;
             shared.execution = l.shared.execution;
+            shared.host_name = l.shared.host_name.clone();
             shared.state_capable.store(true, Ordering::Release);
             shared.ack.store(17, Ordering::Release);
             shared.observer = session.witness.as_ref().map(|w| w.shared.clone());
@@ -3662,6 +3686,22 @@ pub unsafe extern "C" fn ap24_open(identity: *const u8, engine: *const u8,
         engine: std::slice::from_raw_parts(engine, 32).try_into().unwrap(),
         descriptor: std::slice::from_raw_parts(descriptor, 32).try_into().unwrap(),
     }))
+}
+/// Additive host-observation ABI. Malformed/absent optional names do not change
+/// launch admission. Inputs are copied before activation and never used by DSP.
+#[no_mangle]
+pub unsafe extern "C" fn lvb_open_with_host_v1(identity: *const u8, engine: *const u8,
+    descriptor: *const u8, name: *const u16, length: u32, handle: *mut u64) -> u32 {
+    if identity.is_null() || engine.is_null() || descriptor.is_null() { return 1; }
+    let host_name = if name.is_null() || !(1..=127).contains(&length) { None }
+        else { crate::host_identity::from_utf16(std::slice::from_raw_parts(name, length as usize)) };
+    let value = std::slice::from_raw_parts(identity, 48);
+    open_identified(256, handle, 15, Some(state::Identity {
+        class:value[..16].try_into().unwrap(), module:value[16..].try_into().unwrap(),
+    }), Opening { execution:Some(ap1_native_client::admission::ExecutionIdentity {
+        engine:std::slice::from_raw_parts(engine, 32).try_into().unwrap(),
+        descriptor:std::slice::from_raw_parts(descriptor, 32).try_into().unwrap(),
+    }), host_name })
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap8_open(identity: *const u8, handle: *mut u64) -> u32 {

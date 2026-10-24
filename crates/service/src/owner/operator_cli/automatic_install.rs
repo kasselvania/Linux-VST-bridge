@@ -5684,6 +5684,7 @@ finally:
         };
         prep::retain_guided_result(&f.m, &report, &serde_json::to_value(action).unwrap()).unwrap();
         let mut product = ui::Product {
+            display:ui::DisplayConfiguration::unavailable(),
             class_id: c.selection.class.id.clone(),
             name: c.selection.class.name.clone(),
             vendor: c.selection.class.vendor.clone(),

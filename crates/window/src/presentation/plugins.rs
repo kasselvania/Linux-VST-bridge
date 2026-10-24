@@ -55,7 +55,7 @@ impl Builder<'_> {
     }
 
     pub(super) fn card(&mut self, card: &PluginCard, snapshot: &Snapshot) -> Node {
-        let PluginCard { key: _, record, name, status: owner, facts, readiness: stages, notes, lead, offers, uninstallers, settings,
+        let PluginCard { key: _, record, name, status: owner, facts, readiness: stages, notes, lead, offers, standalone, display, uninstallers, settings,
             help, availability, other_setups, previous_setups, shared_setup, technical } = card;
         let chip = self.id("chip", &format!("card {name}"));
         let mut children = vec![Node::Header(vec![
@@ -82,6 +82,11 @@ impl Builder<'_> {
             }
             actions.push(self.main_offer(offer, After::Nothing));
         }
+        if !standalone.is_empty() {
+            actions.push(Node::Label("Outside your DAW".into()));
+            actions.push(words(Role::Detail, "These plug-in windows do not open an audio device."));
+            for row in standalone { actions.extend(self.row(row)); }
+        }
         actions.extend(self.row(offers));
         for Uninstall { row, explanation } in uninstallers {
             actions.extend(self.row(row));
@@ -91,6 +96,7 @@ impl Builder<'_> {
             Node::Panel { kind: PanelKind::Card, children: readiness },
             Node::Panel { kind: PanelKind::Card, children: actions },
         ]));
+        children.extend(self.display_configuration(display));
         for section in [settings, help, availability, other_setups, previous_setups].into_iter().flatten() {
             children.push(self.fold(section));
         }
@@ -104,6 +110,44 @@ impl Builder<'_> {
             .map(|product| self.details(&plugins::technical_records(product))).unwrap_or_default();
         children.push(self.fold_with(technical, records));
         Node::Stack(children)
+    }
+
+    fn display_configuration(&mut self, display: &plugins::display::DisplayView) -> Vec<Node> {
+        let mut out = vec![];
+        if let Some(notice) = &display.notice { out.push(text(notice)); }
+        if !display.modes.is_empty() {
+            out.push(Node::Heading("Display choices".into()));
+            out.push(words(Role::Detail, "Choose which settings to prepare and try. Your current settings stay selected until you choose to change them."));
+            let mut modes = vec![];
+            for mode in &display.modes {
+                let mut children = vec![Node::Label(mode.label.clone()), words(Role::Detail, mode.posture.clone()), text(&mode.result)];
+                if let Some(record) = &mode.result_record { children.push(self.fold(record)); }
+                children.extend(self.display_actions(&mode.prepare));
+                for trial in &mode.trials {
+                    children.push(Node::Label(trial.posture.clone()));
+                    children.push(text(&trial.evidence)); children.push(text(&trial.result));
+                    children.extend(self.display_actions(&trial.actions));
+                    children.push(self.fold(&trial.identity));
+                }
+                modes.push(Node::Panel {kind:PanelKind::Card, children});
+            }
+            out.push(Node::Columns(modes));
+        }
+        if !display.repairs.is_empty() {
+            let mut children = vec![Node::Heading("Repair steps".into())];
+            for (index, step) in display.repairs.iter().enumerate() {
+                children.push(Node::Label(format!("{}. {}", index + 1, step.label)));
+                children.push(words(Role::Body, step.detail.clone()));
+                children.extend(self.display_actions(&step.actions));
+            }
+            out.push(Node::Panel {kind:PanelKind::Card, children});
+        }
+        if let Some(provenance) = &display.provenance { out.push(self.fold(provenance)); }
+        out
+    }
+    fn display_actions(&mut self, row: &OfferRow) -> Vec<Node> {
+        if row.offers.is_empty() { row.notes.iter().map(|note| words(Role::Detail, note.clone())).collect() }
+        else { self.row(row) }
     }
 
     pub(super) fn loading(&mut self, list: &LoadingList, state: &State) -> Vec<Node> {

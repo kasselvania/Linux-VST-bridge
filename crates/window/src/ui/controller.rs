@@ -35,6 +35,7 @@ impl Controller {
             model.rebuild();
             if args.iter().any(|arg| arg == "--long-row-fixture") { model.long_row_fixture(); }
             if args.iter().any(|arg| arg == "--support-report-fixture") { model.report_fixture(); }
+            if args.iter().any(|arg| arg == "--display-fixture") { model.display_fixture(); }
             Self::Sample(Box::new(model))
         }
         #[cfg(not(feature = "samples"))]
@@ -64,6 +65,8 @@ impl Controller {
         let (sender, replies) = sync_channel(1);
         Self::Live { model: Box::new(model), worker: Worker {
             requests, replies, disconnected: false, reading: None,
+            observations: None,
+            observation_error: None,
             draw_fixture: Some(DrawReplyFixture { sender, panel: Some(setup.panel()) }),
         } }
     }
@@ -192,6 +195,12 @@ impl Controller {
             #[cfg(feature = "live")]
             Self::Live { model, worker } => {
                 let before = model.render_revision();
+                if let Some(reason) = worker.observation_error.take() {
+                    model.observe(lvb_client::observation::Event::Unavailable { reason });
+                }
+                if let Some(event) = worker.observations.as_ref().and_then(lvb_client::observation::Watch::take) {
+                    model.observe(event);
+                }
                 if let Some(reply) = worker.receive() {
                     match reply {
                         WorkerReply::Stopped(error) => model.worker_stopped(error),
@@ -269,6 +278,8 @@ pub struct Worker {
     replies: std::sync::mpsc::Receiver<WorkerReply>,
     disconnected: bool,
     reading: Option<(bool, f64)>,
+    observations: Option<lvb_client::observation::Watch>,
+    observation_error: Option<String>,
     #[cfg(feature = "samples")]
     draw_fixture: Option<DrawReplyFixture>,
 }
@@ -454,7 +465,19 @@ impl Worker {
                 }
             }
         }).expect("start the Bridge client worker");
-        Self { requests, replies, disconnected: false, reading: None,
+        #[cfg(target_os = "linux")]
+        let observation_start = std::env::var_os("HOME").zip(std::env::current_exe().ok())
+            .ok_or_else(|| "Installed frontend identity is unavailable".to_owned())
+            .and_then(|(home, executable)| lvb_client::observation::Watch::start(home.into(), executable,
+                makepad_product_ui::makepad_widgets::SignalToUI::set_ui_signal)
+                .map_err(|_| "Live observation worker could not start. Reopen the manager.".into()));
+        #[cfg(target_os = "linux")]
+        let (observations, observation_error) = match observation_start {
+            Ok(watch) => (Some(watch), None), Err(error) => (None, Some(error)),
+        };
+        #[cfg(not(target_os = "linux"))]
+        let (observations, observation_error) = (None, None);
+        Self { requests, replies, disconnected: false, reading: None, observations, observation_error,
             #[cfg(feature = "samples")]
             draw_fixture: None,
         }

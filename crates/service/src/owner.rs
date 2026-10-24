@@ -8,6 +8,7 @@ pub(crate) mod experimental_runner;
 pub(crate) mod plugin_services;
 pub(crate) mod vendor_product_cli;
 pub(crate) mod operator_cli;
+pub(crate) mod detached_instance;
 pub(crate) mod readiness;
 pub(crate) mod graphics_cli;
 pub(crate) mod installer_import;
@@ -359,6 +360,8 @@ struct SessionSpec {
     vendor_access: bool,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     finish_setup: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    detached: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     required_services: Vec<String>,
     #[serde(default)]
@@ -684,6 +687,7 @@ fn spec_with_package_refresh(
         binding_sent: !inspect,
         vendor_access: false,
         finish_setup: false,
+        detached: false,
         required_services,
         shared_inspection: false,
         shared_runtime: false,
@@ -774,7 +778,9 @@ fn spawn(m: &Manager, s: &Software, path: &Path, peer: Option<UnixStream>) -> Re
     atomic_json(&job.lease, &job.report).map_err(|e|format!("session lease record: {e}"))?;
     let mut command = Command::new("/usr/bin/python3");
     command.args(supervisor_args);
-    if job.registration.compatibility.graphics.is_some() && !job.keeper {
+    if job.detached {
+        command.arg("--detached-instance-v1");
+    } else if job.registration.compatibility.graphics.is_some() && !job.keeper {
         // Older retained supervisors expect the first argument to be the job
         // file. A versioned entry point makes them refuse before preflight or
         // Windows launch, rather than discovering unsupported settings after
@@ -806,13 +812,13 @@ struct LeaseGeneration {
 #[derive(Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum LeaseGenerationBasis { BeforeLaunch, StoppedServiceObservation }
-fn valid_kernel_boot(value: &str) -> bool {
+pub(crate) fn valid_kernel_boot(value: &str) -> bool {
     value.len() == 36 && value.bytes().enumerate().all(|(index, byte)| {
         if matches!(index, 8 | 13 | 18 | 23) { byte == b'-' }
         else { byte.is_ascii_digit() || matches!(byte, b'a'..=b'f') }
     })
 }
-fn kernel_boot() -> Result<Option<String>> {
+pub(crate) fn kernel_boot() -> Result<Option<String>> {
     #[cfg(target_os = "linux")]
     {
         let boot = fs::read_to_string("/proc/sys/kernel/random/boot_id")?.trim().to_owned();
@@ -822,6 +828,26 @@ fn kernel_boot() -> Result<Option<String>> {
     #[cfg(not(target_os = "linux"))]
     { Ok(None) }
 }
+/// Read only the genuine before-launch kernel record and authenticated native
+/// peer retained for this exact session. Later stopped-service observations
+/// and old PID-only owners cannot establish a consumer generation.
+pub(crate) fn lease_consumer(m: &Manager, session: &str, report: &Path,
+    owner: &serde_json::Value) -> Result<operator_model::ConsumerIdentity> {
+    require(valid_hex(session, 32) && owner["session"].as_str() == Some(session)
+        && owner["report"].as_str() == report.to_str(), "consumer_session_binding")?;
+    let generation: LeaseGeneration = read_json(&m.root.join("runtime/lease-generations")
+        .join(format!("{session}.json")))?;
+    require(generation.schema == 1 && generation.session == session && generation.report == report
+        && valid_kernel_boot(&generation.kernel_boot)
+        && matches!(generation.basis, LeaseGenerationBasis::BeforeLaunch), "consumer_kernel_binding")?;
+    let graphical: transport_storage::GraphicalSession = serde_json::from_value(owner["graphical_session"].clone())?;
+    let _: NativeExecution = serde_json::from_value(owner["native_execution"].clone())?;
+    require(graphical.schema == 1 && graphical.peer_pid > 0 && graphical.peer_start_ticks > 0,
+        "consumer_peer_binding")?;
+    Ok(operator_model::ConsumerIdentity { boot_id:generation.kernel_boot,
+        pid:graphical.peer_pid, uid:unsafe { libc::getuid() }, start_ticks:graphical.peer_start_ticks })
+}
+
 fn record_lease_generation(job: &SessionSpec) -> Result<()> {
     let boot = kernel_boot()?.ok_or("session_requires_linux_kernel_identity")?;
     let runtime = job.lease.parent().and_then(Path::parent).ok_or("lease_generation_path")?;
@@ -1121,6 +1147,10 @@ fn occupied_environments(m:&Manager,owners:&[capacity::Owner])
         match owner.kind {
             capacity::Kind::Keeper=>{}
             capacity::Kind::Inspection|capacity::Kind::VendorAccess=>return Ok(None),
+            capacity::Kind::Detached => match m.lease_environment(&owner.session) {
+                Ok(environment) => { occupied.insert(environment.id); }
+                Err(_) => return Ok(None),
+            },
             capacity::Kind::Dsp=>match registry.classes.get(&owner.class_id) {
                 Some(entry)=>{occupied.insert(entry.registration.environment.id.clone());}
                 None=>return Ok(None),
@@ -1403,10 +1433,14 @@ fn view_changes(m: &Manager) -> service::changes::Changes {
 /// The reading process is this user's (checked for every connection) and its
 /// frontend must still be the selected one.
 fn answer_view(m: &Manager, peer: &mut UnixStream, views: &service::view::Views,
-    blocked: &AdmissionCleanup) -> Result<()> {
+    blocked: &AdmissionCleanup, observations: &service::subscription::Publisher) -> Result<()> {
     let answered = (|| {
         let read = service::contract::read_view_request(peer)?;
         package_authority::require_current_frontend_peer(m, peer)?;
+        if read == service::contract::Read::Activity {
+            return service::contract::Reply::Activity(observations.activity(views.records_revision())?)
+                .written().map(Arc::new).map_err(Into::into);
+        }
         if read == service::contract::Read::Overview {
             let process = transport_storage::peer_process(peer)?;
             let graphical = transport_storage::graphical_session(peer, &process)
@@ -1439,6 +1473,8 @@ fn answer_command(m: &Manager, peer: &mut UnixStream) -> Result<()> {
         let (request, input) = service::contract::read_command_request(peer)?;
         use service::contract::{Request, Reply};
         let reply = match request {
+            Request::Action(request) if matches!(request.action, operator_model::Action::PluginOpen { .. }) =>
+                detached_instance::with_frontend(m, peer, || Ok(operator_cli::answer_action(m, request)))?,
             Request::Action(request) => operator_cli::answer_action(m, request),
             Request::ImportInstaller { name } => Reply::Imported(installer_import::import_named(
                 m, input.ok_or("installer_descriptor_missing")?, &name)?),
@@ -1541,6 +1577,8 @@ pub fn serve(m: Manager) -> Result<()> {
     }
     let keepers = Arc::new(Mutex::new(Vec::new()));
     let limits = capacity::service_limits();
+    detached_instance::initialize(manager.clone(), s.clone(), limits.clone(), keepers.clone(),
+        blocked.clone(), launch_verification.clone())?;
     let workers = Arc::new(AtomicUsize::new(0));
     let census = (manager.clone(), limits.clone(), workers.clone(), blocked.clone(), blocked.clone());
     let _ = SERVICE_CENSUS.set(ServiceCensus {
@@ -1557,6 +1595,34 @@ pub fn serve(m: Manager) -> Result<()> {
         watch_views.cover(view_changes(&watch_manager))) {
         eprintln!("status change watch unavailable; every status read is composed: {error}");
     }
+    let observed_views = views.clone();
+    let observed_manager = manager.clone();
+    let activity_views = views.clone();
+    let observed_limits = limits.clone();
+    let observed_workers = workers.clone();
+    let observed_blocked = blocked.clone();
+    let host_names = Arc::new(crate::instance::HostNames::default());
+    let mut instance_observer = crate::instance::Observer::with_hosts(host_names.clone());
+    let mut activity_composer = operator_cli::ActivityComposer::default();
+    let observations = service::subscription::Publisher::start(
+        move || observed_views.records_revision(),
+        move || {
+            let revision = activity_views.records_revision();
+            let live = instance_observer.sample(&observed_manager);
+            let capacity = capacity::status_observed(&observed_manager, observed_limits.clone(),
+                observed_workers.load(Ordering::Acquire), observed_blocked.blocked()).ok()
+                .and_then(|status| serde_json::to_value(status).ok())
+                .and_then(|value| serde_json::from_value::<operator_cli::CapacityReadback>(value).ok());
+            let activity = match activity_composer.sample(&observed_manager, live, capacity.as_ref(), revision) {
+                Ok(activity) => operator_model::Observation::Observed(activity),
+                Err(_) => operator_model::Observation::Unavailable("Current activity could not be read".into()),
+            };
+            if activity_views.records_revision() != revision {
+                (revision, operator_model::Observation::Unavailable("Activity changed while it was read".into()))
+            } else {
+                (revision, activity)
+            }
+        })?;
     let idle_manager = manager.clone();
     let idle_keepers = keepers.clone();
     let idle_retirement = std::thread::Builder::new().spawn(move || {
@@ -1601,6 +1667,8 @@ pub fn serve(m: Manager) -> Result<()> {
         let limits = limits.clone();
         let workers = workers.clone();
         let views = views.clone();
+        let observations = observations.clone();
+        let host_names = host_names.clone();
         workers.fetch_add(1, Ordering::AcqRel);
         let worker_count = WorkerCount(workers.clone());
         let launched = std::thread::Builder::new().spawn(move || {
@@ -1615,8 +1683,20 @@ pub fn serve(m: Manager) -> Result<()> {
                 peer.set_read_timeout(Some(Duration::from_secs(5)))?;
                 let mut greeting = [0; 117];
                 peer.read_exact(&mut greeting[..5])?;
+                if &greeting[..5] == ap1_native_client::host_identity::GREETING {
+                    host_names.receive(&m, &mut peer)?;
+                    return Ok(());
+                }
+                if &greeting[..5] == service::contract::subscription::GREETING {
+                    service::contract::subscription::accept(&mut peer)?;
+                    package_authority::require_subscribed_frontend(&m, &peer)?;
+                    let selected_manager = m.clone();
+                    observations.attach(peer.try_clone()?, move |peer|
+                        package_authority::require_subscribed_frontend(&selected_manager, peer))?;
+                    return Ok(());
+                }
                 if &greeting[..5] == service::contract::VIEW_GREETING {
-                    if let Err(error) = answer_view(&m, &mut peer, &views, &blocked) {
+                    if let Err(error) = answer_view(&m, &mut peer, &views, &blocked, &observations) {
                         eprintln!("status read: {error}");
                     }
                     return Ok(());

@@ -981,6 +981,21 @@ pub(super) fn require_current_frontend_peer(_m: &Manager, _peer: &std::os::unix:
     Ok(())
 }
 
+/// Observation streams belong to an installed window, unlike the general
+/// command/read socket which also admits this user's CLI. Missing executable
+/// identity cannot turn a previous selected window into an unrestricted CLI.
+pub(super) fn require_subscribed_frontend(m: &Manager, peer: &std::os::unix::net::UnixStream) -> Result<()> {
+    let caller = transport_storage::peer_process(peer)?;
+    let process = PathBuf::from(format!("/proc/{}", caller.pid));
+    let executable = fs::read_link(process.join("exe"))?;
+    require(executable.file_name() == Some(std::ffi::OsStr::new(NAMES[1]))
+        && executable.parent().and_then(Path::parent) == Some(m.root.join("software").as_path()),
+        "subscription_requires_installed_frontend")?;
+    let running = fs::metadata(process.join("exe"))?;
+    require(transport_storage::peer_process(peer)? == caller, "peer_process_generation_changed")?;
+    require_selected_frontend(m, &executable, &running)
+}
+
 pub(super) fn selected_package_version(m: &Manager, current: &Software) -> Result<Option<String>> {
     Ok(selected_generation(m, current)?.map(|record| record.manifest.version))
 }

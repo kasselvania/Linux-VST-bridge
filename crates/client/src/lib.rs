@@ -10,6 +10,7 @@ use lvb_view_model::ProductKey;
 use std::path::PathBuf;
 pub use lvb_view_model::request::SupportReport;
 pub mod report;
+pub mod observation;
 pub enum Reply {
     Overview(Box<InteractiveOverview>),
     CurrentOverview(Box<CurrentOverview>),

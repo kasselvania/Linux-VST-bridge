@@ -19,6 +19,26 @@ impl From<&str> for UpdateNotice {
 /// The heading over a notice's exact refusal.
 pub const TECHNICAL: &str = "Technical details";
 
+/// Runtime and installation membership come from the current service view.
+/// Package updates replace bridge code; a setup runtime change is separate.
+pub fn package_impact(snapshot: Option<&crate::model::Snapshot>) -> Vec<String> {
+    let mut lines = vec!["Changes: the Bridge application, service and native DAW connections.".into()];
+    match snapshot.and_then(|s| s.presentation.observed()) {
+        Some(view) => {
+            for setup in &view.package_update.preserved_setups {
+                let members = if setup.product_names.is_empty() { String::new() }
+                    else { format!(" — {}", setup.product_names.join(", ")) };
+                lines.push(format!("Unchanged: {}{}; its installed software and runtime stay in place.", setup.name, members));
+            }
+            if view.package_update.preserved_setups.is_empty() {
+                lines.push("No existing setups were reported by the service.".into());
+            }
+        }
+        None => lines.push("The current setup list is unavailable. A Bridge update preserves setup runtimes; changing one is a separate choice.".into()),
+    }
+    lines
+}
+
 /// Where the updater is, as it records it.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Phase {

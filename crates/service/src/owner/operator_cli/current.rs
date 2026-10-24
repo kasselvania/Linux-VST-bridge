@@ -614,6 +614,7 @@ pub(super) fn current_products(m: &Manager, db: &Registry, sw: &Software,
             .map(|values| values.iter().filter_map(|v| v.as_str().map(str::to_owned)).collect())
             .unwrap_or_default();
         products.push(ui::Product {
+            display:ui::DisplayConfiguration::unavailable(),
             class_id: class.clone(), name:r.metadata.name.clone(), vendor:r.metadata.vendor.clone(),
             role:serde_json::to_value(profiles::role(&r.metadata)?)?.as_str().unwrap_or("unknown").into(),
             version:r.metadata.version.clone(),
@@ -751,7 +752,7 @@ fn append_discovered(m: &Manager, sw: &Software, environments: &[Environment],
                 if class.category != "Audio Module Class" || products.iter().any(|p|
                     p.class_id == class.id && p.module_sha256 == module.artifact.sha256
                         && p.environment == scan.environment.id) { continue; }
-                products.push(ui::Product { class_id:class.id,name:class.name,vendor:class.vendor,
+                products.push(ui::Product { display:ui::DisplayConfiguration::unavailable(), class_id:class.id,name:class.name,vendor:class.vendor,
                     role:class.role,version:class.version,
                     disposition:if stale.is_none() {"installed_unqualified"} else {"needs_attention"}.into(),
                     active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),
@@ -798,7 +799,7 @@ fn verified_products(m: &Manager, sw: &Software, profiles: &[profiles::Profile],
                 Some("An exact ordinary publication is required")
             } else { None }));
         let available = p.refusal.is_none() && p.publication_valid && p.publication == Publication::Published;
-        products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),
+        products.push(ui::Product {display:ui::DisplayConfiguration::unavailable(),class_id:p.class_id.clone(),name:p.name.clone(),
             vendor:entry.registration.metadata.vendor.clone(),
             role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),
             disposition:if available {"ready"} else {"needs_attention"}.into(),active_revision,
@@ -1088,6 +1089,7 @@ fn compose_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->Result<boo
     phases.push(("uninstallers",cards_at.elapsed().as_millis()));
     // A plug-in whose setup window is open takes over its setup's card.
     plugin_setup::project(m,&mut products,&mut installer_setups,busy)?;
+    detached_instance::project(m, &mut products)?;
     let environment_installers = environment_install::projection(m,&products,busy,|operation| {
         if let Some(live) = installer_live.get(operation) { return Ok(*live); }
         let live = installer_is_live(operation)?;
@@ -1132,13 +1134,16 @@ fn compose_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->Result<boo
     actions.push(action("Reconcile interrupted transaction",ui::Action::TransactionReconcile {},
         inactive_reason(cap.as_ref(),retired,pending,true)));
     let mut snapshot = ui::Snapshot {schema:ui::OPERATOR_SCHEMA,state_token,system,
+        presentation:ui::Observation::Unavailable("Current presentation has not been composed.".into()),
         managed_runtime_records:linux_vst_bridge::runtime_delivery::readback_records(m)?,
         onboarding,installer_setups,environment_installers,environments,vendor_applications,products,
-        workspaces:vec![],active_sessions,capture:if diagnostics { capture_state(m)? } else { Value::Null },
+        active_sessions,capture:if diagnostics { capture_state(m)? } else { Value::Null },
         recent_incidents:incidents,actions,
         operation,deleted_setups,uninstallers,
         bridge:crate::owner::package_authority::bridge_build(m,&sw)};
     maintenance::apply_snapshot(m, &mut snapshot)?;
+    for product in &mut snapshot.products { graphics_cli::refresh_display_actions(product); }
+    attention::compose(m, &sw, &mut snapshot)?;
     Ok(CurrentOverviewContext {snapshot,busy,profiles,revisions,owners,watched,current_generation,
         software:sw,registry:db,preparation,bindings:managed_bindings,
         installer_live,renderer_live,vendor_progress,vendor_retired:vendor,all_vendor_retired:retired,cleanup_seen,
@@ -1618,11 +1623,11 @@ pub(super) mod tests {
             source_sha256:"00".repeat(32),installer_launch:None,preparation_kit:None,
             operator_frontend:None,native_catalogue:None};
         CurrentOverviewContext {
-            snapshot:ui::Snapshot {schema:ui::OPERATOR_SCHEMA,state_token:token(m).unwrap(),
+            snapshot:ui::Snapshot { presentation: ui::Observation::Unavailable("Fixture presentation not supplied".into()),schema:ui::OPERATOR_SCHEMA,state_token:token(m).unwrap(),
                 managed_runtime_records:vec![],
                 system:system_from_capacity(None,pending,0),onboarding:vec![],
                 installer_setups:vec![],environment_installers:vec![],environments:vec![],vendor_applications:vec![],
-                products:vec![],workspaces:vec![],active_sessions:vec![],capture:Value::Null,
+                products:vec![],active_sessions:vec![],capture:Value::Null,
                 recent_incidents:vec![],actions:vec![],operation:None,deleted_setups:vec![],uninstallers:vec![],
                 bridge:Default::default()},
             busy:None,profiles:vec![],revisions:BTreeMap::new(),
@@ -2222,11 +2227,11 @@ pub(super) mod tests {
         std::os::unix::fs::symlink("first",&publication).unwrap();
         let watched = [revision.clone(),publication.clone()].into_iter()
             .map(|path| (path.clone(),stamp(&path).unwrap())).collect();
-        let snapshot = ui::Snapshot {schema:ui::OPERATOR_SCHEMA,managed_runtime_records:vec![],
+        let snapshot = ui::Snapshot { presentation: ui::Observation::Unavailable("Fixture presentation not supplied".into()),schema:ui::OPERATOR_SCHEMA,managed_runtime_records:vec![],
             state_token:token(&fixture.m).unwrap(),
             system:system_from_capacity(None,0,0),onboarding:vec![],
             installer_setups:vec![],environment_installers:vec![],environments:vec![],vendor_applications:vec![],
-            products:vec![],workspaces:vec![],active_sessions:vec![],
+            products:vec![],active_sessions:vec![],
             capture:Value::Null,recent_incidents:vec![],actions:vec![],operation:None,deleted_setups:vec![],uninstallers:vec![],
             bridge:Default::default()};
         let mut context = context_for_watched(&fixture.m, watched);

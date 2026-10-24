@@ -1,8 +1,16 @@
 //! Versioned operator projection and closed requests. No filesystem or launch authority.
 use serde::{Deserialize, Serialize};
+mod observation;
+pub use observation::*;
+mod instance;
+pub use instance::*;
+mod display;
+pub use display::*;
+mod update_preview;
+pub use update_preview::*;
 /// Manager/frontend wire generation. Durable installer and operation records
 /// keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 29;
+pub const OPERATOR_SCHEMA: u32 = 30;
 /// Explicit delivery policy, independent from the remembered buffered delay.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -264,6 +272,10 @@ pub enum Action {
     },
     PluginSetupFocus { operation: String },
     PluginSetupStop { operation: String },
+    /// Ordinary detached instance of the exact current native publication.
+    PluginOpen { product: ProductIdentity, expected_current: PublicationIdentity },
+    PluginFocus { operation: String, session: String },
+    PluginClose { operation: String, session: String },
     QuarantinedModuleRetry {
         environment: String,
         scan: String,
@@ -293,31 +305,6 @@ pub enum Action {
     CaptureDisarm {},
     IncidentExport {
         incident: String,
-    },
-    /// The FL Studio workspace's actions. The workspace is retired (#504 E3):
-    /// the manager never offers these and refuses them as `workspace_retired`.
-    /// They are deleted with the schema-30 update.
-    WorkspaceSelectInstaller {
-        installer: String,
-        release: String,
-    },
-    WorkspaceInstall {},
-    WorkspaceFinishInstall {},
-    WorkspaceLaunch {},
-    WorkspaceUninstall {},
-    WorkspaceFinishUninstall {},
-    WorkspaceFocus {},
-    WorkspaceStop {},
-    WorkspaceSelectProductInstaller {
-        product: WorkspaceProductId,
-        installer: String,
-        release: String,
-    },
-    WorkspaceInstallProduct {
-        product: WorkspaceProductId,
-    },
-    WorkspaceFinishProductInstall {
-        product: WorkspaceProductId,
     },
     /// Remove one plug-in's native connection from the DAW plug-in folder. The
     /// exact publication is retained so the same bytes can be added back.
@@ -355,11 +342,6 @@ pub enum Action {
         confirmed: bool,
     },
 }
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[serde(rename_all = "snake_case")]
-pub enum WorkspaceProductId {
-    Serum2,
-}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AvailableAction {
@@ -383,6 +365,8 @@ pub struct History {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Product {
+    #[serde(default = "DisplayConfiguration::unavailable")]
+    pub display: Observation<DisplayConfiguration>,
     pub class_id: String,
     pub name: String,
     pub vendor: String,
@@ -471,43 +455,6 @@ pub struct Incident {
     pub summary: serde_json::Value,
     pub export: Option<AvailableAction>,
 }
-/// Retired with the FL Studio workspace (#504 E3); never sent. Deleted with
-/// the schema-30 update, as is `DawWorkspaceProduct`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DawWorkspace {
-    pub id: String,
-    pub name: String,
-    pub state: String,
-    pub selected_installer: String,
-    #[serde(default)]
-    pub application_installers: Vec<String>,
-    pub selected_release: String,
-    pub installed_advertised_release: Option<String>,
-    pub observed_file_version: Option<String>,
-    pub installed_image_sha256: Option<String>,
-    pub active_installation_operation: Option<String>,
-    pub cleanup: String,
-    pub first_useful_failure: Option<String>,
-    pub actions: Vec<AvailableAction>,
-    pub installer_choices: Vec<AvailableAction>,
-    #[serde(default)]
-    pub products: Vec<DawWorkspaceProduct>,
-    pub details: serde_json::Value,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DawWorkspaceProduct {
-    pub id: WorkspaceProductId,
-    pub name: String,
-    pub state: String,
-    pub selected_release: Option<String>,
-    pub module_sha256: Option<String>,
-    pub current_failure: Option<String>,
-    pub actions: Vec<AvailableAction>,
-    pub installer_choices: Vec<AvailableAction>,
-    pub details: serde_json::Value,
-}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct System {
@@ -523,6 +470,7 @@ pub struct System {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Snapshot {
+    pub presentation: Observation<CurrentPresentation>,
     #[serde(default)]
     pub managed_runtime_records: Vec<serde_json::Value>,
     pub onboarding: Vec<Onboarding>,
@@ -536,9 +484,6 @@ pub struct Snapshot {
     pub environments: Vec<Environment>,
     pub vendor_applications: Vec<VendorApplication>,
     pub products: Vec<Product>,
-    /// Always empty: the FL Studio workspace is retired (#504 E3).
-    #[serde(default)]
-    pub workspaces: Vec<DawWorkspace>,
     pub active_sessions: Vec<serde_json::Value>,
     pub capture: serde_json::Value,
     pub recent_incidents: Vec<Incident>,
@@ -938,12 +883,12 @@ pub struct Receipt {
 #[serde(deny_unknown_fields)]
 pub struct Activity {
     pub schema: u32,
+    pub live: LiveActivity,
+    pub recent: Observation<Vec<RecentInstance>>,
+    pub incidents: Observation<Vec<IncidentSummary>>,
     pub system: System,
     pub capture: serde_json::Value,
     pub operation: Option<serde_json::Value>,
-    /// Always false: the FL Studio workspace is retired (#504 E3).
-    #[serde(default)]
-    pub workspace_product_install_ready: bool,
 }
 impl System {
     /// Preserve the version-1 wire shape so an exactly retained frontend can

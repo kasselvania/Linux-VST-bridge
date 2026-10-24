@@ -18,6 +18,48 @@ class ProductApp(ui.App):
 
 
 class ConsoleLayout(unittest.TestCase):
+    def test_display_trials_and_repairs_remain_usable_at_desktop_and_deck_widths(self):
+        reason = "Close this exact plug-in window before preparing its accessibility trial."
+        for width in (1280, 640):
+            with self.subTest(width=width), ProductApp("console-display", "--display-fixture",
+                    "--state=plugin_ready", "--page=plugins", f"--size={width}x800") as app:
+                def reveal(label):
+                    viewport = app.required(prefix="page_scroll")
+                    x, y = app.center(viewport)
+                    app.request("/m", k="scroll", x=x, y=y, dy=-10000, dx=0, wait=1)
+                    return app.scroll_to(label)
+
+                # Each window retains its own controls; opening a separate
+                # window must not be described as an audio-device check.
+                for label in ("Open on its own", "Show the plug-in window", "Close this plug-in window"):
+                    control = reveal(label)
+                    x, _, w, h = control["r"]
+                    self.assertGreaterEqual(h, 44)
+                    self.assertGreaterEqual(x, 0)
+                    self.assertLessEqual(x + w, width)
+                app.capture(f"separate-window-{width}")
+                record = reveal("Record a test result or problem")
+                app.capture(f"display-result-{width}")
+                mark = app.mark()
+                app.mouse("click", record)
+                app.scroll_to("Record this test result", viewport="form_scroll")
+                app.key("Escape", wait=True)
+                app.no_capture(mark)
+                # Walk the two mode panels and the ordered repair steps. A
+                # narrow screen must reflow them without hiding exact controls.
+                for label in ("Prepare Wine D3D11 · default accessibility", "Use this prepared setup",
+                              "Prepare runtime defaults · Windows accessibility off"):
+                    control = reveal(label)
+                    x, _, w, h = control["r"]
+                    self.assertGreaterEqual(h, 44)
+                    self.assertGreaterEqual(x, 0)
+                    self.assertLessEqual(x + w, width)
+                app.capture(f"repair-steps-{width}")
+                mark = app.mark()
+                app.mouse("click", control)
+                self.assertTrue(any(reason in line for line in app.logs(mark)))
+                app.no_capture(mark)
+
     def test_retained_health_fits_during_refresh(self):
         for width in (1280, 640):
             for request in (None, "renewing"):

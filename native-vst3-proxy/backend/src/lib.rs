@@ -28,6 +28,7 @@ mod output_pool;
 mod performance;
 mod parameter_curves;
 mod preview;
+mod host_identity;
 mod process_results;
 mod queue;
 mod queued;

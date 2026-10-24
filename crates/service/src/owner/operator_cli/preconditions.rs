@@ -129,6 +129,7 @@ fn subjects(m: &Manager, action: &ui::Action) -> Result<Option<Vec<(Fact, String
         Ok([vec![(Application, selector.to_owned())], setup(&app.environment.id)].concat())
     };
     let mut facts = match action {
+        A::PluginOpen { product, .. } => plugin(&product.class_id)?,
         A::BufferingSet { class_id, .. } | A::DeliverySet { class_id, .. }
         | A::PluginRemoveFromDaw { class_id, .. } | A::PluginAddBackToDaw { class_id, .. }
         | A::OrdinaryRollback { class_id, .. } | A::OrdinaryRestoreRecommended { class_id }
@@ -179,6 +180,7 @@ fn subjects(m: &Manager, action: &ui::Action) -> Result<Option<Vec<(Fact, String
         | A::EnvironmentInstallerFocus { operation } | A::EnvironmentInstallerStop { operation }
         | A::InstallerCloseCheck { operation }
         | A::PluginSetupFocus { operation } | A::PluginSetupStop { operation }
+        | A::PluginFocus { operation, .. } | A::PluginClose { operation, .. }
         | A::RendererFocus { operation } | A::RendererStop { operation } =>
             vec![(Operation, operation.clone())],
         A::EnvironmentRefreshResume { operation } => vec![(Checkpoint, operation.clone())],

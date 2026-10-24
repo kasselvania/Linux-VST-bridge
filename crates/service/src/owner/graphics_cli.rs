@@ -1,6 +1,9 @@
 //! Explicit diagnostics use ordinary inspected identities and process custody.
 use super::*;
 use graphics::{assessment, pe};
+mod display;
+
+pub(super) fn refresh_display_actions(product: &mut ui::Product) { display::bind(product); }
 use linux_vst_bridge::{operator_model as ui, preparation as prep};
 
 pub(super) fn project(m: &Manager, product: &mut ui::Product,
@@ -80,7 +83,7 @@ pub(super) fn project(m: &Manager, product: &mut ui::Product,
     }
     product.details["configuration"] = configuration.clone();
     // Compatibility projection for older report consumers; one owner/result.
-    product.details["graphics"] = configuration;
+    product.details["graphics"] = configuration.clone();
     let configuration_blocked = if !row.current_inputs {
         Some("Refresh this plug-in's changed inputs before assessing settings")
     } else if matches!(workflow.phase, ui::CompatibilityPhase::PublicationNeedsAttention
@@ -131,6 +134,11 @@ pub(super) fn project(m: &Manager, product: &mut ui::Product,
                 });
             }
     }
+    product.display = ui::Observation::Observed(display::compose(c, view, candidates, &configuration)?);
+    // The workflow is attached by the caller after this function returns.
+    let old = product.compatibility.replace(workflow.clone());
+    display::bind(product);
+    product.compatibility = old;
     Ok(())
 }
 

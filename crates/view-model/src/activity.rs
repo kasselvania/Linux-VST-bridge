@@ -1,9 +1,9 @@
 //! Activity: live and recent bridge sessions, what needs attention, and the
-//! sanitized incidents the manager kept. A session record names a plug-in
-//! class, not an installed build; several builds of one class stay
-//! class-level everywhere.
+//! sanitized incidents the manager kept. Current observations bind exact
+//! product identities. Legacy technical snapshots retain their class-only
+//! history without supplying current product activity.
 use super::offers::{self, Importance};
-use super::product::{last_load_text, product_activity, product_issue, terminal_text};
+use super::product::terminal_text;
 use super::{record, AttemptKey, Control, Destination, Detail, Disclosure, ProductKey, Text};
 use crate::model::{Product, Snapshot};
 
@@ -14,124 +14,22 @@ pub struct Attention {
     pub destination: Destination,
 }
 
+pub fn attention_destination(target: &crate::model::AttentionTarget) -> Destination {
+    match target {
+        crate::model::AttentionTarget::Product { product } => Destination::Product(ProductKey {
+            environment: product.environment.clone(), module_sha256: product.module_sha256.clone(),
+            class_id: product.class_id.clone() }),
+        crate::model::AttentionTarget::Setup { installer, environment } => Destination::Attempt(AttemptKey {
+            installer: installer.clone(), environment: environment.clone() }),
+        crate::model::AttentionTarget::Service => Destination::Diagnostics,
+        crate::model::AttentionTarget::Session { session } => Destination::Session(session.clone()),
+    }
+}
+
 pub fn attentions(snapshot: &Snapshot) -> Vec<Attention> {
-    let mut items = Vec::new();
-    let mut seen_sessions = std::collections::HashSet::new();
-    let system = &snapshot.system;
-    if !system.capacity_available() {
-        items.push(Attention {
-            title: "Bridge readback unavailable".into(),
-            detail: "Active plug-ins and safe admission cannot be confirmed. Refresh the manager."
-                .into(),
-            destination: Destination::Diagnostics,
-        });
-    }
-    if system.capacity_available() && system.cleanup_unconfirmed {
-        items.push(Attention {
-            title: "Cleanup is unconfirmed".into(),
-            detail: "The manager is blocking unsafe new work until ownership is resolved.".into(),
-            destination: Destination::Diagnostics,
-        });
-    }
-    if system.pending_transactions > 0 {
-        items.push(Attention {
-            title: "Publication transaction needs review".into(),
-            detail: format!(
-                "{} pending transaction(s). Open Setup for the manager's reconcile control.",
-                system.pending_transactions
-            ),
-            destination: Destination::Setup,
-        });
-    }
-    if system.stale_transports > 0 && system.capacity_available() {
-        items.push(Attention {
-            title: "Old bridge transport remains".into(),
-            detail: format!(
-                "{} stale transport(s) reported by the manager.",
-                system.stale_transports
-            ),
-            destination: Destination::Diagnostics,
-        });
-    }
-    for (index, row) in snapshot.active_sessions.iter().enumerate() {
-        let Some(class_id) = row["class_id"].as_str().filter(|id| !id.is_empty()) else {
-            continue;
-        };
-        let Some(terminal) = row["terminal"].as_str() else {
-            continue;
-        };
-        if snapshot
-            .products
-            .iter()
-            .filter(|product| product.class_id == class_id)
-            .count()
-            < 2
-        {
-            continue;
-        }
-        let session = row["session"].as_str().filter(|id| !id.is_empty());
-        if !seen_sessions.insert(session.map_or_else(|| format!("legacy-{index}"), str::to_owned)) {
-            continue;
-        }
-        items.push(Attention {
-            title: "Plug-in session needs attention".into(),
-            detail: format!("{}. Several installed builds share this class; the exact build is unavailable in the session record.", terminal_text(terminal)),
-            destination: session.map_or(Destination::Activity, |id| Destination::Session(id.into())),
-        });
-    }
-    for product in &snapshot.products {
-        let activity = product_activity(snapshot, product);
-        let problematic = matches!(
-            product.disposition.as_str(),
-            "needs_attention" | "quarantined" | "another_configuration"
-        );
-        let detail = if problematic && activity.shared_class {
-            Some(
-                product_issue(product)
-                    .unwrap_or_else(|| "Review this plug-in's manager state.".into()),
-            )
-        } else if !activity.failed_live.is_empty() {
-            (!activity.shared_class).then(|| format!("Live session: {}.", activity.failed_live[0]))
-        } else if activity.recent_cleanup_unconfirmed {
-            (!activity.shared_class)
-                .then(|| "A recent failed session has unconfirmed cleanup.".into())
-        } else if let Some(refused) = (!problematic).then(|| last_load_text(product)).flatten() {
-            Some(refused)
-        } else if problematic {
-            Some(
-                product_issue(product)
-                    .unwrap_or_else(|| "Review this plug-in's manager state.".into()),
-            )
-        } else {
-            activity
-                .recent_failure
-                .filter(|_| !activity.shared_class)
-                .map(|failure| format!("Most recent session: {failure}."))
-        };
-        if let Some(detail) = detail {
-            items.push(Attention {
-                title: product.name.clone(),
-                detail,
-                destination: Destination::Product(ProductKey::from(product)),
-            });
-        }
-    }
-    for attempt in &snapshot.onboarding {
-        if matches!(
-            attempt.state.as_str(),
-            "needs_attention" | "cleanup_unconfirmed" | "failed"
-        ) {
-            items.push(Attention {
-                title: "Installation needs attention".into(),
-                detail: attempt.required_human_action.clone(),
-                destination: Destination::Attempt(AttemptKey {
-                    installer: attempt.installer.clone(),
-                    environment: attempt.environment.clone(),
-                }),
-            });
-        }
-    }
-    items
+    snapshot.presentation.observed().into_iter().flat_map(|view| &view.attention)
+        .map(|item| Attention { title: item.title.clone(), detail: item.detail.clone(),
+            destination: attention_destination(&item.target) }).collect()
 }
 
 pub fn session_product<'a>(snapshot: &'a Snapshot, class_id: &str) -> Option<&'a Product> {
@@ -195,6 +93,8 @@ pub fn incident_lines(v: &serde_json::Value) -> Vec<String> {
 pub struct Activity {
     pub heading: &'static str,
     pub intro: &'static str,
+    pub notice: Option<Text>,
+    pub retry: Option<Control>,
     pub live: Sessions,
     pub recent: Sessions,
     pub attention: Attentions,
@@ -290,7 +190,7 @@ impl Attentions {
         let items = attentions(snapshot);
         Self {
             title: "Needs attention",
-            empty: items.is_empty().then_some("Nothing needs attention right now."),
+            empty: items.is_empty().then_some(if snapshot.presentation.observed().is_some() { "Nothing needs attention right now." } else { "Current attention items are unavailable." }),
             more: (items.len() > limit).then(|| Control::go("See all attention items", Importance::Secondary,
                 Destination::Activity)),
             items: items.into_iter().take(limit).enumerate().map(|(index, item)| AttentionItem {
@@ -304,12 +204,93 @@ impl Attentions {
 }
 
 impl Activity {
+    /// Ordinary Activity uses bounded owner summaries, independently of the
+    /// optional deep technical snapshot. These records never supply offers.
+    pub fn from_current(current: &Snapshot, read: crate::diagnostics::Section<'_, &crate::model::Activity>,
+        in_flight: bool, superseded: bool) -> Self {
+        use crate::{diagnostics::Section, model::Observation as O};
+        let mut view = Self { heading: "Activity", intro: "Observed bridge processing and retained incident summaries.",
+            notice: None, retry: None,
+            live: Sessions { title: "Live bridge instances", warning: None, empty: None, rows: vec![] },
+            recent: Sessions { title: "Retained session failures", warning: None, empty: None, rows: vec![] },
+            attention: Attentions::build(current, usize::MAX),
+            incidents: Incidents { title: "Incident summaries", empty: None, incidents: vec![] } };
+        let mut failures = Vec::new();
+        let activity = match read {
+            Section::Loaded(activity) => Some(activity),
+            Section::Loading => { view.notice = Some(Text::body("Loading current activity…")); None },
+            Section::NotRequested => { failures.push("Activity has not been read.".into()); None },
+            Section::Failed(reason) => { failures.push(format!("Activity could not be loaded. {reason}")); None },
+        };
+        if let Some(activity) = activity {
+            match &activity.live.instances {
+                O::Unavailable(reason) => failures.push(format!("Live instances unavailable: {reason}")),
+                O::Observed(instances) => {
+                    view.live.empty = instances.is_empty().then_some("No admitted bridge instances are reported.");
+                    view.live.rows = instances.iter().enumerate().map(|(index, instance)| {
+                        let mut row = exact_row(current, &instance.product, &instance.session, index, false);
+                        row.state = format!("{} · {}", crate::product::host_text(instance), crate::product::processing_text(instance));
+                        row.cleanup = match &instance.cleanup {
+                            crate::model::CleanupState::Confirmed => Some("Cleanup confirmed"),
+                            crate::model::CleanupState::Unconfirmed => Some("Cleanup unconfirmed"),
+                            _ => None,
+                        };
+                        let mut details = vec![Text::body(crate::product::host_text(instance)).into(),
+                            Text::detail("Processing progress does not establish nonzero signal or audible sound.").into()];
+                        details.push(Text::detail(match &instance.consumer {
+                            O::Observed(consumer) => format!("Admitted native consumer process: {} · current process {}", consumer.identity.pid,
+                                match &consumer.current { O::Observed(true) => "confirmed", O::Observed(false) => "no longer matches", O::Unavailable(_) => "unavailable" }),
+                            O::Unavailable(reason) => format!("Native consumer identity unavailable: {reason}"),
+                        }).into());
+                        row.record = Disclosure::new("Instance observations", details);
+                        row
+                    }).collect();
+                }
+            }
+            match &activity.recent {
+                O::Unavailable(reason) => failures.push(format!("Retained failure summaries unavailable: {reason}")),
+                O::Observed(instances) => {
+                    view.recent.empty = instances.is_empty().then_some("No terminal failure summary is retained.");
+                    view.recent.rows = instances.iter().enumerate().map(|(index, instance)| {
+                        let mut row = exact_row(current, &instance.product, &instance.session, index, true);
+                        row.state = format!("Retained failure · {}", failure_text(instance.failure));
+                        row.cleanup = Some(if instance.cleanup_confirmed && instance.transport_retired {
+                            "Cleanup and transport retirement confirmed" } else { "Cleanup or transport retirement unconfirmed" });
+                        row.record = Disclosure::new("Retained observation", vec![Text::detail(
+                            "This is the retained terminal summary, not a complete history of closed sessions.").into()]);
+                        row
+                    }).collect();
+                }
+            }
+            match &activity.incidents {
+                O::Unavailable(reason) => failures.push(format!("Incident summaries unavailable: {reason}")),
+                O::Observed(incidents) => {
+                    view.incidents.empty = incidents.is_empty().then_some("No incident is retained.");
+                    view.incidents.incidents = incidents.iter().rev().map(|incident| {
+                        let mut content = vec![Text::body(format!("State: {}", incident.state.replace('_', " "))).into()];
+                        if let O::Observed(outcome) = &incident.outcome { content.push(Text::body(format!("Outcome: {outcome}")).into()); }
+                        content.push(Text::detail(if incident.report_retained {
+                            "A retained report is present. Open Support technical inspection to read its full details and current export offer."
+                        } else { "No retained share report is present." }).into());
+                        (incident.id.clone(), Disclosure::new(format!("{} · {}", incident.state.replace('_', " "), incident.id), content))
+                    }).collect();
+                }
+            }
+        }
+        if !failures.is_empty() {
+            view.notice = Some(Text::caution(failures.join("\n")));
+            view.retry = Some(Control { label: "Refresh activity", importance: Importance::Secondary,
+                enabled: !in_flight && !superseded, does: crate::Local::Refresh });
+        }
+        view
+    }
     /// `pending`: a request or readback is in flight.
     pub fn build(snapshot: &Snapshot, pending: bool) -> Self {
         let busy = snapshot.system.inactive_reason();
         Self {
             heading: "Activity",
             intro: "Bridge sessions, manager work and retained incidents.",
+            notice: None, retry: None,
             live: Sessions::build(snapshot, false),
             recent: Sessions::build(snapshot, true),
             attention: Attentions::build(snapshot, usize::MAX),
@@ -333,10 +314,30 @@ impl Activity {
     }
 }
 
+fn failure_text(failure: crate::model::InstanceFailure) -> &'static str {
+    match failure {
+        crate::model::InstanceFailure::WindowsHostExited => "Windows plug-in host exited unexpectedly",
+        crate::model::InstanceFailure::EditorControllerFailed => "Editor or controller failed",
+        crate::model::InstanceFailure::TransportFailed => "Bridge transport failed",
+    }
+}
+fn exact_row(current: &Snapshot, identity: &crate::model::Observation<crate::model::ProductIdentity>,
+    session: &str, index: usize, recent: bool) -> SessionRow {
+    let key = identity.observed();
+    let product = key.and_then(|key| current.products.iter().find(|product| key.matches(product)));
+    SessionRow { recent, index, session: Some(session.into()),
+        name: product.map_or_else(|| if key.is_some() { "Exact admitted build is absent from current products".into() }
+            else { "Exact admitted build is unavailable".into() }, |product| product.name.clone()),
+        state: String::new(), cleanup: None,
+        open: product.map(|product| Control::go("View plug-in", Importance::Secondary,
+            Destination::Product(ProductKey::from(product)))),
+        record: Disclosure::new("Instance identity", vec![Text::detail(session).into()]) }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::product::{activity_certainty, ActivityCertainty};
+    use crate::product::{ActivityCertainty, product_activity, last_load_text};
 
     fn snapshot() -> Snapshot {
         crate::samples::base()
@@ -358,6 +359,10 @@ mod tests {
                 "likely_cause": "Its Windows side stopped.", "what_to_try": "Load it again."}});
         let text = last_load_text(&snapshot.products[index]).unwrap();
         assert!(text.starts_with("Load refused ") && text.ends_with("It stayed empty. Its Windows side stopped. Load it again."));
+        let crate::model::Observation::Observed(presentation) = &mut snapshot.presentation else { panic!() };
+        presentation.attention = vec![crate::model::Attention { purpose: crate::model::AttentionPurpose::Recovery,
+            target: crate::model::AttentionTarget::Product { product: crate::model::ProductIdentity::from(&snapshot.products[index]) },
+            title: name.clone(), detail: text.clone(), action: None }];
         assert!(attentions(&snapshot).iter().any(|item| item.title == name && item.detail == text));
         // A refused audio start (#403) says so rather than a refused load.
         snapshot.products[index].details["last_load"]["outcome"] = "activation_refused".into();
@@ -366,87 +371,18 @@ mod tests {
     }
 
     #[test]
-    fn retained_active_row_never_becomes_a_current_product_claim_without_certain_capacity() {
+    fn retained_class_rows_are_technical_history_not_current_product_activity() {
         let mut snapshot = snapshot();
-        snapshot.active_sessions = vec![serde_json::json!({
-            "session":"exact-session", "class_id":"fixture-fragments", "state":"active", "recent":false
-        })];
-        let product = &snapshot.products[1];
-        let confirmed = product_activity(&snapshot, product);
-        assert_eq!(confirmed.certainty, ActivityCertainty::Confirmed);
-        assert_eq!(confirmed.active, 1);
-        assert_eq!(confirmed.detail_label(), "1 active instance(s)");
-        assert_eq!(
-            activity_certainty(&snapshot.system).cleanup().labelled(),
-            "Cleanup confirmed"
-        );
-
-        snapshot.system.service = "capacity unavailable".into();
-        let unavailable = product_activity(&snapshot, product);
-        assert_eq!(unavailable.certainty, ActivityCertainty::Unavailable);
-        assert_eq!(unavailable.active, 0);
-        assert_eq!(unavailable.detail_label(), "Current activity unavailable");
-        assert_eq!(
-            activity_certainty(&snapshot.system).cleanup().labelled(),
-            "Cleanup unknown"
-        );
-        snapshot.system.service = "active".into();
-        snapshot.system.cleanup_unconfirmed = true;
-        let uncertain = product_activity(&snapshot, product);
-        assert_eq!(uncertain.certainty, ActivityCertainty::CleanupUncertain);
-        assert_eq!(uncertain.active, 0);
-        assert_eq!(
-            uncertain.detail_label(),
-            "Cleanup unresolved · current instances not confirmed"
-        );
-        assert_eq!(
-            activity_certainty(&snapshot.system).cleanup().labelled(),
-            "Cleanup unconfirmed"
-        );
-        snapshot.system.service = "capacity unavailable".into();
-        assert_eq!(
-            activity_certainty(&snapshot.system).cleanup().labelled(),
-            "Cleanup unknown"
-        );
-        let unavailable_with_conservative_flag = product_activity(&snapshot, product);
-        assert_eq!(
-            unavailable_with_conservative_flag.certainty,
-            ActivityCertainty::Unavailable
-        );
-        assert!(!attentions(&snapshot)
-            .iter()
-            .any(|item| item.title == "Cleanup is unconfirmed"));
-    }
-
-    #[test]
-    fn shared_class_session_stays_class_level_on_both_product_surfaces() {
-        let mut snapshot = snapshot();
-        let mut second_build = snapshot.products[1].clone();
-        second_build.module_sha256 = "different-build".into();
-        second_build.environment = "different-environment".into();
-        snapshot.products.push(second_build);
-        snapshot.active_sessions = vec![serde_json::json!({
-            "session":"exact-session", "class_id":"fixture-fragments", "state":"active", "recent":false
-        })];
-        for product in snapshot
-            .products
-            .iter()
-            .filter(|p| p.class_id == "fixture-fragments")
-        {
-            let activity = product_activity(&snapshot, product);
-            assert!(activity.shared_class);
-            assert_eq!(activity.active, 1);
-            assert_eq!(
-                activity.detail_label(),
-                "1 active in this plug-in class · exact build unavailable"
-            );
+        let mut second = snapshot.products[1].clone(); second.module_sha256 = "another-build".into();
+        snapshot.products.push(second);
+        snapshot.active_sessions = vec![serde_json::json!({"class_id":"fixture-fragments","state":"active"})];
+        for product in snapshot.products.iter().filter(|p| p.class_id == "fixture-fragments") {
+            let view = product_activity(crate::diagnostics::Section::NotRequested, product);
+            assert_eq!(view.active, 0); assert_ne!(view.certainty, ActivityCertainty::Confirmed);
+            assert!(view.detail_label().contains("not been observed"));
         }
         assert!(session_product(&snapshot, "fixture-fragments").is_none());
-        assert_eq!(
-            session_display_name(&snapshot, "fixture-fragments"),
-            "Shared plug-in class · exact build unavailable"
-        );
-        assert_eq!(snapshot.active_sessions[0]["session"], "exact-session");
+        assert_eq!(session_display_name(&snapshot, "fixture-fragments"), "Shared plug-in class · exact build unavailable");
     }
 
     #[test]
@@ -454,10 +390,12 @@ mod tests {
         let mut snapshot = snapshot();
         let p = &snapshot.products[2];
         let key = ProductKey::from(p);
-        let item = attentions(&snapshot)
-            .into_iter()
-            .find(|item| item.title == p.name)
-            .unwrap();
+        let owner = crate::model::Attention { purpose: crate::model::AttentionPurpose::Connection,
+            target: crate::model::AttentionTarget::Product { product: crate::model::ProductIdentity::from(p) },
+            title: p.name.clone(), detail: "Rescan this exact build.".into(), action: None };
+        let crate::model::Observation::Observed(presentation) = &mut snapshot.presentation else { panic!() };
+        presentation.attention = vec![owner];
+        let item = attentions(&snapshot).into_iter().next().unwrap();
         assert_eq!(item.destination, Destination::Product(key));
         assert!(item.detail.contains("Rescan"));
         snapshot.active_sessions = vec![
@@ -465,26 +403,50 @@ mod tests {
             serde_json::json!({"class_id":"fixture-fragments","state":"failed","recent":true,
                 "terminal":"windows_host_exited","cleanup_confirmed":true,"transport_retired":true}),
         ];
-        let state = product_activity(&snapshot, &snapshot.products[1]);
-        assert_eq!(state.active, 1);
-        assert_eq!(
-            state.recent_failure,
-            Some("Windows plug-in host exited unexpectedly")
-        );
-        assert!(!state.recent_cleanup_unconfirmed);
         snapshot.products.push(snapshot.products[1].clone());
-        assert!(product_activity(&snapshot, &snapshot.products[1]).shared_class);
         assert!(session_product(&snapshot, "fixture-fragments").is_none());
-        let class_items: Vec<_> = attentions(&snapshot)
-            .into_iter()
-            .filter(|item| item.destination == Destination::Activity)
-            .collect();
-        assert_eq!(class_items.len(), 1);
-        assert!(class_items[0].detail.contains("exact build is unavailable"));
+        // Legacy class-only session rows never synthesize a product or session attention target.
+        let before = attentions(&snapshot);
         snapshot.active_sessions[1]["session"] = serde_json::json!("exact-session");
-        assert!(attentions(&snapshot)
-            .iter()
-            .any(|item| item.destination == Destination::Session("exact-session".into())));
+        let after = attentions(&snapshot);
+        assert_eq!(before.len(), after.len());
+        assert!(after.iter().all(|item| !matches!(item.destination, Destination::Session(_))));
+    }
+
+    #[test]
+    fn typed_live_observations_bind_the_exact_build_and_distinguish_unknown_from_empty() {
+        use crate::model::{self, Observation as O};
+        use crate::diagnostics::Section;
+        let mut snapshot = snapshot();
+        let original = snapshot.products[0].clone();
+        let mut sibling = original.clone(); sibling.module_sha256 = "other-digest".into(); sibling.name = "Sibling build".into();
+        snapshot.products.push(sibling.clone());
+        let instance = model::LiveInstance { kind: model::InstanceKind::Daw, session: "exact-session".into(), product: O::Observed(model::ProductIdentity::from(&sibling)),
+            consumer: O::Unavailable("No current process observation".into()), daw: O::Unavailable("Unrecognized".into()),
+            transport: O::Unavailable("Not mapped".into()), lifecycle: O::Unavailable("Not read".into()),
+            processing: model::ProcessingObservation::Advancing { epoch: 1, completed_end: 512, observed_age_ms: 2 },
+            signal: model::SignalObservation::NotMeasured, terminal: O::Observed(None), cleanup: model::CleanupState::NotReported };
+        let mut activity = model::Activity { schema: model::OPERATOR_SCHEMA, live: model::LiveActivity { instances: O::Observed(vec![instance]) },
+            recent: O::Observed(vec![]), incidents: O::Observed(vec![]), system: snapshot.system.clone(), capture: serde_json::Value::Null,
+            operation: None };
+        let view = Activity::from_current(&snapshot, Section::Loaded(&activity), false, false);
+        assert_eq!(view.live.rows[0].name, "Sibling build");
+        assert_eq!(view.live.rows[0].open.as_ref().unwrap().does, crate::Local::Go(Destination::Product(ProductKey::from(&sibling))));
+        assert!(view.live.rows[0].state.contains("advancing") && view.live.rows[0].state.contains("audible output is not measured"));
+        snapshot.products.pop();
+        let view = Activity::from_current(&snapshot, Section::Loaded(&activity), false, false);
+        assert!(view.live.rows[0].open.is_none(), "same class and environment cannot substitute a digest");
+        activity.live.instances = O::Unavailable("Registry is busy".into());
+        let view = Activity::from_current(&snapshot, Section::Loaded(&activity), false, false);
+        assert!(view.live.empty.is_none() && view.notice.is_some() && view.retry.is_some());
+        activity.live.instances = O::Observed(vec![]);
+        let view = Activity::from_current(&snapshot, Section::Loaded(&activity), false, false);
+        assert!(view.live.empty.is_some() && view.notice.is_none());
+        for pending in [true, false] {
+            let view = Activity::from_current(&snapshot, Section::Failed("Disconnected"), pending, false);
+            assert!(view.live.rows.is_empty() && view.live.empty.is_none());
+            assert_eq!(view.retry.unwrap().enabled, !pending);
+        }
     }
 
     use crate::window::Page;
@@ -521,7 +483,6 @@ mod tests {
         let (_, saved) = &view.incidents.incidents[1];
         assert!(saved.content.iter().any(|detail| matches!(detail, Detail::Offers(row)
             if row.offers[0].label == "Save incident report")));
-        assert!(view.attention.items.iter().any(|item| item.title == "Installation needs attention"
-            && matches!(&item.open.does, crate::Local::Go(Destination::Attempt(_)))));
+        assert!(view.attention.items.iter().any(|item| matches!(&item.open.does, crate::Local::Go(Destination::Attempt(_)))));
     }
 }

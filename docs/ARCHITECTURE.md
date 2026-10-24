@@ -37,7 +37,7 @@ userspace. The Steam Linux Runtime is that userspace; the Steam client is not a
 product prerequisite.
 
 The production maintenance line starts from the known GE-derived reference. The
-current r5 generation is the recovery reference, not an automatic beta claim: a
+current r7 generation is the recovery reference, not an automatic beta claim: a
 current package must prove it again.
 
 One maintained generation is recommended for new setups. Runtime files are

@@ -1,11 +1,11 @@
 //! Home: the one next step, then each plug-in at a glance, then the computer
 //! setup check. Built from the manager's current overview and the last
 //! explicit setup check; every control is a manager offer or opens a page.
-use super::journey::{self, Results};
+use super::journey::Results;
 use super::offers::{self, Importance, Offer, OfferRow};
-use super::{product, service, setup, AttemptKey, Control, Destination, Detail, Disclosure, Local,
+use super::{product, Control, Destination, Detail, Disclosure, Local,
     ProductKey, StatusClass, Text};
-use crate::model::{Action, DawChoice, InstallationHealth, ReadinessAssessment, ReadinessOutcome,
+use crate::model::{InstallationHealth, ReadinessAssessment, ReadinessOutcome,
     ReadinessProduct, Snapshot, SupportQualification};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -26,8 +26,8 @@ pub struct Home {
 pub enum Next {
     /// The bridge service itself needs the musician first.
     Service {
-        title: &'static str,
-        what_happened: &'static str,
+        title: String,
+        what_happened: String,
         offers: OfferRow,
         review: Control,
     },
@@ -73,6 +73,7 @@ pub struct HomePlugin {
     pub key: ProductKey,
     pub name: String,
     pub subtitle: String,
+    pub activity: String,
     pub status_class: StatusClass,
     pub manage: Control,
     /// Current availability or install progress, while status is current.
@@ -117,6 +118,10 @@ impl Home {
     /// way after an ordinary change; `pending`: a request is in flight.
     pub fn build(snapshot: &Snapshot, assessment: Option<&ReadinessAssessment>, fresh: bool,
         refreshing: bool, pending: bool) -> Self {
+        Self::build_observed(snapshot, assessment, fresh, refreshing, pending, crate::diagnostics::Section::NotRequested)
+    }
+    pub fn build_observed(snapshot: &Snapshot, assessment: Option<&ReadinessAssessment>, fresh: bool,
+        refreshing: bool, pending: bool, activity: crate::diagnostics::Section<'_, &crate::model::Activity>) -> Self {
         let busy = snapshot.system.inactive_reason();
         let waiting = pending || !fresh;
         Self {
@@ -139,6 +144,7 @@ impl Home {
                     key: ProductKey::from(current),
                     name: current.name.clone(),
                     subtitle: format!("{} · {}", product::vendor(current), product::role(current)),
+                    activity: product::product_activity(activity, current).short(),
                     status_class: if fresh { product::status(current).class } else { StatusClass::Unknown },
                     manage: Control::go("Manage plug-in", Importance::Secondary,
                         Destination::Product(ProductKey::from(current))),
@@ -189,45 +195,37 @@ impl Next {
     fn build(snapshot: &Snapshot, assessment: Option<&ReadinessAssessment>, busy: Option<&str>,
         waiting: bool) -> Self {
         let primary = |offer| offers::offer(offer, Importance::Primary, busy, waiting);
-        if let Some(what_happened) = service::problem(&snapshot.system, snapshot.operation.as_ref()) {
-            let recoveries: Vec<_> = snapshot.actions.iter().filter(|offer|
-                matches!(offer.action, Action::TransactionReconcile {})).cloned().collect();
-            return Self::Service {
-                title: "Next: resolve the bridge service problem",
-                what_happened,
-                offers: offers::row(&recoveries, Importance::Secondary, busy, waiting),
-                review: Control::go("Review recovery details", Importance::Secondary, Destination::Diagnostics),
-            };
-        }
-        let unfinished = snapshot.installer_setups.iter().filter(|setup| setup::unfinished(setup, snapshot))
-            .min_by_key(|setup| setup::attention_priority(setup));
-        if let Some(setup) = unfinished {
-            let partial = setup::partial_installation_needs_review(setup, snapshot);
-            let name = setup::display_name(setup, snapshot);
-            let current = setup.environment.as_deref().map(|environment| (snapshot, environment));
-            let review = partial && setup.primary.is_none();
-            return Self::Setup {
-                title: if let Some(journey) = &setup.journey {
-                    format!("{name} · {}", journey::current_label(journey, current))
-                } else if partial { format!("Next: review the installation for {name}") }
-                    else { format!("Next: continue {name}") },
-                status: if partial {
-                    "A complete installation was not confirmed. Review this setup before making installation changes. Plug-ins already available in your DAW remain available.".into()
-                } else { setup.status.clone() },
-                journey: setup.journey.as_ref().map(|journey| Results::build(journey, current, setup.primary.as_ref())),
-                primary: setup.primary.as_ref().map(primary),
-                open: Control::go(if review { "Review this installation" } else { "Open this setup" },
-                    if review { Importance::Primary } else { Importance::Secondary },
-                    Destination::Attempt(AttemptKey { installer: setup.installer.clone(),
-                        environment: setup.environment.clone() })),
-            };
-        }
-        if let Some(recovering) = snapshot.products.iter().find(|product| product::recovery_pending(product)) {
-            return Self::Recovery {
-                title: format!("Next: recover {}", recovering.name),
-                detail: recovering.compatibility.as_ref().map(|workflow| workflow.summary.clone()),
-                open: Control::go("Open plug-in recovery", Importance::Primary,
-                    Destination::Product(ProductKey::from(recovering))),
+        let Some(presentation) = snapshot.presentation.observed() else {
+            return Self::Go { title: "Current next step unavailable".into(),
+                detail: Some("Refresh current status to read the service's next step.".into()),
+                open: Control::go("Review service status", Importance::Secondary, Destination::Diagnostics) };
+        };
+        if let Some(item) = presentation.attention.first() {
+            let destination = super::activity::attention_destination(&item.target);
+            let offered = item.action.as_ref().and_then(|action| snapshot.actions.iter()
+                .chain(snapshot.installer_setups.iter().flat_map(|s| s.primary.iter().chain(&s.secondary)))
+                .chain(snapshot.products.iter().flat_map(|p| &p.actions))
+                .find(|offer| &offer.action == action));
+            return match item.purpose {
+                crate::model::AttentionPurpose::Service => Self::Service {
+                    title: item.title.clone(), what_happened: item.detail.clone(),
+                    offers: offers::row(&offered.cloned().into_iter().collect::<Vec<_>>(), Importance::Secondary, busy, waiting),
+                    review: Control::go("Review recovery details", Importance::Secondary, destination),
+                },
+                crate::model::AttentionPurpose::Installation => Self::Setup {
+                    title: item.title.clone(), status: item.detail.clone(), journey: None,
+                    primary: offered.map(primary),
+                    open: Control::go(if matches!(item.target, crate::model::AttentionTarget::Product { .. }) {
+                        "Open this plug-in" } else { "Open this setup" }, Importance::Secondary, destination),
+                },
+                crate::model::AttentionPurpose::Recovery => Self::Recovery {
+                    title: item.title.clone(), detail: Some(item.detail.clone()),
+                    open: Control::go("Open plug-in recovery", Importance::Primary, destination),
+                },
+                crate::model::AttentionPurpose::Connection => Self::Go {
+                    title: item.title.clone(), detail: Some(item.detail.clone()),
+                    open: Control::go("Continue plug-in setup", Importance::Primary, destination),
+                },
             };
         }
         if let Some(assessment) = assessment.filter(|assessment|
@@ -250,17 +248,6 @@ impl Next {
                 review: Control::go("Review setup details", Importance::Secondary, Destination::Diagnostics),
             };
         }
-        // A plug-in the musician removed from the DAW is not unfinished setup.
-        if let Some(waiting) = snapshot.products.iter().find(|product|
-            product::status(product).class != StatusClass::Ready
-                && !matches!(product.disposition.as_str(), "removed_from_daw" | "uninstalled")) {
-            return Self::Go {
-                title: format!("Next: set up {} for your DAW", waiting.name),
-                detail: Some(product::status(waiting).words.into()),
-                open: Control::go("Continue plug-in setup", Importance::Primary,
-                    Destination::Product(ProductKey::from(waiting))),
-            };
-        }
         if snapshot.products.is_empty() {
             return Self::Go {
                 title: "Start with a Windows plug-in".into(),
@@ -268,14 +255,8 @@ impl Next {
                 open: Control::go("Add your first plug-in", Importance::Primary, Destination::Setup),
             };
         }
-        let mut daws = snapshot.products.iter().map(|product| product::product_daw(snapshot, product));
-        let daw = daws.next().flatten().filter(|first| daws.all(|other| other == Some(*first)));
         Self::Ready {
-            title: match daw {
-                Some(daw @ (DawChoice::Bitwig | DawChoice::Reaper)) =>
-                    format!("Plug-ins available in {}", product::daw_name(daw)),
-                _ => "Plug-ins available in your DAW".into(),
-            },
+            title: presentation.settled_message.clone(),
             help: Disclosure::new("Using your plug-ins", vec![Text::body(
                 "Available plug-ins appear as native VST3s. Add them to a track in your DAW; if one is missing, rescan VST3 plug-ins.").into()]),
         }
@@ -284,10 +265,10 @@ impl Next {
 
 #[cfg(test)]
 mod tests {
+    use crate::model::Action;
     use super::*;
     use crate::window::Page;
     use crate::samples::{self, STATES};
-    use crate::offers::Availability;
 
     fn sample(state: &str) -> (Snapshot, Option<ReadinessAssessment>) {
         let snapshot = samples::snapshot(Page::Home, Some(state));
@@ -356,46 +337,27 @@ mod tests {
     }
 
     #[test]
-    fn the_next_step_is_the_most_urgent_one() {
-        let title = |state: &str| match home(state, true, false).next {
-            Next::Service { title, .. } => format!("service: {title}"),
-            Next::Setup { title, .. } => format!("setup: {title}"),
-            Next::Computer { title, .. } => format!("computer: {title}"),
-            Next::Recovery { title, .. } => format!("recovery: {title}"),
-            Next::Go { title, .. } => format!("go: {title}"),
-            Next::Ready { title, .. } => format!("ready: {title}"),
-        };
-        for (state, expected) in [
-            ("first_use", "go: Start with a Windows plug-in"),
-            ("available", "ready: Plug-ins available in your DAW"),
-            ("service_problem", "service: Next: resolve the bridge service problem"),
-            ("unavailable", "service: Next: resolve the bridge service problem"),
-            ("install_progress", "setup: Example Audio Bundle · Connecting plug-ins to your DAW"),
-            // The manager paused the bridge for its own installation: not a service problem.
-            ("install_paused", "setup: Example Audio Bundle · Connecting plug-ins to your DAW"),
-            // Unconfirmed cleanup comes before a journey that needs attention.
-            ("install_attention", "setup: Next: continue Example Drums"),
-            ("setup_removal", "setup: Next: review the installation for Example Lead installer"),
-            ("pb0_step", "computer: Next: Download Windows plug-in support"),
-            ("pb0_unsupported", "computer: A required computer capability is unavailable"),
-            ("populated", "go: Next: set up Serum 2 FX for your DAW"),
-        ] {
-            assert_eq!(title(state), expected, "{state}");
-        }
-        let Next::Service { what_happened, offers, review, .. } = home("service_problem", true, false).next
-            else { panic!("a service problem") };
-        assert_eq!(what_happened, "A previous setup change has not finished.");
-        assert!(matches!(offers.offers[0].intent, Action::TransactionReconcile {}));
-        assert_eq!(review.does, Local::Go(Destination::Diagnostics));
-        let Next::Setup { primary, open, journey, .. } = home("setup_removal", true, false).next
-            else { panic!("a setup step") };
-        assert!(primary.is_none() && journey.is_none());
-        assert_eq!((open.label, open.importance), ("Review this installation", Importance::Primary));
-        let Next::Computer { action, .. } = home("pb0_step", true, false).next else { panic!("a computer step") };
-        let action = action.expect("the step's own offer");
-        assert_eq!(action.label, "Download Windows plug-in support (310 MB)");
-        let Next::Computer { action, .. } = home("pb0_step", false, false).next else { panic!("a computer step") };
-        assert_eq!(action.unwrap().availability, Availability::Waiting);
+    fn the_next_step_follows_owner_order_and_keeps_exact_offer_refusals() {
+        use crate::model::{Observation as O, Attention, AttentionPurpose as P, AttentionTarget as T};
+        let (mut snapshot, _) = sample("service_problem");
+        let offered = snapshot.actions.iter().find(|offer| matches!(offer.action, Action::TransactionReconcile {})).unwrap().clone();
+        let product = crate::model::ProductIdentity::from(&snapshot.products[0]);
+        let O::Observed(presentation) = &mut snapshot.presentation else { panic!() };
+        presentation.attention = vec![Attention { purpose: P::Service, target: T::Service, title: "Owner service priority".into(),
+            detail: "Owner's exact reason".into(), action: Some(offered.action.clone()) },
+            Attention { purpose: P::Recovery, target: T::Product { product: product.clone() }, title: "Owner recovery priority".into(),
+                detail: "Exact recovery".into(), action: None }];
+        let Next::Service { title, what_happened, offers, .. } = Home::build(&snapshot, None, true, false, false).next else { panic!() };
+        assert_eq!(title, "Owner service priority"); assert_eq!(what_happened, "Owner's exact reason");
+        assert_eq!(offers.offers[0].intent, offered.action);
+        let O::Observed(presentation) = &mut snapshot.presentation else { panic!() };
+        presentation.attention.reverse();
+        let Next::Recovery { open, .. } = Home::build(&snapshot, None, true, false, false).next else { panic!() };
+        assert_eq!(open.does, Local::Go(Destination::Product(ProductKey { environment: product.environment,
+            module_sha256: product.module_sha256, class_id: product.class_id })));
+        snapshot.presentation = O::Unavailable("Owner composition unavailable".into());
+        assert!(matches!(Home::build(&snapshot, None, true, false, false).next, Next::Go { open, .. }
+            if open.does == Local::Go(Destination::Diagnostics)));
     }
 
     #[test]
@@ -413,9 +375,10 @@ mod tests {
             });
             let expected = ProductKey::from(&*product);
             let name = product.name.clone();
+            samples::presentation(&mut snapshot, "available");
             let home = Home::build(&snapshot, None, true, false, false);
             let Next::Recovery { title, detail, open } = home.next else { panic!("exact recovery") };
-            assert_eq!(title, format!("Next: recover {name}"));
+            assert_eq!(title, format!("Recover {name}"));
             assert_eq!(detail.as_deref(), Some("Recorded problem needs recovery"));
             assert_eq!(open.does, Local::Go(Destination::Product(expected)));
             assert!(snapshot.products[0].active_revision.is_some(), "publication does not hide recovery");

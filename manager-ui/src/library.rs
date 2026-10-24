@@ -115,6 +115,7 @@ pub fn show(
     let list = match built {
         Some((list, _)) if *state == before => list,
         _ => PluginList::build(snapshot, &state.query(), single_product, plugins::Context {
+            activity: crate::screen_model::diagnostics::Section::NotRequested,
             busy: snapshot.system.inactive_reason(), pending, expanded: state.expanded }),
     };
     for line in &list.summary { ui.small(line); }
@@ -134,6 +135,33 @@ pub fn show(
             });
         }
     }
+}
+
+fn display_configuration(ui: &mut egui::Ui, display: &plugins::display::DisplayView, chosen: &mut Option<Action>) {
+    if let Some(notice) = &display.notice { widgets::text(ui, notice); }
+    if !display.modes.is_empty() { ui.heading("Display choices"); }
+    for mode in &display.modes {
+        egui::Frame::group(ui.style()).show(ui, |ui| {
+            ui.strong(&mode.label); ui.small(&mode.posture); widgets::text(ui, &mode.result);
+            if let Some(record) = &mode.result_record { widgets::disclosure(ui, record, chosen); }
+            display_actions(ui, &mode.prepare, chosen);
+            for trial in &mode.trials {
+                ui.strong(&trial.posture); widgets::text(ui, &trial.evidence); widgets::text(ui, &trial.result);
+                display_actions(ui, &trial.actions, chosen); widgets::disclosure(ui, &trial.identity, chosen);
+            }
+        });
+    }
+    if !display.repairs.is_empty() { ui.heading("Repair steps"); }
+    for (index, step) in display.repairs.iter().enumerate() {
+        ui.strong(format!("{}. {}", index + 1, step.label)); ui.label(&step.detail);
+        display_actions(ui, &step.actions, chosen);
+    }
+    if let Some(provenance) = &display.provenance { widgets::disclosure(ui, provenance, chosen); }
+}
+
+fn display_actions(ui: &mut egui::Ui, row: &crate::screen_model::offers::OfferRow, chosen: &mut Option<Action>) {
+    if row.offers.is_empty() { for note in &row.notes { ui.small(note); } }
+    else { widgets::offer_row(ui, row, chosen); }
 }
 
 /// One plug-in's card. Same class can have several installed builds or environments.
@@ -159,11 +187,17 @@ fn plugin_card(ui: &mut egui::Ui, card: &PluginCard, chosen: &mut Option<Action>
                     if let Some(preface) = &lead.preface { ui.label(preface); }
                     widgets::lead_offer(ui, &lead.offer, chosen);
                 }
+                if !card.standalone.is_empty() {
+                    ui.strong("Outside your DAW");
+                    ui.small("These plug-in windows do not open an audio device.");
+                    for row in &card.standalone { widgets::offer_row(ui, row, chosen); }
+                }
                 widgets::offer_row(ui, &card.offers, chosen);
                 for uninstall in &card.uninstallers {
                     widgets::offer_row(ui, &uninstall.row, chosen);
                     ui.small(&uninstall.explanation);
                 }
+                display_configuration(ui, &card.display, chosen);
                 for section in [&card.settings, &card.help, &card.availability,
                     &card.other_setups, &card.previous_setups].into_iter().flatten() {
                     widgets::disclosure(ui, section, chosen);
@@ -464,8 +498,10 @@ mod tests {
         assert_eq!(status(product).words, "Available in your DAW");
         // Finishing a recovery is the plug-in's lead step, not an optional test result.
         assert!(PluginCard::build(&snapshot, &snapshot.products[0], plugins::Context {
+            activity: crate::screen_model::diagnostics::Section::NotRequested,
             busy: Some("Cleanup unconfirmed"), pending: false, expanded: false }).lead.is_some());
         let card = PluginCard::build(&snapshot, &snapshot.products[0], plugins::Context {
+            activity: crate::screen_model::diagnostics::Section::NotRequested,
             busy: Some("Cleanup unconfirmed"), pending: false, expanded: false });
         assert!(card.offers.offers.iter().any(|offer| offer.pressed() == Some(problem.action.clone())));
         let product = &snapshot.products[0];
