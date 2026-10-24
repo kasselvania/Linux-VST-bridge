@@ -2109,6 +2109,9 @@ pub fn serve(m: Manager) -> Result<()> {
                             operation: hex(&greeting[133..149]),
                         });
                     }
+                    if !version6 {
+                        instance_recovery::retain_fresh_instance(&m, &job.session)?;
+                    }
                     job.crash_capture = crash_capture::claim(&m,&full_registration,&job.session)
                         .unwrap_or_else(|e| { eprintln!("CA1 capture unavailable: {e}"); None });
                     atomic_json(&path, &job)?;

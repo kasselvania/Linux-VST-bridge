@@ -10,6 +10,7 @@ use std::sync::{
 
 mod custody;
 use custody::*;
+pub(super) use custody::retain_fresh_instance;
 
 pub(super) const GREETING: &[u8; 5] = wire::GREETING;
 struct Runtime {
@@ -761,7 +762,8 @@ mod tests {
             "another instance's receipt cannot settle this request"
         );
         receipt(&f, [2; 16], &entry.original, "completed");
-        assert!(!unresolved_journal(&f.m, &entry.original, &returning));
+        assert!(unresolved_journal(&f.m, &entry.original, &returning),
+            "a settled proxy-selected receipt cannot repair missing legacy custody");
         assert!(
             state.pending.as_ref().unwrap().uncertain,
             "a reconnect cannot erase the current owner's uncertain delivery"
@@ -804,6 +806,7 @@ mod tests {
         let f = Fixture::new();
         let entry = entry(&f);
         let state = entry.state.lock().unwrap();
+        retain_fresh_instance(&f.m, &entry.original).unwrap();
         let command = wire::Command {
             operation: [2; 16],
             generation: 1,
