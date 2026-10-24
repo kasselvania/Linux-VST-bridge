@@ -1510,18 +1510,28 @@ mod tests {
             fs::write(&replacement, bytes)?;
             fs::rename(replacement, &path)?; Ok(())
         };
-        // Replaced once while read, as a supervisor's receipt is: the
-        // replacement is read, whole (#382).
+        // One or two replacements retry, then read the newest object whole.
+        for replacements in 1..=2 {
+            fs::write(&path, b"{}\n").unwrap();
+            let attempts = Cell::new(0);
+            assert_eq!(read_control_bytes_with(&path, 32, || {
+                let attempt = attempts.get() + 1;
+                attempts.set(attempt);
+                if attempt <= replacements { replace(format!("[{attempt}]\n").as_bytes())?; }
+                Ok(())
+            }).unwrap(), format!("[{replacements}]\n").as_bytes());
+            assert_eq!(attempts.get(), replacements + 1);
+        }
+        // Replacement on every attempt refuses after exactly three reads.
         fs::write(&path, b"{}\n").unwrap();
-        let replaced = Cell::new(false);
+        let attempts = Cell::new(0);
         assert_eq!(read_control_bytes_with(&path, 32, || {
-            if !replaced.replace(true) { replace(b"[1]\n")?; }
-            Ok(())
-        }).unwrap(), b"[1]\n");
-        // Replaced during every read: it refuses.
-        fs::write(&path, b"{}\n").unwrap();
-        assert_eq!(read_control_bytes_with(&path, 32, || replace(b"[]\n"))
-            .unwrap_err().to_string(), "control_record_changed_during_read");
+            let attempt = attempts.get() + 1;
+            attempts.set(attempt);
+            replace(format!("[{attempt}]\n").as_bytes())
+        }).unwrap_err().to_string(), "control_record_changed_during_read");
+        assert_eq!(attempts.get(), 3);
+        assert_eq!(read_control_bytes(&path, 32).unwrap(), b"[3]\n");
         assert_eq!(record.read_record::<serde_json::Value>(32).unwrap_err().to_string(),
             "control_record_digest_changed");
     }

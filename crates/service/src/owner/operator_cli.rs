@@ -7225,15 +7225,24 @@ pub(crate) mod tests {
     }
     #[test]
     fn activity_reads_the_receipt_its_worker_replaces_while_it_reads() {
-        // A worker replaces operator/latest.json as it progresses. An
-        // Activity read that lands during a replacement reads the
-        // replacement instead of refusing (#516).
+        // A worker replaces operator/latest.json as it progresses. A
+        // single overlapping replacement is retried. Continuous replacement
+        // may exhaust the bounded read; it must recover once writes stop (#516).
         let f = test_fixture::Fixture::new();
         let latest = f.m.root.join("operator/latest.json");
         private_dir(latest.parent().unwrap()).unwrap();
         let operation = random_id().unwrap();
-        let receipt = |progress: u64| json!({"schema":1,"operation":operation,"state":"running","progress":progress});
+        let receipt = |progress: u64| json!({"schema":1,"operation":operation,
+            "state":if progress == 200 { "completed" } else { "running" },"progress":progress});
         atomic_json(&latest, &receipt(0)).unwrap();
+        let read = || activity_with_capacity(&f.m, None, ui::LiveActivity::unavailable("fixture"));
+        let summary = |activity: ui::Activity| {
+            let summary = activity.operation.expect("the atomically replaced receipt remains present");
+            assert_eq!(summary["operation"], operation.as_str());
+            assert_eq!(summary["summary"], true);
+            summary
+        };
+        assert_eq!(summary(read().unwrap())["state"], "running");
         use std::sync::atomic::{AtomicU64, Ordering};
         // Read back to back while the receipt is replaced 200 times.
         let replaced = AtomicU64::new(0);
@@ -7246,10 +7255,19 @@ pub(crate) mod tests {
                 }
             });
             while replaced.load(Ordering::Relaxed) < 200 {
-                let activity = activity_with_capacity(&f.m, None, ui::LiveActivity::unavailable("fixture")).unwrap();
-                assert_eq!(activity.operation.unwrap()["operation"], operation.as_str());
+                match read() {
+                    Ok(activity) => {
+                        let receipt = summary(activity);
+                        assert!(matches!(receipt["state"].as_str(), Some("running" | "completed")), "{receipt:#}");
+                    }
+                    Err(error) => assert_eq!(error.to_string(), "control_record_changed_during_read"),
+                }
             }
         });
+        // Joining the writer ends the permitted churn. Stale running state,
+        // an empty observation or any read failure must now fail the test.
+        assert_eq!(summary(read().unwrap()),
+            json!({"summary":true,"operation":operation,"state":"completed"}));
     }
     #[test]
     fn diagnostics_and_the_problem_report_complete_with_more_history_than_one_watch_held() {
