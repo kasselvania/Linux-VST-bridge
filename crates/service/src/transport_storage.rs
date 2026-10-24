@@ -341,6 +341,27 @@ pub fn require_no_sessions() -> Result<()> {
 }
 
 fn require_no_sessions_at(path: &Path) -> Result<()> {
+    require_stop_entries(path, 3, |_| Err("package_stale_transport".into()))
+}
+
+/// Only authenticated live keeper command IPC may remain before an explicit
+/// selected-service stop. Ordinary inactivity checks still admit no sessions.
+pub(crate) fn require_only_keeper_sessions(m: &Manager, owners: &[capacity::Owner]) -> Result<()> {
+    require_only_keeper_sessions_at(m, owners, &root())
+}
+pub(crate) fn require_only_keeper_sessions_at(m: &Manager, owners: &[capacity::Owner], path: &Path) -> Result<()> {
+    match fs::symlink_metadata(path) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.into()),
+        Ok(_) => require_stop_entries(path, 3 + owners.iter().filter(|o|o.kind == capacity::Kind::Keeper).count(), |directory| {
+            let session = directory.file_name().and_then(|v|v.to_str()).ok_or("package_stale_transport")?;
+            require(owners.iter().any(|o|o.session == session && o.kind == capacity::Kind::Keeper
+                && o.terminal.is_none()), "package_stale_transport")?;
+            require_keeper_endpoint(m, directory)
+        }),
+    }
+}
+fn require_stop_entries(path: &Path, maximum: usize, mut keeper: impl FnMut(&Path) -> Result<()>) -> Result<()> {
     let before = private(path)?;
     memory_filesystem(path)?;
     let marker = path.join("storage-v1");
@@ -366,15 +387,108 @@ fn require_no_sessions_at(path: &Path) -> Result<()> {
     for entry in fs::read_dir(path)? {
         let entry = entry?;
         count += 1;
-        require(count <= 3 && matches!(entry.file_name().to_str(),
-            Some("storage-v1" | ".lvb-denied-dbus" | ".lvb-denied-wayland")),
-            "package_stale_transport")?;
+        require(count <= maximum, "package_stale_transport")?;
+        if !matches!(entry.file_name().to_str(), Some("storage-v1" | ".lvb-denied-dbus" | ".lvb-denied-wayland")) {
+            keeper(&entry.path())?;
+        }
     }
-    require(count == 3, "transport_root_foreign")?;
+    require(count >= 3, "transport_root_foreign")?;
     let after = private(path)?;
     require((before.dev(), before.ino()) == (after.dev(), after.ino()),
         "transport_directory_replaced")
 }
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct KeeperCommandSession {
+    schema: u32,
+    keeper: String,
+    owner_pid: i32,
+    owner_start: u64,
+    runner: String,
+    context: serde_json::Value,
+    socket_identity: [u64; 2],
+}
+
+fn private_record(path: &Path) -> Result<Vec<u8>> {
+    let mut source = file(path)?;
+    let before = source.metadata()?;
+    require(before.mode() & 0o077 == 0 && before.len() <= 65536, "keeper_command_record")?;
+    let mut bytes = Vec::new();
+    Read::by_ref(&mut source).take(65537).read_to_end(&mut bytes)?;
+    let after = source.metadata()?;
+    let named = fs::symlink_metadata(path)?;
+    require(bytes.len() as u64 == before.len() && named.is_file() && !named.file_type().is_symlink()
+        && (before.dev(),before.ino(),before.len(),before.ctime(),before.ctime_nsec())
+            == (after.dev(),after.ino(),after.len(),after.ctime(),after.ctime_nsec())
+        && (before.dev(),before.ino()) == (named.dev(),named.ino()), "keeper_command_record_changed")?;
+    Ok(bytes)
+}
+
+fn require_keeper_endpoint(m: &Manager, directory: &Path) -> Result<()> {
+    #[cfg(not(target_os="linux"))]
+    { let _ = (m,directory); return Err("keeper_process_observation_unavailable".into()); }
+    #[cfg(target_os="linux")]
+    {
+    let before = private(directory)?;
+    let session = directory.file_name().and_then(|v|v.to_str()).ok_or("lease_identity")?;
+    require(valid_hex(session,32), "lease_identity")?;
+    let lease = m.root.join("runtime/leases").join(format!("{session}.json"));
+    let report: PathBuf = read_json(&lease)?;
+    let owner = m.retained_lease_owner(session,&report)?;
+    crate::owner::require_current_lease_generation(m,session,&report)?;
+    let environment = &owner["registration"]["environment"];
+    let durable = PathBuf::from(environment["root"].as_str().ok_or("lease_identity")?)
+        .join("compatdata/pfx/drive_c/bridge/sessions").join(session);
+    require(owner["keeper"] == true && owner["inspect"] == true && owner["vendor_access"] == false
+        && (owner["detached"].is_null() || owner["detached"] == false) && owner["shared_runtime"] == true
+        && owner["transport"].is_null() && owner["directory"].as_str() == durable.to_str()
+        && report == m.root.join("runtime/results").join(format!("environment-{session}.json")),
+        "keeper_command_binding")?;
+    private(durable.parent().ok_or("keeper_command_binding")?)?;
+    let durable_before = private(&durable)?;
+    let owner_bytes = private_record(&durable.join("owner.json"))?;
+    require(serde_json::from_slice::<serde_json::Value>(&owner_bytes)? == owner, "keeper_command_binding")?;
+    let descriptor = durable.join("command-session.json");
+    let bytes = private_record(&descriptor)?;
+    let command: KeeperCommandSession = serde_json::from_slice(&bytes)?;
+    let context = if owner["graphical_session"].is_null() {serde_json::Value::Null} else {
+        let g = &owner["graphical_session"];
+        serde_json::json!({"display":g["display"],"wayland_display":g["wayland_display"],
+            "xauthority":g["xauthority"],"dbus_session_bus_address":g["dbus_session_bus_address"]})
+    };
+    require(command.schema == 1 && command.keeper == session && command.owner_pid > 0 && command.owner_start > 0
+        && valid_hex(&command.runner,64) && owner["runner_key"] == command.runner && command.context == context,
+        "keeper_command_binding")?;
+    let process = PathBuf::from(format!("/proc/{}",command.owner_pid));
+    require(fs::symlink_metadata(&process)?.uid() == unsafe {libc::getuid()}
+        && process_start_ticks(command.owner_pid)? == command.owner_start, "keeper_command_process_changed")?;
+    let socket = directory.join("s");
+    let endpoint = fs::symlink_metadata(&socket)?;
+    require(endpoint.file_type().is_socket() && endpoint.uid() == unsafe {libc::getuid()}
+        && endpoint.mode() & 0o077 == 0 && [endpoint.dev(),endpoint.ino()] == command.socket_identity,
+        "keeper_command_socket_changed")?;
+    let entries = fs::read_dir(directory)?.take(2).collect::<std::io::Result<Vec<_>>>()?;
+    require(entries.len() == 1 && entries[0].file_name() == "s", "package_stale_transport")?;
+    let after = private(directory)?;
+    let durable_after = private(&durable)?;
+    let endpoint_after = fs::symlink_metadata(&socket)?;
+    crate::owner::require_current_lease_generation(m,session,&report)?;
+    require((before.dev(),before.ino()) == (after.dev(),after.ino())
+        && (durable_before.dev(),durable_before.ino()) == (durable_after.dev(),durable_after.ino())
+        && (endpoint.dev(),endpoint.ino()) == (endpoint_after.dev(),endpoint_after.ino())
+        && process_start_ticks(command.owner_pid)? == command.owner_start
+        && private_record(&descriptor)? == bytes
+        && private_record(&durable.join("owner.json"))? == owner_bytes
+        && m.retained_lease_owner(session,&report)? == owner && read_json::<PathBuf>(&lease)? == report,
+        "keeper_command_binding_changed")
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn initialize_fixture(path: &Path) -> Result<()> { initialize_at(path) }
+#[cfg(test)]
+pub(crate) fn require_no_sessions_fixture(path: &Path) -> Result<()> { require_no_sessions_at(path) }
 
 pub fn create(session: &str) -> Result<(PathBuf, MemoryTransport)> {
     create_at(&root(), session)

@@ -1204,6 +1204,7 @@ fn stage(m: &Manager, inputs: &Inputs, manifest: PackageManifest,
 }
 fn preflight(m: &Manager, service: &impl ServiceControl) -> Result<()> {
     require(operator_cli::all_operations_finished(m)?,"package_operator_active_or_ambiguous")?;
+    service.retired_transports()?;
     require(!reconcile_leases(m)?, "package_cleanup_unconfirmed")?;
     m.require_inactive(None)?;
     require(capacity::owners(m)?.is_empty(), "package_owner_active")?;
@@ -1211,7 +1212,6 @@ fn preflight(m: &Manager, service: &impl ServiceControl) -> Result<()> {
         "package_transaction_pending")?;
     require(onboarding::all_retired(m)?, "package_installer_owner_active")?;
     require(service.vendor_retired(m)?, "package_vendor_owner_active")?;
-    transport_storage::require_no_sessions()?;
     Ok(())
 }
 /// Settling stays inside Setup's 90 s status wait: the census uses what is left
@@ -1305,13 +1305,13 @@ fn running_package_census_tools() -> Result<(Artifact, Artifact)> {
 fn recovery_preflight(m: &Manager,
     transition: &CoordinatedTransition, service: &impl ServiceControl) -> Result<()> {
     require(operator_cli::all_operations_finished(m)?,"package_operator_active_or_ambiguous")?;
+    service.retired_transports()?;
     require(!reconcile_leases(m)?, "package_cleanup_unconfirmed")?;
     m.require_inactive(None)?;
     require(capacity::owners(m)?.is_empty(), "package_owner_active")?;
     m.verify_package_pending_intents(&transition.receipt.transitions)?;
     require(onboarding::all_retired(m)?, "package_installer_owner_active")?;
     require(service.vendor_retired(m)?, "package_vendor_owner_active")?;
-    transport_storage::require_no_sessions()?;
     Ok(())
 }
 fn with_locks<T>(m: &Manager, work: impl FnOnce() -> Result<T>) -> Result<T> {
@@ -2185,6 +2185,10 @@ trait ServiceControl {
     fn clean_idle(&self, m: &Manager) -> Result<Vec<capacity::Owner>>;
     /// Observed owners for an explicit setup stop; eligibility is checked under registry custody.
     fn stop_owners(&self, m: &Manager) -> Result<Vec<capacity::Owner>> { self.idle(m) }
+    fn stop_transports(&self, m: &Manager, owners: &[capacity::Owner]) -> Result<()> {
+        transport_storage::require_only_keeper_sessions(m, owners)
+    }
+    fn retired_transports(&self) -> Result<()> { transport_storage::require_no_sessions() }
     fn ended_consumer(&self, m: &Manager, session: &str, report: &Path) -> Result<Option<serde_json::Value>> {
         #[cfg(target_os="linux")]
         { ended_consumer_proof(m, session, report, kernel_boot()?.as_deref(), Path::new("/proc"), &transport_storage::root()) }
@@ -2536,6 +2540,7 @@ fn bootstrap_status_with_registry(m: &Manager, home: &Path, inputs: &Inputs, own
             let keeper_retirement_pending = {
                 let registry = acquire_registry()?;
                 registry.require_registry(m)?;
+                service.retired_transports()?;
                 let _unconfirmed = reconcile_leases(m)?;
                 m.require_inactive(None)?;
                 let owners = capacity::owners(m)?;
@@ -2589,12 +2594,12 @@ fn stop_gate(m: &Manager, service: &impl ServiceControl,
         registry.require_registry(m)?;
         require(operator_cli::all_operations_finished(m)?,"package_operator_active_or_ambiguous")?;
         stop_owner_proofs(m, &before, service)?;
+        service.stop_transports(m, &before)?;
         require(operator_cli::pending_transactions(m)? == 0,
             "package_transaction_pending")?;
     }
     require(onboarding::all_retired(m)?, "package_installer_owner_active")?;
     require(service.vendor_retired(m)?, "package_vendor_owner_active")?;
-    transport_storage::require_no_sessions()?;
     let after = service.stop_owners(m)?;
     require(after == before, "package_owners_changed")?;
     Ok(after)
@@ -2619,7 +2624,7 @@ fn stop_selected_service_with_registry(m: &Manager, home: &Path, selected: &Soft
     require(operator_cli::all_operations_finished(m)?, "package_operator_active_or_ambiguous")?;
     require(onboarding::all_retired(m)?, "package_installer_owner_active")?;
     require(service.vendor_retired(m)?, "package_vendor_owner_active")?;
-    transport_storage::require_no_sessions()?;
+    service.stop_transports(m, observed_owners)?;
     let unit = service.show()?;
     require(unit.load == "loaded" && unit.active == "active"
         && unit.fragment == home.join(".config/systemd/user/linux-vst-bridge.service")
@@ -2632,6 +2637,7 @@ fn stop_selected_service_with_registry(m: &Manager, home: &Path, selected: &Soft
     let stopped = service.show()?;
     require(stopped.load == unit.load && stopped.fragment == unit.fragment && stopped.exec == unit.exec
         && matches!(stopped.active.as_str(), "inactive" | "failed"), "package_stop_state_changed")?;
+    service.retired_transports()?;
     // Keepers may retire during stop; ended native consumers must still have
     // the exact proof observed before stopping. No read retires their leases.
     let remaining = capacity::owners(m)?;
@@ -2649,6 +2655,7 @@ fn stop_selected_service_with_registry(m: &Manager, home: &Path, selected: &Soft
 }
 fn reconcile_stopped_service(m: &Manager, service: &impl ServiceControl) -> Result<()> {
     require_service_stopped(service)?;
+    service.retired_transports()?;
     if reconcile_leases(m)? {
         if observe_stopped_leases(m, kernel_boot()?.as_deref())? {
             return Err("package_restart_required".into());
@@ -2851,6 +2858,8 @@ mod tests {
         starts: Cell<usize>,
         stops: Cell<usize>,
         ended_roots: RefCell<Option<(PathBuf, PathBuf, String)>>,
+        keeper_endpoint: RefCell<Option<(PathBuf, PathBuf, std::os::unix::net::UnixListener)>>,
+        leave_keeper_endpoint: Cell<bool>,
     }
     impl FakeService {
         fn new(home: &Path) -> Self {
@@ -2867,7 +2876,7 @@ mod tests {
                 before_clean:RefCell::new(None),
                 legacy_start_manager:RefCell::new(None),
                 fail_stop: Cell::new(false), retire_keepers: Cell::new(true),
-                starts: Cell::new(0), stops: Cell::new(0), ended_roots: RefCell::new(None) }
+                starts: Cell::new(0), stops: Cell::new(0), ended_roots: RefCell::new(None), keeper_endpoint: RefCell::new(None), leave_keeper_endpoint: Cell::new(false) }
         }
     }
     impl ServiceControl for FakeService {
@@ -2933,6 +2942,18 @@ mod tests {
                 "package_service_not_clean_idle")?;
             Ok(owners)
         }
+        fn stop_transports(&self, m: &Manager, owners: &[capacity::Owner]) -> Result<()> {
+            match self.keeper_endpoint.borrow().as_ref() {
+                Some((root,_,_)) => transport_storage::require_only_keeper_sessions_at(m,owners,root),
+                None => transport_storage::require_only_keeper_sessions(m,owners),
+            }
+        }
+        fn retired_transports(&self) -> Result<()> {
+            match self.keeper_endpoint.borrow().as_ref() {
+                Some((root,_,_)) => transport_storage::require_no_sessions_fixture(root),
+                None => transport_storage::require_no_sessions(),
+            }
+        }
         fn ended_consumer(&self, m: &Manager, session: &str, report: &Path) -> Result<Option<serde_json::Value>> {
             #[cfg(target_os="linux")]
             if let Some((proc_root, memory, boot)) = self.ended_roots.borrow().as_ref() {
@@ -2976,6 +2997,14 @@ mod tests {
             self.loaded.borrow_mut().active = "inactive".into();
             self.stops.set(self.stops.get() + 1);
             if self.retire_keepers.get() {
+                if !self.leave_keeper_endpoint.get() {
+                    if let Some((root,durable,_)) = self.keeper_endpoint.borrow().as_ref() {
+                        let endpoint = root.join(durable.file_name().unwrap()).join("s");
+                        fs::remove_file(&endpoint)?;
+                        fs::remove_dir(endpoint.parent().unwrap())?;
+                        fs::remove_file(durable.join("command-session.json"))?;
+                    }
+                }
                 let leases = self.home.parent().ok_or("test_home")?.join("managed/runtime/leases");
                 if leases.try_exists()? {
                     for entry in fs::read_dir(leases)? {
@@ -3187,6 +3216,33 @@ assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
         let sw=f.current();assert_eq!(fs::read(&sw.host.path).unwrap(),b"host");
         assert!(!sw.host.path.with_file_name("runtime.json").exists());
         verify_generation(&f.base.m,&sw).unwrap();
+    }
+
+    #[cfg(target_os="linux")]
+    fn live_keeper_endpoint(f: &Fixture) -> (PathBuf, PathBuf) {
+        use std::os::unix::net::UnixListener;
+        let (mut job, owner_path) = spec(&f.base.m,f.base.r.clone().into(),true,false,true).unwrap();
+        job.shared_runtime = true;
+        atomic_json(&owner_path,&job).unwrap();
+        f.base.m.retain_lease_owner(&owner_path).unwrap();
+        record_lease_generation(&job).unwrap();
+        atomic_json(&job.lease,&job.report).unwrap();
+        atomic_json(&job.report,&serde_json::json!({"ready":true,"environment":f.base.r.environment.id})).unwrap();
+        let root = PathBuf::from("/dev/shm").join(format!("setup-keeper-{}",random_id().unwrap()));
+        transport_storage::initialize_fixture(&root).unwrap();
+        let endpoint_dir = root.join(&job.session);private_dir(&endpoint_dir).unwrap();
+        let endpoint = endpoint_dir.join("s");
+        let listener = UnixListener::bind(&endpoint).unwrap();
+        fs::set_permissions(&endpoint,fs::Permissions::from_mode(0o700)).unwrap();
+        let identity = fs::symlink_metadata(&endpoint).unwrap();
+        atomic_json(&job.directory.join("command-session.json"),&serde_json::json!({
+            "schema":1,"keeper":job.session,"owner_pid":std::process::id(),
+            "owner_start":transport_storage::process_start_ticks(std::process::id() as i32).unwrap(),
+            "runner":job.runner_key,"context":null,"socket_identity":[identity.dev(),identity.ino()]})).unwrap();
+        fs::write(job.directory.join("environment.ready"),format!("{}\n",job.session)).unwrap();
+        fs::set_permissions(job.directory.join("environment.ready"),fs::Permissions::from_mode(0o600)).unwrap();
+        *f.service.keeper_endpoint.borrow_mut() = Some((root.clone(),job.directory,listener));
+        (job.lease,root)
     }
 
     fn owned_lease(f: &Fixture, session: &str, keeper: bool) -> PathBuf {
@@ -3411,10 +3467,11 @@ assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
                 _ => {},
             }
             *f.service.ended_roots.borrow_mut() = Some((proc_root.clone(),memory.clone(),boot.into()));
+            let keeper_root = (changed == "update").then(||live_keeper_endpoint(&f).1);
             let registry = f.base.m.lock("registry.lock").unwrap();
             let owners = capacity::owners(&f.base.m).unwrap();
             let reply = serde_json::json!({"ok":true,"capacity":{"schema":1,"dsp":1,
-                "maintenance":0,"keepers":usize::from(changed == "keeper"),"cleanup_unconfirmed":true,"owners":owners}});
+                "maintenance":0,"keepers":usize::from(matches!(changed,"keeper"|"update")),"cleanup_unconfirmed":true,"owners":owners}});
             assert!(stoppable_keepers(&reply).is_err(),"ordinary idle stays strict");
             let mut observed = observed_stop_owners(&reply).unwrap();
             if changed == "wrong_binding" {observed[0].session = "ff".repeat(16);}
@@ -3453,6 +3510,70 @@ assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
                         .unwrap().state,"update_adoptable");
                 }
             }
+            if let Some(root) = keeper_root {fs::remove_dir_all(root).unwrap();}
+        }
+    }
+
+    #[cfg(target_os="linux")]
+    #[test]
+    fn setup_stop_authenticates_live_keeper_ipc_and_requires_its_actual_retirement() {
+        for changed in ["none","not_ready","socket","descriptor","old_boot","unknown","symlink","extra",
+            "leftover","failed_cleanup"] {
+            let f = Fixture::new();f.adopt().unwrap();
+            activate_from(&f.base.m,&f.home,&f.service).unwrap();
+            f.replace("linux-vst-bridge",b"next manager",true);
+            let (lease,root) = live_keeper_endpoint(&f);
+            let session = lease.file_stem().unwrap().to_str().unwrap();
+            let endpoint = root.join(session).join("s");
+            let report: PathBuf = read_json(&lease).unwrap();
+            let durable = f.service.keeper_endpoint.borrow().as_ref().unwrap().1.clone();
+            let original_report = fs::read(&report).unwrap();
+            let before = test_fixture::snapshot(&f.base.m.root);
+            assert_eq!(bootstrap_status_with_registry(&f.base.m,&f.home,&f.inputs,f.owner,&f.service,
+                &mut || f.base.m.lock("registry.lock")).unwrap().state,"update_active");
+            assert_eq!(test_fixture::snapshot(&f.base.m.root),before);
+            assert!(transport_storage::require_no_sessions_fixture(&root).is_err(),"ordinary idle remains strict");
+            let mut swapped = None;
+            match changed {
+                "not_ready" => atomic_json(&report,&serde_json::json!({"ready":false,"cleanup_confirmed":true})).unwrap(),
+                "socket" => {fs::remove_file(&endpoint).unwrap();
+                    swapped=Some(std::os::unix::net::UnixListener::bind(&endpoint).unwrap());
+                    fs::set_permissions(&endpoint,fs::Permissions::from_mode(0o700)).unwrap();},
+                "descriptor" => {let path=durable.join("command-session.json");
+                    let mut value:serde_json::Value=read_json(&path).unwrap();value["owner_start"]=serde_json::json!(1);
+                    atomic_json(&path,&value).unwrap();},
+                "old_boot" => {let path=f.base.m.root.join("runtime/lease-generations").join(format!("{session}.json"));
+                    let mut value:serde_json::Value=read_json(&path).unwrap();
+                    value["kernel_boot"]=serde_json::json!("11111111-1111-1111-1111-111111111111");
+                    atomic_json(&path,&value).unwrap();},
+                "unknown" => {private_dir(&root.join("cd".repeat(16))).unwrap();},
+                "symlink" => {std::os::unix::fs::symlink(&durable,root.join("cd".repeat(16))).unwrap();},
+                "extra" => {fs::write(endpoint.parent().unwrap().join("extra"),b"unknown").unwrap();},
+                "leftover" => f.service.leave_keeper_endpoint.set(true),
+                "failed_cleanup" => f.service.retire_keepers.set(false),
+                _ => {},
+            }
+            let before_action = test_fixture::snapshot(&f.base.m.root);
+            let result=stop_for_repair_from(&f.base.m,&f.home,&f.inputs,f.owner,&f.service);
+            if matches!(changed,"none"|"not_ready") {
+                result.unwrap();assert!(!lease.exists());
+                transport_storage::require_no_sessions_fixture(&root).unwrap();
+                assert!(!durable.join("command-session.json").exists());
+                assert_eq!(bootstrap_status_from(&f.base.m,&f.home,&f.inputs,f.owner,&f.service).unwrap().state,
+                    "update_adoptable");
+            } else {
+                assert!(result.is_err(),"{changed}");assert!(lease.exists());
+                if matches!(changed,"leftover"|"failed_cleanup") {
+                    assert_eq!(f.service.stops.get(),1);assert!(endpoint.exists());
+                    assert!(bootstrap_status_from(&f.base.m,&f.home,&f.inputs,f.owner,&f.service).is_err());
+                    assert!(lease.exists(),"Check again must not retire an owner with remaining IPC");
+                    if changed == "failed_cleanup" {assert_eq!(fs::read(&report).unwrap(),original_report);}
+                } else {
+                    assert_eq!(f.service.stops.get(),0);
+                    assert_eq!(test_fixture::snapshot(&f.base.m.root),before_action);
+                }
+            }
+            drop(swapped);fs::remove_dir_all(root).unwrap();
         }
     }
 
