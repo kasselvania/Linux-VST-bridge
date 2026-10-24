@@ -399,8 +399,7 @@ int main(int argc, char **argv) {{
         fs::set_permissions(&path, fs::Permissions::from_mode(0o555)).unwrap();
         let error = executable
             .start()
-            .err()
-            .expect("modified ELF must be refused");
+            .expect_err("modified ELF must be refused");
         assert_eq!(error.to_string(), "user_package_executable_changed");
         assert!(!f.home.join("executed").exists());
     }

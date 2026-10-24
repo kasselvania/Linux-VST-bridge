@@ -25,7 +25,7 @@ required-features = ["samples"]
 
 [features]
 default = ["live"]
-samples = ["lvb-view-model/samples"]
+samples = ["lvb-view-model/samples", "lvb-client?/samples"]
 live = ["dep:lvb-client", "dep:lvb-model", "lvb-client/native-dialogs"]
 
 [dependencies]
@@ -35,9 +35,6 @@ lvb-view-model = { path = "../view-model" }
 lvb-client = { path = "../client", optional = true }
 lvb-model = { path = "../model", optional = true }
 serde_json = "=1.0.150"
-
-[dev-dependencies]
-lvb-client = { path = "../client", features = ["samples"] }
 
 # Preserve the toolkit's own patches at exactly the same private revision.
 [patch.crates-io]

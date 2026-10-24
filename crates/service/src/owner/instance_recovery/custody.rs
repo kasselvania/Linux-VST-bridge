@@ -833,13 +833,14 @@ mod tests {
                 assert_eq!(retained_restart(&fresh, &instance).unwrap(), Some(command));
             }
         }
-        let state = State {
-            connected: false,
-            pending: Some(pending(&status())),
-            ..portable_state()
-        };
-        assert!(can_forget(&fresh, &state));
-        drop(state);
+        {
+            let state = State {
+                connected: false,
+                pending: Some(pending(&status())),
+                ..portable_state()
+            };
+            assert!(can_forget(&fresh, &state));
+        }
         assert!(unresolved_journal(&fresh, &instance, &status()));
         // Exact confirmed terminal receipt settles; another identity cannot.
         finish(&f, &command, "confirmed");
