@@ -8,6 +8,9 @@ use std::sync::{
     Mutex, OnceLock,
 };
 
+mod custody;
+use custody::*;
+
 pub(super) const GREETING: &[u8; 5] = wire::GREETING;
 struct Runtime {
     manager: Arc<Manager>,
@@ -22,20 +25,6 @@ struct Entry {
     consumer: ui::ConsumerIdentity,
     state: Mutex<State>,
 }
-struct State {
-    status: wire::Status,
-    seen: Instant,
-    connected: bool,
-    pending: Option<Pending>,
-}
-struct Pending {
-    command: wire::Command,
-    sent: bool,
-    launch_claimed: bool,
-    uncertain: bool,
-    accepted: Instant,
-}
-
 pub(super) fn initialize(
     manager: Arc<Manager>,
     changed: Arc<dyn Fn() + Send + Sync>,
@@ -66,81 +55,18 @@ fn changed() {
         (runtime.changed)();
     }
 }
-fn unresolved_journal(m: &Manager, instance: &str, status: &wire::Status) -> bool {
-    if status.operation == [0; 16] {
-        return false;
-    }
-    let directory = m.root.join("operator").join(hex(&status.operation));
-    let request = read_json::<serde_json::Value>(&directory.join("request.json"));
-    if !request.is_ok_and(|request| {
-        request["action"]["kind"] == "plugin_restart" && request["action"]["instance"] == instance
-    }) {
-        return true;
-    }
-    let path = directory.join("result.json");
-    match read_json::<serde_json::Value>(&path) {
-        Ok(record) => {
-            record["schema"] != 1
-                || record["operation"] != hex(&status.operation)
-                || record["outcome"] == "unconfirmed"
-                || record["result"]["restart"] == "unconfirmed"
-                || !matches!(record["state"].as_str(), Some("completed" | "refused"))
-        }
-        Err(_) => true,
-    }
-}
 fn runtime() -> Result<&'static Runtime> {
     RUNTIME
         .get()
         .ok_or_else(|| "proxy_recovery_owner_unavailable".into())
 }
-fn report(m: &Manager, session: &str) -> PathBuf {
-    m.root
-        .join("runtime/results")
-        .join(format!("windows-{session}.json"))
-}
-fn reconnect(state: &mut State, status: wire::Status) -> Result<()> {
-    require(
-        !state.connected && status.generation >= state.status.generation,
-        "proxy_reconnect_generation",
-    )?;
-    require(
-        status.session == state.status.session
-            || state
-                .pending
-                .as_ref()
-                .is_some_and(|p| p.launch_claimed && p.command.operation == status.operation),
-        "proxy_reconnect_replacement",
-    )?;
-    state.status = status;
-    state.connected = true;
-    state.seen = Instant::now();
-    Ok(())
-}
 fn forgettable(m: &Manager, entry: &Entry) -> bool {
     let Ok(state) = entry.state.lock() else {
         return false;
     };
-    if state.connected {
-        return false;
-    }
-    let Some(pending) = &state.pending else {
-        return true;
-    };
-    // Retire the in-memory association only after its exact executor journal is
-    // terminal. An unconfirmed outcome remains fenced by that durable record.
-    read_json::<serde_json::Value>(
-        &m.root
-            .join("operator")
-            .join(hex(&pending.command.operation))
-            .join("result.json"),
-    )
-    .is_ok_and(|value| {
-        value["schema"] == 1
-            && value["operation"] == hex(&pending.command.operation)
-            && matches!(value["state"].as_str(), Some("completed" | "refused"))
-    })
+    can_forget(m, &state)
 }
+
 fn retained_current(
     m: &Manager,
     original: &str,
@@ -220,24 +146,6 @@ fn retained(
     current.registration.verify_loaded_execution(&execution.identity())?;
     Ok((current.registration.clone(), consumer))
 }
-fn retired(m: &Manager, session: &str) -> Result<()> {
-    require(valid_hex(session, 32), "proxy_retirement_session")?;
-    require(
-        !m.root
-            .join("runtime/leases")
-            .join(format!("{session}.json"))
-            .try_exists()?,
-        "proxy_host_not_retired",
-    )?;
-    let value: serde_json::Value = read_json(&report(m, session).with_extension("ownership.json"))?;
-    require(
-        value["session"].as_str() == Some(session)
-            && value["cleanup_confirmed"] == true
-            && value["transport_retired"] == true,
-        "proxy_host_retirement_unconfirmed",
-    )
-}
-
 /// The normal service classifier releases its worker slot immediately; at most
 /// 64 bounded control associations exist, without holding registry custody.
 pub(super) fn attach(mut peer: UnixStream) -> Result<()> {
@@ -275,12 +183,12 @@ pub(super) fn attach(mut peer: UnixStream) -> Result<()> {
             require(entries.len() < 64, "proxy_connection_capacity")?;
             let uncertain = unresolved_journal(&runtime.manager, &original, &initial);
             let pending = uncertain.then(|| Pending {
-                command: wire::Command {
+                command: retained_restart(&runtime.manager, &original).ok().flatten().unwrap_or(wire::Command {
                     operation: initial.operation,
                     generation: initial.generation,
                     revision: initial.revision,
                     digest: initial.digest,
-                },
+                }),
                 sent: true,
                 launch_claimed: true,
                 uncertain: true,
@@ -308,8 +216,7 @@ pub(super) fn attach(mut peer: UnixStream) -> Result<()> {
         Duration::from_millis(250),
     )) {
         if let Ok(mut state) = entry.state.lock() {
-            state.connected = false;
-            changed();
+            disconnected(&mut state);
         }
         return Err(error.into());
     }
@@ -356,32 +263,25 @@ pub(super) fn attach(mut peer: UnixStream) -> Result<()> {
                         changed();
                     }
                     state.seen = Instant::now();
-                    let mut command = wire::Command::default();
-                    if let Some(pending) = state.pending.as_mut() {
-                        if !pending.sent {
-                            pending.sent = true;
-                            changed(); // never replay even if the write loses its acknowledgement
-                            command = pending.command;
-                        }
-                    }
-                    drop(state);
+                    let command = outgoing(&runtime.manager, &mut state);
+                    // Keep command selection and the bounded write under the same
+                    // custody as execute: it cannot finish unconfirmed between them.
                     command.write(&mut wire::SocketDeadline::new(
                         &mut peer,
                         Duration::from_millis(250),
                     ))?;
+                    drop(state);
                 }
             })();
             if let Ok(mut state) = entry.state.lock() {
-                state.connected = false;
-                changed();
+                disconnected(&mut state);
             }
             // No command, URI, state or account bytes enter logs.
             let _ = result;
         });
     if let Err(error) = spawned {
         if let Ok(mut state) = entry.state.lock() {
-            state.connected = false;
-            changed();
+            disconnected(&mut state);
         }
         return Err(error.into());
     }
@@ -395,43 +295,6 @@ fn entry(instance: &str) -> Result<Arc<Entry>> {
         .get(instance)
         .cloned()
         .ok_or_else(|| "The original DAW instance is not connected".into())
-}
-fn command(action: &ui::Action, operation: [u8; 16]) -> Result<wire::Command> {
-    let ui::Action::PluginRestart {
-        generation,
-        snapshot,
-        ..
-    } = action
-    else {
-        return Err("proxy_restart_action".into());
-    };
-    require(valid_hex(&snapshot.sha256, 64), "proxy_snapshot_digest")?;
-    let mut digest = [0; 32];
-    for (i, b) in digest.iter_mut().enumerate() {
-        *b = u8::from_str_radix(&snapshot.sha256[i * 2..i * 2 + 2], 16)?;
-    }
-    let value = wire::Command {
-        operation,
-        generation: *generation,
-        revision: snapshot.revision,
-        digest,
-    };
-    value.validate()?;
-    Ok(value)
-}
-fn require_restart_status(status: &wire::Status, command: &wire::Command) -> Result<()> {
-    require(status.flags & wire::FAILED != 0,
-        "This plug-in instance has not reported a failure requiring restart")?;
-    require(matches!(status.phase, wire::IDLE | wire::COMPLETE | wire::REFUSED),
-        "This instance has an unfinished or unconfirmed restart request")?;
-    require(status.flags & wire::SNAPSHOT != 0,
-        "No complete confirmed state is available to restore")?;
-    require(status.flags & wire::RETIRED != 0,
-        "The previous Windows host and transport have not confirmed retirement")?;
-    require(status.flags & wire::OWNER_TIMER != 0,
-        "The DAW is not servicing this plug-in's controls. Open its controls in your DAW, then try restarting here.")?;
-    require(command.matches(status),
-        "The confirmed snapshot or instance changed; refresh before restarting")
 }
 fn admissible(m: &Manager, entry: &Entry, state: &State, command: &wire::Command) -> Result<()> {
     require(
@@ -476,6 +339,7 @@ pub(super) fn execute(
     {
         let mut state = entry.state.lock().map_err(|_| "proxy_state_poisoned")?;
         admissible(m, &entry, &state, &command)?;
+        retain_restart(m, instance, &command)?;
         state.pending = Some(Pending {
             command,
             sent: false,
@@ -489,7 +353,7 @@ pub(super) fn execute(
     loop {
         let mut state = entry.state.lock().map_err(|_| "proxy_state_poisoned")?;
         let status = state.status;
-        if status.operation == command.operation {
+        if status.operation == command.operation && !state.pending.as_ref().is_some_and(|p| p.uncertain) {
             if status.phase == wire::COMPLETE {
                 require(
                     status.generation == command.generation + 1,
@@ -507,6 +371,7 @@ pub(super) fn execute(
         }
         if status.operation == command.operation && status.phase == wire::UNCERTAIN
             || !state.connected
+            || state.pending.as_ref().is_some_and(|p| p.uncertain)
             || Instant::now() >= deadline
             || state.pending.as_ref().is_some_and(|p| {
                 p.accepted.elapsed() > Duration::from_secs(5)
