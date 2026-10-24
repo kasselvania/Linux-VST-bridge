@@ -941,6 +941,17 @@ fn reconcile_lease_in_kernel(m: &Manager, path: &Path, boot: Option<&str>) -> Re
     match proof {
         Ok(r) if r["cleanup_confirmed"] == true => { fs::remove_file(path)?; Ok(false) },
         _ => {
+            #[cfg(target_os = "linux")]
+            if let Ok(Some(proof)) = ended_consumer_proof(m, session, &report, boot,
+                Path::new("/proc"), &transport_storage::root()) {
+                // Preserve the supervisor's failed acknowledgement and all
+                // original ownership. This separate fact records containment,
+                // never a successful session or permission to replay a restart.
+                let reconciled = report.with_extension("reconciled.json");
+                atomic_json(&reconciled, &proof)?;
+                fs::remove_file(path)?;
+                return Ok(false);
+            }
             let generation_path = m.root.join("runtime/lease-generations")
                 .join(format!("{session}.json"));
             if generation_path.try_exists()? {
@@ -962,6 +973,66 @@ fn reconcile_lease_in_kernel(m: &Manager, path: &Path, boot: Option<&str>) -> Re
             Ok(true)
         },
     }
+}
+
+fn exact_absence(path: &Path) -> Result<bool> {
+    match fs::symlink_metadata(path) {
+        Ok(_) => Ok(false), // includes dangling symlinks
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(true),
+        Err(error) => Err(error.into()),
+    }
+}
+fn absent_private_child(path: &Path) -> Result<bool> {
+    use std::os::unix::fs::MetadataExt;
+    let parent = path.parent().ok_or("retirement_parent")?;
+    let before = fs::symlink_metadata(parent)?;
+    require(before.is_dir() && before.uid() == unsafe { libc::getuid() }
+        && before.mode() & 0o077 == 0 && parent.canonicalize()? == parent,
+        "retirement_parent_authority")?;
+    let absent = exact_absence(path)?;
+    let after = fs::symlink_metadata(parent)?;
+    require(before.dev() == after.dev() && before.ino() == after.ino()
+        && parent.canonicalize()? == parent, "retirement_parent_changed")?;
+    Ok(absent)
+}
+/// Caller holds registry custody. Only an authenticated before-launch consumer
+/// and a positive process-cleanup receipt can complete a lost R acknowledgement.
+fn ended_consumer_proof(m: &Manager, session: &str, report: &Path, boot: Option<&str>,
+    proc_root: &Path, transport_root: &Path) -> Result<Option<serde_json::Value>> {
+    let receipt: serde_json::Value = read_json(&report.with_extension("ownership.json"))?;
+    require(receipt["session"] == session && receipt["cleanup_confirmed"] == true
+        && receipt["transport_retired"] == false && receipt.get("reporting_error") == Some(&serde_json::Value::Null),
+        "retirement_cleanup_unconfirmed")?;
+    let owner = m.retained_lease_owner(session, report)?;
+    let consumer = lease_consumer(m, session, report, &owner)?;
+    require(boot == Some(consumer.boot_id.as_str()), "retirement_kernel_changed")?;
+    let spec: SessionSpec = serde_json::from_value(owner.clone())?;
+    let transport = spec.transport.as_ref().ok_or("retirement_transport_missing")?;
+    require(!spec.inspect && !spec.keeper && !spec.vendor_access && !spec.detached
+        && spec.shared_runtime && transport.schema == 1 && transport.device != 0 && transport.inode != 0
+        && spec.directory == transport_root.join(session)
+        && read_json::<PathBuf>(&spec.lease)? == report
+        && spec.report == m.root.join("runtime/results").join(format!("windows-{session}.json")),
+        "retirement_transport_binding")?;
+    let durable = spec.registration.environment.root
+        .join("compatdata/pfx/drive_c/bridge/sessions").join(session);
+    require(fs::symlink_metadata(proc_root)?.is_dir() && proc_root.canonicalize()? == proc_root,
+        "retirement_process_observation_unavailable")?;
+    // An existing PID, including a reused one, remains outside this narrow
+    // recovery. Only actual ENOENT counts; inaccessible/malformed proc is unknown.
+    if !exact_absence(&proc_root.join(consumer.pid.to_string()))?
+        || !absent_private_child(&spec.directory)? || !absent_private_child(&durable)? {
+        return Ok(None);
+    }
+    require(m.retained_lease_owner(session, report)? == owner
+        && lease_consumer(m, session, report, &owner)? == consumer
+        && read_json::<PathBuf>(&spec.lease)? == report
+        && read_json::<serde_json::Value>(&report.with_extension("ownership.json"))? == receipt,
+        "retirement_records_changed")?;
+    Ok(Some(serde_json::json!({"schema":1,"session":session,
+        "retirement_basis":"authenticated_consumer_ended_after_process_cleanup",
+        "consumer":consumer,"report":report,"directory":spec.directory,"durable_directory":durable,
+        "cleanup_confirmed":true,"transport_retired":true,"successful_session":false})))
 }
 fn retired_keeper(owner: &KeeperOwner, status: ExitStatus) -> Result<()> {
     let report: serde_json::Value = read_json(&owner.report)?;
@@ -1583,7 +1654,11 @@ pub fn serve(m: Manager) -> Result<()> {
     }
     // A service restart cannot turn missing cleanup into a fresh admission.
     // Clean reports retire their leases; uncertain ones remain inspectable.
-    reconcile_leases(&manager)?;
+    {
+        let (_registry, _) = manager.lock_bounded(operator_model::OperatorLock::Registry,
+            operator_model::LockPurpose::ServiceRecovery, None, Duration::from_secs(2))?;
+        reconcile_leases(&manager)?;
+    }
     let blocked = Arc::new(AdmissionCleanup::default());
     for entry in fs::read_dir(manager.root.join("runtime/leases"))? {
         blocked.record(&entry?.path());
@@ -3480,6 +3555,81 @@ mod tests {
                 else { "inspection cleanup unconfirmed" });
             assert!(job.directory.exists() && job.lease.exists());
             assert!(job.report.with_extension("ownership.json").exists());
+        }
+    }
+    #[test]
+    fn ended_consumer_requires_exact_cleanup_binding_and_absent_owned_directories() {
+        for changed in ["none", "live", "reused", "wrong_receipt", "no_cleanup", "no_reporting_fact",
+            "wrong_boot", "late_generation", "wrong_directory", "no_transport", "remaining_transport",
+            "remaining_session", "dangling_transport", "aliased_parent", "missing_proc", "wrong_owner",
+            "wrong_environment", "wrong_setup_root", "wrong_lease", "missing_transport_parent"] {
+            let f = test_fixture::Fixture::new();
+            let (mut job, owner_path) = spec(&f.m, f.r.clone().into(), true, false, false).unwrap();
+            let proc_root = f.outer.join("retirement-proc"); private_dir(&proc_root).unwrap();
+            let memory = f.outer.join("retirement-memory"); private_dir(&memory).unwrap();
+            job.inspect = false; job.shared_runtime = true;
+            job.directory = memory.join(&job.session);
+            job.transport = Some(transport_storage::MemoryTransport { schema:1, device:4, inode:5 });
+            job.graphical_session = Some(transport_storage::GraphicalSession {schema:1,
+                peer_pid:12345, peer_start_ticks:678, display:":0".into(), wayland_display:None,
+                xauthority:None, dbus_session_bus_address:None});
+            job.native_execution = Some(NativeExecution {engine:[1;32],descriptor:[2;32]});
+            if changed == "wrong_directory" {job.directory = memory.join("other");}
+            if changed == "no_transport" {job.transport = None;}
+            atomic_json(&owner_path, &job).unwrap();
+            f.m.retain_lease_owner(&owner_path).unwrap();
+            atomic_json(&job.lease, &job.report).unwrap();
+            let boot = "11111111-1111-1111-1111-111111111111";
+            let generations = f.m.root.join("runtime/lease-generations"); private_dir(&generations).unwrap();
+            atomic_json(&generations.join(format!("{}.json", job.session)), &LeaseGeneration {
+                schema:1, session:job.session.clone(), report:job.report.clone(), kernel_boot:boot.into(),
+                basis:if changed == "late_generation" {LeaseGenerationBasis::StoppedServiceObservation}
+                    else {LeaseGenerationBasis::BeforeLaunch} }).unwrap();
+            let mut receipt = serde_json::json!({"session":job.session,"cleanup_confirmed":true,
+                "transport_retired":false,"reporting_error":null});
+            if changed == "wrong_receipt" {receipt["session"] = serde_json::json!("ab".repeat(16));}
+            if changed == "no_cleanup" {receipt["cleanup_confirmed"] = serde_json::json!(false);}
+            if changed == "no_reporting_fact" {receipt.as_object_mut().unwrap().remove("reporting_error");}
+            atomic_json(&job.report.with_extension("ownership.json"), &receipt).unwrap();
+            atomic_json(&job.report, &serde_json::json!({"error":"prelaunch failure","cleanup_confirmed":true,
+                "transport_retired":false})).unwrap();
+            fs::remove_dir_all(owner_path.parent().unwrap()).unwrap();
+            match changed {
+                "live" | "reused" => {private_dir(&proc_root.join("12345")).unwrap();
+                    fs::write(proc_root.join("12345/stat"), if changed == "live" {"start678"} else {"start999"}).unwrap();},
+                "remaining_transport" => {private_dir(&job.directory).unwrap();},
+                "remaining_session" => {private_dir(owner_path.parent().unwrap()).unwrap();},
+                "dangling_transport" => {std::os::unix::fs::symlink("missing", &job.directory).unwrap();},
+                "aliased_parent" => {let real=f.outer.join("real-memory"); fs::rename(&memory,&real).unwrap();
+                    std::os::unix::fs::symlink(real,&memory).unwrap();},
+                "missing_proc" => {fs::remove_dir(&proc_root).unwrap();},
+                "missing_transport_parent" => {fs::remove_dir(&memory).unwrap();},
+                "wrong_owner" | "wrong_environment" | "wrong_setup_root" => {
+                    let path=f.m.root.join("runtime/lease-owners").join(format!("{}.json",job.session));
+                    let mut record:serde_json::Value=read_json(&path).unwrap();
+                    match changed {
+                        "wrong_owner" => record["owner"]["lease"]=serde_json::json!("/other/lease"),
+                        "wrong_environment" => record["owner"]["registration"]["environment"]["id"]=serde_json::json!("other"),
+                        _ => record["owner"]["registration"]["environment"]["root"]=serde_json::json!("/other/setup"),
+                    }
+                    atomic_json(&path,&record).unwrap();
+                },
+                "wrong_lease" => {atomic_json(&job.lease,&f.m.root.join("runtime/results/other.json")).unwrap();},
+                _ => {},
+            }
+            let before = test_fixture::snapshot(&f.m.root);
+            let proof = ended_consumer_proof(&f.m,&job.session,&job.report,
+                Some(if changed == "wrong_boot" {"22222222-2222-2222-2222-222222222222"} else {boot}),
+                &proc_root,&memory);
+            if changed == "none" {
+                let proof=proof.unwrap().unwrap();
+                assert_eq!(proof["session"],job.session);
+                assert_eq!(proof["consumer"]["start_ticks"],678);
+                assert_eq!(proof["successful_session"],false);
+                assert_eq!(proof["transport_retired"],true);
+            } else {assert!(proof.is_err() || proof.unwrap().is_none(), "{changed}");}
+            assert_eq!(test_fixture::snapshot(&f.m.root),before,"proof never rewrites failure or ownership: {changed}");
+            assert!(job.lease.exists());
         }
     }
     #[test]
