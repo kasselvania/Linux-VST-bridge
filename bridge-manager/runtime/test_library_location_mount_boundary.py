@@ -46,7 +46,11 @@ def _child(root, original, mode):
                 values = [None if value is None else os.fsencode(value)
                           for value in (source, target, filesystem)]
                 if libc.mount(*values, ctypes.c_ulong(flags), data) != 0:
-                    raise OSError(ctypes.get_errno(), 'fixture mount')
+                    error = ctypes.get_errno()
+                    raise OSError(error, 'fixture mount source=' + repr(str(source))
+                                  + ' target=' + repr(str(target))
+                                  + ' filesystem=' + repr(filesystem)
+                                  + ' flags=' + hex(flags) + ': ' + os.strerror(error))
             stage = root / 'private-root'
             stage.mkdir()
             mount('tmpfs', stage, 'tmpfs', 0, b'mode=0700')
@@ -180,14 +184,35 @@ class LibraryLocationMountBoundaryTests(unittest.TestCase):
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         finally:
             os.close(descriptor)
-        def cleanup():
-            if child.poll() is None:
+        frames = []
+        captured = None
+        def capture(reason, killed=False):
+            nonlocal captured
+            if captured is not None:
+                return
+            try:
+                stdout, stderr = child.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
                 child.kill()
-            child.communicate(timeout=5)
+                killed = True
+                stdout, stderr = child.communicate(timeout=5)
+            captured = {'reason': reason, 'returncode': child.returncode,
+                        'killed_for_cleanup': killed,
+                        'stdout': ''.join(frames) + stdout, 'stderr': stderr}
+            print('FIXTURE_CHILD_EXIT ' + json.dumps(captured), file=sys.stderr, flush=True)
+        def cleanup():
+            killed = child.poll() is None
+            if killed:
+                child.kill()
+            capture('cleanup', killed)
         self.addCleanup(cleanup)
         def read():
             self.assertTrue(select.select([child.stdout], [], [], 5)[0], 'fixture child did not answer')
             line = child.stdout.readline()
+            if not line:
+                capture('early stdout EOF')
+            else:
+                frames.append(line)
             self.assertTrue(line, 'fixture child ended without result')
             return json.loads(line)
         def proceed():
@@ -270,9 +295,19 @@ class LibraryLocationMountBoundaryTests(unittest.TestCase):
         # Only this outer disposable namespace mounts the source volume. Its
         # child gets another mount namespace, permitting a real cross-namespace
         # source unmount without touching any host mount or product directory.
-        completed = subprocess.run(['unshare', '--user', '--map-root-user', '--mount',
-            '--propagation', 'private', sys.executable, '-I', __file__, '--outer-unmount'],
-            capture_output=True, text=True, timeout=20)
+        argv = ['unshare', '--user', '--map-root-user', '--mount',
+            '--propagation', 'private', sys.executable, '-I', __file__, '--outer-unmount']
+        outer = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        timed_out = False
+        try:
+            stdout, stderr = outer.communicate(timeout=20)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            outer.kill()
+            stdout, stderr = outer.communicate(timeout=5)
+        completed = subprocess.CompletedProcess(argv, outer.returncode, stdout, stderr)
+        print('FIXTURE_OUTER_EXIT ' + json.dumps({'returncode': completed.returncode,
+              'timed_out': timed_out, 'stdout': stdout, 'stderr': stderr}), file=sys.stderr, flush=True)
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertEqual(json.loads(completed.stdout),
                          {'write_errors': [errno.EROFS, errno.EROFS], 'content': 'original fixture',
