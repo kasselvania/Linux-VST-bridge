@@ -2662,7 +2662,8 @@ fn stop_selected_service_with_registry(m: &Manager, home: &Path, selected: &Soft
     require_service_stopped(service)?;
     let _service = m.lock("service.lock")?; // fail immediately if another service acquired custody
     let stopped = service.show()?;
-    require(stopped.load == unit.load && stopped.fragment == unit.fragment && stopped.exec == unit.exec
+    require(stopped.load == unit.load && stopped.fragment == unit.fragment
+        && effective_exec_is(&stopped.exec, &selected.manager.path)
         && matches!(stopped.active.as_str(), "inactive" | "failed"), "package_stop_state_changed")?;
     service.retired_transports()?;
     // Keepers may retire during stop; ended native consumers must still have
@@ -2861,6 +2862,7 @@ mod tests {
     }
     type ReadbackHook = Box<dyn FnOnce(&Manager)>;
     type VendorHook = Box<dyn Fn(&Manager) -> Result<()>>;
+    type StopHook = Box<dyn FnOnce(&mut UnitReadback)>;
     struct FakeService {
         home: PathBuf,
         loaded: RefCell<UnitReadback>,
@@ -2887,8 +2889,16 @@ mod tests {
         ended_roots: RefCell<Option<(PathBuf, PathBuf, String)>>,
         keeper_endpoint: RefCell<Option<(PathBuf, PathBuf, std::os::unix::net::UnixListener)>>,
         leave_keeper_endpoint: Cell<bool>,
+        after_stop: RefCell<Option<StopHook>>,
     }
     impl FakeService {
+        // systemctl show includes execution metadata in ExecStart. A normal
+        // stop resets start_time and pid while retaining command identity.
+        fn execution_posture(state: &mut UnitReadback, active: bool) {
+            let Some((command,_)) = state.exec.split_once(" ; ignore_errors=") else { return; };
+            state.exec = format!("{command} ; ignore_errors=no ; start_time=[{}] ; stop_time=[n/a] ; pid={} ; code=(null) ; status=0/0 }}",
+                if active {"Mon 2000-01-03 12:00:00 UTC"} else {"n/a"}, if active {12345} else {0});
+        }
         fn new(home: &Path) -> Self {
             Self { home: home.into(), loaded: RefCell::new(UnitReadback {
                 load: "not-found".into(), active: "inactive".into(),
@@ -2903,7 +2913,7 @@ mod tests {
                 before_clean:RefCell::new(None),
                 legacy_start_manager:RefCell::new(None),
                 fail_stop: Cell::new(false), retire_keepers: Cell::new(true),
-                starts: Cell::new(0), stops: Cell::new(0), ended_roots: RefCell::new(None), keeper_endpoint: RefCell::new(None), leave_keeper_endpoint: Cell::new(false) }
+                starts: Cell::new(0), stops: Cell::new(0), ended_roots: RefCell::new(None), keeper_endpoint: RefCell::new(None), leave_keeper_endpoint: Cell::new(false), after_stop: RefCell::new(None) }
         }
     }
     impl ServiceControl for FakeService {
@@ -2951,6 +2961,7 @@ mod tests {
             require(state.load == "loaded" && matches!(state.active.as_str(), "inactive" | "failed"),
                 "package_service_effective_route_mismatch")?;
             state.active = "active".into();
+            Self::execution_posture(&mut state,true);
             self.starts.set(self.starts.get() + 1);
             Ok(())
         }
@@ -3021,7 +3032,12 @@ mod tests {
             require(!self.fail_stop.get(), "package_user_service_unavailable")?;
             require(matches!(self.loaded.borrow().active.as_str(), "active" | "activating"),
                 "package_stop_state_changed")?;
-            self.loaded.borrow_mut().active = "inactive".into();
+            {
+                let mut state = self.loaded.borrow_mut();
+                state.active = "inactive".into();
+                Self::execution_posture(&mut state,false);
+                if let Some(change) = self.after_stop.borrow_mut().take() {change(&mut state);}
+            }
             self.stops.set(self.stops.get() + 1);
             if self.retire_keepers.get() {
                 if !self.leave_keeper_endpoint.get() {
@@ -3601,6 +3617,32 @@ assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
                 }
             }
             drop(swapped);fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn setup_stop_accepts_execution_metadata_changes_but_refuses_changed_identity() {
+        for changed in ["none","command","argv","fragment","active"] {
+            let f = Fixture::new();f.adopt().unwrap();
+            activate_from(&f.base.m,&f.home,&f.service).unwrap();
+            let lease = owned_lease(&f,&"ab".repeat(16),true);
+            let owners = f.service.idle(&f.base.m).unwrap();
+            let selected = f.current();
+            let before = f.service.show().unwrap();
+            assert!(before.exec.contains("start_time=[Mon") && before.exec.contains("pid=12345"));
+            *f.service.after_stop.borrow_mut() = Some(Box::new(move |state| match changed {
+                "command" => state.exec = state.exec.replacen("{ path=","{ path=/foreign",1),
+                "argv" => state.exec = state.exec.replacen(" serve ;"," other ;",1),
+                "fragment" => state.fragment = "/foreign.service".into(),
+                "active" => state.active = "active".into(),
+                _ => {},
+            }));
+            let result=stop_selected_service(&f.base.m,&f.home,&selected,&f.service,&owners);
+            let after=f.service.show().unwrap();
+            assert_ne!(after.exec,before.exec,"the fixture must reproduce systemd's stop transition");
+            assert!(after.exec.contains("start_time=[n/a]") && after.exec.contains("pid=0"));
+            assert_eq!(result.is_ok(),changed == "none","{changed}: {result:?}");
+            assert_eq!(lease.exists(),changed != "none","no reconciliation after a changed identity");
         }
     }
 
