@@ -33,8 +33,36 @@ pub(super) fn binding_path(m: &Manager, instance: &str) -> Result<PathBuf> {
         .join("runtime/instance-recovery")
         .join(format!("{instance}.json")))
 }
+/// Called only for a newly allocated original native session, before publishing
+/// its lease. Never call on attach/reconnect or for a replacement session.
+/// Create-only: even a partial or malformed existing record retains custody.
+pub(in crate::owner) fn retain_fresh_instance(m: &Manager, instance: &str) -> Result<()> {
+    use std::os::unix::fs::OpenOptionsExt;
+    let path = binding_path(m, instance)?;
+    private_dir(path.parent().ok_or("proxy_restart_parent")?)?;
+    let record = RestartBinding {
+        schema: 1,
+        instance: instance.into(),
+        operation: hex(&[0; 16]),
+        generation: 0,
+        revision: 0,
+        digest: hex(&[0; 32]),
+    };
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&path)?;
+    serde_json::to_writer(&mut file, &record)?;
+    file.sync_all()?;
+    File::open(path.parent().ok_or("proxy_restart_parent")?)?.sync_all()?;
+    File::open(m.root.join("runtime"))?.sync_all()?;
+    File::open(&m.root)?.sync_all()?;
+    Ok(())
+}
 pub(super) fn retain_restart(m: &Manager, instance: &str, command: &wire::Command) -> Result<()> {
     command.validate()?;
+    require(command.operation != [0; 16], "proxy_restart_operation")?;
     let path = binding_path(m, instance)?;
     private_dir(path.parent().ok_or("proxy_restart_parent")?)?;
     atomic_json(
@@ -55,16 +83,20 @@ pub(super) fn retain_restart(m: &Manager, instance: &str, command: &wire::Comman
 }
 pub(super) fn retained_restart(m: &Manager, instance: &str) -> Result<Option<wire::Command>> {
     let path = binding_path(m, instance)?;
-    match fs::symlink_metadata(&path) {
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(error.into()),
-        Ok(_) => {}
-    }
     let binding: RestartBinding = read_json(&path)?;
     require(
         binding.schema == 1 && binding.instance == instance,
         "proxy_restart_binding",
     )?;
+    // Only a durable, positively initialized empty binding means no command.
+    // Missing legacy custody is an error, even if the proxy reports operation zero.
+    if binding.operation == hex(&[0; 16]) {
+        require(
+            binding.generation == 0 && binding.revision == 0 && binding.digest == hex(&[0; 32]),
+            "proxy_restart_empty_binding",
+        )?;
+        return Ok(None);
+    }
     let action = ui::Action::PluginRestart {
         instance: instance.into(),
         generation: binding.generation,
@@ -467,6 +499,104 @@ mod tests {
         atomic_json(&request, &original).unwrap();
         fs::write(binding_path(&fresh, &instance).unwrap(), b"broken").unwrap();
         assert!(unresolved_journal(&fresh, &instance, &status()));
+    }
+    #[test]
+    fn authority_legacy_history_without_index_always_refuses_and_preserves_journals() {
+        let f = Fixture::new();
+        let instance = hex(&status().session);
+        let command = pending(&status()).command;
+        let prior = [3; 16];
+        receipt(&f, prior, &instance, "completed");
+        for outcome in [
+            "running",
+            "interrupted",
+            "unconfirmed",
+            "completed",
+            "refused",
+        ] {
+            running(&f, &instance, &command);
+            if outcome != "running" {
+                finish(
+                    &f,
+                    &command,
+                    if outcome == "interrupted" {
+                        "unconfirmed"
+                    } else {
+                        outcome
+                    },
+                );
+            }
+            // Interrupted workers are reconciled to completed/unconfirmed.
+            let directory = f.m.root.join("operator").join(hex(&command.operation));
+            let request = fs::read(directory.join("request.json")).unwrap();
+            let result = fs::read(directory.join("result.json")).unwrap();
+            let fresh = Manager::new(f.m.root.clone(), f.outer.join("vst3"));
+            for operation in [[0; 16], prior, command.operation] {
+                assert!(
+                    unresolved_journal(
+                        &fresh,
+                        &instance,
+                        &wire::Status {
+                            operation,
+                            ..status()
+                        }
+                    ),
+                    "{outcome}"
+                );
+            }
+            assert_eq!(fs::read(directory.join("request.json")).unwrap(), request);
+            assert_eq!(fs::read(directory.join("result.json")).unwrap(), result);
+            assert!(!binding_path(&f.m, &instance).unwrap().exists());
+        }
+        // An unrelated positively new instance remains eligible despite legacy history.
+        let new_instance = hex(&[9; 16]);
+        retain_fresh_instance(&f.m, &new_instance).unwrap();
+        assert!(!unresolved_journal(&f.m, &new_instance, &status()));
+        // No inventory is read: even unavailable operator inventory cannot turn
+        // missing custody into settlement or block positively empty custody.
+        fs::rename(
+            f.m.root.join("operator"),
+            f.m.root.join("preserved-operator"),
+        )
+        .unwrap();
+        fs::write(f.m.root.join("operator"), b"unavailable inventory").unwrap();
+        assert!(unresolved_journal(&f.m, &instance, &status()));
+        assert!(!unresolved_journal(&f.m, &new_instance, &status()));
+    }
+    #[test]
+    fn authority_fresh_custody_is_create_only_and_missing_or_malformed_is_not_empty() {
+        let f = Fixture::new();
+        let instance = hex(&status().session);
+        assert!(unresolved_journal(&f.m, &instance, &status()));
+        retain_fresh_instance(&f.m, &instance).unwrap();
+        assert_eq!(retained_restart(&f.m, &instance).unwrap(), None);
+        assert!(!unresolved_journal(&f.m, &instance, &status()));
+        let command = pending(&status()).command;
+        running(&f, &instance, &command);
+        retain_restart(&f.m, &instance, &command).unwrap();
+        assert!(retain_fresh_instance(&f.m, &instance).is_err());
+        assert!(unresolved_journal(&f.m, &instance, &status()));
+        finish(&f, &command, "completed");
+        assert!(!unresolved_journal(&f.m, &instance, &status()));
+        let path = binding_path(&f.m, &instance).unwrap();
+        for malformed in [
+            serde_json::json!({"schema":1,"instance":instance,"operation":hex(&[0;16]),
+                "generation":1,"revision":0,"digest":hex(&[0;32])}),
+            serde_json::json!({"schema":1,"instance":hex(&[9;16]),"operation":hex(&[0;16]),
+                "generation":0,"revision":0,"digest":hex(&[0;32])}),
+            serde_json::json!({}),
+        ] {
+            atomic_json(&path, &malformed).unwrap();
+            let before = fs::read(&path).unwrap();
+            assert!(unresolved_journal(&f.m, &instance, &status()));
+            assert!(retain_fresh_instance(&f.m, &instance).is_err());
+            assert_eq!(fs::read(&path).unwrap(), before);
+        }
+        fs::remove_file(&path).unwrap();
+        assert!(unresolved_journal(&f.m, &instance, &status()));
+        std::os::unix::fs::symlink("missing-custody", &path).unwrap();
+        assert!(unresolved_journal(&f.m, &instance, &status()));
+        assert!(retain_fresh_instance(&f.m, &instance).is_err());
     }
     fn status() -> wire::Status {
         wire::Status {
