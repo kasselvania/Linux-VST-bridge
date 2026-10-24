@@ -14,26 +14,26 @@ pub use crate::screen_model::state::PluginsView;
 
 /// Current product identity remains visible while the separately requested
 /// compatibility/history readback loads. It carries no action authority.
-/// `built`: the list as the window's screen built it, if it did.
-pub fn show_current(ui: &mut egui::Ui, state: &mut PluginsView, current: &Snapshot, built: Option<LoadingList>,
-    fresh: bool, details_attempted: bool, retry_details: &mut bool) {
+/// The list is built by the screen model; query edits request a new frame.
+pub fn show_current(ui: &mut egui::Ui, state: &mut PluginsView, view: LoadingList, retry: &mut Option<crate::screen_model::Local>) {
     if state.scroll_to_focus {
         ui.scroll_to_cursor(Some(egui::Align::Min));
         state.scroll_to_focus = false;
     }
     ui.heading(plugins::HEADING);
-    let mut view = built.unwrap_or_else(|| LoadingList::build(current, &state.query(), fresh, details_attempted));
     if let Some(title) = view.focus_title {
         ui.strong(title);
         if ui.add_sized([180.0, 44.0], egui::Button::new(plugins::SHOW_ALL)).clicked() {
             state.focus = None;
-            view = LoadingList::build(current, &state.query(), fresh, details_attempted);
+            ui.ctx().request_repaint();
+            return;
         }
     }
     widgets::text(ui, &view.notice);
-    if let Some(retry) = view.retry {
-        if ui.add_sized([240.0, 44.0], egui::Button::new(retry)).clicked() {
-            *retry_details = true;
+    if let Some(control) = view.retry {
+        if ui.add_enabled(control.enabled, egui::Button::new(control.label)
+            .min_size(egui::vec2(240.0, 44.0))).clicked() {
+            *retry = Some(control.does);
         }
     }
     let searched = state.search.clone();
@@ -44,7 +44,8 @@ pub fn show_current(ui: &mut egui::Ui, state: &mut PluginsView, current: &Snapsh
         state.search.clear();
     }
     if state.search != searched {
-        view = LoadingList::build(current, &state.query(), fresh, details_attempted);
+        ui.ctx().request_repaint();
+        return;
     }
     ui.small(&view.count);
     if let Some(empty) = view.empty {
@@ -892,6 +893,45 @@ mod tests {
     }
 
     #[test]
+    fn loading_retry_preserves_the_screen_models_intent_and_enabled_state() {
+        fn center(shape: &egui::epaint::Shape) -> Option<egui::Pos2> {
+            match shape {
+                egui::epaint::Shape::Text(text) if text.galley.text() == "Load plug-in controls again" =>
+                    Some(text.pos + text.galley.size() * 0.5),
+                egui::epaint::Shape::Vec(items) => items.iter().find_map(center),
+                _ => None,
+            }
+        }
+        for (current, expected) in [
+            (plugins::CurrentRead::Ready, crate::screen_model::Local::RetryDetails),
+            (plugins::CurrentRead::Unavailable, crate::screen_model::Local::Refresh),
+        ] {
+            for enabled in [true, false] {
+                let snapshot = snapshot();
+                let mut state = PluginsView::default();
+                let ctx = egui::Context::default();
+                let mut retry = None;
+                let mut point = egui::Pos2::ZERO;
+                for pressed in [None, Some(true), Some(false)] {
+                    let events = pressed.map(|pressed| vec![egui::Event::PointerMoved(point),
+                        egui::Event::PointerButton { pos: point, button: egui::PointerButton::Primary,
+                            pressed, modifiers: egui::Modifiers::NONE }]).unwrap_or_default();
+                    let mut output = ctx.run_ui(egui::RawInput { events, ..Default::default() }, |ui| {
+                        let mut view = LoadingList::build(&snapshot, &state.query(), current, true);
+                        view.retry.as_mut().unwrap().enabled = enabled;
+                        show_current(ui, &mut state, view, &mut retry);
+                    });
+                    if pressed.is_none() {
+                        point = output.shapes.iter().find_map(|shape| center(&shape.shape)).unwrap();
+                    }
+                    output.textures_delta.clear();
+                }
+                assert_eq!(retry, enabled.then(|| expected.clone()));
+            }
+        }
+    }
+
+    #[test]
     fn multi_class_setup_route_offers_each_exact_product_detail() {
         fn texts(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
             match shape {
@@ -909,7 +949,9 @@ mod tests {
             assert!(library.focused_product().is_none());
             let ctx = egui::Context::default();
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-                show_current(ui, &mut library, &snapshot, None, fresh, false, &mut false);
+                let view = LoadingList::build(&snapshot, &library.query(),
+                    if fresh { plugins::CurrentRead::Ready } else { plugins::CurrentRead::Unavailable }, false);
+                show_current(ui, &mut library, view, &mut None);
             });
             let mut labels = vec![];
             for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
