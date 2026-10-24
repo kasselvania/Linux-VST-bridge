@@ -830,6 +830,7 @@ tresult Processor::recoveryPoll() {
   if(lvb_recovery_poll_v1(handle_,1,&event,&restored.bytes))return kResultFalse;
   if(event.stage==0)return kResultOk;
   if(event.stage==1){
+    recovery_output_blocked_=true;
     phase_=Failed; // silence survives until both restore and controller confirmation
     recovery_active_=want_active_;recovery_processing_=want_processing_;
     return lvb_recovery_begin_v1(handle_,event.operation,transportMaximum(maximum_),
@@ -868,6 +869,7 @@ tresult Processor::recoveryPoll() {
     }
     terminal_latched_.store(false,std::memory_order_release);terminal_notified_generation_=0;
     phase_=event.processing?Running:event.active?Active:Deactivated;
+    recovery_output_blocked_=false;
     state_error_reported_=false;
     std::vector<uint8_t>().swap(held_state_);state_held_=state_unkept_=false;session_state_seen_=true;
     stateReport(report_path_,"opaque_recover",state_readback_,0.);
@@ -1309,6 +1311,11 @@ tresult Processor::processBody(ProcessData &d) {
   auto processOutputs=[&](uint32_t n,const ap10_context_t* context,uint64_t input_flags,
       const float* left,const float* right,float*const* output,uint32_t channels,
       uint64_t* output_flags,ap7_delivery_t* delivery){
+    // START makes the backend runnable before final owner commit. Keep using
+    // the validated terminal-silence path (including local Note Off release),
+    // but never call or drain the replacement until that commit. busy_ excludes
+    // recoveryPoll for this entire callback, including result delivery.
+    if(recovery_output_blocked_)return uint32_t(IF2::contained);
     if(phase_trace_requested_){
       const auto ordinal=phase_trace_ordinal_==std::numeric_limits<uint64_t>::max()?
         phase_trace_ordinal_:++phase_trace_ordinal_;

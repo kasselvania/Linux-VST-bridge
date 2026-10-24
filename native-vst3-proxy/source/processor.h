@@ -177,6 +177,9 @@ private:
   bool controller_synced_ = false;
 #ifdef AP8_PREVIEW
   Steinberg::tresult recoveryPoll();
+  // Protected by busy_, including all callback reads. Closed before begin can
+  // publish a replacement; opened only after the exact final ack succeeds.
+  bool recovery_output_blocked_=false;
   bool recovery_sync_=false,recovery_waiting_controller_=false;
   bool recovery_active_=false,recovery_processing_=false;
   uint8_t recovery_operation_[16]{};
