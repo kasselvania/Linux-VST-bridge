@@ -729,3 +729,19 @@ fn exact_instance_restart_confirms_loss_and_never_replays_a_cancelled_or_stale_c
         assert_eq!(preview.captured.len(),1);
     }
 }
+
+#[test]
+fn presets_is_a_product_page_without_a_fake_file_browser() {
+    use lvb_view_model::state::ProductPage;
+    let mut preview=Preview::new(Selection {state:state_index("plugin_ready"),page:Page::Plugins,..Selection::default()});
+    preview.display_fixture();
+    let key=preview.state.plugins.focused_product().unwrap().clone();
+    let id=preview.built.targets.iter().find_map(|(id,target)|matches!(target,
+        Target::List(ListStep::ProductPage {page:ProductPage::Presets,..})).then(||id.clone())).unwrap();
+    assert_eq!(preview.press(&id,InputPath::Touch),Outcome::Navigated);
+    assert_eq!(preview.state.plugins.focused_product(),Some(&key));
+    assert_eq!(preview.state.plugins.page,ProductPage::Presets);
+    assert!(!preview.built.targets.values().any(|target|matches!(target,Target::Offer {offer,..}
+        if matches!(offer.intent,Action::PresetFiles {..}))),"an unknown location cannot invent file actions");
+    assert!(preview.captured.is_empty());
+}

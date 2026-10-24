@@ -6,6 +6,7 @@ use linux_vst_bridge::renderer_application as renderer;
 use linux_vst_bridge::service::contract;
 use serde_json::{json, Value};
 mod current;
+pub(super) mod presets;
 mod attention;
 mod update_preview;
 mod activity;
@@ -1306,6 +1307,7 @@ fn project_current_product(m: &Manager, captured: &current::CurrentOverviewConte
             && entry.registration.module.sha256 == module) {
         setup_removal::present_removed(m, &mut product, entry);
     }
+    presets::project(m, &mut product)?;
     maintenance::apply_product(m, &mut product)?;
     Ok(product)
 }
@@ -2580,11 +2582,11 @@ fn execute_with_receipt_policy_progress(
 
     if let ui::Action::OrdinaryRollback { class_id, publication } = a {
         drop(projection.take());
+        let _environment = maintenance::action_lock(m, a)?;
         let refresh = package_authority::publication_restore_needs_refresh(
             m, class_id, publication)?;
         if refresh {
             let owner = operation.ok_or("operator_operation_identity")?;
-            let _environment = maintenance::action_lock(m, a)?;
             suspend(m, owner, None, timeout, waits)?;
             let result = package_authority::restore_publication(
                 m, class_id, publication, owner);
@@ -2661,6 +2663,7 @@ fn execute_with_receipt_policy_progress(
         });
     }
     match a {
+        ui::Action::PresetFiles {..} => Err("preset_file_transport_required".into()),
         ui::Action::EnvironmentRefresh { .. } | ui::Action::EnvironmentRefreshResume { .. } => unreachable!(),
         ui::Action::RendererSoftwareInstall { .. } => unreachable!(),
         ui::Action::SoftwareInstall { .. } | ui::Action::SoftwareInstallWithPolicy {..} | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. } => unreachable!(),
@@ -3014,7 +3017,13 @@ fn execute_with_receipt_policy_progress(
             None,
         )?)?),
         ui::Action::OrdinaryRestoreRecommended { class_id } => {
+            let _environment=maintenance::action_lock(m,a)?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            let before = m.registry()?.classes.get(class_id).ok_or("registration_absent")?.registration.environment.clone();
+            presets::protect_environment(m, &before, owner)?;
             managed_cli::restore_recommended(m, class_id)?;
+            let after = m.registry()?.classes.get(class_id).ok_or("registration_absent")?.registration.clone();
+            presets::after_publication(m, &after, owner)?;
             Ok(json!({"restored":true}))
         }
         ui::Action::DeliverySet { class_id, mode } => {
@@ -3346,6 +3355,12 @@ fn open_vendor_owned(
     }
     let _environment = maintenance::action_lock(m, &ui::Action::VendorApplicationOpen {application:application.into()})?;
     suspend(m, owner, Some(vendor_operation.into()), timeout, waits)?;
+    if let Err(error) = (|| -> Result<()> {
+        presets::protect_environment(m,&vendor_cli::application(m,application)?.environment,owner).map(|_|())
+    })() {
+        let _ = resume_owned(m, owner);
+        return Err(error);
+    }
     if let Err(error) = vendor_cli::launch_owned(m, application, vendor_operation) {
         let _=vendor_cli::reconcile(m,application,vendor_operation);
         let _ = resume_owned(m, owner);
@@ -4197,6 +4212,8 @@ fn rescan_environment_admitted(m: &Manager, env: Environment, retry: Option<Quar
     private_dir(&dir.join("history"))?;
     atomic_json(&dir.join("history").join(format!("{}.json", scan.id)), &scan)?;
     atomic_json(&dir.join(format!("{}.json", scope.environment.id)), &scan)?;
+    drop(_commit);
+    presets::after_maintenance(m,&scope.environment,owner)?;
     Ok(json!({"scan":scan.id,"modules":scan.modules.len(),"activation_permitted":false,
         "retry":retry.map(|retry|json!({"prior_scan":retry.scan,
             "module_index":retry.module_index,"module_sha256":retry.module_sha256,
@@ -4478,7 +4495,9 @@ pub(super) fn view(m: &Manager, read: &contract::Read) -> Result<linux_vst_bridg
             let (composed, opened) = linux_vst_bridge::with_opened_files(||
                 product_detail_with_reuse(m, &key.environment, &key.module_sha256, &key.class_id));
             let (detail, reuse) = composed?;
-            held(Reply::Product(Box::new(detail)), reuse, opened)
+            if detail.product.details["preset_files"]["location"] != "unknown" {
+                Ok(Composed {reply:Reply::Product(Box::new(detail)).written()?,hold:Hold::Never,directories:vec![]})
+            } else {held(Reply::Product(Box::new(detail)),reuse,opened)}
         }
         read => Ok(Composed { reply: answer_read(m, read)?.written()?, hold: Hold::Never, directories: vec![] }),
     }

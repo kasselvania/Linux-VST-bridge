@@ -10,6 +10,9 @@ impl FileSelection for RfdSelection {
             .add_filter("Windows installers", &["exe", "msi"])
             .pick_file()
     }
+    fn pick_preset(&self) -> Option<PathBuf> {
+        rfd::FileDialog::new().set_title("Import user preset").pick_file()
+    }
     fn pick_program(&self) -> Option<PathBuf> {
         rfd::FileDialog::new()
             .set_title("Choose Windows program")

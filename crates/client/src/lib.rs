@@ -51,6 +51,7 @@ impl From<contract::Reply> for Reply {
             contract::Reply::Pulse(pulse) => Self::Pulse(pulse),
             contract::Reply::Operation(operation) => Self::Operation(operation),
             contract::Reply::Receipt(receipt) => Self::Receipt(receipt),
+            contract::Reply::Preset(result) => Self::Receipt(result.receipt),
             contract::Reply::Imported(imported) => Self::Imported(imported),
             contract::Reply::Delivered => Self::Error("Unexpected manager reply".into()),
         }
@@ -96,6 +97,7 @@ fn exchange(
 pub trait FileSelection {
     fn pick_installer(&self) -> Option<PathBuf>;
     fn pick_program(&self) -> Option<PathBuf>;
+    fn pick_preset(&self) -> Option<PathBuf> { None }
     fn save_report(&self, report: &SupportReport) -> Option<PathBuf>;
 }
 

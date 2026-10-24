@@ -659,6 +659,7 @@ pub(super) fn current_products(m: &Manager, db: &Registry, sw: &Software,
         }
         revisions.insert(class.clone(), revision);
     }
+    for product in &mut products {presets::summary(m,product);}
     Ok((products, revisions))
 }
 

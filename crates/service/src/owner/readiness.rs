@@ -2590,6 +2590,9 @@ mod tests {
                 "log":"/home/operator/private"}),
             export: None,
         });
+        s.products[0].details["preset_files"]=json!({"files":["private-preset-name"],"bytes":"private-preset-bytes"});
+        private_dir(&f.m.root.join("preset-files/backups")).unwrap();
+        fs::write(f.m.root.join("preset-files/backups/private-preset-name"),b"private-preset-bytes").unwrap();
         let assessment = sanitized(result(&s, &p));
         let receipt = write_export(&f.m, &s, assessment, &support_software(&f), None).unwrap();
         let id = receipt["export"].as_str().unwrap();
@@ -2603,6 +2606,8 @@ mod tests {
         assert_eq!(report["incidents"][0]["category"], "host_exit");
         let raw = std::fs::read_to_string(&file).unwrap();
         assert!(!raw.contains("top-secret"));
+        assert!(!raw.contains("private-preset-name"));
+        assert!(!raw.contains("private-preset-bytes"));
         assert!(!raw.contains("/home/operator"));
         assert!(!raw.contains("credential"));
         for forbidden in ["state_token", "support_export_action", "\"kind\"",

@@ -36,6 +36,7 @@ pub(super) fn discover(m: &Manager) -> Result<Value> {
     vendor_cli::registration::retained_renderer(m)
 }
 pub(super) fn launch(m: &Manager, identity: &str, policy: renderer::RendererPolicy, op: &str) -> Result<lifecycle::Submission> {
+    operator_cli::presets::protect_environment(m,&current_application(m)?.environment,op)?;
     vendor_app::open_retained(m, identity, policy, op)
 }
 

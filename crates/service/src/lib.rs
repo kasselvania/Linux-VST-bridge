@@ -33,6 +33,7 @@ pub mod service;
 mod test_fixture;
 pub mod vendor_application;
 pub mod vendor_profile;
+pub mod preset_files;
 pub mod renderer_application;
 mod application_session;
 pub mod renderer_session;

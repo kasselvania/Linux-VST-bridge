@@ -126,6 +126,7 @@ fn select_admitted(m: &Manager, environment: &str, runner: &str, expected: &str,
     let mut binding = Binding {schema:1,operation:operation.into(),before,environment:after,
         affected,state:State::Prepared};
     let selected_key=onboarding::runner_key(&binding.environment.runner)?;
+    let presets=presets::protect_environment(m,&binding.before,operation)?;
     let _registry = registry_admission()?;
     _registry.require_registry(m)?;
     capacity::require_environment_inactive(m, &binding.before)?;
@@ -136,6 +137,7 @@ fn select_admitted(m: &Manager, environment: &str, runner: &str, expected: &str,
         && installed(m)?.iter().any(|(key,runner)|key==&selected_key && runner==&binding.environment.runner)
         && owners(m,environment)?==binding.affected,"runtime_transition_prestate_changed")?;
     require(!path(m,operation)?.try_exists()?,"runtime_transition_already_used")?;
+    presets.recheck(m)?;
     atomic_json(&path(m,operation)?,&binding)?;
     // Validate the retained request before the one authority mutation. The job
     // itself owns interruption recovery; no application or registry is rewritten.
