@@ -58,6 +58,7 @@ int main() {
 #include "ui_apartment.h"
 #include "environment_desktop.h"
 #include "mapped_processing.h"
+#include "fault_status.h"
 #include "win32_module.h"
 
 #include <windows.h>
@@ -348,6 +349,17 @@ int main(int argc, char** argv) {
         const bool detached_mode=args.at("--mode")=="detached-instance";
         const bool check_mode=args.at("--mode")=="ap8-module-inspection";
         const std::wstring session_directory=ready_path.substr(0,ready_path.find_last_of(L"\\/"));
+        // Standalone windows have no audio transport. Their owner still needs
+        // the same exact session mapping witness before any vendor call.
+        std::unique_ptr<wf0::FaultStatus> window_status;
+        if (detached_mode) {
+            std::array<uint8_t,16> session{};
+            for (size_t i=0;i<session.size();++i)
+                session[i]=uint8_t(std::stoul(args.at("--session").substr(i*2,2),nullptr,16));
+            window_status=std::make_unique<wf0::FaultStatus>(session_directory,session);
+            linux_vst_bridge::ap1::require(window_status->mapped(),"detached status mapping missing");
+            events.lifecycle("detached_instance_mapping_ready");
+        }
         const bool stereo_probe=args.at("--mode")=="ap18-stereo-negotiation";
         if (access_mode || ap8_mode || args.at("--mode") == "ap18-bus-lifecycle" || stereo_probe || graphics_probe || check_mode || setup_mode || detached_mode) {
             apartment = std::make_unique<wf0::UiApartment>();

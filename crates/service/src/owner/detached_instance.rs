@@ -48,6 +48,24 @@ pub(super) fn retain_context(m: &Manager, operation: &str, action: &ui::Action) 
     atomic_json(&directory.join("detached-admission.json"), &Accepted {schema:1, request, frontend})
 }
 fn artifact(path: PathBuf) -> Result<Artifact> { Ok(Artifact {sha256:digest(&path)?, path}) }
+// The supervised Windows process maps this session identity before vendor
+// initialization. It provides exact process custody, not an audio transport.
+fn create_window_status(job: &SessionSpec) -> Result<()> {
+    require(job.detached && !job.inspect && !job.keeper && !job.vendor_access
+        && valid_hex(&job.session, 32), "detached_status_session")?;
+    let mut bytes = [0u8; 1024];
+    bytes[..4].copy_from_slice(b"LVFS");
+    bytes[4..8].copy_from_slice(&2u32.to_le_bytes());
+    bytes[8..12].copy_from_slice(&1024u32.to_le_bytes());
+    for index in 0..16 {
+        bytes[16 + index] = u8::from_str_radix(&job.session[index * 2..index * 2 + 2], 16)?;
+    }
+    let mut status = fs::OpenOptions::new().write(true).create_new(true).mode(0o600)
+        .open(job.directory.join("ap12.status"))?;
+    status.write_all(&bytes)?;
+    status.sync_all()?;
+    Ok(())
+}
 fn context(m: &Manager, operation: &str, action: &ui::Action) -> Result<Frontend> {
     let directory=operator_cli::job_dir(m,operation)?;
     let accepted:Accepted=read_json(&directory.join("detached-admission.json"))?;
@@ -201,6 +219,7 @@ fn open(m:&Manager, action:&ui::Action, operation:&str, product:&ui::ProductIden
             "detached_execution_changed")?;
         let (mut job,path)=spec(m,binding.clone(),false,false,false)?;
         job.detached=true;job.shared_runtime=true;job.graphical_session=Some(context.graphical.clone());
+        create_window_status(&job)?;
         atomic_json(&path,&job)?;
         let registry=m.registry()?;
         let entry=registry.classes.get(&product.class_id).ok_or("detached_publication_changed")?;
@@ -319,6 +338,26 @@ fn focus(m:&Manager,operation:&str,session:&str)->Result<Value> {
 mod tests {
     use super::*;
     use crate::test_fixture::{Fixture, snapshot};
+    #[test]
+    fn detached_status_binds_one_session_without_creating_audio_transport() {
+        let f = Fixture::new();
+        let (mut job, _) = spec(&f.m, f.r.clone().into(), false, false, false).unwrap();
+        assert!(create_window_status(&job).is_err());
+        job.detached = true;
+        create_window_status(&job).unwrap();
+        let path = job.directory.join("ap12.status");
+        let bytes = fs::read(&path).unwrap();
+        assert_eq!(bytes.len(), 1024);
+        assert_eq!(&bytes[..16], b"LVFS\x02\0\0\0\0\x04\0\0\0\0\0\0");
+        assert_eq!(hex(&bytes[16..32]), job.session);
+        assert!(bytes[32..].iter().all(|byte| *byte == 0));
+        assert_eq!(fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+        assert!(create_window_status(&job).is_err(), "never replace an admitted identity");
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        for name in ["ap1.audio", "ap1.control", "ap10.delivery", "ap18.results"] {
+            assert!(!job.directory.join(name).exists());
+        }
+    }
     fn retain(f:&Fixture,operation:&str)->(Window,SessionSpec) {
         let (mut job,path)=spec(&f.m,f.r.clone().into(),false,false,false).unwrap();
         job.detached=true;job.shared_runtime=true;
