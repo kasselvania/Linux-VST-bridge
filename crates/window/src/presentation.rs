@@ -256,6 +256,9 @@ pub struct Why {
     pub pending: bool,
     pub in_flight: bool,
     pub superseded: bool,
+    /// The open form's captured binding differs from the current owner's.
+    /// Waiting for another read cannot authorize that form.
+    pub form_stale: bool,
 }
 
 impl Why {
@@ -695,7 +698,7 @@ pub fn build(window: &Window, snapshot: Option<&Snapshot>, actions: Option<&Snap
     let (header, mut page) = builder.frame(&window.frame, state.page);
     let screen_from = page.len();
     page.extend(builder.screen(&window.screen, &window.frame, snapshot, state, update));
-    let form = snapshot.and_then(|snapshot| builder.form(state, snapshot, actions, why.pending));
+    let form = snapshot.and_then(|snapshot| builder.form(state, snapshot, actions));
     let (form, form_focus) = match form {
         Some((nodes, focus)) => (Some(nodes), focus),
         None => (None, None),

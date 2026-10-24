@@ -222,7 +222,7 @@ impl Live {
             activity: Some(self.support_read().status), support: Some(self.support_read()), ..Records::default() };
         let window = Window::build(&records, &Reading { fresh: true, ..Reading::default() }, context);
         let rendered = presentation::build(&window, self.product.as_ref().or(current).or(self.details.as_ref()), current,
-            context, ui, Why { fresh: true, pending: false, in_flight: false, superseded: false }, None, self.reveal, self.form_generation);
+            context, ui, Why { fresh: true, pending: false, in_flight: false, superseded: false, form_stale: false }, None, self.reveal, self.form_generation);
         rendered.targets.values().any(|target| matches!(target,
             Target::Offer { offer, .. } if &offer.intent == original && offer.availability.enabled()))
     }
@@ -713,7 +713,8 @@ impl Live {
             if current.is_none() { window.frame.health.status.words = "Current records changed while loading"; }
         }
         self.built = presentation::build(&window, self.product.as_ref().or(current).or(self.details.as_ref()), actions,
-            &self.state, &self.ui, Why { fresh: self.fresh, pending: blocked || self.form_origin.as_ref().is_some_and(|(origin, _)| !self.fresh || Some(origin) != binding.as_ref()), in_flight: foreground, superseded: self.superseded },
+            &self.state, &self.ui, Why { fresh: self.fresh, pending: blocked, in_flight: foreground, superseded: self.superseded,
+                form_stale: self.form_origin.as_ref().is_some_and(|(origin, _)| Some(origin) != binding.as_ref()) },
             self.update_panel.as_ref(), self.reveal, self.form_generation);
         self.built.preview.clear();
         let mut renames = BTreeMap::new();
@@ -2216,7 +2217,7 @@ pub(crate) mod tests {
     #[test]
     fn failed_instance_restart_survives_exact_confirmation_and_dispatch_revalidation() {
         use vm::model::{Observation, RecoveryPhase};
-        for change in ["none", "offer", "observation", "refusal"] {
+        for change in ["none", "offer", "observation", "snapshot-revision", "snapshot-hash", "owner", "refusal"] {
             let mut live = ready_case(Page::Plugins, "plugin_ready");
             let mut failed = live.product.as_ref().unwrap().clone();
             let activity = vm::samples::recovery_fixture(&mut failed);
@@ -2257,6 +2258,13 @@ pub(crate) mod tests {
                     let Observation::Observed(instances) = &mut live.status.as_mut().unwrap().live.instances else {panic!()};
                     instances[0].recovery.as_mut().unwrap().generation += 1;
                 }
+                "snapshot-revision" | "snapshot-hash" => {
+                    let Observation::Observed(instances) = &mut live.status.as_mut().unwrap().live.instances else {panic!()};
+                    let Observation::Observed(snapshot) = &mut instances[0].recovery.as_mut().unwrap().snapshot else {panic!()};
+                    if change == "snapshot-revision" { snapshot.revision += 1; }
+                    else { snapshot.sha256 = "ef".repeat(32); }
+                }
+                "owner" => live.overview.as_mut().unwrap().current_generation = "generation-b".into(),
                 _ => {},
             }
             if change == "none" {
@@ -2266,6 +2274,141 @@ pub(crate) mod tests {
             } else {
                 assert!(live.take_query().is_none(), "changed authority must refuse");
                 assert!(live.support.as_ref().unwrap().text.contains("not submitted"));
+            }
+        }
+    }
+
+    #[test]
+    fn renewed_restart_confirmation_returns_to_current_offer_without_waiting_or_replay() {
+        for changed in ["token", "generation"] {
+            let mut current = snapshot();
+            let activity = vm::samples::recovery_fixture(&mut current);
+            let restart = current.products[0].actions.iter().find(|offer|
+                matches!(offer.action, Action::PluginRestart { .. })).unwrap().action.clone();
+            let mut live = observing(String::new(), false);
+            assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+            live.receive(overview(current.clone(), "generation-a"));
+            show_page(&mut live, Page::Activity, &current);
+            live.status = Some(activity.clone()); live.rebuild();
+            let offer = target(&live, |t| matches!(t, Target::Offer { offer, .. } if offer.intent == restart));
+            assert_eq!(press(&mut live, &offer), Outcome::Changed);
+            let origin = live.form_origin.clone();
+            let confirm = target(&live, |t| matches!(t, Target::Form(FormStep::Confirm)));
+            assert!(live.drawn[&confirm].is_none());
+            assert!(live.take_query().is_none());
+
+            // Finish an ordinary background renewal. The exact instance,
+            // generation and captured state remain offered under new authority.
+            background(&mut live, true);
+            assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+            if changed == "token" { current.state_token = "renewed-token".into(); }
+            live.receive(overview(current.clone(), if changed == "generation" { "generation-b" } else { "generation-a" }));
+            assert!(live.take_query().is_none(), "the background read has finished");
+            assert!(live.fresh && !live.busy() && !live.support_waiting());
+            assert_eq!(live.form_origin, origin, "an open form must never borrow new authority");
+            assert_eq!(live.state.forms.confirm.as_ref(), Some(&restart));
+            assert!(!format!("{:?}", live.built.form).contains(vm::offers::WAITING),
+                "an idle stale form must not claim that a request or read is pending");
+            assert_eq!(live.drawn[&confirm].as_deref(), Some("This form is no longer current."));
+            let shown = format!("{:?}", live.built.form);
+            assert!(shown.contains("Close this dialog") && shown.contains("choose the action again"));
+            assert_eq!(press(&mut live, &confirm), Outcome::Refused);
+            live.form_step(FormStep::Confirm);
+            assert!(live.support.is_none() && live.take_query().is_none(), "no stale submission");
+
+            let cancel = target(&live, |t| matches!(t, Target::Form(FormStep::CancelConfirm)));
+            assert!(live.drawn[&cancel].is_none(), "the return control remains reachable");
+            assert_eq!(press(&mut live, &cancel), Outcome::Changed);
+            assert!(live.built.form.is_none() && live.form_origin.is_none());
+            assert_eq!(live.state.page, Page::Activity);
+            assert_eq!(press(&mut live, &offer), Outcome::Refused, "the old offer stays retired");
+            let offer = target(&live, |t| matches!(t, Target::Offer { offer, .. } if offer.intent == restart));
+            assert_eq!(press(&mut live, &offer), Outcome::Changed);
+            assert_eq!(press(&mut live, &confirm), Outcome::Refused, "old form controls stay retired");
+            let confirm = target(&live, |t| matches!(t, Target::Form(FormStep::Confirm)));
+            assert_eq!(press(&mut live, &confirm), Outcome::Changed);
+            let Some(Query::Action(request)) = live.take_query() else { panic!("current exact restart") };
+            assert_eq!(request.state_token, current.state_token);
+            assert_eq!(request.action, restart);
+            assert!(live.take_query().is_none(), "one explicit restart only");
+
+            live.receive(Reply::Error("connection closed after submission".into()));
+            assert!(matches!(live.take_query(), Some(Query::Pulse)));
+            live.receive(pulse(Some(completed("unrelated-operation"))));
+            assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+            current.operation = Some(completed("unrelated-operation"));
+            live.receive(overview(current, "generation-c"));
+            let support = live.support.as_ref().unwrap();
+            assert!(support.acknowledgment_uncertain && support.operation.is_none());
+            assert!(support.text.contains("unconfirmed"));
+            assert!(live.take_query().is_none(), "renewal cannot replay an uncertain restart");
+        }
+    }
+
+    #[test]
+    fn renewed_editable_forms_keep_their_drafts_and_explain_the_return_path() {
+        use vm::model::{DawChoice, PublicationIdentity, TestArea};
+        let installer = "ab".repeat(32);
+        let result = |result| Action::CompatibilityResult { candidate: "exact-candidate".into(),
+            expected_current: PublicationIdentity { id: "cd".repeat(16), sha256: "ef".repeat(32) },
+            result, passed: vec![TestArea::DawLoad], failed_area: None, note: "Observed in the DAW".into() };
+        let cases = [
+            (Action::SoftwareInstall { installer: installer.clone(), daw: DawChoice::Other },
+                FormStep::StartInstall, FormStep::CancelInstall),
+            (Action::InstallerRename { installer, label: "My instrument setup".into() },
+                FormStep::SaveRename, FormStep::CancelRename),
+            (result(TestResultKind::Worked), FormStep::SubmitRecord, FormStep::CancelRecord),
+            (result(TestResultKind::Problem { category: ProblemCategory::NoAudio }), FormStep::SubmitRecord, FormStep::CancelRecord),
+            (Action::CandidateObserve { candidate: "exact-candidate".into(), area: "audio".into(),
+                status: "passed".into(), note: "Observed in the DAW".into() }, FormStep::SubmitRecord, FormStep::CancelRecord),
+            (Action::CandidateReview { candidate: "exact-candidate".into(), accept: true,
+                rationale: "Checked this configuration".into() }, FormStep::SubmitRecord, FormStep::CancelRecord),
+        ];
+        for (action, submit_step, cancel_step) in cases {
+            for complete in [false, true] {
+                let mut live = ready_case(Page::Setup, "setup_many");
+                let current = &mut live.overview.as_mut().unwrap().current;
+                let offered = AvailableAction { label: "Exact test offer".into(), action: action.clone(), disabled_reason: None };
+                if let Action::SoftwareInstall { installer, .. } = &action {
+                    current.installer_setups[0].installer = installer.clone();
+                    current.installer_setups[0].primary = Some(offered.clone());
+                }
+                for setup in &mut current.installer_setups { setup.journey = None; }
+                current.products[0].actions.push(offered);
+                let current = current.clone();
+                // Exercise each shared form through ordinary view-model routing.
+                // Only the Restart regression above dispatches an owner request.
+                live.state.forms.daw = None;
+                assert!(live.state.press(action.clone()).is_none());
+                live.form_origin = Some((live.binding().unwrap(), action.clone()));
+                if complete { live.state.forms.daw = Some(DawChoice::Bitwig); }
+                else {
+                    live.field("field.rename", ""); live.field("field.note", "");
+                    if let Some(Action::CompatibilityResult { passed, .. }) = &mut live.state.forms.record { passed.clear(); }
+                }
+                live.rebuild();
+                let submit = target(&live, |t| matches!(t, Target::Form(step) if step == &submit_step));
+                assert_eq!(live.drawn[&submit].is_none(), complete, "{action:?}");
+                let draft = live.state.forms.clone();
+                let origin = live.form_origin.clone();
+                background(&mut live, true);
+                assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+                live.receive(overview(current, "generation-b"));
+                assert!(live.fresh && !live.busy() && !live.support_waiting());
+                assert_eq!(live.state.forms, draft);
+                assert_eq!(live.form_origin, origin);
+                let shown = format!("{:?}", live.built.form);
+                assert!(!shown.contains(vm::offers::WAITING));
+                assert!(shown.contains("Close this dialog") && shown.contains("choose the action again"));
+                if complete { assert_eq!(live.drawn[&submit].as_deref(), Some("This form is no longer current.")); }
+                assert_eq!(press(&mut live, &submit), Outcome::Refused);
+                live.form_step(submit_step.clone());
+                assert!(live.support.is_none() && live.take_query().is_none());
+                let cancel = target(&live, |t| matches!(t, Target::Form(step) if step == &cancel_step));
+                assert!(live.drawn[&cancel].is_none());
+                assert_eq!(press(&mut live, &cancel), Outcome::Changed);
+                assert!(live.built.form.is_none() && live.form_origin.is_none());
+                assert_eq!(live.state.page, Page::Setup);
             }
         }
     }

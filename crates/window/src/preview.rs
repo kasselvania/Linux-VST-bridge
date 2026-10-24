@@ -199,7 +199,7 @@ impl Preview {
     fn why(&self) -> Why {
         let reading = self.sample.reading(Some(DISTRIBUTION));
         Why { fresh: reading.fresh, pending: reading.controls_pending, in_flight: reading.in_flight,
-            superseded: reading.superseded }
+            superseded: reading.superseded, form_stale: false }
     }
 
     pub fn rebuild(&mut self) {
