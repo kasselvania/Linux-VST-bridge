@@ -1,11 +1,13 @@
-//! Linux executable custody without changing package-relative `/proc/self/exe`.
+//! Linux executable custody retaining disk-backed `/proc/self/exe` semantics.
 //!
 //! An open descriptor prevents rename substitution, but not writes to its inode.
 //! Exec the retained ELF under ptrace and verify it at the exec stop, before any
 //! instruction (including the ELF interpreter) runs. Linux holds deny_write_access
 //! on that inode from exec until exit. A concurrent writable fd/mapping refuses
 //! exec; a completed earlier write fails the signed digest check. No pathname is
-//! reopened for execution. Ordinary startup still sees the original package path.
+//! reopened for execution. Without renames, startup sees the staged package path;
+//! renaming the inode or its parents changes the proc-derived path and may cause
+//! package-relative bootstrap to refuse it.
 use super::*;
 use std::{
     ffi::CString,
@@ -111,14 +113,17 @@ impl VerifiedExecutable {
             }
         }
         let mut child = Child { pid, reaped: false };
-        child.stopped(libc::SIGSTOP)?;
+        child.stopped(libc::SIGSTOP, 0)?;
         ptrace(
             libc::PTRACE_SETOPTIONS,
             pid,
-            libc::PTRACE_O_EXITKILL as usize,
+            (libc::PTRACE_O_TRACEEXEC | libc::PTRACE_O_EXITKILL) as usize,
         )?;
         ptrace(libc::PTRACE_CONT, pid, 0)?;
-        child.stopped(libc::SIGTRAP)?;
+        // TRACEEXEC uses ptrace_notify, independent of the inherited signal mask.
+        // The legacy exec SIGTRAP is only send_sig and may remain blocked.
+        // Linux v6.12 include/linux/ptrace.h: ptrace_event().
+        child.stopped(libc::SIGTRAP, libc::PTRACE_EVENT_EXEC)?;
         // At this stop no new program instruction has run, and the kernel now
         // excludes writes. Also prove this is our retained ELF, not an interpreter
         // selected through a script/binfmt handler. Refuse any unexpected object.
@@ -144,7 +149,8 @@ struct Child {
     reaped: bool,
 }
 impl Child {
-    fn stopped(&mut self, signal: i32) -> Result<()> {
+    fn stopped(&mut self, signal: i32, event: i32) -> Result<()> {
+        // Bounds only stop observation, not filesystem verification or reaping.
         let deadline = Instant::now() + Duration::from_secs(3);
         loop {
             let mut status = 0;
@@ -153,7 +159,9 @@ impl Child {
             if result == self.pid {
                 self.reaped = libc::WIFEXITED(status) || libc::WIFSIGNALED(status);
                 return require(
-                    libc::WIFSTOPPED(status) && libc::WSTOPSIG(status) == signal,
+                    libc::WIFSTOPPED(status)
+                        && libc::WSTOPSIG(status) == signal
+                        && status >> 16 == event,
                     "user_package_executable_stop_failed",
                 );
             }
@@ -195,7 +203,8 @@ impl Drop for Child {
     fn drop(&mut self) {
         if !self.reaped {
             // Refusal, panic or failed reaper creation cannot release unverified
-            // code or leave a traced child stopped. Never detach on an error.
+            // code. Never detach on an error. Reaping is blocking: uninterruptible
+            // kernel I/O can delay cleanup beyond the stop-observation deadline.
             unsafe {
                 libc::kill(self.pid, libc::SIGKILL);
             }
@@ -302,6 +311,110 @@ int main(int argc, char **argv) {{
         assert!(input_root_record_with_trust(&path, &f.home, &f.trust())
             .unwrap()
             .is_some());
+    }
+    // Thread-local mask ownership; restore even if a test assertion unwinds.
+    struct BlockedTrap {
+        previous: libc::sigset_t,
+        _thread: std::marker::PhantomData<std::rc::Rc<()>>,
+    }
+    impl BlockedTrap {
+        fn new() -> Self {
+            unsafe {
+                let mut mask = std::mem::zeroed();
+                let mut previous = std::mem::zeroed();
+                assert_eq!(libc::sigemptyset(&mut mask), 0);
+                assert_eq!(libc::sigaddset(&mut mask, libc::SIGTRAP), 0);
+                assert_eq!(
+                    libc::pthread_sigmask(libc::SIG_BLOCK, &mask, &mut previous),
+                    0
+                );
+                Self {
+                    previous,
+                    _thread: std::marker::PhantomData,
+                }
+            }
+        }
+    }
+    impl Drop for BlockedTrap {
+        fn drop(&mut self) {
+            assert_eq!(
+                unsafe {
+                    libc::pthread_sigmask(libc::SIG_SETMASK, &self.previous, std::ptr::null_mut())
+                },
+                0
+            );
+        }
+    }
+    #[test]
+    fn blocked_sigtrap_unchanged_launch_preserves_package_path() {
+        let (f, path, _) = staged();
+        let executable = retain(&f, &path);
+        let _mask = BlockedTrap::new();
+        run(executable);
+        assert_eq!(
+            fs::read_to_string(f.home.join("executed")).unwrap(),
+            format!("original\n{}\n{}\n1 0\n", path.display(), path.display())
+        );
+    }
+    #[test]
+    fn blocked_sigtrap_in_place_replacement_never_writes_marker() {
+        let (f, path, replacement) = staged();
+        let executable = retain(&f, &path);
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+        fs::write(&path, replacement).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o555)).unwrap();
+        let _mask = BlockedTrap::new();
+        assert!(executable.start().is_err());
+        // start's refusal kills and reaps before returning: this checks absence
+        // of any replacement side effect, not merely eventual rejection.
+        assert!(!f.home.join("executed").exists());
+    }
+    #[test]
+    fn unrelated_signal_stops_are_refused_and_reaped() {
+        for signal in [libc::SIGTRAP, libc::SIGSTOP, libc::SIGUSR1] {
+            let pid = unsafe { libc::fork() };
+            assert!(pid >= 0);
+            if pid == 0 {
+                unsafe {
+                    if libc::ptrace(libc::PTRACE_TRACEME, 0, 0, 0) != 0 {
+                        libc::_exit(127);
+                    }
+                    libc::raise(libc::SIGSTOP);
+                    libc::raise(signal);
+                    libc::_exit(99);
+                }
+            }
+            let mut child = Child { pid, reaped: false };
+            child.stopped(libc::SIGSTOP, 0).unwrap();
+            ptrace(
+                libc::PTRACE_SETOPTIONS,
+                pid,
+                (libc::PTRACE_O_TRACEEXEC | libc::PTRACE_O_EXITKILL) as usize,
+            )
+            .unwrap();
+            ptrace(libc::PTRACE_CONT, pid, 0).unwrap();
+            assert_eq!(
+                child
+                    .stopped(libc::SIGTRAP, libc::PTRACE_EVENT_EXEC)
+                    .unwrap_err()
+                    .to_string(),
+                "user_package_executable_stop_failed"
+            );
+            assert!(
+                !child.reaped,
+                "must observe the unrelated stop, not child exit"
+            );
+            drop(child);
+            let mut status = 0;
+            assert_eq!(
+                unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) },
+                -1
+            );
+            assert_eq!(
+                std::io::Error::last_os_error().raw_os_error(),
+                Some(libc::ECHILD)
+            );
+        }
     }
     #[test]
     fn replacing_verified_entry_never_executes_replacement() {
