@@ -198,3 +198,11 @@ mod tests {
 }
 
 pub mod bootstrap;
+
+/// Resolve the frontend's logical package location, including sealed Setup launches.
+pub fn current_frontend_path() -> Result<PathBuf, String> {
+    #[cfg(target_os = "linux")]
+    { linux_vst_bridge::portable_package::current_frontend_path().map_err(|e| e.to_string()) }
+    #[cfg(not(target_os = "linux"))]
+    { std::env::current_exe().map_err(|e| e.to_string()) }
+}

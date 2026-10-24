@@ -18,7 +18,7 @@ impl Controller {
     pub fn new(args: &[String], posture: String, reveal: bool) -> Self {
         #[cfg(feature = "live")]
         if !cfg!(feature = "samples") || args.iter().any(|arg| arg == "--live")
-            || std::env::current_exe().ok().is_some_and(|path|
+            || lvb_client::current_frontend_path().ok().is_some_and(|path|
                 path.file_name().is_some_and(|name| name == "linux-audio-compatibility-manager"))
         {
             return Self::Live { model: Box::new(Live::new(posture, reveal)), worker: Worker::start(args.iter().any(|arg| arg == "--continue-update")) };
@@ -333,7 +333,7 @@ impl Worker {
             #[cfg(target_os = "linux")]
             let client = (|| {
                 let home = std::env::var_os("HOME").ok_or("Home directory unavailable")?;
-                let executable = std::env::current_exe().map_err(|_| "Frontend identity unavailable")?;
+                let executable = lvb_client::current_frontend_path().map_err(|_| "Frontend identity unavailable")?;
                 lvb_client::Client::managed(home.into(), executable)
             })();
             #[cfg(target_os = "linux")]
@@ -475,7 +475,7 @@ impl Worker {
             }
         }).expect("start the Bridge client worker");
         #[cfg(target_os = "linux")]
-        let observation_start = std::env::var_os("HOME").zip(std::env::current_exe().ok())
+        let observation_start = std::env::var_os("HOME").zip(lvb_client::current_frontend_path().ok())
             .ok_or_else(|| "Installed frontend identity is unavailable".to_owned())
             .and_then(|(home, executable)| lvb_client::observation::Watch::start(home.into(), executable,
                 makepad_product_ui::makepad_widgets::SignalToUI::set_ui_signal)

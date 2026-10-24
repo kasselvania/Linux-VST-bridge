@@ -11,7 +11,7 @@ use std::{collections::BTreeSet, fs, io::{Read, Seek, SeekFrom, Write},
 #[cfg(target_os = "linux")]
 mod executable;
 #[cfg(target_os = "linux")]
-pub use executable::VerifiedExecutable;
+pub use executable::{current_frontend_path, VerifiedExecutable};
 
 const DOMAIN: &[u8] = b"Linux VST Bridge user package v1\0";
 const FOOTER: &[u8; 8] = b"LVBUSER1";
@@ -500,7 +500,7 @@ fn input_executable_with_trust(executable:&Path,home:&Path,name:&str,trust:&Trus
 }
 /// Retain the signed staged executable through launch. Unlike the path-only
 /// discovery helper, this object is an execution authority, including a final
-/// content check under the kernel's executable write exclusion.
+/// content check of a sealed immutable snapshot before execution.
 #[cfg(target_os = "linux")]
 pub fn retained_input_executable(executable: &Path, home: &Path, name: &str)
     -> Result<VerifiedExecutable> {

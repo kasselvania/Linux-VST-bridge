@@ -37,7 +37,7 @@ fn worker(home: Option<PathBuf>) -> (mpsc::SyncSender<Job>, mpsc::Receiver<Event
     std::thread::Builder::new().name("bridge-updates-io".into()).spawn(move || {
         let ready = (|| {
             let home = home.ok_or("Home directory unavailable")?;
-            let executable = std::env::current_exe().map_err(|_| "Frontend identity unavailable")?;
+            let executable = crate::current_frontend_path().map_err(|_| "Frontend identity unavailable")?;
             let client = crate::Client::managed(home.clone(), executable)?;
             let admission: Admission = Arc::new(move || client.current_frontend());
             admitted(&admission)?;
@@ -464,7 +464,7 @@ fn context() -> Result<(linux_vst_bridge::portable_package::Trust, String), Upda
         .map_err(|_| UpdateError::Local("This build has no release key, so it cannot check for updates.".into()))?;
     // This window's own build; the older layout without a record is "0",
     // which only an update by hand can move on from.
-    let current = std::env::current_exe().ok().and_then(|path|
+    let current = crate::current_frontend_path().ok().and_then(|path|
         path.parent().and_then(linux_vst_bridge::package_version::generation_version)).unwrap_or_else(|| "0".into());
     Ok((trust, current))
 }

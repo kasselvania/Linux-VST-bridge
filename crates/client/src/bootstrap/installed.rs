@@ -33,7 +33,7 @@ fn select_entry(executable: &Path) -> Entry {
 }
 
 pub fn entry() -> Result<Entry, String> {
-    let executable = std::env::current_exe().map_err(|_| "Frontend identity unavailable")?;
+    let executable = crate::current_frontend_path().map_err(|_| "Frontend identity unavailable")?;
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("Home directory unavailable")?);
     if linux_vst_bridge::portable_package::input_root_record(&executable, &home)
         .map_err(|e| e.to_string())?.is_some() {
@@ -49,7 +49,7 @@ use crate::launch_selected_with;
 
 pub fn launch_selected() -> Result<(), String> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("Home directory unavailable")?);
-    let executable = std::env::current_exe().map_err(|_| "Frontend identity unavailable")?;
+    let executable = crate::current_frontend_path().map_err(|_| "Frontend identity unavailable")?;
     launch_selected_with(&home, &executable, |frontend| {
         Command::new(frontend).spawn().map(|_| ())
             .map_err(|_| "Selected application could not be opened".into())
@@ -57,7 +57,7 @@ pub fn launch_selected() -> Result<(), String> {
 }
 
 fn fixed_command(operation: Operation) -> Result<Command, String> {
-    let executable = std::env::current_exe().map_err(|_| "Frontend identity unavailable")?;
+    let executable = crate::current_frontend_path().map_err(|_| "Frontend identity unavailable")?;
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("Home directory unavailable")?);
     let manager = linux_vst_bridge::portable_package::input_executable(&executable,&home,
         "linux-vst-bridge")
