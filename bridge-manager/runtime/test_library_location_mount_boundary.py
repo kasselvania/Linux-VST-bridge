@@ -57,7 +57,7 @@ def _child(root, original, mode):
             destination = stage / selected.relative_to('/')
             destination.mkdir(parents=True)
             (stage / 'proc').mkdir()
-            mount('/proc', stage / 'proc', None, 4096, None)
+            mount('/proc', stage / 'proc', None, 4096 | 16384, None)  # MS_BIND | MS_REC
             # A direct syscall avoids util-linux's pathname canonicalization.
             # The open descriptor is retained through completed-mount checks.
             mount('/proc/self/fd/' + str(original), destination, None, 4096, None)  # MS_BIND
