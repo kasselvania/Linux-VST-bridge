@@ -286,6 +286,10 @@ impl Control {
             state.readback = Some(readback);
             state.generation = generation;
         }
+        self.start_restored(id, desired);
+    }
+    // Shared by ordinary restoration and the test-only installed-transport seam.
+    fn start_restored(self: Arc<Self>, id: u64, desired: Desired) {
         if !self.wait(|s| s.controller) {
             unsafe { crate::queued::abandon_recovery(id) };
             self.refuse(6);
@@ -642,4 +646,41 @@ pub unsafe extern "C" fn lvb_recovery_ack_v1(
         }
         0
     }) as u32
+}
+
+// Test-only seam after admission/opaque restoration. START, its socket reply,
+// final polling/acknowledgement, real deadline and abandonment remain production.
+#[cfg(feature = "recovery-integration")]
+impl Control {
+    pub(crate) fn integration_busy(&self) -> bool { self.job.load(Ordering::Acquire) }
+    pub(crate) fn integration_begin(self: &Arc<Self>, id: u64, maximum: u32, mode: u32) {
+        remember(id, self);
+        let desired = Desired { maximum, mode, active: true, processing: true };
+        {
+            let mut state = self.inner.lock().unwrap();
+            state.command = Some(wire::Command { operation: [2;16], ..Default::default() });
+            state.phase = wire::CONTROLLER;
+            state.generation = 8;
+            state.desired = Some(desired);
+            state.readback = Some(vec![]);
+        }
+        self.job.store(true, Ordering::Release);
+        let control = self.clone();
+        thread::spawn(move || control.start_restored(id, desired));
+    }
+}
+#[cfg(feature = "recovery-integration")]
+#[no_mangle]
+pub extern "C" fn lvb_test_recovery_phase(id: u64) -> u32 {
+    let control = lookup(id).unwrap();
+    let state = control.inner.lock().unwrap();
+    if state.phase == wire::CONTROLLER && state.final_ready { 3 }
+    else if state.phase >= wire::REFUSED { 4 }
+    else { 0 }
+}
+
+#[cfg(feature = "recovery-integration")]
+#[no_mangle]
+pub extern "C" fn lvb_test_recovery_busy(id: u64) -> u32 {
+    u32::from(lookup(id).is_some_and(|control| control.integration_busy()))
 }

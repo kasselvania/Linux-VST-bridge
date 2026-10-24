@@ -1,4 +1,6 @@
 //! Offline AP2 session. The caller supplies owned buffers; no DSP exists here.
+#[cfg(all(feature = "recovery-integration", feature = "registered"))]
+compile_error!("recovery-integration is a test-only backend");
 #[cfg(test)]
 mod commercial_tests;
 mod activation_record;

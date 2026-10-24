@@ -11,6 +11,7 @@
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "public.sdk/source/vst/hosting/parameterchanges.h"
 #include <algorithm>
+#include <dlfcn.h>
 #include <cstring>
 #include <deque>
 #include <thread>
@@ -64,7 +65,25 @@ uint32_t configured_maximum=0, activated_maximum=0;
 if1_terminal_t terminal_record{};
 bool recovery_fixture=false,recovery_final_ack_refused=false;
 bool recovery_replacement_started=false,recovery_result_pending=false;
-uint64_t recovery_next_handle=1;
+uint64_t recovery_next_handle=1,recovery_target_handle=1;
+#ifdef LVB_RECOVERY_INTEGRATION
+bool real_recovery=false;
+bool real_final_allowed=false;
+extern "C" {
+uint64_t lvb_test_recovery_open();
+void lvb_test_recovery_begin(uint64_t,uint32_t,uint32_t);
+uint32_t lvb_test_recovery_phase(uint64_t);
+uint32_t lvb_test_recovery_started(uint64_t);
+uint32_t lvb_test_recovery_present(uint64_t);
+uint32_t lvb_test_recovery_busy(uint64_t);
+#define REAL_DECL(name) decltype(name) __real_##name
+REAL_DECL(ap10_setup); REAL_DECL(ap4_activate); REAL_DECL(ap4_deactivate);
+REAL_DECL(ap3_transition); REAL_DECL(if2_close);
+REAL_DECL(ap23_process_outputs); REAL_DECL(ap23_finish_callback); REAL_DECL(ap10_take_results);
+REAL_DECL(lvb_recovery_poll_v1); REAL_DECL(lvb_recovery_ack_v1); REAL_DECL(ap4_state_release_v1);
+#undef REAL_DECL
+}
+#endif
 uint32_t recovery_result_drains=0;
 std::function<void()> recovery_before_final_ack;
 std::deque<uint32_t> recovery_stages;
@@ -218,7 +237,7 @@ void event(uint32_t kind, double value = 0) {
 }
 } // namespace
 extern "C" {
-uint32_t __wrap_if2_terminal_status(uint64_t id){return (!recovery_fixture||id==1)&&IF1::valid(terminal_record) ? 1 : 0;}
+uint32_t __wrap_if2_terminal_status(uint64_t id){return (!recovery_fixture||id==recovery_target_handle)&&IF1::valid(terminal_record) ? 1 : 0;}
 uint32_t __wrap_ap2_error(uint8_t *out, uint32_t capacity) {
   if (!out || !capacity) return 0;
   const auto n = std::min<size_t>(std::strlen(error_detail), capacity - 1);
@@ -228,6 +247,9 @@ uint32_t __wrap_ap2_error(uint8_t *out, uint32_t capacity) {
 uint32_t __wrap_ap9_open(const uint8_t *, uint64_t *out) {
   ++open_calls;
   if (open_refused) return 1;
+#ifdef LVB_RECOVERY_INTEGRATION
+  if(real_recovery){*out=lvb_test_recovery_open();if(recovery_next_handle++==1)recovery_target_handle=*out;return 0;}
+#endif
   *out = recovery_fixture ? recovery_next_handle++ : 1;
   return 0;
 }
@@ -247,16 +269,34 @@ uint32_t __wrap_ap5_report_path(uint64_t, uint8_t *p, uint32_t n) {
     *p = 0;
   return 0;
 }
-uint32_t __wrap_ap10_setup(uint64_t, uint32_t maximum, uint32_t, double,
-                           const uint8_t *, uint32_t, uint32_t, uint32_t *t) {
+uint32_t __wrap_ap10_setup(uint64_t id, uint32_t maximum, uint32_t mode, double rate,
+                           const uint8_t *io, uint32_t size, uint32_t flags, uint32_t *t) {
+#ifdef LVB_RECOVERY_INTEGRATION
+  if(real_recovery)return __real_ap10_setup(id,maximum,mode,rate,io,size,flags,t);
+#endif
+  (void)id;(void)mode;(void)rate;(void)io;(void)size;(void)flags;
   configured_maximum = maximum;
   t[0] = (fixture_delay==UINT32_MAX?std::max(512u,maximum):fixture_delay)+fixture_vendor;
   t[1] = fixture_tail; t[2] = fixture_vendor;
   return 0;
 }
-uint32_t __wrap_ap4_activate(uint64_t, uint32_t maximum, uint32_t) { activated_maximum=maximum;return 0; }
-uint32_t __wrap_ap4_deactivate(uint64_t) { return 0; }
-uint32_t __wrap_ap3_transition(uint64_t, uint32_t op) {
+uint32_t __wrap_ap4_activate(uint64_t id, uint32_t maximum, uint32_t mode) {
+#ifdef LVB_RECOVERY_INTEGRATION
+  if(real_recovery)return __real_ap4_activate(id,maximum,mode);
+#endif
+  (void)id;(void)mode;activated_maximum=maximum;return 0;
+}
+uint32_t __wrap_ap4_deactivate(uint64_t id) {
+#ifdef LVB_RECOVERY_INTEGRATION
+  if(real_recovery)return __real_ap4_deactivate(id);
+#endif
+  (void)id;return 0;
+}
+uint32_t __wrap_ap3_transition(uint64_t id, uint32_t op) {
+#ifdef LVB_RECOVERY_INTEGRATION
+  if(real_recovery)return __real_ap3_transition(id,op);
+#endif
+  (void)id;
   if(processing_state_fixture){
     state_operations.push_back(op);
     if(op==transition_refusal)return 7;
@@ -264,11 +304,15 @@ uint32_t __wrap_ap3_transition(uint64_t, uint32_t op) {
   }
   return 0;
 }
-uint32_t __wrap_if2_close(uint64_t) {
+uint32_t __wrap_if2_close(uint64_t id) {
+#ifdef LVB_RECOVERY_INTEGRATION
+  if(real_recovery)return __real_if2_close(id);
+#endif
+  (void)id;
   ++closes;
   return close_code;
 }
-uint32_t __wrap_if1_terminal(uint64_t id,if1_terminal_t* out){*out=(recovery_fixture&&id!=1)?if1_terminal_t{}:terminal_record;return 0;}
+uint32_t __wrap_if1_terminal(uint64_t id,if1_terminal_t* out){*out=(recovery_fixture&&id!=recovery_target_handle)?if1_terminal_t{}:terminal_record;return 0;}
 uint32_t __wrap_ap10_notices(uint64_t, uint32_t *p) {
   p[0] = notice_flags;p[1]=fixture_vendor;p[2]=fixture_tail;notice_flags=0;
   return 0;
@@ -357,7 +401,23 @@ uint32_t __wrap_ap6_failed_save_owned_v1(uint64_t, ap4_owned_state_v1* state, ap
   *info={};info->revision=3;info->generation=generation;info->uncaptured=1;
   return 0;
 }
-uint32_t __wrap_lvb_recovery_poll_v1(uint64_t,uint32_t timer,lvb_recovery_event_v1* event,ap4_owned_state_v1* bytes){
+uint32_t __wrap_lvb_recovery_poll_v1(uint64_t id,uint32_t timer,lvb_recovery_event_v1* event,ap4_owned_state_v1* bytes){
+#ifdef LVB_RECOVERY_INTEGRATION
+  if(real_recovery&&recovery_begun){
+    *event={};
+    if(lvb_test_recovery_phase(id)==3&&!real_final_allowed)return 0;
+    const auto result=__real_lvb_recovery_poll_v1(id,timer,event,bytes);
+    if(event->stage==2){
+      __real_ap4_state_release_v1(bytes);
+      ++generation;terminal_record={};dsp=.375;
+      check(__wrap_ap4_state_owned_v1(id,nullptr,0,bytes)==0,"controller readback fixture");
+    }
+    if(event->stage==3&&recovery_final_ack_refused)
+      check(__real_lvb_recovery_ack_v1(id,event->operation,3,0)==0,"real negative final acknowledgement");
+    return result;
+  }
+#endif
+  (void)id;
   if(timer==1)++recovery_timer_polls;
   *event={};if(!recovery_fixture||recovery_stages.empty())return 0;
   check(timer==1,"restart events consumed by actual SDK owner timer");
@@ -371,10 +431,24 @@ uint32_t __wrap_lvb_recovery_poll_v1(uint64_t,uint32_t timer,lvb_recovery_event_
   if(event->stage==3)check(recovery_controller_ack==1,"final readiness follows controller acknowledgement");
   return 0;
 }
-uint32_t __wrap_lvb_recovery_begin_v1(uint64_t,const uint8_t* operation,uint32_t,uint32_t,uint32_t active,uint32_t processing){
+uint32_t __wrap_lvb_recovery_begin_v1(uint64_t id,const uint8_t* operation,uint32_t maximum,uint32_t mode,uint32_t active,uint32_t processing){
+#ifdef LVB_RECOVERY_INTEGRATION
+  if(real_recovery){lvb_test_recovery_begin(id,maximum,mode);++recovery_begun;return 0;}
+#endif
+  (void)id;(void)maximum;(void)mode;
   check(operation[0]==2&&active==1&&processing==1,"exact command preserves DAW processing intention");++recovery_begun;return 0;
 }
-uint32_t __wrap_lvb_recovery_ack_v1(uint64_t,const uint8_t* operation,uint32_t stage,uint32_t success){
+uint32_t __wrap_lvb_recovery_ack_v1(uint64_t id,const uint8_t* operation,uint32_t stage,uint32_t success){
+#ifdef LVB_RECOVERY_INTEGRATION
+  if(real_recovery){
+    if(stage==3&&recovery_before_final_ack)recovery_before_final_ack();
+    const auto result=__real_lvb_recovery_ack_v1(id,operation,stage,success);
+    if(stage==2&&success&&!result)++recovery_controller_ack;
+    if(stage==3&&success&&!result&&!recovery_final_ack_refused)++recovery_complete_ack;
+    return result;
+  }
+#endif
+  (void)id;
   check(operation[0]==2&&success<=1,"only exact recovery is acknowledged");
   if(!success){++recovery_rejected;return 0;}
   if(stage==3&&recovery_before_final_ack)recovery_before_final_ack();
@@ -389,16 +463,25 @@ uint32_t __wrap_lvb_recovery_ack_v1(uint64_t,const uint8_t* operation,uint32_t s
   }else if(stage==3)++recovery_complete_ack;else check(false,"known recovery acknowledgement");
   return 0;
 }
-uint32_t __wrap_ap23_finish_callback(uint64_t) { return 0; }
+uint32_t __wrap_ap23_finish_callback(uint64_t id) {
+#ifdef LVB_RECOVERY_INTEGRATION
+  if(real_recovery)return __real_ap23_finish_callback(id);
+#endif
+  (void)id;return 0;
+}
 uint32_t __wrap_ap23_process_outputs(uint64_t id, uint32_t n, uint32_t mode, const ap8_event_t *e,
-                             uint32_t count, const ap10_context_t *, uint64_t,
+                             uint32_t count, const ap10_context_t *context, uint64_t gain,
                              const float *l, const float *r, float *const *outputs, uint32_t channels,
                              uint64_t *silence, ap7_delivery_t *delivery, uint64_t entered_ns) {
+#ifdef LVB_RECOVERY_INTEGRATION
+  if(real_recovery){++process_calls;return __real_ap23_process_outputs(id,n,mode,e,count,context,gain,l,r,outputs,channels,silence,delivery,entered_ns);}
+#endif
+  (void)context;(void)gain;
   check(entered_ns != 0, "native callback entry is propagated");
   check(mode<=kOffline && channels==2,"actual callback mode and planar ABI");
   actual_mode=mode;++process_calls;
   if(processing_state_fixture&&hold_process)held_call(process_entered,process_released);
-  if((!recovery_fixture||id==1)&&IF1::valid(terminal_record))return IF2::contained;
+  if((!recovery_fixture||id==recovery_target_handle)&&IF1::valid(terminal_record))return IF2::contained;
   if(process_refusal)return process_refusal;
   check(n<=configured_maximum,"callback length is within prepared maximum");
   for (uint32_t i = 0; i < count; ++i) {
@@ -410,7 +493,7 @@ uint32_t __wrap_ap23_process_outputs(uint64_t id, uint32_t n, uint32_t mode, con
       if (e[i].id == 0) dsp = e[i].value;
     }
   }
-  if(recovery_fixture&&id==1&&n)recovery_result_pending=true;
+  if(recovery_fixture&&id==recovery_target_handle&&n)recovery_result_pending=true;
   *silence = 0;
   *delivery = {};
   if(n){
@@ -422,8 +505,11 @@ uint32_t __wrap_ap23_process_outputs(uint64_t id, uint32_t n, uint32_t mode, con
   return 0;
 }
 uint32_t __wrap_ap10_take_results(uint64_t id, ap10_results_t *p) {
+#ifdef LVB_RECOVERY_INTEGRATION
+  if(real_recovery){++recovery_result_drains;return __real_ap10_take_results(id,p);}
+#endif
   *p = ap10_results_t{};
-  if(recovery_fixture&&id==1){
+  if(recovery_fixture&&id==recovery_target_handle){
     ++recovery_result_drains;
     if(recovery_result_pending){
       recovery_result_pending=false;
@@ -1349,6 +1435,122 @@ void delayed_instance_restart_regression(bool stop_during_restart=false,bool fin
   check(controller->terminate()==kResultOk&&processor.terminate()==kResultOk&&host.timers.empty(),"restarted instance normal retirement");
   controller->release();recovery_fixture=false;recovery_final_ack_refused=false;terminal_record={};generation=7;
 }
+#ifdef LVB_RECOVERY_INTEGRATION
+// Same SDK/controller fixture, now bound to a real Rust transport worker. Only
+// admission, opaque readback and GUI metadata are supplied by the fixture.
+void real_restart_regression(unsigned outcome){
+  real_recovery=true;real_final_allowed=false;recovery_fixture=true;
+  recovery_next_handle=1;recovery_begun=recovery_controller_ack=recovery_complete_ack=0;
+  recovery_final_ack_refused=outcome==1;terminal_record={};generation=7;
+  events.clear();commands.clear();recovery_stages.clear();
+  Host host;AP2::Processor processor,sibling;auto* controller=new AP8::Controller;
+  host.processor=&processor;host.controller=controller;
+  auto* context=static_cast<IHostApplication*>(&host);
+  check(processor.initialize(context)==kResultOk&&controller->initialize(context)==kResultOk,"real restart initialize");
+  check(controller->setComponentHandler(static_cast<IComponentHandler*>(&host))==kResultOk,"real restart handler");
+  check(processor.connect(controller)==kResultOk&&controller->connect(&processor)==kResultOk,"real restart connect");
+  ProcessSetup setup{kRealtime,kSample32,128,48000};
+  check(processor.activateBus(kEvent,kOutput,0,true)==kResultOk,"real returned events active");
+  check(processor.setupProcessing(setup)==kResultOk&&processor.setActive(true)==kResultOk&&processor.setProcessing(true)==kResultOk,"real initial START");
+  check(sibling.initialize(context)==kResultOk&&sibling.setupProcessing(setup)==kResultOk&&sibling.setActive(true)==kResultOk&&sibling.setProcessing(true)==kResultOk,"real sibling START");
+  std::array<float,128> left{},right{},input{};
+  float* in[]={input.data(),input.data()};float* out[]={left.data(),right.data()};
+  AudioBusBuffers inputs{},outputs{};inputs.numChannels=outputs.numChannels=2;
+  inputs.channelBuffers32=in;outputs.channelBuffers32=out;
+  EventList notes;ParameterChanges points;
+  ProcessData data{};data.processMode=kRealtime;data.symbolicSampleSize=kSample32;
+  data.numSamples=128;data.numInputs=data.numOutputs=1;data.inputs=&inputs;data.outputs=&outputs;
+  data.outputEvents=&notes;data.outputParameterChanges=&points;
+  auto auditBegin=reinterpret_cast<void(*)()>(dlsym(RTLD_DEFAULT,"ap3_audit_begin"));
+  auto auditEnd=reinterpret_cast<uint64_t(*)()>(dlsym(RTLD_DEFAULT,"ap3_audit_end"));
+  check(auditBegin&&auditEnd,"callback effect audit must be preloaded");
+  auto callback=[&](AP2::Processor& target,bool blocked,int releases=0){
+    left.fill(9);right.fill(9);outputs.silenceFlags=0;notes.clear();points.clearQueue();
+    const auto calls=process_calls,drains=recovery_result_drains;
+    if(blocked)auditBegin();
+    const auto result=target.process(data);
+    const auto effects=blocked?auditEnd():0;
+    check(result==kResultOk,"real callback succeeds");
+    if(blocked){
+      check(effects==0,"fenced SDK callback has no allocation, locks or IPC");
+      check(process_calls==calls&&recovery_result_drains==drains,"fence neither calls nor drains replacement");
+      check(std::all_of(left.begin(),left.end(),[](float x){return x==0;})&&std::all_of(right.begin(),right.end(),[](float x){return x==0;})&&outputs.silenceFlags==3,"real uncommitted replacement stays silent");
+      check(notes.getEventCount()==releases&&points.getParameterCount()==0,"no replacement events or automation before commit");
+      if(releases){Event note{};check(notes.getEvent(0,note)==kResultOk&&note.type==Event::kNoteOffEvent,"local note release survives fence");}
+      return false;
+    }
+    return std::all_of(left.begin(),left.end(),[](float x){return x==.25f;})&&std::all_of(right.begin(),right.end(),[](float x){return x==-.5f;})&&outputs.silenceFlags==0;
+  };
+  auto warm=[&](AP2::Processor& target){
+    for(unsigned i=0;i<100;++i){
+      if(callback(target,false))return;
+      std::this_thread::sleep_for(std::chrono::milliseconds(3));
+    }
+    check(false,"real transport produces audible output within bounded warmup");
+  };
+  warm(sibling);warm(processor);
+  check(notes.getEventCount()>0&&points.getParameterCount()==1,"real peer results cross wire and SDK delivery");
+  terminal_record.words[0]=1;terminal_record.words[1]=123;terminal_record.words[2]=456;
+  terminal_record.words[3]=generation;terminal_record.words[4]=2;terminal_record.words[5]=104687;
+  terminal_record.words[6]=512;terminal_record.words[7]=9;terminal_record.words[14]=1;
+  terminal_record.words[15]=5;terminal_record.words[18]=3;terminal_record.words[19]=4;
+  host.tick();recovery_stages.push_back(1);host.tick();
+  check(recovery_begun==1,"real replacement installed behind SDK fence");
+  callback(processor,true,1);
+  host.tick(); // real stage 2 readback
+  ap11_gui_message_t begin{};begin.kind=AP11::RefreshBegin;begin.count=1;begin.revision=revision++;
+  ap11_gui_message_t parameter{};parameter.kind=AP11::Parameter;parameter.id=0;parameter.revision=begin.revision;parameter.value=.375;parameter.flags=1;
+  auto end=begin;end.kind=AP11::RefreshEnd;
+  events.push_back(begin);events.push_back(parameter);events.push_back(end);
+  ap11_gui_message_t midi{};midi.kind=AP11::MidiMapBegin;midi.revision=revision++;events.push_back(midi);
+  midi.kind=AP11::MidiMapEnd;events.push_back(midi);
+  const auto readyDeadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
+  while(lvb_test_recovery_phase(recovery_target_handle)!=3){
+    check(std::chrono::steady_clock::now()<readyDeadline,"replacement reaches real acknowledged START");
+    host.tick();callback(processor,true);callback(sibling,false);
+    std::this_thread::sleep_for(std::chrono::milliseconds(3));
+  }
+  check(recovery_controller_ack==1&&lvb_test_recovery_started(recovery_target_handle)==1,"actual worker/peer START acknowledgement precedes withheld final stage");
+  for(unsigned i=0;i<16;++i){callback(processor,true);check(callback(sibling,false),"sibling keeps playing during withheld commit");std::this_thread::sleep_for(std::chrono::milliseconds(3));}
+  if(outcome==2){
+    const auto started=std::chrono::steady_clock::now();
+    const auto deadline=started+std::chrono::seconds(7);
+    // No owner ticks: exercise the worker's actual five-second deadline.
+    while(lvb_test_recovery_phase(recovery_target_handle)!=4){
+      check(std::chrono::steady_clock::now()<deadline,"real final timeout is bounded");
+      callback(processor,true);check(callback(sibling,false),"sibling plays through real timeout");
+      std::this_thread::sleep_for(std::chrono::milliseconds(3));
+    }
+    check(std::chrono::steady_clock::now()-started>std::chrono::seconds(4),"timeout is real elapsed wait, not injected expiry");
+    const uint8_t operation[16]={2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2};
+    check(__real_lvb_recovery_ack_v1(recovery_target_handle,operation,3,1)!=0,"late final ack cannot revive timed-out replacement");
+  }
+  real_final_allowed=true;host.tick();
+  if(outcome==0){
+    check(recovery_complete_ack==1,"real exact final acknowledgement commits");warm(processor);
+    check(notes.getEventCount()>0&&points.getParameterCount()==1,"committed real replacement returns events and automation");
+  }else{
+    check(recovery_complete_ack==0,"refusal or timeout never commits");
+    for(unsigned i=0;i<16;++i){callback(processor,true);check(callback(sibling,false),"sibling survives failed restart");std::this_thread::sleep_for(std::chrono::milliseconds(3));}
+  }
+  check(sibling.setProcessing(false)==kResultOk&&sibling.setActive(false)==kResultOk&&sibling.terminate()==kResultOk,"real sibling retires normally");
+  const auto cleanupDeadline=std::chrono::steady_clock::now()+std::chrono::seconds(2);
+  while(lvb_test_recovery_busy(recovery_target_handle)){
+    check(std::chrono::steady_clock::now()<cleanupDeadline,"recovery worker settles before retirement");
+    std::this_thread::sleep_for(std::chrono::milliseconds(3));
+  }
+  processor.setProcessing(false);processor.setActive(false);
+  controller->disconnect(&processor);processor.disconnect(controller);
+  check(controller->terminate()==kResultOk,"controller retires");
+  // The socket fixture has no supervisor terminal custody record. Failed
+  // transport close must report failure, but must release its registry slot.
+  const auto retired=processor.terminate();
+  check(outcome==0?retired==kResultOk:retired!=kResultOk,"truthful transport retirement result");
+  check(lvb_test_recovery_present(recovery_target_handle)==0,"replacement registry slot released");
+  controller->release();recovery_fixture=false;real_recovery=false;terminal_record={};
+}
+#endif
+
 int main(int argc,char** argv) {
   {
     Host host;LVBHost::Name name;
@@ -1362,6 +1564,9 @@ int main(int argc,char** argv) {
     name.capture(nullptr);check(name.length==0,"absent host is unavailable");
   }
   if(argc>1){
+#ifdef LVB_RECOVERY_INTEGRATION
+    if(!std::strcmp(argv[1],"--restart-real")){for(unsigned outcome=0;outcome<3;++outcome)real_restart_regression(outcome);return 0;}
+#endif
     if(!std::strcmp(argv[1],"--restart")){recovery_frame_timer_regression();delayed_instance_restart_regression();delayed_instance_restart_regression(true);delayed_instance_restart_regression(false,true);delayed_instance_restart_regression(false,false,true);}
     else if(!std::strcmp(argv[1],"--state-migration")){historical_controller_regression();processing_state_restore_regression();failed_restore_retirement_regression();}
     else if(!std::strcmp(argv[1],"--curve-refusal"))curve_refusal_regression();

@@ -5,6 +5,8 @@ edition = "2021"
 [features]
 registered = []
 rpi0 = []
+# Local SDK/transport regression only; never combine with a product build.
+recovery-integration = []
 [lib]
 crate-type = ["staticlib", "rlib"]
 [dependencies]
@@ -13,5 +15,9 @@ ap1-native-client = { path = "../../native-audio-client" }
 sha2 = "=0.10.9"
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = "=0.2.189"
+[[example]]
+name = "recovery-integration-smoke"
+required-features = ["recovery-integration"]
+
 [profile.release]
 panic = "unwind"

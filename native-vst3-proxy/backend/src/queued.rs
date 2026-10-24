@@ -8056,3 +8056,7 @@ mod long_block_tests;
 #[cfg(test)]
 #[path = "lc1_tests.rs"]
 mod lc1_tests;
+
+#[cfg(feature = "recovery-integration")]
+#[path = "recovery_integration.rs"]
+mod recovery_integration;
