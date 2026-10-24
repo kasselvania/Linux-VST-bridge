@@ -280,23 +280,16 @@ fn entry(instance: &str) -> Result<Arc<Entry>> {
         .ok_or_else(|| "The original DAW instance is not connected".into())
 }
 fn admissible(m: &Manager, entry: &Entry, state: &State, command: &wire::Command) -> Result<()> {
+    require_connected(entry, state)?;
+    require_restart(m, &entry.original, state, command, None)
+}
+fn require_connected(entry: &Entry, state: &State) -> Result<()> {
     require(
         state.connected
             && state.seen.elapsed() < Duration::from_secs(2)
             && transport_storage::consumer_current(&entry.consumer)?,
         "The original DAW instance is no longer connected",
-    )?;
-    require_restart_status(&state.status, command)?;
-    require(
-        state.pending.as_ref().is_none_or(|pending| {
-            !pending.uncertain
-                && state.status.operation == pending.command.operation
-                && matches!(state.status.phase, wire::COMPLETE | wire::REFUSED)
-        }),
-        "This instance has an unfinished or unconfirmed restart request",
-    )?;
-    require_settled_custody(m, &entry.original, &state.status)?;
-    retired(m, &hex(&state.status.session))
+    )
 }
 pub(super) fn validate(m: &Manager, action: &ui::Action) -> Result<()> {
     let ui::Action::PluginRestart { instance, .. } = action else {
@@ -318,16 +311,8 @@ pub(super) fn execute(
     let command = command(action, wire::decode_id(operation)?)?;
     {
         let mut state = entry.state.lock().map_err(|_| "proxy_state_poisoned")?;
-        admissible(m, &entry, &state, &command)?;
-        retain_restart(m, instance, &command)?;
-        state.pending = Some(Pending {
-            command,
-            sent: false,
-            launch_claimed: false,
-            uncertain: false,
-            accepted: Instant::now(),
-        });
-        changed();
+        require_connected(&entry, &state)?;
+        begin_restart(m, instance, &mut state, command)?;
     }
     let deadline = Instant::now() + Duration::from_secs(wire::RECOVERY_SECONDS);
     loop {
@@ -712,36 +697,67 @@ mod tests {
         );
         receipt(&f, [2; 16], &entry.original, "confirmed");
         assert!(unresolved_journal(&f.m, &entry.original, &returning),
-            "a settled proxy-selected receipt cannot repair missing legacy custody");
+            "a settled receipt cannot clear the live proxy's uncertain phase");
         assert!(
             state.pending.as_ref().unwrap().uncertain,
             "a reconnect cannot erase the current owner's uncertain delivery"
         );
     }
     #[test]
-    fn legacy_projection_and_admission_name_missing_custody_without_progress() {
-        let f = Fixture::new();
-        let entry = entry(&f);
-        let mut state = observation(status());
-        for settled in [false, true] {
-            if settled {
-                state.status.operation = [3;16];
-                receipt(&f, [3;16], &entry.original, "confirmed");
+    fn retained_legacy_projection_and_admission_preserve_the_latest_live_snapshot() {
+        for history in ["never", "refused", "confirmed", "unconfirmed"] {
+            let f = registered_fixture();
+            let original = retain(&f, None);
+            let mut entry = entry(&f);
+            entry.original = hex(&original);
+            let mut state = observation(wire::Status { session: original, ..status() });
+            private_dir(&f.m.root.join("operator")).unwrap();
+            if history != "never" {
+                receipt(&f, [3;16], &entry.original, history);
+                let path = f.m.root.join("operator").join(hex(&[3;16])).join("result.json");
+                if history == "refused" {
+                    atomic_json(&path, &serde_json::json!({"schema":1,"operation":hex(&[3;16]),
+                        "state":"refused","reason":"Operator validation readback: snapshot changed"})).unwrap();
+                } else if history == "confirmed" {
+                    state.status.session = retain(&f, Some((&entry.original, &hex(&[3;16]))));
+                    state.status.generation = 2;
+                    state.status.operation = [3;16];
+                    state.status.phase = wire::COMPLETE;
+                    let mut result: serde_json::Value = read_json(&path).unwrap();
+                    result["result"]["session"] = hex(&state.status.session).into();
+                    atomic_json(&path, &result).unwrap();
+                }
             }
-            state.status.flags &= !wire::FAILED;
+            // Authenticate the original consumer and any owner-bound replacement
+            // through real retained SessionSpecs, then project its newer snapshot.
+            let peer = peer();
+            assert_eq!(retained(&f.m, &entry.original, &peer).unwrap().0, f.r);
+            assert_eq!(retained_current(&f.m, &entry.original, &state.status, &peer).unwrap().0, f.r);
+            state.status.revision = 9;
+            state.status.digest = [8;32];
+            state.status.flags = wire::SNAPSHOT | wire::OWNER_TIMER;
             let healthy = observed(&entry, &state, &f.m);
-            assert_eq!(healthy.phase, ui::RecoveryPhase::Connected);
+            assert_eq!(healthy.phase, if history == "confirmed" {
+                ui::RecoveryPhase::Restored
+            } else { ui::RecoveryPhase::Connected });
             assert!(healthy.restart.is_none());
-            state.status.flags |= wire::FAILED;
+            assert!(state.pending.is_none());
+            assert!(!binding_path(&f.m, &entry.original).unwrap().exists());
+            state.status.flags |= wire::FAILED | wire::RETIRED;
+            let retirement = report(&f.m, &hex(&state.status.session)).with_extension("ownership.json");
+            private_dir(retirement.parent().unwrap()).unwrap();
+            atomic_json(&retirement, &serde_json::json!({"session":hex(&state.status.session),
+                "cleanup_confirmed":true,"transport_retired":true})).unwrap();
             let failed = observed(&entry, &state, &f.m);
             assert_eq!(failed.phase, ui::RecoveryPhase::Failed);
-            let reason = failed.restart.unwrap().disabled_reason.unwrap();
-            assert!(reason.contains("durable restart custody is missing or unreadable"));
-            assert!(reason.contains("Send a problem report"));
-            assert!(reason.contains("may lose later changes"));
-            assert!(failed.detail.contains(&reason));
-            assert_eq!(admissible(&f.m, &entry, &state, &pending(&state.status).command)
-                .unwrap_err().to_string(), reason);
+            let offer = failed.restart.unwrap();
+            assert_eq!(offer.disabled_reason.is_some(), history == "unconfirmed");
+            let command = command(&offer.action, [7;16]).unwrap();
+            assert!(command.matches(&state.status));
+            assert_eq!(admissible(&f.m, &entry, &state, &command).is_ok(), history != "unconfirmed");
+            assert_eq!(offer.action, ui::Action::PluginRestart { instance:entry.original.clone(),
+                generation:state.status.generation, snapshot:ui::RecoverySnapshot {
+                    revision:9, sha256:hex(&[8;32]) }});
             assert!(state.pending.is_none());
             assert!(!binding_path(&f.m, &entry.original).unwrap().exists());
         }
