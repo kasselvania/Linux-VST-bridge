@@ -1,7 +1,7 @@
 //! The existing signed ELF intake, retained entirely on the installer worker.
 use super::{Intake, Package};
 use linux_vst_bridge::portable_package::{self, Bundle, Trust};
-use std::{path::PathBuf, process::Command};
+use std::path::PathBuf;
 
 pub(super) struct Installed {
     bundle: Bundle,
@@ -14,11 +14,10 @@ pub(super) fn inspect() -> Result<Installed, String> {
         "Your home directory is unavailable. Open this installer from your desktop session."
             .to_owned()
     })?;
-    let executable = std::env::current_exe().map_err(|error| error.to_string())?;
-    // Bundle keeps the exact opened file and identity through stage; it is not
-    // reopened from a filename after the musician approves installation.
+    // /proc/self/exe opens the running kernel object even if its old name was
+    // replaced. Bundle retains that object throughout staging.
     let bundle = Trust::compiled()
-        .and_then(|trust| Bundle::open(&executable, trust))
+        .and_then(Bundle::open_running)
         .map_err(|error| error.to_string())?;
     Ok(Installed {
         bundle,
@@ -57,23 +56,12 @@ impl Intake for Installed {
             .frontend
             .as_ref()
             .ok_or("Application files have not been staged.")?;
-        // Revalidate the exact signed staged frontend after any time the user
-        // spent on the completion screen. Never substitute the selected route.
-        let verified = portable_package::input_executable(
+        portable_package::retained_input_executable(
             frontend,
             &self.home,
             "linux-audio-compatibility-manager",
         )
-        .map_err(|error| error.to_string())?;
-        if verified.as_ref() != Some(frontend) {
-            return Err(
-                "The staged Setup application changed. Reopen the installer to verify its files."
-                    .into(),
-            );
-        }
-        Command::new(frontend)
-            .spawn()
-            .map(|_| ())
-            .map_err(|error| error.to_string())
+        .and_then(|verified| verified.spawn())
+        .map_err(|error| error.to_string())
     }
 }
