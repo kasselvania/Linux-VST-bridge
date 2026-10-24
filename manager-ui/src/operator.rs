@@ -81,6 +81,9 @@ fn pulse_system_changed(pulse: &crate::model::Pulse, system: &System) -> bool {
 
 pub struct Operator {
     snapshot: Option<Snapshot>,
+    activity: Option<Activity>,
+    activity_loading: bool,
+    activity_error: Option<String>,
     overview: Option<CurrentOverview>,
     readiness: Option<(ReadinessAssessment, Instant, String)>,
     product_detail: Option<CurrentProductDetail>,
@@ -174,6 +177,7 @@ impl Operator {
         client::send(Query::Overview, sender.clone(), ctx.clone(), window_wake.clone());
         Self {
             snapshot: None,
+            activity: None, activity_loading: false, activity_error: None,
             overview: None,
             readiness: None,
             product_detail: None,
@@ -218,6 +222,7 @@ impl Operator {
         let (sender, receiver) = mpsc::channel();
         Self {
             snapshot: Some(snapshot),
+            activity: None, activity_loading: false, activity_error: None,
             overview: None,
             readiness: None,
             product_detail: None,
@@ -329,6 +334,7 @@ impl Operator {
         if matches!(q, Query::Overview | Query::CurrentOverview | Query::Snapshot) {
             self.pacing.started(Instant::now());
         }
+        if matches!(q, Query::Activity) { self.activity_loading = true; self.activity_error = None; }
         self.pending = true;
         self.origin = Some(origin);
         self.background_poll = origin == RequestOrigin::BackgroundActivity;
@@ -530,6 +536,7 @@ impl Operator {
         } else if self.background_poll {
             RequestOrigin::BackgroundActivity
         } else { RequestOrigin::InitialSnapshot });
+        let activity_loading = std::mem::take(&mut self.activity_loading);
         let was_action = origin == RequestOrigin::UserAction;
         self.pacing.finished(Instant::now());
         self.pending = false;
@@ -615,6 +622,8 @@ impl Operator {
                 self.refresh_after = !r.accepted;
             }
             Reply::Activity(mut a) => {
+                self.activity = Some(a.clone());
+                self.activity_error = None;
                 retain_projected_handoff(self.overview.as_ref().and_then(|overview|
                     overview.current.operation.as_ref()), &mut a.operation);
                 if a.system.capacity_available() {self.cleanup_failure_observed = a.system.cleanup_unconfirmed;}
@@ -714,6 +723,7 @@ impl Operator {
                 }
             }
             Reply::Error(e) => {
+                if activity_loading { self.activity = None; self.activity_error = Some(e.clone()); }
                 if origin == RequestOrigin::ProblemReportSave {
                     if let Some(feedback) = &mut self.feedback { feedback.text = e; }
                     return;
@@ -1371,6 +1381,14 @@ impl Operator {
         widgets::disclosure(ui, &view.technical, chosen);
     }
 
+    fn activity_section(&self) -> screen_model::diagnostics::Section<'_, &Activity> {
+        use screen_model::diagnostics::Section;
+        if self.activity_loading { Section::Loading }
+        else if let Some(error) = &self.activity_error { Section::Failed(error) }
+        else if let Some(activity) = &self.activity { Section::Loaded(activity) }
+        else { Section::NotRequested }
+    }
+
     /// The records and reading the frame and the page are built from.
     /// `product`: the opened plug-in's records over current status.
     /// `controls_pending`: read once at the start of the frame.
@@ -1384,7 +1402,7 @@ impl Operator {
             readiness: self.readiness.as_ref().filter(|_| readiness_visible).map(|(assessment, _, _)| assessment),
             health: self.current_health_system(),
             support: None,
-            activity: None,
+            activity: if self.preview { None } else { Some(self.activity_section()) },
         };
         let attempted = self.window.plugins.focused_product().is_some_and(|key|
             self.product_attempted.as_ref() == Some(key));
@@ -1653,7 +1671,10 @@ impl eframe::App for Operator {
             _ => {}
         }
         if pick { self.queued_import = true; }
-        if refresh { self.explicit_refresh_queued = true; }
+        if refresh {
+            self.explicit_refresh_queued = true;
+            if self.window.page == Page::Activity { self.retry_details(); }
+        }
         if let Some(a) = chosen {
             self.capture_chosen_action(a);
         }
@@ -1684,7 +1705,8 @@ impl eframe::App for Operator {
 impl Operator {
     /// "Try loading details again".
     fn retry_details(&mut self) {
-        if self.window.page == Page::Plugins { self.product_attempted = None; }
+        if self.window.page == Page::Activity { self.activity = None; self.activity_error = None; }
+        else if self.window.page == Page::Plugins { self.product_attempted = None; }
         else {
             self.details_attempted = false;
             self.pacing.details_explicit();
@@ -1712,16 +1734,19 @@ impl Operator {
             self.product_attempted = Some(key.clone());
             return Some((Query::Product(key), RequestOrigin::ProductDetail));
         }
+        if self.window.page == Page::Activity
+            && ((self.activity.is_none() && self.activity_error.is_none())
+                || (now.saturating_duration_since(self.last_poll) > Duration::from_secs(10)
+                    && self.retry_after.is_none_or(|at| now >= at))) {
+            return Some((Query::Activity, RequestOrigin::BackgroundActivity));
+        }
         if self.snapshot.is_none() && !self.details_attempted
-            && !matches!(self.window.page, Page::Home | Page::Setup | Page::Plugins)
+            && !matches!(self.window.page, Page::Home | Page::Setup | Page::Plugins | Page::Activity)
             && (!self.operation_live || self.pacing.details_explicit
                 || self.pacing.passive_due(now, true)) {
             self.details_attempted = true;
             self.pacing.details_explicit = false;
             return Some((Query::Snapshot, RequestOrigin::DetailSnapshot));
-        }
-        if self.window.page == Page::Activity && self.last_poll.elapsed() > Duration::from_secs(10) {
-            return Some((Query::Activity, RequestOrigin::BackgroundActivity));
         }
         if self.last_poll.elapsed() > Duration::from_secs(if self.operation_live { 2 } else { 10 })
             && self.retry_after.is_none_or(|at| now >= at) {
@@ -2919,6 +2944,41 @@ mod tests {
         failure_text as installation_failure_text};
     use crate::screen_model::setup::{application_groups, display_name as setup_display_name,
         replacement_context, replacement_offer};
+    #[test]
+    fn retained_activity_adapter_passes_typed_success_loading_and_failure() {
+        use screen_model::diagnostics::Section;
+        let sample = screen_model::samples::Sample::new(screen_model::samples::Case::new(Page::Activity, "ready"));
+        let mut operator = Operator::preview_sample(&sample);
+        operator.preview = false;
+        operator.window.page = Page::Activity;
+        operator.pending = false;
+        operator.refresh_after = false;
+        operator.explicit_refresh_queued = false;
+        assert!(matches!(operator.next_read(Instant::now()), Some((Query::Activity, _))));
+        operator.activity_loading = true;
+        let (records, reading) = operator.window_inputs(None, false, false);
+        assert!(matches!(records.activity, Some(Section::Loading)));
+        let Screen::Activity(view) = Screen::build(&records, &reading, &operator.window) else { panic!("Activity page") };
+        assert!(view.notice.is_some());
+        let mut fixture = sample.snapshot.clone();
+        let mut activity = screen_model::samples::recovery_fixture(&mut fixture);
+        activity.recent = Observation::Unavailable("recent fixture failure".into());
+        activity.incidents = Observation::Observed(vec![]);
+        operator.handle_reply(Reply::Activity(activity));
+        let (records, reading) = operator.window_inputs(None, false, false);
+        assert!(matches!(records.activity, Some(Section::Loaded(_))));
+        let Screen::Activity(view) = Screen::build(&records, &reading, &operator.window) else { panic!("Activity page") };
+        assert_eq!(view.live.rows.len(), 1);
+        assert_eq!(view.incidents.empty, Some("No incident is retained."));
+        assert!(format!("{view:?}").contains("recent fixture failure"));
+        operator.activity_loading = true;
+        operator.handle_reply(Reply::Error("activity transport failed".into()));
+        let (records, _) = operator.window_inputs(None, false, false);
+        assert!(matches!(records.activity, Some(Section::Failed("activity transport failed"))));
+        operator.retry_details();
+        assert!(matches!(operator.activity_section(), Section::NotRequested));
+    }
+
     // Tests declare the owner result; they never reimplement its history policy.
     fn supplied_setups(snapshot: &mut Snapshot, states: &[(usize, crate::model::SetupDisposition)]) {
         use crate::model::{Observation as O, SetupState, CurrentPresentation, Attention, AttentionTarget, AttentionPurpose, SetupDisposition as D};
@@ -3042,7 +3102,7 @@ mod tests {
     #[test]
     fn try_loading_details_again_starts_the_details_read_while_a_paced_refresh_waits() {
         let mut operator = state_fixture();
-        operator.window.page = Page::Activity;
+        operator.window.page = Page::Diagnostics;
         operator.operation_live = true;
         operator.overview = Some(overview_fixture().into());
         operator.refresh_after = true;

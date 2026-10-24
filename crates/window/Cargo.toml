@@ -36,6 +36,9 @@ lvb-client = { path = "../client", optional = true }
 lvb-model = { path = "../model", optional = true }
 serde_json = "=1.0.150"
 
+[dev-dependencies]
+lvb-client = { path = "../client", features = ["samples"] }
+
 # Preserve the toolkit's own patches at exactly the same private revision.
 [patch.crates-io]
 bitflags = { git = "https://github.com/kasselvania/makepad.git", rev = "a797034e70ec5545dc85a2242bcba84d361e151a" }

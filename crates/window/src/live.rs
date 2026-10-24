@@ -323,6 +323,14 @@ impl Live {
             Event::Heartbeat { cursor } => {
                 if self.observation_cursor.as_ref() == Some(&cursor) {
                     self.observation_seen = Some(Cx::monotonic_now());
+                    // Renew only the exact healthy system already covered by
+                    // the current overview. This never grants action authority.
+                    if self.fresh && self.status_notice.is_none()
+                        && self.status.as_ref().zip(self.overview.as_ref())
+                            .is_some_and(|(status, overview)| status.system == overview.current.system)
+                    {
+                        self.health_observed = self.observation_seen;
+                    }
                 }
                 return;
             }
@@ -1061,7 +1069,7 @@ fn bind_nodes(nodes: &mut [Node], renames: &BTreeMap<String, String>, limitation
 }
 
 #[cfg(all(test, feature = "samples"))]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use vm::{model::{AvailableAction, Receipt}, samples::{Case, Sample}, Local};
 
@@ -1114,12 +1122,57 @@ mod tests {
         live.observe(lvb_client::observation::Event::Heartbeat {
             cursor:live.observation_cursor.clone().unwrap() });
     }
-    fn ready() -> Live {
+    pub(crate) fn ready() -> Live {
         let mut live = observing("test posture".into(), false);
         assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
         assert!(live.take_query().is_none());
         live.receive(overview(snapshot(), "generation-a"));
         live
+    }
+    pub(crate) fn age_health(live: &mut Live) {
+        live.health_observed = Some(Cx::monotonic_now() - 60.0);
+    }
+    pub(crate) fn complete_current(live: &mut Live) {
+        live.receive(overview(snapshot(), "generation-a"));
+    }
+    pub(crate) fn expire_observation(live: &mut Live) {
+        live.observation_seen = Some(Cx::monotonic_now() - 3.001);
+    }
+    pub(crate) fn observation(live: &Live) -> lvb_client::observation::Event {
+        lvb_client::observation::Event::State(Box::new(lvb_client::observation::State {
+            cursor: live.observation_cursor.clone().unwrap(), records_revision: Some(1),
+            activity: vm::model::Observation::Observed(status(&snapshot())),
+        }))
+    }
+    #[test]
+    fn quiet_post_staging_heartbeat_renews_only_covered_idle_reading() {
+        let mut live = ready();
+        // Deterministic staging boundary between the previous reading and the
+        // next heartbeat. No State or explicit refresh follows staging.
+        live.health_observed = Some(Cx::monotonic_now() - 20.0);
+        let staged = Cx::monotonic_now() - 1.0;
+        assert!(live.updater_reading().unwrap().1 < staged);
+        let revision = live.render_revision();
+        let authority = live.authority_generation;
+        heartbeat(&mut live);
+        let (in_use, observed) = live.updater_reading().unwrap();
+        assert!(!in_use && observed > staged);
+        assert_eq!(live.render_revision(), revision);
+        assert_eq!(live.authority_generation, authority);
+        assert!(live.take_query().is_none());
+        for invalid in ["failed", "uncovered", "different-system", "wrong-cursor"] {
+            let mut live = ready();
+            live.health_observed = Some(-20.0);
+            let mut cursor = live.observation_cursor.clone().unwrap();
+            match invalid {
+                "failed" => live.status_notice = Some("unavailable".into()),
+                "uncovered" => { live.fresh = false; live.observation_records = Some(("service-a".into(), None)); },
+                "different-system" => live.status.as_mut().unwrap().system.dsp += 1,
+                _ => cursor.revision += 1,
+            }
+            live.observe(lvb_client::observation::Event::Heartbeat { cursor });
+            assert_eq!(live.health_observed, Some(-20.0), "{invalid}");
+        }
     }
     fn activity(s: &Snapshot) -> Reply { Reply::Activity(status(s)) }
     fn ready_support() -> Live {

@@ -4,11 +4,13 @@ pub use lvb_model::contract::subscription::{Cursor, Event, State, STALE_AFTER};
 use lvb_model::contract::subscription::Subscription;
 use std::{path::PathBuf, sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}}, time::Duration};
 
-struct Shared { pending: Mutex<Option<Event>>, stopped: AtomicBool }
+#[derive(Default)]
+struct Pending { event: Option<Event>, restart: bool }
+struct Shared { pending: Mutex<Pending>, stopped: AtomicBool }
 pub struct Watch { shared: Arc<Shared> }
 impl Watch {
     pub fn start(home: PathBuf, executable: PathBuf, wake: impl Fn() + Send + 'static) -> std::io::Result<Self> {
-        let shared = Arc::new(Shared { pending: Mutex::new(None), stopped: AtomicBool::new(false) });
+        let shared = Arc::new(Shared { pending: Mutex::new(Pending::default()), stopped: AtomicBool::new(false) });
         let receiver = shared.clone();
         std::thread::Builder::new().name("bridge-observation-client".into()).spawn(move || {
             #[cfg(target_os = "linux")]
@@ -18,8 +20,8 @@ impl Watch {
             let publish = |event: Event| {
                 let mut pending = receiver.pending.lock().unwrap_or_else(|p| p.into_inner());
                 // Preserve a not-yet-consumed replacement when its heartbeat arrives.
-                if !matches!((&*pending, &event), (Some(Event::State(_)), Event::Heartbeat { .. })) {
-                    *pending = Some(event);
+                if (!pending.restart || matches!(event, Event::FrontendSuperseded)) && !matches!((&pending.event, &event), (Some(Event::State(_)), Event::Heartbeat { .. })) {
+                    pending.event = Some(event);
                 }
                 drop(pending);
                 wake();
@@ -35,9 +37,12 @@ impl Watch {
                         continue;
                     }
                 }
+                // A local expiry requires a new subscription's initial State.
+                receiver.pending.lock().unwrap_or_else(|p| p.into_inner()).restart = false;
                 let result = Subscription::installed(&home).and_then(|mut stream| {
                     while !receiver.stopped.load(Ordering::Acquire) {
                         let event = stream.receive()?;
+                        if receiver.pending.lock().unwrap_or_else(|p| p.into_inner()).restart { break; }
                         let ended = matches!(event, Event::FrontendSuperseded | Event::Unavailable { .. });
                         let superseded = matches!(event, Event::FrontendSuperseded);
                         publish(event);
@@ -54,8 +59,13 @@ impl Watch {
         })?;
         Ok(Self { shared })
     }
+    pub fn restart(&self) {
+        let mut pending = self.shared.pending.lock().unwrap_or_else(|p| p.into_inner());
+        pending.event = None;
+        pending.restart = true;
+    }
     pub fn take(&self) -> Option<Event> {
-        self.shared.pending.lock().unwrap_or_else(|p| p.into_inner()).take()
+        self.shared.pending.lock().unwrap_or_else(|p| p.into_inner()).event.take()
     }
 }
 impl Drop for Watch {

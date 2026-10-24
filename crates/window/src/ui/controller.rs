@@ -182,9 +182,16 @@ impl Controller {
             #[cfg(feature = "samples")]
             Self::Sample(_) => false,
             #[cfg(feature = "live")]
-            Self::Live { model, .. } => {
+            Self::Live { model, worker } => {
                 let before = model.render_revision();
-                model.tick();
+                // The timer runs before pump in the native event loop. Consume
+                // the worker's latest observation before judging UI-side age.
+                if let Some(event) = worker.observations.as_ref().and_then(lvb_client::observation::Watch::take) {
+                    model.observe(event);
+                }
+                if model.tick() {
+                    if let Some(watch) = &worker.observations { watch.restart(); }
+                }
                 model.render_revision() != before
             },
         }
@@ -425,10 +432,7 @@ impl Worker {
                     }
                     Some(WorkerRequest::Reading(value)) => {
                         #[cfg(target_os = "linux")]
-                        { reading = value.and_then(|(in_use, observed)| {
-                            let age = (makepad_product_ui::makepad_widgets::Cx::monotonic_now() - observed).max(0.0);
-                            std::time::Instant::now().checked_sub(std::time::Duration::from_secs_f64(age)).map(|at| (in_use, at))
-                        }); }
+                        { reading = observed_reading(value); }
                         #[cfg(not(target_os = "linux"))]
                         let _ = value;
                     }
@@ -509,9 +513,141 @@ impl Worker {
     }
 }
 
+#[cfg(all(feature = "live", any(target_os = "linux", test)))]
+fn observed_reading(value: Option<(bool, f64)>) -> Option<(bool, std::time::Instant)> {
+    value.and_then(|(in_use, observed)| {
+        let age = (makepad_product_ui::makepad_widgets::Cx::monotonic_now() - observed).max(0.0);
+        std::time::Instant::now().checked_sub(std::time::Duration::from_secs_f64(age)).map(|at| (in_use, at))
+    })
+}
+
 #[cfg(all(test, feature = "live"))]
 mod tests {
     use super::*;
+    #[cfg(feature = "samples")]
+    #[test]
+    fn quiet_heartbeat_reaches_update_worker_after_staging() {
+        use std::{sync::mpsc, time::{Duration, Instant}};
+        let mut model = crate::live::tests::ready();
+        crate::live::tests::age_health(&mut model);
+        let (requests, incoming) = mpsc::sync_channel(8);
+        let (_outgoing, replies) = mpsc::sync_channel(8);
+        let mut worker = Worker { requests, replies, disconnected: false, reading: None,
+            observations: None, observation_error: None, draw_fixture: None };
+        worker.reading(model.updater_reading());
+        let WorkerRequest::Reading(value) = incoming.recv().unwrap() else { panic!("reading") };
+        let before = observed_reading(value).unwrap();
+        let staged = Instant::now() - Duration::from_secs(30);
+        assert!(before.1 < staged);
+        #[cfg(target_os = "linux")]
+        let mut updates = {
+            use lvb_view_model::{samples::UpdateSample, updates::Phase};
+            let mut updates = lvb_client::updates::Updates::sample(&UpdateSample {
+                linked: false, editing: false, draft: String::new(), link_message: None, notice: None,
+                phase: Phase::Waiting { version: "test".into(), observed: false, long: true },
+            });
+            let panel = updates.panel();
+            assert!(!updates.poll(Some(before)));
+            assert_eq!(updates.panel(), panel, "pre-staging idle cannot hand over");
+            updates
+        };
+        let lvb_client::observation::Event::State(state) = crate::live::tests::observation(&model) else { unreachable!() };
+        model.observe(lvb_client::observation::Event::Heartbeat { cursor: state.cursor });
+        worker.reading(model.updater_reading());
+        let WorkerRequest::Reading(value) = incoming.try_recv().expect("heartbeat must escape reading deduplication") else { panic!("reading") };
+        let after = observed_reading(value).unwrap();
+        assert!(!after.0 && after.1 > staged);
+        #[cfg(target_os = "linux")]
+        {
+            // The sample's missing Setup must reach the real handover attempt
+            // and report launch failure, rather than remaining stuck waiting.
+            let panel = updates.panel();
+            assert!(!updates.poll(Some(after)));
+            assert_ne!(updates.panel(), panel);
+            assert!(format!("{:?}", updates.panel()).contains("could not open"));
+        }
+    }
+
+    // The installed observation adapter on macOS has no Linux frontend
+    // admission probe. Exercise its real socket and timer-before-pump order.
+    #[cfg(all(target_os = "macos", feature = "samples"))]
+    #[test]
+    fn quiet_watch_survives_timer_before_pump_and_reconnects_after_expiry() {
+        use lvb_client::observation::{Event, Watch};
+        use lvb_model::contract::subscription;
+        use std::{io::Read, os::unix::net::UnixListener, sync::mpsc, time::Duration};
+        let home = std::path::PathBuf::from("/tmp").join(format!("bw-{}", std::process::id()));
+        let socket = home.join(".local/share/linux-vst-bridge/managed/runtime/owner.sock");
+        std::fs::create_dir_all(socket.parent().unwrap()).unwrap();
+        let listener = UnixListener::bind(&socket).unwrap();
+        let mut model = crate::live::tests::ready();
+        let mut state = crate::live::tests::observation(&model);
+        if let Event::State(state) = &mut state { state.cursor.service_epoch = "ab".repeat(16); }
+        let cursor = match &state { Event::State(s) => s.cursor.clone(), _ => unreachable!() };
+        model.observe(state.clone());
+        // Finish the current overview caused by the real service identity.
+        assert!(matches!(model.take_query(), Some(lvb_client::Query::CurrentOverview)));
+        crate::live::tests::complete_current(&mut model);
+        let (commands, receive) = mpsc::channel::<bool>();
+        let server = std::thread::spawn(move || {
+            for _ in 0..2 {
+                let (mut peer, _) = listener.accept().unwrap();
+                let mut greeting = [0; 5]; peer.read_exact(&mut greeting).unwrap();
+                assert_eq!(&greeting, subscription::GREETING);
+                subscription::accept(&mut peer).unwrap();
+                subscription::write(&mut peer, &state).unwrap();
+                while receive.recv().unwrap() {
+                    subscription::write(&mut peer, &Event::Heartbeat { cursor: cursor.clone() }).unwrap();
+                }
+            }
+        });
+        let (wake, awakened) = mpsc::channel();
+        let watch = Watch::start(home.clone(), "unused".into(), move || { let _ = wake.send(()); }).unwrap();
+        awakened.recv_timeout(Duration::from_secs(5)).unwrap();
+        // Consume initial State, then delay only the UI's consumed timestamp.
+        model.observe(watch.take().unwrap());
+        crate::live::tests::expire_observation(&mut model);
+        commands.send(true).unwrap();
+        awakened.recv_timeout(Duration::from_secs(5)).unwrap();
+        let (requests, _incoming) = mpsc::sync_channel(16);
+        let (_outgoing, replies) = mpsc::sync_channel(16);
+        let mut controller = Controller::Live { model: Box::new(model), worker: Worker {
+            requests, replies, disconnected: false, reading: None, observations: Some(watch), observation_error: None,
+            #[cfg(feature = "samples")] draw_fixture: None,
+        }};
+        // This is App's production order: timer first, pump second.
+        assert!(!controller.tick()); controller.pump();
+        let Controller::Live { model, .. } = &mut controller else { unreachable!() };
+        assert!(!model.tick(), "queued healthy heartbeat must precede expiry");
+        crate::live::tests::expire_observation(model);
+        assert!(controller.tick());
+        // A heartbeat after local expiry cannot restore action authority.
+        commands.send(true).unwrap();
+        commands.send(false).unwrap();
+        // restart() causes a fresh socket and an actual initial State, without
+        // any semantic service change or a manually injected replacement.
+        let mut replaced = false;
+        for _ in 0..4 {
+            awakened.recv_timeout(Duration::from_secs(5)).unwrap();
+            let Controller::Live { worker, .. } = &mut controller else { unreachable!() };
+            if let Some(event) = worker.observations.as_ref().unwrap().take() {
+                assert!(matches!(event, Event::State(_)));
+                let Controller::Live { model, .. } = &mut controller else { unreachable!() };
+                model.observe(event);
+                assert!(model.updater_reading().is_none());
+                assert!(matches!(model.take_query(), Some(lvb_client::Query::CurrentOverview)));
+                crate::live::tests::complete_current(model);
+                assert!(model.updater_reading().is_some());
+                replaced = true;
+                break;
+            }
+        }
+        assert!(replaced, "restart must deliver a replacement State");
+        commands.send(false).unwrap();
+        server.join().unwrap();
+        drop(controller);
+        std::fs::remove_dir_all(home).unwrap();
+    }
     #[test]
     fn chooser_return_rechecks_selection_before_any_update_work() {
         use std::sync::{atomic::{AtomicBool, Ordering}, mpsc, Arc};
