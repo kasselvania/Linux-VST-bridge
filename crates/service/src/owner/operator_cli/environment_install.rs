@@ -629,16 +629,24 @@ mod tests {
         let history = fs::read(onboarding::directory(&f.m,&original.id).unwrap().join("record.json")).unwrap();
         let registry = fs::read(f.m.root.join("registry.json")).unwrap();
         let bytes = fs::read(&installer.artifact.path).unwrap();
+        let replace_fixture_bytes = |bytes: &[u8]| {
+            // Imported files are sealed read-only. Deliberately corrupt this
+            // disposable fixture, then restore its mode before admission.
+            let mode = fs::metadata(&installer.artifact.path).unwrap().permissions();
+            fs::set_permissions(&installer.artifact.path,fs::Permissions::from_mode(0o600)).unwrap();
+            fs::write(&installer.artifact.path,bytes).unwrap();
+            fs::set_permissions(&installer.artifact.path,mode).unwrap();
+        };
         for unknown in [true,false] {
             let selected = if unknown {"ff".repeat(32)} else {installer.id.clone()};
-            if !unknown {fs::write(&installer.artifact.path,b"changed imported installer").unwrap();}
+            if !unknown {replace_fixture_bytes(b"changed imported installer");}
             let op = job(&f.m,&original.id,&selected);
             assert!(reserve_with(&f.m,&original.id,&selected,&op,||Ok(true),|_|Ok(false)).is_err());
             assert!(!job_dir(&f.m,&op).unwrap().join("installation.json").exists());
             assert_eq!(fs::read(original.environment.root.join("environment.json")).unwrap(),environment_before);
             assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(),registry);
         }
-        fs::write(&installer.artifact.path,bytes).unwrap();
+        replace_fixture_bytes(&bytes);
         let before = preconditions::observe(&f.m,&offered.action).unwrap().unwrap();
         let op = job(&f.m,&original.id,&installer.id);
         let bound = reserve_with(&f.m,&original.id,&installer.id,&op,||Ok(true),|_|Ok(false)).unwrap();
