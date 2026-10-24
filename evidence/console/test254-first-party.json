@@ -1,0 +1,33 @@
+{
+  "source": "09ddb5a216544f384f1163cca00cf01251ae3f0a",
+  "platform": "SteamOS Deck",
+  "daw": "REAPER 7.82",
+  "original_failure_records_preserved": 4,
+  "recalled_level": 0.25,
+  "recovery": {
+    "same_daw_process": true,
+    "controller_confirmed": true,
+    "replacement_generation": 2,
+    "final_observed_seconds": 10.0,
+    "blocks_100ms": 100,
+    "silent_blocks": 0,
+    "peak_s16": 2048,
+    "rms_s16": 1448.17844
+  },
+  "fresh_reopen": {
+    "observed_seconds": 19.7,
+    "blocks_100ms": 197,
+    "silent_blocks": 0,
+    "peak_s16": 2048,
+    "rms_s16": 1448.168845,
+    "normal_observer_and_daw_retirement": true
+  },
+  "standalone_level_percent": [25, 75, 80],
+  "repair": {
+    "available_classes": 2,
+    "prefix_inode_before": 10093984,
+    "prefix_inode_after": 10093984,
+    "revision_before": 2,
+    "revision_after": 3
+  }
+}

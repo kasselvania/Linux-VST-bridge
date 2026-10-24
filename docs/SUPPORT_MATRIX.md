@@ -11,6 +11,27 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Test254 / SteamOS Deck / REAPER 7.82 / retained first-party setups,
+**Console update, instance recovery and explicit repair passed** (2026-10-24):
+the signed installer → Open Setup → Update Bridge route recovered the retained
+ended-consumer blockage without manual lease removal or reboot. It preserved all
+four original owner/generation/failure/cleanup records and recorded cleanup
+separately from session success. The project saved during the earlier failure
+reopened at Reference Level .25 and produced the reference signal. After a normal
+save, an exact first-party Windows-host fault left the same DAW alive; Console's
+confirmed Restart created a replacement instance and restored Level .25 and audio.
+The final 10 s had no silent 100 ms blocks. Save, full exit and fresh-process
+reopen retained .25, with no silent blocks over a further 19.7 s. These observations
+measure signal return, not callback deadlines or automatic recovery latency.
+Standalone Editor Effect accepted pointer input (25% → 75%) and keyboard input
+(75% → 80%), then closed through Console. Explicit installer repair returned both
+Editor classes to available, retained the prefix inode and advanced setup revision
+2 → 3. Observed refresh states no longer presented normal renewal as read failure.
+[Measurements](../evidence/console/test254-first-party.json).
+This is a supplementary SteamOS/REAPER result; the agreed SteamOS/Bitwig,
+CachyOS/REAPER, commercial, presets/sample-location and physical-touch journeys
+remain required for Console acceptance.
+
 Test225 / CachyOS / REAPER 7.82 / runtime r7 / host CPython 3.14.8,
 **source-generation update and exact restore passed**
 ([PR 484](https://github.com/kasselvania/Linux-VST-bridge/pull/484), 2026-10-19):
