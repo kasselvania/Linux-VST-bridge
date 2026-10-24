@@ -132,7 +132,10 @@ public:
         std::strcmp(name, Steinberg::Vst::ViewType::kEditor))
       return nullptr;
     try {
-      if (terminal_failed_) return new AP2::RecoveryView(this,status_,terminal_.words[7],&saving_line_);
+      if (terminal_failed_) return new AP2::RecoveryView(this,status_,terminal_.words[7],&saving_line_,
+          [](Steinberg::Vst::IEditController *controller, Steinberg::Linux::IRunLoop *loop) {
+            static_cast<Controller *>(controller)->panelLoop(loop);
+          });
       if (session_refused_) return new AP2::RecoveryView(this,status_,AP2::RecoveryView::NotLoaded{},&saving_line_);
       auto token = editor_.allocate();
       return token ? new AP11::VendorPanel(this, *this, token) : nullptr;
@@ -222,6 +225,15 @@ public:
       if (result == kNotInitialized) return kResultOk;
       return result == kResultOk ? request() : result;
     }
+    if (!std::strcmp(id, "LVB.confirmed_save")) {
+      int64 revision=0, uncaptured=0;
+      if (m->getAttributes()->getInt("revision",revision)!=kResultOk || revision<1 ||
+          m->getAttributes()->getInt("uncaptured",uncaptured)!=kResultOk || (uncaptured!=0 && uncaptured!=1))
+        return kResultFalse;
+      saving_line_ = uncaptured ? "Last confirmed state supplied; later edits may be lost."
+                               : "Last confirmed state supplied for this save.";
+      return kResultOk;
+    }
     if (!std::strcmp(id, "AP10.state_held")) {
       int64 bytes = 0;
       if (m->getAttributes()->getInt("bytes", bytes) != kResultOk || bytes < -1)
@@ -251,7 +263,35 @@ public:
       if (pending_close_.native_view) {pending_close_={};release();}
       finishGestures();return kResultOk;
     }
-    if (terminal_failed_) return kResultFalse;
+    if (!std::strncmp(id,"LVB.recovery_",13)) {
+      int64 generation=0;
+      if(m->getAttributes()->getInt("generation",generation)!=kResultOk || generation<1)return kResultFalse;
+      if(!std::strcmp(id,"LVB.recovery_state")) {
+        const void* data=nullptr;uint32 length=0;
+        if(!terminal_failed_ || uint64_t(generation)!=generation_+1 ||
+            m->getAttributes()->getBinary("state",data,length)!=kResultOk || !data ||
+            length>LVBState::payloadLimit+LVBState::overhead)return kResultFalse;
+        try {
+          const auto* bytes=static_cast<const uint8_t*>(data);
+          if(!apply({bytes,bytes+length}))return kResultFalse;
+        }catch(...){return kResultFalse;}
+        recovery_sync_=true;recovery_refresh_done_=false;recovery_generation_=uint64_t(generation);
+        status_="Restoring the confirmed state and reconnecting to the DAW";return kResultOk;
+      }
+      if(!std::strcmp(id,"LVB.recovery_failed")) {
+        recovery_sync_=false;terminal_failed_=true;status_="Restart did not finish; this track remains silent";return kResultOk;
+      }
+      if(!recovery_sync_ || uint64_t(generation)!=recovery_generation_)return kResultFalse;
+      const bool ready=generation_==recovery_generation_ && recovery_refresh_done_ &&
+        !refreshing_ && midi_installed_.load(std::memory_order_acquire) && !failure_;
+      if(!std::strcmp(id,"LVB.recovery_check"))return ready?kResultOk:kResultFalse;
+      if(!std::strcmp(id,"LVB.recovery_complete") && ready){
+        recovery_sync_=false;terminal_failed_=false;terminal_={};status_="Confirmed state restored; later edits were not restored";
+        return kResultOk;
+      }
+      return kResultFalse;
+    }
+    if (terminal_failed_ && !recovery_sync_) return kResultFalse;
     if (!std::strcmp(id,"AP12.persistence")){
       int64 available=0;if(m->getAttributes()->getInt("available",available)!=kResultOk||(available!=0&&available!=1))return kResultFalse;
       save_unavailable_=available==0;return kResultOk;
@@ -378,12 +418,13 @@ public:
   void panelLoop(Steinberg::Linux::IRunLoop *loop) override {
     if (!onOwner() || timer_ || !loop)
       return;
-    loop_ = loop;
-    loop_->addRef();
-    timer_ = new AP15::UiTimer(loop_, this, [](void *p) {
+    auto *timer = new AP15::UiTimer(loop, this, [](void *p) {
       auto *owner = static_cast<Controller *>(p);
       owner->addRef(); owner->tick(); owner->release();
     });
+    loop_ = loop;
+    loop_->addRef();
+    timer_ = timer;
     if (!timer_->start()) {
       stopTimer();
       status_ = "Host UI timer unavailable";
@@ -494,6 +535,8 @@ private:
   // kReloadComponent requests full processor/controller unload; never issue it
   // automatically from terminal notification or later handler installation.
   bool terminal_failed_=false;
+  bool recovery_sync_=false,recovery_refresh_done_=false;
+  uint64_t recovery_generation_=0;
   bool session_refused_=false; // Owner thread; set once by bind().
   int64_t refusal_kind_=LVBAdmission::Unknown; // From AP10.refused.
   // From AP10.state_held: held size, 0 nothing received, -1 not kept (the
@@ -742,6 +785,7 @@ private:
                       [](const auto &s) { return !s.refreshed; }))
         return kResultFalse;
       refreshing_ = false;
+      recovery_refresh_done_=true;
       return !refresh_flags_ ? kResultOk : componentHandler
                  ? componentHandler->restartComponent(refresh_flags_)
                  : kResultFalse;
@@ -783,11 +827,13 @@ private:
     }
   }
   void tick() {
-    if (!onOwner() || !connected_ || ticking_ || terminal_failed_)
+    if (!onOwner() || !connected_ || ticking_)
       return;
     ticking_ = true;
     retryClose();
     request("AP10.poll");
+    if(recovery_sync_)request("AP11.poll");
+    request("LVB.recovery_poll");
     if (terminal_failed_) {ticking_=false;return;}
     if (session_refused_) {
       // Refused for good; asking again would reach the service each tick.
@@ -806,7 +852,7 @@ private:
     ticking_ = false;
   }
   void capabilities(bool attached = true) {
-    if (!connected_ || terminal_failed_)
+    if (!connected_ || (terminal_failed_ && !recovery_sync_))
       return;
     auto *m = allocateMessage();
     if (m) {
@@ -832,7 +878,7 @@ private:
   }
   Result command(const ap11_gui_message_t &event) {
     // No session exists to carry it; refusing is not an editor failure.
-    if (terminal_failed_ || session_refused_) return Steinberg::kResultFalse;
+    if ((terminal_failed_ && !recovery_sync_) || session_refused_) return Steinberg::kResultFalse;
     if (!connected_)
       return Steinberg::kResultOk; // before connection, component state is
                                    // authoritative

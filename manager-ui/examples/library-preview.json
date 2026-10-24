@@ -1,5 +1,5 @@
 {
-  "schema": 29,
+  "schema": 31,
   "state_token": "synthetic-preview-only",
   "system": {
     "service": "active",
@@ -20,7 +20,10 @@
       "role": "instrument",
       "version": "8.13.1",
       "disposition": "experimental",
-      "availability": {"available": true, "reason": null},
+      "availability": {
+        "available": true,
+        "reason": null
+      },
       "active_revision": null,
       "recommended_revision": null,
       "environment": "fixture-ni",
@@ -38,7 +41,10 @@
       "role": "effect",
       "version": "1.0 (example)",
       "disposition": "ready",
-      "availability": {"available": true, "reason": null},
+      "availability": {
+        "available": true,
+        "reason": null
+      },
       "active_revision": null,
       "recommended_revision": null,
       "environment": "fixture-arturia",
@@ -65,7 +71,10 @@
       "role": "effect",
       "version": "2 (example)",
       "disposition": "needs_attention",
-      "availability": {"available": false, "reason": null},
+      "availability": {
+        "available": false,
+        "reason": null
+      },
       "active_revision": null,
       "recommended_revision": null,
       "environment": "fixture-xfer",
@@ -191,5 +200,16 @@
       "disabled_reason": null
     }
   ],
-  "operation": null
+  "operation": null,
+  "presentation": {
+    "state": "observed",
+    "value": {
+      "setups": [],
+      "attention": [],
+      "progress": [],
+      "change_previews": [],
+      "package_update": {"preserved_setups": []},
+      "settled_message": "Preview plug-ins"
+    }
+  }
 }

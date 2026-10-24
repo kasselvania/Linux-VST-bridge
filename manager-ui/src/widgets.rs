@@ -60,6 +60,15 @@ pub fn offer_row(ui: &mut egui::Ui, row: &OfferRow, chosen: &mut Option<Action>)
     for consequence in &row.consequences { ui.small(*consequence); }
 }
 
+pub fn instance_recovery(ui: &mut egui::Ui, recovery: &crate::screen_model::recovery::Recovery, chosen: &mut Option<Action>) {
+    ui.strong("Recover this instance");
+    for line in &recovery.detail { text(ui, line); }
+    if recovery.actions.offers.is_empty() {
+        for note in &recovery.actions.notes { ui.small(note); }
+    } else { offer_row(ui, &recovery.actions, chosen); }
+    disclosure(ui, &recovery.identity, chosen);
+}
+
 pub fn setup_choice(ui: &mut egui::Ui, choice: &SetupChoice, chosen: &mut Option<Action>) {
     ui.push_id(&choice.exact_action, |ui| {
         if ui.add_enabled(choice.offer.availability.enabled(), egui::Button::new(&choice.offer.label)

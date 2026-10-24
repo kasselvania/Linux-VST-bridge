@@ -87,7 +87,7 @@ fn processing_restore_waits_for_stop_ack_and_restarts_the_same_session_at_a_fres
     let worker = thread::spawn(move || worker(session, service, None, None));
     let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
         shared: shared.clone(), callback: UnsafeCell::new(callback), busy: AtomicBool::new(false),
-        worker: Some(worker), report: None, max: 64, recovery_blocked: false,
+        worker: Some(worker), report: None, max: 64, recovery_blocked: false, proxy: None,
         installed_delay: Some(0), delivery_mode: crate::performance::DeliveryMode::SameCallback,
         minor: 15, setup: None,
     })).unwrap().unwrap();
@@ -313,7 +313,7 @@ fn pending_save_does_not_hold_parent_callback_batches_or_replace_a_refused_snaps
                 worker: Some(worker),
                 report: None,
                 max: 512,
-                recovery_blocked: false,
+                recovery_blocked: false, proxy: None,
                 installed_delay: Some(512),
                 delivery_mode: crate::performance::DeliveryMode::Buffered,
                 minor: 12,
@@ -456,7 +456,7 @@ fn offline_audio_longer_than_capture_deadline_publishes_its_save_before_audio_co
     let shared=Arc::new(shared);let mut callback=Callback::new();callback.running=true;callback.epoch=1;callback.delay=0;
     let service=shared.clone();let worker=thread::spawn(move ||worker(session,service,None,None));
     let id=INSTANCES.insert(||Ok::<_,()>(Live{shared:shared.clone(),callback:UnsafeCell::new(callback),busy:AtomicBool::new(false),worker:Some(worker),report:None,
-        max:64,recovery_blocked:false,installed_delay:Some(256),delivery_mode:crate::performance::DeliveryMode::Buffered,minor:15,
+        max:64,recovery_blocked:false,proxy:None,installed_delay:Some(256),delivery_mode:crate::performance::DeliveryMode::Buffered,minor:15,
         setup:Some(crate::performance::wire_version(64,2,48000.,true).unwrap())})).unwrap().unwrap();
     let saver=thread::spawn(move ||unsafe{control(id,16,vec![])});until(||entered.load(Ordering::Acquire));
     let audio=thread::spawn(move || {

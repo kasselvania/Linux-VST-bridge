@@ -819,7 +819,9 @@ impl Blocks {
                 cx.end_turtle();
             }
             Node::Columns(children) => {
-                let width = cx.turtle().size().x;
+                // Columns inside a panel share its content width, excluding
+                // padding; the outer width clips the right-hand explanations.
+                let width = cx.turtle().inner_width();
                 let wide = width >= 760.0 && children.len() >= 2;
                 cx.begin_turtle(Walk::fill_fit(), Layout {
                     flow: if wide { Flow::right() } else { Flow::Down }, spacing: 14.0,

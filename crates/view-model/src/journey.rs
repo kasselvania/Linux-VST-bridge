@@ -28,20 +28,25 @@ pub fn current_plugin_state(journey: &InstallationJourney, plugin: &Installation
         return None;
     }
     let (snapshot, environment) = current?;
-    snapshot.products.iter().find(|product| product.environment == environment
-        && product.class_id.eq_ignore_ascii_case(&plugin.class_id))
-        .map(product::status)
+    let connection = snapshot.presentation.observed()?.setups.iter()
+        .filter(|setup| setup.environment.as_deref() == Some(environment))
+        .flat_map(|setup| &setup.connections).find(|connection| connection.selection == plugin.selection)?;
+    let identity = connection.product.observed()?;
+    if identity.environment != environment || !identity.class_id.eq_ignore_ascii_case(&plugin.class_id) { return None; }
+    use crate::model::ConnectionDisposition as C;
+    Some(match connection.disposition.observed()? {
+        C::Available => Status { words: "Available in your DAW", class: StatusClass::Ready },
+        C::Removed => Status { words: "Removed from your DAW", class: StatusClass::NeedsYou },
+        C::NeedsAttention => Status { words: "DAW connection needs attention", class: StatusClass::Problem },
+        C::NotAvailable => Status { words: "Not available in your DAW", class: StatusClass::NeedsYou },
+    })
 }
 
 /// The journey's headline, saying when a finished one is no longer all in the DAW.
 pub fn current_label(journey: &InstallationJourney, current: Option<(&Snapshot, &str)>) -> &'static str {
-    if journey.phase == InstallationPhase::Available && !journey.plugins.is_empty() {
-        let states: Vec<_> = journey.plugins.iter()
-            .filter_map(|plugin| current_plugin_state(journey, plugin, current)).collect();
-        let available = states.iter().filter(|state| state.words == "Available in your DAW").count();
-        if !states.is_empty() && available == 0 { return "Not in your DAW"; }
-        if available < states.len() { return "Partly in your DAW"; }
-    }
+    // This is a retained journey label. Current setup headlines come directly
+    // from SetupState; the view does not reconcile completion with publications.
+    let _ = current;
     phase_label(journey)
 }
 
@@ -120,8 +125,11 @@ impl Results {
             problem: journey.failure.as_ref().map(|failure| failure_text(failure, next)),
             plugins: journey.plugins.iter().map(|plugin| PluginResult {
                 name: plugin.name.clone(),
-                status: current_plugin_state(journey, plugin, current)
-                    .unwrap_or_else(|| stage_status(plugin.stage)),
+                status: current_plugin_state(journey, plugin, current).unwrap_or_else(||
+                    if current.is_some() && journey.phase == InstallationPhase::Available
+                        && plugin.stage == InstallationPluginStage::Available {
+                        Status { words: "Current connection status unavailable", class: StatusClass::Unknown }
+                    } else { stage_status(plugin.stage) }),
                 problem: plugin.failure.as_ref().map(|failure| failure_text(failure, next)),
                 hint: (plugin.stage == InstallationPluginStage::ReplacementRequired)
                     .then_some("Open this plug-in to review changing its existing DAW setup."),
@@ -145,22 +153,34 @@ mod tests {
     }
 
     #[test]
-    fn a_finished_journey_reads_each_plug_in_as_it_is_now() {
-        let mut snapshot: Snapshot = crate::samples::base();
-        let environment = snapshot.products[0].environment.clone();
+    fn a_finished_journey_uses_only_the_exact_owner_connection() {
+        use crate::model::{Observation as O, SetupState, SetupDisposition, JourneyConnection,
+            ProductIdentity, ConnectionDisposition as C, CurrentPresentation};
+        let mut snapshot = crate::samples::base();
+        let product = snapshot.products[0].clone();
+        let environment = product.environment.clone();
         let finished = journey(InstallationPhase::Available, vec![
-            plugin("Kontakt 8", &snapshot.products[0].class_id, InstallationPluginStage::Available)]);
-        let current = Some((&snapshot, environment.as_str()));
-        assert_eq!(current_label(&finished, current), "DAW connection complete");
-        let results = Results::build(&finished, current, None);
-        assert_eq!(results.daw, "Your DAW: REAPER");
-        assert_eq!(results.plugins[0].status.words, "Available in your DAW");
+            plugin("Kontakt 8", &product.class_id, InstallationPluginStage::Available)]);
+        snapshot.presentation = O::Observed(CurrentPresentation { setups: vec![SetupState {
+            installer: "exact-installer".into(), environment: Some(environment.clone()), name: "Setup".into(),
+            disposition: SetupDisposition::Complete, headline: "DAW connection complete".into(), status: String::new(),
+            connections: vec![JourneyConnection { selection: "exact".into(), product: O::Observed(ProductIdentity::from(&product)),
+                disposition: O::Observed(C::Available), reason: None }],
+        }], attention: vec![], progress: vec![], change_previews: vec![], package_update: crate::model::PackageUpdatePreview { preserved_setups: vec![] }, settled_message: String::new() });
+        let render = |snapshot: &Snapshot| Results::build(&finished, Some((snapshot, environment.as_str())), None);
+        assert_eq!(render(&snapshot).plugins[0].status.words, "Available in your DAW");
         snapshot.products[0].disposition = "removed_from_daw".into();
         snapshot.products[0].availability = Some(crate::model::NativeAvailability { available: false, reason: None });
-        let current = Some((&snapshot, environment.as_str()));
-        assert_eq!(current_label(&finished, current), "Not in your DAW");
-        assert_eq!(Results::build(&finished, current, None).plugins[0].status,
+        // Neither raw product fields nor a same-class build can recompose the owner observation.
+        assert_eq!(render(&snapshot).plugins[0].status.words, "Available in your DAW");
+        let O::Observed(presentation) = &mut snapshot.presentation else { panic!() };
+        presentation.setups[0].connections[0].disposition = O::Observed(C::Removed);
+        assert_eq!(render(&snapshot).plugins[0].status,
             Status { words: "Removed from your DAW", class: StatusClass::NeedsYou });
+        let O::Observed(presentation) = &mut snapshot.presentation else { panic!() };
+        presentation.setups[0].connections[0].selection = "other-selection".into();
+        assert_eq!(render(&snapshot).plugins[0].status.class, StatusClass::Unknown);
+        assert_eq!(current_label(&finished, Some((&snapshot, &environment))), "DAW connection complete");
         assert_eq!(phase_label(&journey(InstallationPhase::Available, vec![])), "Application session complete");
         assert_eq!(Results::build(&journey(InstallationPhase::Available, vec![]), None, None).empty,
             Some("No plug-ins were added during this visit."));

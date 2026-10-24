@@ -11,6 +11,91 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+## Current release qualification
+
+**No Beta RC is cut or accepted.** Current state is Beta Feature Candidate in
+integration. Candidate product versions and runtime identity are not yet pinned;
+“—” below means no acceptance on a frozen RC, not a new failure or a ban on use.
+The scoped installed observations below remain valid only for their stated builds
+and behaviors. They do not combine into a current-release pass.
+
+| Product/version | OS | DAW | Runtime | Install | Audio | Editor | Recall | Maintenance | Status |
+|---|---|---|---|---|---|---|---|---|---|
+| Reference / pending RC | CachyOS | REAPER | Unpinned | — | — | — | — | — | Unqualified |
+| Reference / pending RC | SteamOS | Bitwig | Unpinned | — | — | — | — | — | Unqualified |
+| Tyrell / pending RC | CachyOS | REAPER | Unpinned | — | — | — | — | — | Unqualified |
+| Tyrell / pending RC | SteamOS | Bitwig | Unpinned | — | — | — | — | — | Unqualified |
+| Native Access → Kontakt / pending RC | CachyOS | REAPER | Unpinned | — | — | — | — | — | Unqualified |
+| Native Access → Kontakt / pending RC | SteamOS | Bitwig | Unpinned | — | — | — | — | — | Unqualified |
+| Serum 2 / pending RC | CachyOS | REAPER | Unpinned | — | — | — | — | — | Unqualified |
+| Serum 2 / pending RC | SteamOS | Bitwig | Unpinned | — | — | — | — | — | Unqualified |
+| Supermassive / pending RC | CachyOS | REAPER | Unpinned | — | — | — | — | — | Unqualified |
+| Supermassive / pending RC | SteamOS | Bitwig | Unpinned | — | — | — | — | — | Unqualified |
+| CHOW Tape Model / pending RC | CachyOS | REAPER | Unpinned | — | — | — | — | — | Unqualified |
+| CHOW Tape Model / pending RC | SteamOS | Bitwig | Unpinned | — | — | — | — | — | Unqualified |
+
+Freq Echo and ChowCentaur require extended checks on at least one target; exact
+versions/target remain to be selected. Musio remains unqualified and requires
+classification, not full support, for RC promotion. The
+[release contract](INTEGRATED_BETA_DELIVERY.md#acceptance-method) defines the
+required workflows and evidence invalidation. Populate this table only with
+measurements tied to the candidate being proposed, including known limitations.
+
+## Scoped installed results and historical observations
+
+Test254 / SteamOS Deck / REAPER 7.82 / retained first-party setups,
+**Console update, instance recovery and explicit repair passed** (2026-10-24):
+the signed installer → Open Setup → Update Bridge route recovered the retained
+ended-consumer blockage without manual lease removal or reboot. It preserved all
+four original owner/generation/failure/cleanup records and recorded cleanup
+separately from session success. The project saved during the earlier failure
+reopened at Reference Level .25 and produced the reference signal. After a normal
+save, an exact first-party Windows-host fault left the same DAW alive; Console's
+confirmed Restart created a replacement instance and restored Level .25 and audio.
+The final 10 s had no silent 100 ms blocks. Save, full exit and fresh-process
+reopen retained .25, with no silent blocks over a further 19.7 s. These observations
+measure signal return, not callback deadlines or automatic recovery latency.
+Standalone Editor Effect accepted pointer input (25% → 75%) and keyboard input
+(75% → 80%), then closed through Console. Explicit installer repair returned both
+Editor classes to available, retained the prefix inode and advanced setup revision
+2 → 3. Observed refresh states no longer presented normal renewal as read failure.
+[Measurements](../evidence/console/test254-first-party.json).
+This is a supplementary SteamOS/REAPER result; the agreed SteamOS/Bitwig,
+commercial, presets/sample-location and physical-touch journeys
+remain required for Console acceptance.
+
+Test254 / CachyOS VM / REAPER 7.82 / retained first-party setup,
+**Console update and save/full-exit/reopen passed** (2026-10-24):
+the signed installer → Open Setup → Update Bridge route started the exact new
+service and settled Console with both Reference classes available. The saved
+Reference Instrument project retained its FX identity and parameter .47 after
+update, then after a normal save, full DAW exit and fresh-process reopen.
+Each 20 s capture contained 200 non-silent 100 ms blocks. Both observers and DAW
+processes retired normally; the original project remained byte-identical.
+This covers first-party update and saved-state playback on the retained VM;
+commercial plug-ins, recovery, touch and the remaining Console journeys still
+require their own installed checks.
+[Measurements](../evidence/console/test254-first-party.json).
+
+Test258 / SteamOS Deck / Bitwig Studio 6.1, **Reference save/reopen playback passed**
+(2026-10-24): after the operator resolved Bitwig activation, a copy of the retained
+Reference project played, saved and fully exited. A fresh Bitwig process recalled
+Level .25 and Colour .5; transport advanced and direct stereo output contained
+signal for 20 s before and after reopen. Both sessions exited normally and the
+original project remained byte-exact. The earlier Test254 transport result remains
+environment-inconclusive. This qualifies this first-party journey on Test258;
+commercial products, reboot and the immutable Beta RC matrix remain open.
+[Measurements](../evidence/console/test258-bitwig.json).
+
+Test254 / SteamOS Deck / Bitwig Studio 6.1, **qualification remains open**
+(2026-10-24): a new first-party Reference Instrument project played and saved;
+its explicit Bitwig-output capture contained signal for 20 s. A full exit and
+fresh launch recalled Level .25 and Colour .5, but transport did not start and
+the reopen capture was silent. Bitwig also reported its account activation limit
+had been reached. At the time this was an unresolved prerequisite, not established attribution
+of the transport failure. Bitwig then exited normally. No account or activation
+changes were made. [Partial measurements](../evidence/console/test254-first-party.json).
+
 Test225 / CachyOS / REAPER 7.82 / runtime r7 / host CPython 3.14.8,
 **source-generation update and exact restore passed**
 ([PR 484](https://github.com/kasselvania/Linux-VST-bridge/pull/484), 2026-10-19):

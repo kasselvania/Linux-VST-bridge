@@ -8,3 +8,4 @@
 pub mod changes;
 pub use lvb_model::contract;
 pub mod view;
+pub(crate) mod subscription;

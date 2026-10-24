@@ -6,6 +6,7 @@ use std::io;
 pub const GREETING: &[u8; 5] = b"LVB3\n";
 pub const GREETING_V4: &[u8; 5] = b"LVB4\n";
 pub const GREETING_V5: &[u8; 5] = b"LVB5\n";
+pub const GREETING_V6: &[u8; 5] = b"LVB6\n";
 pub const MAX_REPLY: usize = 1024;
 pub const HEADER: usize = 24;
 
@@ -93,8 +94,34 @@ pub fn accepted_v5(request: [u8; 16], binding: &Binding) -> io::Result<Vec<u8>> 
 pub fn refused_v5(request: [u8; 16], reason: Refusal) -> Vec<u8> {
     let mut bytes = refused(request, reason); bytes[3] = b'5'; bytes
 }
+pub fn accepted_v6(request: [u8;16], binding: &Binding) -> io::Result<Vec<u8>> { encode(request,binding,b'6') }
+pub fn refused_v6(request: [u8;16], reason: Refusal) -> Vec<u8> { let mut bytes=refused(request,reason);bytes[3]=b'6';bytes }
+pub fn decode_v6(bytes:&[u8],request:[u8;16])->io::Result<Result<Binding,Refusal>> {
+    if bytes==refused([0;16],Refusal::ServiceBusy){return decode(bytes,request);}
+    decode_version(bytes,request,b'6')
+}
+/// A classified reply keeps the exact request version. Recovery extends the
+/// execution-bound greeting, but an LVB6 caller cannot consume an LVR5 reply.
+pub fn accepted_for(greeting: &[u8], request: [u8; 16], binding: &Binding) -> io::Result<Vec<u8>> {
+    match greeting {
+        b"LVB3\n" => accepted(request, binding),
+        b"LVB4\n" => accepted_v4(request, binding),
+        b"LVB5\n" => accepted_v5(request, binding),
+        b"LVB6\n" => accepted_v6(request, binding),
+        _ => Err(invalid("admission greeting version")),
+    }
+}
+pub fn refused_for(greeting: &[u8], request: [u8; 16], reason: Refusal) -> io::Result<Vec<u8>> {
+    Ok(match greeting {
+        b"LVB3\n" => refused(request, reason),
+        b"LVB4\n" => refused_v4(request, reason),
+        b"LVB5\n" => refused_v5(request, reason),
+        b"LVB6\n" => refused_v6(request, reason),
+        _ => return Err(invalid("admission greeting version")),
+    })
+}
 fn encode(request: [u8; 16], binding: &Binding, version: u8) -> io::Result<Vec<u8>> {
-    let explicit_delivery = matches!(version, b'4' | b'5');
+    let explicit_delivery = matches!(version, b'4' | b'5' | b'6');
     need(binding.delivery_mode <= 1, "admission delivery mode")?;
     need(request != [0; 16], "admission request identity")?;
     need(binding.session != [0; 16], "admission session identity")?;
@@ -126,7 +153,7 @@ pub fn decode_v5(bytes: &[u8], request: [u8; 16]) -> io::Result<Result<Binding, 
     decode_version(bytes, request, b'5')
 }
 fn decode_version(bytes: &[u8], request: [u8; 16], version: u8) -> io::Result<Result<Binding, Refusal>> {
-    let explicit_delivery = matches!(version, b'4' | b'5');
+    let explicit_delivery = matches!(version, b'4' | b'5' | b'6');
     need(request != [0; 16], "admission request identity")?;
     need(
         (HEADER..=MAX_REPLY).contains(&bytes.len()),
@@ -166,6 +193,41 @@ fn decode_version(bytes: &[u8], request: [u8; 16], version: u8) -> io::Result<Re
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn classified_service_replies_keep_the_exact_greeting_version() {
+        type Decoder = fn(&[u8], [u8; 16]) -> io::Result<Result<Binding, Refusal>>;
+        let request = [7; 16];
+        for (greeting, read) in [(GREETING, decode as Decoder), (GREETING_V4, decode_v4),
+            (GREETING_V5, decode_v5), (GREETING_V6, decode_v6)] {
+            for delivery in 0..=1 {
+                let binding = Binding { session: [8; 16], added_frames: 512,
+                    delivery_mode: delivery, directory: "/owned/replacement-session".into() };
+                let reply = accepted_for(greeting, request, &binding);
+                if greeting == GREETING && delivery == 1 {
+                    assert!(reply.is_err(), "legacy caller cannot accept same-callback mode");
+                    continue;
+                }
+                let reply = reply.unwrap();
+                assert_eq!(read(&reply, request).unwrap(), Ok(binding));
+                assert!(read(&reply, [9; 16]).is_err(), "another request cannot acquire this session");
+                for other in [b'3', b'4', b'5', b'6'].into_iter().filter(|v| *v != greeting[3]) {
+                    let mut wrong = reply.clone(); wrong[3] = other;
+                    assert!(read(&wrong, request).is_err(), "wrong reply version must not authorize transport creation");
+                }
+            }
+            for reason in [Refusal::ServiceBusy, Refusal::GlobalCapacity, Refusal::ClassCapacity,
+                Refusal::NativeImageCapacity, Refusal::CleanupUnconfirmed, Refusal::MaintenanceActive,
+                Refusal::BindingInvalid, Refusal::StaleNativeCaller] {
+                let reply = refused_for(greeting, request, reason).unwrap();
+                assert_eq!(read(&reply, request).unwrap(), Err(reason));
+                assert!(read(&reply, [9; 16]).is_err());
+            }
+        }
+        let binding = Binding { session: [8; 16], added_frames: 512, delivery_mode: 0,
+            directory: "/owned/replacement-session".into() };
+        assert!(accepted_for(b"LVB7\n", request, &binding).is_err());
+        assert!(refused_for(b"LVB7\n", request, Refusal::BindingInvalid).is_err());
+    }
     #[test]
     fn exact_binding_and_refusals_never_overlap() {
         let request = [1; 16];

@@ -19,10 +19,16 @@ pub fn settings_actions(product: &Product) -> Vec<AvailableAction> {
 
 /// The Settings section, when the plug-in has settings records or controls.
 pub fn section(product: &Product, busy: Option<&str>, pending: bool, expanded: bool) -> Option<Disclosure> {
+    section_omitting(product, busy, pending, expanded, &[])
+}
+/// Exact controls already shown in the typed display journey stay in that journey.
+pub(crate) fn section_omitting(product: &Product, busy: Option<&str>, pending: bool, expanded: bool,
+    shown: &[Action]) -> Option<Disclosure> {
     let configuration = &product.details["configuration"];
     let legacy = &product.details["graphics"];
     let actions: Vec<_> = settings_actions(product).into_iter()
-        .filter(|offer| !matches!(offer.action, Action::CandidateGraphicsAssess { .. })).collect();
+        .filter(|offer| !matches!(offer.action, Action::CandidateGraphicsAssess { .. })
+            && !shown.contains(&offer.action)).collect();
     let buffering: Vec<_> = product.actions.iter().filter(|offer|
         matches!(offer.action, Action::BufferingSet { .. } | Action::DeliverySet { .. })).cloned().collect();
     if configuration.is_null() && legacy.is_null() && actions.is_empty() && buffering.is_empty() {

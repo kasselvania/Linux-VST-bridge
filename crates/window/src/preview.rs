@@ -88,9 +88,22 @@ pub struct Preview {
     /// Each opened form has its own input lifetime, even if it concerns the
     /// same setup. An event retained from a closed form cannot press a new one.
     form_generation: u64,
+    activity_fixture: Option<lvb_view_model::model::Activity>,
 }
 
 impl Preview {
+    /// Exact synthetic restart metadata and current offer for hidden UI checks.
+    pub fn recovery_fixture(&mut self) {
+        self.activity_fixture = Some(samples::recovery_fixture(&mut self.sample.snapshot));
+        self.state.go(&Destination::Product(ProductKey::from(&self.sample.snapshot.products[0])));
+        self.rebuild();
+    }
+    /// Owner-shaped fixture only; no service or real window is opened.
+    pub fn display_fixture(&mut self) {
+        samples::display_fixture(&mut self.sample.snapshot);
+        self.state.go(&Destination::Product(ProductKey::from(&self.sample.snapshot.products[0])));
+        self.rebuild();
+    }
     /// Sample-only report data for rendered interaction checks; never writes a file.
     pub fn report_fixture(&mut self) {
         self.state.page = Page::Diagnostics;
@@ -139,7 +152,7 @@ impl Preview {
         let sample = Self::sample_for(selection);
         let mut preview = Self { selection, state: sample.state(), sample, ui: LocalUi::default(),
             built: Built::default(), drawn: BTreeMap::new(), captured: vec![], log: vec![], log_read: 0,
-            reveal: false, posture: String::new(), form_generation: 0 };
+            reveal: false, posture: String::new(), form_generation: 0, activity_fixture: None };
         preview.load();
         preview
     }
@@ -163,6 +176,7 @@ impl Preview {
         self.state = self.sample.state();
         self.state.observe(&self.sample.snapshot);
         self.ui = LocalUi::default();
+        self.activity_fixture = None;
         self.rebuild();
     }
 
@@ -173,7 +187,9 @@ impl Preview {
         let snapshot = &self.sample.snapshot;
         let opened = self.state.plugins.focused_product().filter(|key|
             snapshot.products.iter().filter(|product| ProductKey::from(*product) == **key).count() == 1);
-        Records { product: self.sample.records().product.or(opened.map(|_| snapshot)), ..self.sample.records() }
+        Records { product: self.sample.records().product.or(opened.map(|_| snapshot)),
+            activity: self.activity_fixture.as_ref().map(lvb_view_model::diagnostics::Section::Loaded)
+                .or(self.sample.records().activity), ..self.sample.records() }
     }
 
     pub fn window(&self) -> Window {
@@ -183,7 +199,7 @@ impl Preview {
     fn why(&self) -> Why {
         let reading = self.sample.reading(Some(DISTRIBUTION));
         Why { fresh: reading.fresh, pending: reading.controls_pending, in_flight: reading.in_flight,
-            superseded: reading.superseded }
+            superseded: reading.superseded, form_stale: false }
     }
 
     pub fn rebuild(&mut self) {
@@ -265,7 +281,7 @@ impl Preview {
             self.rebuild();
             return Outcome::Refused;
         }
-        let before = (self.state.page, self.state.plugins.focus.clone(), self.state.focus.clone());
+        let before = (self.state.page, self.state.plugins.focus.clone(), self.state.plugins.page, self.state.focus.clone());
         let outcome = match target {
             Target::Offer { offer, after } => {
                 let pressable = presentation::pressable(&offer.availability);
@@ -353,7 +369,8 @@ impl Preview {
                 Outcome::Changed
             }
         };
-        let navigated = before != (self.state.page, self.state.plugins.focus.clone(), self.state.focus.clone());
+        self.state.retire_repair_if_left();
+        let navigated = before != (self.state.page, self.state.plugins.focus.clone(), self.state.plugins.page, self.state.focus.clone());
         // The list brings the opened plug-in into view once.
         self.state.plugins.scroll_to_focus = false;
         self.state.focus.setup_scroll = false;
@@ -423,7 +440,8 @@ impl Preview {
             FormStep::ToggleForget => forms.forget_installer = !forms.forget_installer,
             FormStep::Confirm => {
                 let Some(form) = forms.confirm.clone() else { return };
-                let confirmation = forms::removal_confirmation(Some(&self.sample.snapshot), &form);
+                let confirmation = forms::confirmation_with_repair(Some(&self.sample.snapshot), &form, self.state.focus.repair.as_ref());
+                if confirmation.offer.is_err() {return;}
                 if let Some(action) = self.state.forms.confirmed(confirmation.forget.is_some()) {
                     self.capture(action, via, true);
                 }
@@ -512,6 +530,7 @@ impl Preview {
             ListStep::Role(role) => plugins.role = *role,
             ListStep::Status(status) => plugins.status = *status,
             ListStep::Open(key) => plugins.focus_product(key.clone()),
+            ListStep::ProductPage {key,page} => plugins.show_page(key.clone(), *page),
         }
         self.say(format!("List {step:?} via {via:?}"));
     }

@@ -39,10 +39,10 @@ fn overview_reports_schema_products_ceiling_and_offers() {
     let overview = service.read(contract::Read::Overview);
     assert_eq!(overview["schema"], 1, "{overview:#}");
     assert_eq!(overview["operator_schema"], operator_model::OPERATOR_SCHEMA);
-    assert_eq!(operator_model::OPERATOR_SCHEMA, 29, "a wire change must be deliberate");
+    assert_eq!(operator_model::OPERATOR_SCHEMA, 31, "a wire change must be deliberate");
     assert_eq!(overview["scope"], "current_only");
     let current = &overview["current"];
-    assert_eq!(current["schema"], 29);
+    assert_eq!(current["schema"], 31);
     let system = &current["system"];
     assert_eq!(system["ceiling"], 8, "{system:#}");
     assert_eq!((system["dsp"].as_u64(), system["maintenance"].as_u64()), (Some(0), Some(0)));
@@ -62,7 +62,7 @@ fn overview_reports_schema_products_ceiling_and_offers() {
 
     // The plug-in page reads the product's own offers from the same state.
     let detail = service.product_detail();
-    assert_eq!(detail["operator_schema"], 29, "{detail:#}");
+    assert_eq!(detail["operator_schema"], 31, "{detail:#}");
     assert_eq!(detail["state_token"], current["state_token"]);
     assert_eq!(detail["system"]["ceiling"], 8);
     let offered = service::offers(&detail["product"]);
@@ -89,9 +89,9 @@ fn offered_buffering_change_round_trips_through_request_worker_and_result() {
     let class = service.plugin().class_id.clone();
     let detail = service.product_detail();
     let action = json!({"kind":"buffering_set","class_id":class,"added_frames":256});
-    let request = json!({"schema":29,"state_token":detail["state_token"],"action":action});
+    let request = json!({"schema":31,"state_token":detail["state_token"],"action":action});
     let receipt = service.request(&request);
-    assert_eq!(receipt["schema"], 29, "{receipt:#}");
+    assert_eq!(receipt["schema"], 31, "{receipt:#}");
     assert_eq!(receipt["accepted"], true, "{receipt:#}");
     assert!(receipt["refusal"].is_null());
     let operation = receipt["operation"].as_str().unwrap().to_owned();
@@ -286,7 +286,7 @@ fn service_reads_follow_every_writer() {
     let prior_reports = reports();
     let detail = both(Read::Product(p.key()));
     let action = offered_action(&detail, "plugin_reinspect");
-    let receipt = service.request(&json!({"schema":29,"state_token":detail["state_token"],"action":action}));
+    let receipt = service.request(&json!({"schema":31,"state_token":detail["state_token"],"action":action}));
     assert_eq!(receipt["accepted"], true, "{receipt:#}");
     let refused = service.finished_operation(receipt["operation"].as_str().unwrap());
     assert_eq!(refused["state"], "refused", "{refused:#}");
@@ -306,7 +306,7 @@ fn service_reads_follow_every_writer() {
     // An operation's executor, owned by this same service process. The
     // page's state token is current, so the request is accepted.
     let detail = both(Read::Product(p.key()));
-    let request = json!({"schema":29,"state_token":detail["state_token"],
+    let request = json!({"schema":31,"state_token":detail["state_token"],
         "action":{"kind":"buffering_set","class_id":class,"added_frames":512}});
     let receipt = service.request(&request);
     assert_eq!(receipt["accepted"], true, "{receipt:#}");
@@ -344,7 +344,7 @@ fn an_accepted_action_completes_after_unrelated_changes_before_its_worker_runs()
     let service = RealService::start(service::published_classes(2));
     let [first, second] = &service.published.plugins[..] else { unreachable!() };
     let detail = service.read(contract::Read::Product(first.key()));
-    let request = json!({"schema":29,"state_token":detail["state_token"],
+    let request = json!({"schema":31,"state_token":detail["state_token"],
         "action":{"kind":"buffering_set","class_id":first.class_id,"added_frames":256}});
     service.hold_workers();
     let receipt = service.request(&request);
@@ -379,7 +379,7 @@ fn an_accepted_action_is_refused_by_name_when_its_plugin_changed_before_its_work
     let service = RealService::start(service::published());
     let class = service.plugin().class_id.clone();
     let detail = service.product_detail();
-    let request = |action: Value| json!({"schema":29,"state_token":detail["state_token"],"action":action});
+    let request = |action: Value| json!({"schema":31,"state_token":detail["state_token"],"action":action});
     service.hold_workers();
     let buffering = service.request(&request(json!({"kind":"buffering_set","class_id":class,"added_frames":256})));
     assert_eq!(buffering["accepted"], true, "{buffering:#}");

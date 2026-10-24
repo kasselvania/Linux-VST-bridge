@@ -1,6 +1,9 @@
 //! Explicit diagnostics use ordinary inspected identities and process custody.
 use super::*;
 use graphics::{assessment, pe};
+mod display;
+
+pub(super) fn refresh_display_actions(product: &mut ui::Product) { display::bind(product); }
 use linux_vst_bridge::{operator_model as ui, preparation as prep};
 
 pub(super) fn project(m: &Manager, product: &mut ui::Product,
@@ -51,8 +54,11 @@ pub(super) fn project(m: &Manager, product: &mut ui::Product,
                 ui::Action::ExperimentalDisable { candidate } if candidate == &prepared_id =>
                     offer.label = if trial.baseline.is_some() { "Restore the settings from before this trial" }
                         else { "Remove this trial from the DAW" }.into(),
-                ui::Action::CompatibilityResult { candidate, .. } if candidate == &prepared_id =>
-                    offer.label = "Keep these settings and record the result".into(),
+                ui::Action::CompatibilityResult { candidate, result, .. } if candidate == &prepared_id =>
+                    offer.label = match result {
+                        ui::TestResultKind::Worked => "Record what worked with these settings",
+                        ui::TestResultKind::Problem {..} => "Report a problem with these settings",
+                    }.into(),
                 ui::Action::ExperimentalReplace { candidate, .. }
                 | ui::Action::ExperimentalEnable { candidate }
                 | ui::Action::CompatibilityPublishTest { candidate, .. } if candidate == &prepared_id => {
@@ -80,7 +86,7 @@ pub(super) fn project(m: &Manager, product: &mut ui::Product,
     }
     product.details["configuration"] = configuration.clone();
     // Compatibility projection for older report consumers; one owner/result.
-    product.details["graphics"] = configuration;
+    product.details["graphics"] = configuration.clone();
     let configuration_blocked = if !row.current_inputs {
         Some("Refresh this plug-in's changed inputs before assessing settings")
     } else if matches!(workflow.phase, ui::CompatibilityPhase::PublicationNeedsAttention
@@ -119,6 +125,23 @@ pub(super) fn project(m: &Manager, product: &mut ui::Product,
                     choices.push((label, settings));
                 }
             }
+            // The ordinary page chooses an exact, explicit process setting.
+            // Do not resolve current profile advice (or hash runtime DLLs) while
+            // projecting it. ProfileDefault preparation remains an expert step.
+            for graphics in [None, Some(ui::GraphicsBackend::WineD3d11)] {
+                for accessibility in [ui::AccessibilityChoice::WindowsDefault,
+                    ui::AccessibilityChoice::DisabledForHost] {
+                    let settings = ui::LocalSettings { graphics, accessibility };
+                    if settings == selected { continue; }
+                    product.actions.push(ui::AvailableAction {
+                        label: "Use this and test".into(),
+                        action: ui::Action::CandidateSettingsTest {candidate:base.id()?, settings,
+                            expected_current:current.map(|current| ui::PublicationIdentity {
+                                id:current.id.clone(), sha256:current.sha256.clone() })},
+                        disabled_reason: blocked.map(str::to_owned),
+                    });
+                }
+            }
             for (label, settings) in choices {
                 product.actions.push(ui::AvailableAction {
                     label: label.into(),
@@ -131,6 +154,11 @@ pub(super) fn project(m: &Manager, product: &mut ui::Product,
                 });
             }
     }
+    product.display = ui::Observation::Observed(display::compose(c, view, candidates, &configuration)?);
+    // The workflow is attached by the caller after this function returns.
+    let old = product.compatibility.replace(workflow.clone());
+    display::bind(product);
+    product.compatibility = old;
     Ok(())
 }
 

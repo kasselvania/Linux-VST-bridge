@@ -1447,13 +1447,6 @@ fn append_host_graphics(assessment: &mut ui::ReadinessAssessment, probe: Probe<S
         ("Native GLX rendering", parsed.as_ref().map(|p| p.rendering().to_owned())),
     ] { assessment.graphics.push(observed(name, value, source, at)); }
 }
-#[cfg(feature = "pb0-c0-audit")]
-pub(super) fn audit_export(m: &Manager, overview: &ui::InteractiveOverview) -> Result<Value> {
-    let snapshot = &overview.current;
-    let assessment = sanitized(overview.readiness.clone());
-    let sw: Software = read_json(&m.root.join("software.json"))?;
-    report_value(m, snapshot, assessment, &sw, None)
-}
 fn write_export(
     m: &Manager,
     snapshot: &ui::Snapshot,

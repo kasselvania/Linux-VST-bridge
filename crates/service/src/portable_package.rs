@@ -8,6 +8,11 @@ use std::{collections::BTreeSet, fs, io::{Read, Seek, SeekFrom, Write},
     os::{fd::AsRawFd, unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt}},
     path::{Component, Path, PathBuf}};
 
+#[cfg(target_os = "linux")]
+mod executable;
+#[cfg(target_os = "linux")]
+pub use executable::{current_frontend_path, VerifiedExecutable};
+
 const DOMAIN: &[u8] = b"Linux VST Bridge user package v1\0";
 const FOOTER: &[u8; 8] = b"LVBUSER1";
 const MANIFEST_MAX: u64 = 4 * 1024 * 1024;
@@ -159,7 +164,17 @@ pub struct Bundle {
 }
 impl Bundle {
     pub fn open(path: &Path, trust: Trust) -> Result<Self> {
-        let mut f = file(path)?;
+        Self::from_file(file(path)?, trust)
+    }
+    /// Open the kernel object backing this process, never its replaceable name.
+    #[cfg(target_os = "linux")]
+    pub fn open_running(trust: Trust) -> Result<Self> {
+        Self::from_file(fs::File::open("/proc/self/exe")?, trust)
+    }
+    fn from_file(mut f: fs::File, trust: Trust) -> Result<Self> {
+        let meta = f.metadata()?;
+        require(meta.is_file() && meta.uid() == unsafe { libc::getuid() },
+            "user_package_installer_custody")?;
         let identity = crate::DigestFileIdentity::from(&f.metadata()?);
         let size = f.metadata()?.len();
         require((40..=PAYLOAD_MAX + 256 * 1024 * 1024).contains(&size),
@@ -483,6 +498,26 @@ fn input_executable_with_trust(executable:&Path,home:&Path,name:&str,trust:&Trus
         .ok_or("user_package_executable_identity")?;
     Ok(Some(verify_release_file(&root,row)?))
 }
+/// Retain the signed staged executable through launch. Unlike the path-only
+/// discovery helper, this object is an execution authority, including a final
+/// content check of a sealed immutable snapshot before execution.
+#[cfg(target_os = "linux")]
+pub fn retained_input_executable(executable: &Path, home: &Path, name: &str)
+    -> Result<VerifiedExecutable> {
+    retained_input_executable_with_trust(executable, home, name, &Trust::compiled()?)
+}
+#[cfg(target_os = "linux")]
+fn retained_input_executable_with_trust(executable: &Path, home: &Path, name: &str, trust: &Trust)
+    -> Result<VerifiedExecutable> {
+    require(matches!(name, "linux-vst-bridge" | "linux-audio-compatibility-manager"),
+        "user_package_executable_identity")?;
+    let (root, release) = input_release_record_with_trust(executable, home, trust)?
+        .ok_or("user_package_source_required")?;
+    let destination = format!("usr/bin/{name}");
+    let row = release.files.iter().find(|row| row.destination == destination)
+        .ok_or("user_package_executable_identity")?;
+    VerifiedExecutable::open(&root.join(&destination), row)
+}
 /// The running source package's supervisor and ownership modules, each with
 /// its verified path and digest from the signed release. No other file of the
 /// package is read.
@@ -609,6 +644,9 @@ pub(crate) mod tests {
         }
         pub(crate) fn trust(&self)->Trust {Trust::new(self.key.verifying_key().to_bytes(),"internal_test").unwrap()}
         pub(crate) fn bundle(&self,version:&str)->PathBuf {
+            self.bundle_with_base(version, b"\x7fELF source-owned test; never executed")
+        }
+        fn bundle_with_base(&self, version: &str, base: &[u8]) -> PathBuf {
             let mut payload=Vec::new();
             {let mut archive=tar::Builder::new(&mut payload);
                 for (row,bytes) in &self.rows {
@@ -621,12 +659,11 @@ pub(crate) mod tests {
             let manifest=serde_json::to_vec(&Release{schema:1,package:"linux-vst-bridge-beta".into(),
                 version:version.into(),pkgrel:1,source_head:"ab".repeat(20),source_tree:"cd".repeat(20),
                 payload_sha256:hex(&Sha256::digest(&payload)),files:self.rows.iter().map(|(row,_)|row.clone()).collect()}).unwrap();
-            let base=b"\x7fELF source-owned test; never executed";
             let base_sha256=Sha256::digest(base);
             let message=[DOMAIN,b"internal_test",b"\0",&base_sha256[..],manifest.as_slice()].concat();
             let signature=self.key.sign(&message).to_bytes();
             let path=self.home.join(format!("installer-{version}"));
-            let bytes=[base.as_slice(),manifest.as_slice(),signature.as_slice(),payload.as_slice(),
+            let bytes=[base,manifest.as_slice(),signature.as_slice(),payload.as_slice(),
                 FOOTER.as_slice(),&(base.len() as u64).to_le_bytes(),&(manifest.len() as u64).to_le_bytes(),
                 &64u64.to_le_bytes(),&(payload.len() as u64).to_le_bytes()].concat();
             fs::write(&path,bytes).unwrap();path
@@ -643,6 +680,51 @@ pub(crate) mod tests {
         }
     }
     impl Drop for Fixture {fn drop(&mut self){let _=fs::remove_dir_all(&self.home);}}
+    // Run this test inside an actual ELF with a signed trailer. The parent
+    // replaces the installer name *before* open_running, not after Bundle open.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn running_bundle_probe() {
+        let Some(root) = std::env::var_os("LVB_RUNNING_BUNDLE_PROBE") else { return; };
+        let root = PathBuf::from(root);
+        fs::write(root.join("ready"), b"ready").unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while !root.join("continue").exists() {
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        let trust = Trust::new(SigningKey::from_bytes(&[0x51;32]).verifying_key().to_bytes(),
+            "internal_test").unwrap();
+        let mut bundle = Bundle::open_running(trust).unwrap();
+        bundle.verify_payload().unwrap();
+        fs::write(root.join("observed"), &bundle.release().version).unwrap();
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn running_installer_intake_ignores_replaced_name_and_denies_in_place_write() {
+        let f = Fixture::new();
+        let base = fs::read("/proc/self/exe").unwrap();
+        let original = f.bundle_with_base("1.0", &base);
+        let replacement = f.bundle_with_base("2.0", &base);
+        fs::set_permissions(&original, fs::Permissions::from_mode(0o755)).unwrap();
+        let mut child = Command::new(&original)
+            .args(["--exact", "portable_package::tests::running_bundle_probe", "--nocapture"])
+            .env("LVB_RUNNING_BUNDLE_PROBE", &f.home).spawn().unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while !f.home.join("ready").exists() {
+            if std::time::Instant::now() >= deadline {
+                let _ = child.kill(); let _ = child.wait(); panic!("installer probe did not start");
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(fs::OpenOptions::new().write(true).open(&original).unwrap_err()
+            .raw_os_error(), Some(libc::ETXTBSY));
+        fs::rename(&original, f.home.join("unlinked-installer")).unwrap();
+        fs::rename(replacement, &original).unwrap();
+        fs::write(f.home.join("continue"), b"continue").unwrap();
+        assert!(child.wait().unwrap().success());
+        assert_eq!(fs::read_to_string(f.home.join("observed")).unwrap(), "1.0");
+    }
     #[test]
     fn signed_stage_retains_selected_software_projects_and_both_package_versions() {
         let f=Fixture::new();let old=f.old_state();

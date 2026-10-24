@@ -48,6 +48,14 @@ jobs:
           python3 -m unittest discover -s bridge-manager/runtime -p test_session.py -k gui_diagnostic -v
       - name: Build Rust backend
         run: RUSTFLAGS="-C relocation-model=pic" cargo build --manifest-path native-vst3-proxy/backend/Cargo.toml --release --locked
+      - name: Test recovery with the real transport
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/recovery-backend
+          RUSTFLAGS: -C relocation-model=pic
+        run: |
+          cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --features recovery-integration proxy_recovery -- --test-threads=1
+          cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --features recovery-integration socket_peer_exercises -- --test-threads=1
+          cargo build --manifest-path native-vst3-proxy/backend/Cargo.toml --release --locked --features recovery-integration
       - name: Install pinned fixture compiler
         run: rustup toolchain install 1.95.0 --profile minimal
       - name: Compile owned X11 embedding fixture and test presentation identity
@@ -65,9 +73,10 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release -DAP2_BUILD_ONLY=ON -DAP10_RESULTS_TESTS=ON -DAP11_PANEL_TESTS=ON \
             -DVST3_SDK_ROOT="${{ runner.temp }}/ap10-sdk" \
             -DAP2_RUST_LIBRARY="$PWD/native-vst3-proxy/backend/target/release/libap2_backend.a" \
+            -DLVB_RECOVERY_TEST_LIBRARY="${{ runner.temp }}/recovery-backend/release/libap2_backend.a" \
             -DAP8_DESCRIPTOR="$PWD/native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h"
           cmake --build "${{ runner.temp }}/ap10-build" --target \
-            ap10-result-lifetime process-call-observer-tests ap10-results-tests ap18-whole-block-tests ap18-auxiliary-input ap18-late-note-off-host ap11-native-tests ap11-midi-mapping-tests ap11-state-tests ap11-panel-tests ap11-activation-tests ap3-callback-audit ap23-local-wake-audit CommercialInstrumentBridge -j 4
+            ap10-result-lifetime process-call-observer-tests ap10-results-tests ap18-whole-block-tests ap18-auxiliary-input ap18-late-note-off-host ap11-native-tests bridge-recovery-integration ap11-midi-mapping-tests ap11-state-tests ap11-panel-tests ap11-activation-tests ap3-callback-audit ap23-local-wake-audit CommercialInstrumentBridge -j 4
       - name: Compile independent installed lifecycle and completion consumers
         run: sh tools/beta/build_lifecycle_host.sh "${{ runner.temp }}/ap10-sdk" "${{ runner.temp }}/ap10-build/lib/Release" "${{ runner.temp }}/lifecycle-tools"
       - name: Test independent completion consumer against the actual first-party producer

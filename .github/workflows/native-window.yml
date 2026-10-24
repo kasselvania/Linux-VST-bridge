@@ -9,7 +9,15 @@ on:
       - 'crates/model/**'
       - 'crates/view-model/**'
       - 'tools/beta/frontend_build.py'
+      - 'tools/beta/test_frontend_build.py'
+      - 'tools/beta/candidate_inputs.py'
+      - 'tools/beta/test_candidate_inputs.py'
       - 'tools/beta/rust_notices.py'
+      - 'tools/beta/test_rust_notices.py'
+      - 'tools/portable/user_package.py'
+      - 'tools/portable/test_user_package.py'
+      - 'tools/pkg0/assemble.py'
+      - 'tools/pkg0/test_assemble.py'
       - '.github/workflows/native-window.yml'
 
 permissions:
@@ -61,6 +69,14 @@ jobs:
       - name: Native build prerequisites
         run: bash bridge/.github/scripts/apt-install.sh libssl-dev libxcursor-dev libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev libpulse-dev libwayland-dev libxkbcommon-dev xvfb xauth libgl1-mesa-dri
       - run: rustup toolchain install 1.95.0 --profile minimal
+      - name: Check native pair provenance and notices
+        working-directory: bridge
+        run: |
+          python3 -m unittest discover -s tools/beta -p 'test_frontend_build.py'
+          python3 -m unittest discover -s tools/beta -p 'test_candidate_inputs.py'
+          python3 -m unittest discover -s tools/beta -p 'test_rust_notices.py'
+          PYTHONPATH=tools/pkg0 python3 -m unittest discover -s tools/portable -p 'test_user_package.py'
+          PYTHONPATH=tools/pkg0 python3 -m unittest test_assemble.PackageAssembly.test_native_build_validation_keeps_executable_role_explicit
       - name: Compile and test the Bridge-owned application
         run: |
           # The private fetch above used the deploy key. Cargo reads that exact
@@ -70,7 +86,7 @@ jobs:
           export GIT_CONFIG_VALUE_0=https://github.com/kasselvania/makepad.git
           cargo +1.95.0 test --manifest-path bridge/crates/window/Cargo.toml --locked --release --all-features --lib -j2
           cargo +1.95.0 build --manifest-path bridge/crates/window/Cargo.toml --locked --release --all-features --bin bridge-window-preview -j2
-          cargo +1.95.0 build --manifest-path bridge/crates/window/Cargo.toml --locked --release --no-default-features --features live --bin linux-audio-compatibility-manager -j2
+          cargo +1.95.0 build --manifest-path bridge/crates/window/Cargo.toml --locked --release --no-default-features --features live --bin linux-audio-compatibility-manager --bin linux-vst-bridge-install -j2
       - name: Bootstrap progress redraw after a queued worker reply
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'

@@ -1630,6 +1630,93 @@ class SupervisorFixture:
           'shared_runtime':False,'keeper':False,'vendor_access':False},durable
 
 
+class DetachedInstanceTests(SupervisorFixture,unittest.TestCase):
+    def test_closed_plan_has_exact_class_and_keeps_shared_ordinary_ownership(self):
+        import copy,fcntl
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,_=self.fixture(pathlib.Path(tmp));spec.update(detached=True,shared_runtime=True)
+            command,binding=session.command(spec)
+            self.assertEqual(command[command.index('--mode')+1],'detached-instance')
+            self.assertEqual(command[command.index('--component-case')+1],'class:'+'01'*16)
+            self.assertIn(b'mode=detached-instance',binding)
+            self.assertEqual(session.operation_lock_mode(spec),fcntl.LOCK_SH)
+            for field,value in [('inspect',True),('keeper',True),('vendor_access',True),
+                ('finish_setup',True),('first_audio',True),('shared_inspection',True),
+                ('shared_runtime',False),('graphics_assessment',True),('transport',{})]:
+                changed=copy.deepcopy(spec);changed[field]=value
+                with self.assertRaises(RuntimeError,msg=field):session.command(changed)
+            spec['registration']['metadata']['class_id']=''
+            with self.assertRaises(RuntimeError):session.command(spec)
+
+    @unittest.skipUnless(sys.platform.startswith('linux'),'Linux owned process retirement')
+    def test_actual_owned_window_close_preserves_shared_sibling_and_has_no_audio_transport(self):
+        import fcntl,threading
+        for scoped in (False,True):
+            with self.subTest(process_scoped=scoped),tempfile.TemporaryDirectory() as tmp, \
+                 tempfile.TemporaryDirectory(dir='/dev/shm') as memory:
+                root=pathlib.Path(tmp);spec,durable=self.fixture(root)
+                runtime=pathlib.Path(memory)
+                marker=runtime/'storage-v1';marker.write_bytes(session.STORAGE_MARKER);marker.chmod(0o600)
+                spec.update(detached=True,shared_runtime=True)
+                if scoped:spec['registration']['compatibility'].update(
+                    vendor_retirement='process_scoped_vendor_retirement',
+                    editor_lifetime='retain_editor_view_until_instance_retirement')
+                _,binding=session.command(spec)
+                (durable/(spec['session']+'.ready')).write_bytes(binding)
+                program='''import pathlib,sys,time,json
+d=pathlib.Path(sys.argv[1]);sid=sys.argv[2];scoped=sys.argv[3]=='1'
+def event(state,**data):print(json.dumps(dict(event='lifecycle',state=state,**data),separators=(',',':')),flush=True)
+event('readiness_announced')
+end=time.monotonic()+5
+while not (d/(sid+'.gate')).exists():
+ if time.monotonic()>end:raise SystemExit(81)
+ time.sleep(.01)
+event('detached_instance_opened')
+while not (d/'instance.close').exists():
+ if time.monotonic()>end:raise SystemExit(82)
+ time.sleep(.01)
+assert (d/'instance.close').read_text()==sid+'\\n'
+event('detached_instance_closed',reason='requested',process_scoped=scoped)
+if scoped:time.sleep(30)
+else:event('scanner_completed')
+'''
+                failures=[]
+                def close_window():
+                    try:
+                        end=time.monotonic()+5;opened=pathlib.Path(spec['report']).with_suffix('.window.json')
+                        while not opened.exists():
+                            if time.monotonic()>end:raise AssertionError('actual open observation missing')
+                            time.sleep(.01)
+                        self.assertEqual(json.loads(opened.read_text()),{'session':spec['session'],'detached_open':True})
+                        self.assertFalse(any((durable/name).exists() for name in
+                            ('ap1.control','ap1.audio','ap18.results','if1.terminal','ap18.retirement')))
+                        (durable/'instance.close').write_text(spec['session']+'\n')
+                    except BaseException as error:failures.append(error)
+                sibling=subprocess.Popen([sys.executable,'-c','import time;time.sleep(30)'])
+                try:
+                    with (root/'operation.lock').open('a+b') as shared:
+                        fcntl.flock(shared,fcntl.LOCK_SH|fcntl.LOCK_NB)
+                        closer=threading.Thread(target=close_window);closer.start()
+                        env=os.environ.copy()
+                        if scoped:env['LVB_VENDOR_RETIREMENT']='process_scoped_vendor_retirement'
+                        with patch.object(session,'command',return_value=([sys.executable,'-c',program,str(durable),spec['session'],'1' if scoped else '0'],binding)), \
+                             patch.object(session,'environment',return_value=env), \
+                             patch.object(session,'transport_root',return_value=runtime), \
+                             patch.object(session.NativeProtonSession,'selected',return_value=None), \
+                             contextlib.redirect_stdout(io.StringIO()):
+                            result=session.run(spec)
+                        closer.join(6);self.assertFalse(closer.is_alive());self.assertFalse(failures,failures)
+                        self.assertIsNone(sibling.poll(),'sibling process is not this instance\'s cleanup')
+                        self.assertTrue(result['cleanup_confirmed'] and result['transport_retired'])
+                        self.assertIsNone(result['error'])
+                        self.assertEqual(result['detached_instance']['ended'],'requested')
+                        if scoped:self.assertEqual(result['vendor_retirement'],{'mode':'detached_instance','editor_detached':True})
+                        self.assertFalse(durable.exists())
+                        with (root/'operation.lock').open('a+b') as exclusive:
+                            with self.assertRaises(BlockingIOError):fcntl.flock(exclusive,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                finally:
+                    sibling.terminate();sibling.wait(timeout=5)
+
 class KeeperDiagnosticsTests(SupervisorFixture,unittest.TestCase):
     def test_keeper_refuses_a_conflicting_startup_deadline(self):
         with tempfile.TemporaryDirectory(dir='/tmp') as tmp:

@@ -19,6 +19,8 @@ import urllib.parse
 
 TARGET = "x86_64-unknown-linux-gnu"
 BINARY = "linux-audio-compatibility-manager"
+INSTALLER = "linux-vst-bridge-install"
+BINARIES = (BINARY, INSTALLER)
 TOOLKIT_REPOSITORY = "https://github.com/kasselvania/makepad"
 WINDOW_MANIFEST = Path("crates/window/Cargo.toml")
 TOOLKIT_CRATES = {"makepad-widgets", "makepad-product-ui"}
@@ -152,12 +154,14 @@ def toolkit_dependency(source, head):
             and url.fragment == head)
 
 
-def describe(bridge, frontend, manifest_name, public_key, key_class):
+def describe(bridge, frontend, manifest_name, public_key, key_class, binary=BINARY):
     with recorded_sources(bridge, frontend) as (public, private, env):
-        return describe_sources(public, private, manifest_name, public_key, key_class, env)
+        return describe_sources(public, private, manifest_name, public_key, key_class, env, binary)
 
 
-def describe_sources(bridge, frontend, manifest_name, public_key, key_class, env=None):
+def describe_sources(bridge, frontend, manifest_name, public_key, key_class, env=None, binary=BINARY):
+    if binary not in BINARIES:
+        raise ValueError("unsupported native application executable")
     bridge, frontend = Path(bridge).resolve(), Path(frontend).resolve()
     public, private = source_identity(bridge), source_identity(frontend)
     relative = Path(manifest_name)
@@ -216,29 +220,51 @@ def describe_sources(bridge, frontend, manifest_name, public_key, key_class, env
     if toolkit != TOOLKIT_CRATES:
         raise ValueError("window must use both exact private toolkit crates")
     root = next(package for package in packages if package["id"] == root_id)
-    if not any(target["name"] == BINARY and "bin" in target["kind"] for target in root["targets"]):
-        raise ValueError("frontend must declare the standard product executable")
+    if not all(any(target["name"] == name and "bin" in target["kind"]
+                   for target in root["targets"]) for name in BINARIES):
+        raise ValueError("window must declare both native application executables")
     # The same build declaration now names the actual public application.
     # Its locked Git dependencies bind the private toolkit commit transitively;
     # the loop above verifies that commit's tree against the supplied checkout.
     application = {**public, "manifest": relative.as_posix(), "manifest_sha256": sha(manifest),
                    "cargo_lock_sha256": sha(manifest.with_name("Cargo.lock"))}
     return {"schema": 1, "bridge_source": public, "frontend_source": application,
-            "target": TARGET, "binary": BINARY, "features": ["live"],
+            "target": TARGET, "binary": binary, "features": ["live"],
             "portable_public_key": public_key, "portable_key_class": key_class}
 
 
 def verify_record(record, bridge, frontend, binary):
     metadata = {key: value for key, value in record.items() if key != "artifact_sha256"}
     actual = describe(bridge, frontend, metadata["frontend_source"]["manifest"],
-                      metadata["portable_public_key"], metadata["portable_key_class"])
+                      metadata["portable_public_key"], metadata["portable_key_class"], metadata["binary"])
     if metadata != actual or record.get("artifact_sha256") != sha(binary):
         raise ValueError("frontend build sources or artifact changed")
-    embedded = json.loads(subprocess.check_output([str(Path(binary).resolve()), "--package-info"],
-                                                 timeout=15))
-    if embedded != metadata:
-        raise ValueError("frontend embedded build identity differs")
+    if metadata["binary"] == INSTALLER:
+        # The first-run executable accepts no arguments, including diagnostics.
+        # Its exact declaration is retained in the ELF without executing it.
+        declaration = json.dumps(metadata, sort_keys=True, separators=(",", ":")).encode()
+        if declaration not in Path(binary).read_bytes():
+            raise ValueError("installer embedded build identity differs")
+    else:
+        embedded = json.loads(subprocess.check_output([str(Path(binary).resolve()), "--package-info"],
+                                                     timeout=15))
+        if embedded != metadata:
+            raise ValueError("frontend embedded build identity differs")
     return record
+
+
+def verify_pair(record_path, bridge, frontend):
+    """Both binaries from one native build; no fallback to another installer."""
+    record_path = Path(record_path).resolve()
+    manager = verify_record(json.loads(record_path.read_bytes()), bridge, frontend,
+                            record_path.with_name(BINARY))
+    installer = verify_record(json.loads(record_path.with_name("installer-build.json").read_bytes()),
+                              bridge, frontend, record_path.with_name(INSTALLER))
+    if (manager["binary"] != BINARY or installer["binary"] != INSTALLER
+            or {k: v for k, v in manager.items() if k not in ("binary", "artifact_sha256")}
+            != {k: v for k, v in installer.items() if k not in ("binary", "artifact_sha256")}):
+        raise ValueError("native manager and installer build identities differ")
+    return manager, installer
 
 
 def build(bridge, frontend, manifest, output, target_dir, public_key, key_class):
@@ -250,27 +276,32 @@ def build(bridge, frontend, manifest, output, target_dir, public_key, key_class)
         raise ValueError("frontend outputs must be outside source checkouts")
     with recorded_sources(bridge, frontend) as (public, private, cargo_env):
         metadata = describe_sources(public, private, manifest, public_key, key_class, cargo_env)
+        installer_metadata = {**metadata, "binary": INSTALLER}
         env = {**cargo_env, "CARGO_BUILD_JOBS": "2", "CARGO_TARGET_DIR": str(target_dir),
            "LVB_PORTABLE_ED25519_PUBLIC_KEY": public_key, "LVB_PORTABLE_KEY_CLASS": key_class,
            "MAKEPAD_PACKAGE_DIR": ".",
-           "LVB_FRONTEND_PACKAGE_INFO": json.dumps(metadata, sort_keys=True, separators=(",", ":"))}
+           "LVB_FRONTEND_PACKAGE_INFO": json.dumps(metadata, sort_keys=True, separators=(",", ":")),
+           "LVB_INSTALLER_PACKAGE_INFO": json.dumps(installer_metadata, sort_keys=True, separators=(",", ":"))}
         subprocess.run(["cargo", "build", "--release", "--locked", "--target", TARGET,
-                    "--no-default-features", "--features", "live", "--bin", BINARY,
+                    "--no-default-features", "--features", "live", "--bin", BINARY, "--bin", INSTALLER,
                     "--manifest-path", str(public / WINDOW_MANIFEST)], cwd=public, env=env, check=True)
         if (source_identity(public) != metadata["bridge_source"]
                 or source_identity(private) != source_identity(frontend)):
             raise ValueError("frontend build changed recorded sources")
-    binary = target_dir / TARGET / "release" / BINARY
-    data = binary.read_bytes()
-    if not data.startswith(b"\x7fELF") or public_key.encode() not in data:
-        raise ValueError("frontend ELF or compiled public trust root absent")
-    record = {**metadata, "artifact_sha256": sha(binary)}
-    verify_record(record, bridge, frontend, binary)
+    records = {}
+    for declaration in (metadata, installer_metadata):
+        binary = target_dir / TARGET / "release" / declaration["binary"]
+        data = binary.read_bytes()
+        if not data.startswith(b"\x7fELF") or public_key.encode() not in data:
+            raise ValueError("native executable ELF or compiled public trust root absent")
+        record = {**declaration, "artifact_sha256": sha(binary)}
+        records[declaration["binary"]] = verify_record(record, bridge, frontend, binary)
     output.mkdir(parents=True)
-    shutil.copyfile(binary, output / BINARY)
-    (output / BINARY).chmod(0o555)
-    (output / "frontend-build.json").write_text(json.dumps(record, sort_keys=True, indent=2) + "\n")
-    return record
+    for name, record_name in ((BINARY, "frontend-build.json"), (INSTALLER, "installer-build.json")):
+        shutil.copyfile(target_dir / TARGET / "release" / name, output / name)
+        (output / name).chmod(0o555)
+        (output / record_name).write_text(json.dumps(records[name], sort_keys=True, indent=2) + "\n")
+    return records[BINARY]
 
 
 def main():

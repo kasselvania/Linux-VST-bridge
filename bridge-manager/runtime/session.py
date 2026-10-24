@@ -360,6 +360,9 @@ def command(spec):
         if spec['inspect'] is not True or spec.get('keeper') or spec.get('vendor_access') or spec.get('bus_lifecycle_probe') or spec.get('graphics_assessment') or spec.get('shared_inspection'):
             raise RuntimeError('finish setup requires an exclusive inspection')
         mode='ap8-finish-setup'
+    if spec.get('detached'):
+        detached_spec(spec)
+        mode='detached-instance'
     case='first-audio' if spec.get('first_audio') else 'class:'+reg['metadata']['class_id']
     handshake_directory=prefix/'drive_c/bridge/sessions'/sid
     pairs=[('session',sid),('scanner-sha256',reg['host']['sha256']),('implementation-source-manifest-sha256',reg['host_source_sha256']),
@@ -370,6 +373,16 @@ def command(spec):
     for k,v in pairs:cmd+=['--'+k,v]
     binding=('schema=linux-vst-bridge-wf0-handshake/v1\n'+''.join(k.replace('-','_')+'='+v+'\n' for k,v in [pairs[0],pairs[1],pairs[4],pairs[5],pairs[2],pairs[10],pairs[11]])+'run_ordinal=1\n').encode()
     return cmd,binding
+
+def detached_spec(spec):
+    """Execute the Rust owner's closed ordinary-window plan, never select policy."""
+    if (spec.get('detached') is not True or spec.get('inspect') is not False
+        or spec.get('shared_runtime') is not True or spec.get('keeper')
+        or spec.get('vendor_access') or spec.get('finish_setup') or spec.get('first_audio')
+        or spec.get('shared_inspection') or spec.get('bus_lifecycle_probe')
+        or spec.get('graphics_assessment') or spec.get('transport') is not None
+        or not re.fullmatch('[0-9A-F]{32}',spec['registration']['metadata']['class_id'])):
+        raise RuntimeError('detached instance requires an exact ordinary class plan')
 
 
 # AP16: the hot mappings share memory, while owner.json and retirement receipts
@@ -1795,20 +1808,22 @@ def run_owned(spec,peer,stop_requested):
         while not (directory/'ap1.control').exists():
             if native_stopped() or time.monotonic()>=end:raise RuntimeError('native setup disconnected or timed out')
             time.sleep(.02)
-    if not spec['inspect'] and not spec.get('vendor_access'):ResultStatus.create(directory,sid)
-    visibility=FaultStatus(directory,sid) if not spec['inspect'] and not spec.get('vendor_access') else None
+    detached=bool(spec.get('detached'))
+    if detached:detached_spec(spec)
+    if not spec['inspect'] and not spec.get('vendor_access') and not detached:ResultStatus.create(directory,sid)
+    visibility=FaultStatus(directory,sid) if not spec['inspect'] and not spec.get('vendor_access') and not detached else None
     retirement=None;retirement_ready=None
     if spec['inspect'] or spec.get('vendor_access'):
         env.pop('LVB_VENDOR_RETIREMENT',None) # companion/inspection ownership is distinct
-    elif env.get('LVB_VENDOR_RETIREMENT'):
+    elif env.get('LVB_VENDOR_RETIREMENT') and not detached:
         RetirementStatus.create(directory,sid);retirement=RetirementStatus(directory,sid)
     if stop_requested[0]:raise InterruptedError('supervisor interrupted after readiness')
     command_session=NativeProtonSession.selected(spec)
     root=(command_session.spawn(cmd,env) if command_session is not None else
         subprocess.Popen(cmd,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0))
     records=[];owned=set();pending=bytearray();vendor=bytearray();stderr=bytearray();dropped={'vendor':0,'stderr':0};protocol_bytes=0;gated=False;call=None;started=time.monotonic();failure=None;clean=False;code=None
-    finish_setup=bool(spec.get('finish_setup'));plugin_window=None;window_wait=PluginWindowWait();window_poll=0.0;setup_end=None
-    audio_scheduling=AudioScheduling(spec) if not spec['inspect'] and not spec.get('vendor_access') else None
+    finish_setup=bool(spec.get('finish_setup'));plugin_window=None;window_wait=PluginWindowWait();window_poll=0.0;setup_end=None;detached_stop_deadline=None
+    audio_scheduling=AudioScheduling(spec) if not spec['inspect'] and not spec.get('vendor_access') and not detached else None
     host_footprint=HostFootprint(spec) if audio_scheduling else None
     sel=selectors.DefaultSelector()
     def retain(key,target,data):
@@ -1829,6 +1844,8 @@ def run_owned(spec,peer,stop_requested):
         record=json.loads(line)
         if writer is not None:command_session.host_custody.observe(record,writer,tracker,root)
         records.append(record);state=record.get('state')
+        if detached and state=='detached_instance_opened':
+            atomic(report.with_suffix('.window.json'),{'session':sid,'detached_open':True})
         if audio_scheduling and state=='ap0_processing_thread_started':
             audio_scheduling.started()
             if host_footprint:host_footprint.started()
@@ -1885,11 +1902,30 @@ def run_owned(spec,peer,stop_requested):
                     # abnormal; a committed row does not reclassify a crash.
                     if root.poll() is not None:raise RuntimeError('Windows exited before process retirement containment')
                     retirement_ready=ready;break
+            if detached:
+                closed=next((r for r in reversed(records) if r.get('state')=='detached_instance_closed'),None)
+                if closed and closed.get('process_scoped') is True:
+                    if env.get('LVB_VENDOR_RETIREMENT')!='process_scoped_vendor_retirement':
+                        raise RuntimeError('unrequested detached process retirement')
+                    if root.poll() is not None:raise RuntimeError('Windows exited before detached retirement containment')
+                    # This mode never activates audio or starts processing.
+                    # Its exact host acknowledges only editor/frame detachment.
+                    retirement_ready={'mode':'detached_instance','editor_detached':True}
+                    break
             if native_stopped() or (finish_setup and (directory/'vendor.stop').exists()):
+                if detached:
+                    if detached_stop_deadline is None:
+                        (directory/'instance.close').write_text(sid+'\n')
+                        detached_stop_deadline=time.monotonic()+10
+                    if time.monotonic()>=detached_stop_deadline:
+                        raise TimeoutError('detached editor did not close before containment')
+                    # Keep the ordinary event/retirement loop; a requested stop
+                    # is not itself a view-detachment acknowledgement.
+                    if not any(r.get('state')=='scanner_completed' for r in records):continue
                 if retirement:failure='Windows retirement status absent'
                 if finish_setup:setup_end='stopped'
-                if spec.get('vendor_access') or finish_setup:
-                    (directory/'vendor.stop').write_text(sid+'\n')
+                if spec.get('vendor_access') or finish_setup or detached:
+                    (directory/('instance.close' if detached else 'vendor.stop')).write_text(sid+'\n')
                     end=time.monotonic()+10
                     while time.monotonic()<end and not any(r.get('state')=='scanner_completed' for r in records):pump(.05)
                 break
@@ -1927,6 +1963,11 @@ def run_owned(spec,peer,stop_requested):
                     end=time.monotonic()+10
                     while time.monotonic()<end and not any(r.get('state')=='scanner_completed' for r in records):pump(.05)
                     failure='TimeoutError: finish setup deadline';break
+            elif detached:
+                if gated:
+                    try:finish_setup_focus(report,owned)
+                    except OSError:pass
+                if call and now-call[1]>30:raise TimeoutError('Windows call deadline: '+str(call[0]))
             else:
                 if window_wait.waiting(call,now):
                     raise PluginWindowWaiting(str(call[0]))
@@ -2000,6 +2041,7 @@ def run_owned(spec,peer,stop_requested):
         outcome={'graphics_configuration':graphics_configuration,'vendor_retirement':retirement_ready,'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
         if plugin_window is not None:outcome['plugin_window']=plugin_window
         if finish_setup:outcome['finish_setup']={'ended':setup_end or next((r.get('reason') for r in reversed(records) if r.get('state')=='finish_setup_ended'),'host_ended'),'seconds_bound':FINISH_SETUP_SECONDS}
+        if detached:outcome['detached_instance']={'ended':next((r.get('reason') for r in reversed(records) if r.get('state')=='detached_instance_closed'),'host_ended')}
         if audio_scheduling:outcome['audio_scheduling']=audio_scheduling.value()
         if host_footprint:outcome['host_footprint']=host_footprint.value()
         if command_session is not None:
@@ -5656,7 +5698,7 @@ def selected_installer_origin(managed, app):
                 'powershell':action.get('powershell')}
             if expected['powershell'] not in ('inherited','intentionally_unavailable'):raise ValueError('managed_application_installation_binding')
         if (binding.get('schema')!=1 or binding.get('operation')!=op or binding.get('installer')!=sha
-            or type(request.get('schema')) is not int or not 5<=request['schema']<=29
+            or type(request.get('schema')) is not int or not 5<=request['schema']<=31
             or action!=expected
             or before.get('id')!=env['id'] or after.get('id')!=env['id'] or before.get('root')!=env['root'] or after.get('root')!=env['root']
             or type(before.get('revision')) is not int or type(after.get('revision')) is not int
@@ -6114,10 +6156,13 @@ if __name__=='__main__':
     if sys.argv[1]=='--vendor-application':sys.exit(0 if vendor_application(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
     if sys.argv[1]=='--vendor-recover-census' and len(sys.argv)==2:sys.exit(vendor_recover_census_main())
     graphics_entry=sys.argv[1]=='--graphics-settings-v1'
-    spec=json.loads(pathlib.Path(sys.argv[2 if graphics_entry else 1]).read_text())
+    detached_entry=sys.argv[1]=='--detached-instance-v1'
+    spec=json.loads(pathlib.Path(sys.argv[2 if graphics_entry or detached_entry else 1]).read_text())
+    if detached_entry:detached_spec(spec)
+    elif spec.get('detached'):raise RuntimeError('detached instance requires its versioned supervisor entry')
     if graphics_entry and (spec.get('keeper') or spec['registration'].get('compatibility',{}).get('graphics')!='wine_d3d11'):
         raise RuntimeError('graphics settings entry requires a supported process-scoped choice')
-    peer=None if spec['inspect'] or spec.get('vendor_access') else socket.socket(fileno=0)
+    peer=None if spec['inspect'] or spec.get('vendor_access') or detached_entry else socket.socket(fileno=0)
     operation=None
     try:
         if spec.get('keeper'):

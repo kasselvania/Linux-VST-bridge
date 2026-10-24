@@ -203,6 +203,7 @@ pub enum ListStep {
     Status(plugins::StatusFilter),
     /// Open one exact plug-in from the list shown while controls load.
     Open(vm::ProductKey),
+    ProductPage { key: vm::ProductKey, page: vm::state::ProductPage },
 }
 
 /// The preview's own sample switcher.
@@ -255,6 +256,9 @@ pub struct Why {
     pub pending: bool,
     pub in_flight: bool,
     pub superseded: bool,
+    /// The open form's captured binding differs from the current owner's.
+    /// Waiting for another read cannot authorize that form.
+    pub form_stale: bool,
 }
 
 impl Why {
@@ -396,11 +400,14 @@ impl<'a> Builder<'a> {
         id
     }
 
-    /// One manager offer as a control. A removal or deletion is drawn as
-    /// destructive: those are exactly the offers `forms::route` confirms.
+    /// One manager offer as a control. Setup and display choices ask first
+    /// without borrowing the destructive appearance of removal and deletion.
     pub fn offer(&mut self, offer: &Offer, after: After) -> ActionView {
         let id = self.target("offer", &offer.label, Target::Offer { offer: offer.clone(), after });
-        let weight = if forms::needs_confirmation(&offer.intent) {
+        let weight = if offer.intent.environment_installer_start().is_some()
+            || matches!(offer.intent, Action::CandidateSettingsTest { .. }) {
+            Importance::Primary
+        } else if forms::needs_confirmation(&offer.intent) {
             Importance::Destructive
         } else {
             importance(offer.importance)
@@ -628,7 +635,7 @@ impl<'a> Builder<'a> {
         }
         match screen {
             Screen::Home(home) => self.home(home),
-            Screen::Setup(setup) => self.setup(setup, state, update),
+            Screen::Setup(setup) => self.setup(setup, state, update, snapshot),
             Screen::Plugins { not_current, list, single } => snapshot.map(|snapshot| self.plugins(not_current.as_ref(), list, *single, snapshot, state))
                 .unwrap_or_else(|| vec![words(Role::Body, "Reading plug-ins…")]),
             Screen::PluginsLoading(list) => self.loading(list, state),
@@ -691,7 +698,7 @@ pub fn build(window: &Window, snapshot: Option<&Snapshot>, actions: Option<&Snap
     let (header, mut page) = builder.frame(&window.frame, state.page);
     let screen_from = page.len();
     page.extend(builder.screen(&window.screen, &window.frame, snapshot, state, update));
-    let form = snapshot.and_then(|snapshot| builder.form(state, snapshot, actions, why.pending));
+    let form = snapshot.and_then(|snapshot| builder.form(state, snapshot, actions));
     let (form, form_focus) = match form {
         Some((nodes, focus)) => (Some(nodes), focus),
         None => (None, None),

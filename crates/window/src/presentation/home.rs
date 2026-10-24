@@ -41,7 +41,7 @@ impl Builder<'_> {
     pub(super) fn next(&mut self, next: &Next) -> Node {
         match next {
             Next::Service { title, what_happened, offers, review } => {
-                let mut children = vec![Node::Heading((*title).into()), words(Role::Body, *what_happened)];
+                let mut children = vec![Node::Heading(title.clone()), words(Role::Body, what_happened.clone())];
                 children.extend(self.row(offers));
                 let review = self.control(review);
                 children.push(self.one(review));
@@ -92,7 +92,7 @@ impl Builder<'_> {
         let mut action = self.control(&plugin.manage);
         action.label = plugin.name.clone();
         Node::LibraryRow { action,
-            detail: plugin.problem.clone().unwrap_or_else(|| plugin.subtitle.clone()),
+            detail: format!("{}\n{}", plugin.problem.as_deref().unwrap_or(&plugin.subtitle), plugin.activity),
             status: plugin.status.map(|said| status(&vm::Status { words: said, class: plugin.status_class })),
         }
     }

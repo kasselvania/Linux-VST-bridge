@@ -1,37 +1,40 @@
-# Current slice — approved Console application (#504)
+# Current slice — beta feature integration (#504)
 
-Goal: deliver the agreed Console interface and service/client structure on the
-installed SteamOS and CachyOS routes. The musician gets the actual approved
-screens and journeys, with working controls, touch and scrolling.
-`docs/ARCHITECTURE.md` remains the product and runtime authority.
+Goal: finish the approved Console on SteamOS and CachyOS. Current state is
+Beta Feature Candidate in integration, not Beta RC. Freeze the product surface;
+compatibility expansion continues through existing owners.
+Architecture fixes boundaries; docs/INTEGRATED_BETA_DELIVERY.md defines release
+acceptance. docs/SUPPORT_MATRIX.md holds exact installed claims.
 
-Reference comparison:
-- `docs/design-dossier/console-journeys.html` is the recovered approved 27-screen
-  proof: install, readiness, repair, update, recovery, presets and sample locations.
-  Its outer journey selector and illustrative records are prototype scaffolding.
-- Test242 exposed wrong screen composition, idle flashing, missing Linux touch,
-  slow scrolling and Activity/Support reads stuck loading (Makepad issue #10).
-- Colours and shared widgets alone do not satisfy the approved design.
+Reference:
+- Approved 27-screen Console proof: docs/design-dossier/console-journeys.html.
+- Native Home, Plug-ins, Activity, Support, Setup, repair, update, recovery,
+  presets and sample locations; no prototype chrome or UI ownership fallback.
+- Test254 proves scoped first-party update/recovery/repair/recall. Test258 proves
+  activated Bitwig Reference save/reopen playback on its recorded build.
 
-Next changes:
-1. Compose the compact header, library rows, exact plug-in detail, readiness
-   ladder, contextual actions and journey screens from actual owner records.
-2. Make passive refresh quiet; keep failed reads actionable; complete native
-   input, file selection, forms and exact retained-operation feedback.
-3. Complete service-owned command execution and setup-scoped maintenance.
-   UI/CLI consume the same owner view and offers; no frontend policy fallback.
-4. Complete the missing owner facts/actions needed by the agreed journeys,
-   then qualify and land the native window as the product interface.
+Next changes, in order:
+1. Finish #536's review repairs, integrated checks and installed target acceptance;
+   land the live state, recovery, display and standalone-window increment.
+2. Rebase #538 on main; final-head review and land preset maintenance protection.
+3. Repair #537's stable directory/mount custody and kernel-enforced access;
+   run substitution/write controls, rebase, review and land. Do not merge as is.
+4. Reconcile one operator schema. Complete physical touch, pointer, keyboard,
+   scrolling, chooser/modal/cancel and failure/support paths on target hosts.
+5. Cut the immutable signed candidate; qualify the core matrix and canaries,
+   classify Musio, and prove installation/update/rollback/support delivery.
+No additional feature goes above the current stack.
 
 Working completion:
-- Installed screens match the approved hierarchy and layout at Deck and desktop
-  sizes; ordinary and failure states are navigable without development chrome.
-- Activity and Support settle; background observation does not flash or reset
-  controls; physical touch, mouse, keyboard and scrolling work on target hosts.
-- Each problem has its exact next action; offers execute through the service,
-  preserve confirmations and survive refresh without replay or wrong identity.
-- Setup maintenance leaves unrelated playback and new-instance admission working.
-- Native installed journey checks and independent code review pass before merge.
-- Existing projects, installed plug-ins, vendor accounts and activation survive.
+- Approved hierarchy at Deck/desktop sizes, no dead ends or known-bad offers.
+- Quiet renewal; Activity/Support settle or offer an actionable failure.
+- Service-owned actions preserve confirmation and exact target across refresh.
+- Sample access is enforced; presets and external content survive maintenance.
+- Unrelated playback and new-instance admission survive setup maintenance.
+- Independent review and installed journeys pass before their increment lands.
+- Projects, plug-ins, accounts and activation remain intact.
 
-The closed-beta targets and runtime/saved-state obligations are unchanged.
+Beta RC requires the exact candidate on CachyOS/REAPER and SteamOS/Bitwig:
+Reference, Tyrell, Kontakt, Serum, Valhalla/CHOW canaries, plus release delivery.
+Musio is classified without adding a core support promise. Promotion reuses the
+accepted artifact; changes invalidate affected gates, not history.

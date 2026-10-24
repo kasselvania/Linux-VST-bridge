@@ -3,8 +3,10 @@ use super::*;
 
 impl Builder<'_> {
     pub(super) fn activity(&mut self, activity: &Activity) -> Vec<Node> {
-        let Activity { heading, intro, live, recent, attention, incidents } = activity;
+        let Activity { heading, intro, notice, retry, live, recent, attention, incidents } = activity;
         let mut out = vec![Node::Title((*heading).into()), words(Role::Lead, *intro)];
+        if let Some(notice) = notice { out.push(text(notice)); }
+        if let Some(retry) = retry { let retry = self.control(retry); out.push(self.one(retry)); }
         out.push(self.attentions(attention));
         out.push(self.sessions(live));
         out.push(self.sessions(recent));
@@ -21,7 +23,7 @@ impl Builder<'_> {
         if let Some(empty) = empty {
             children.push(words(Role::Body, *empty));
         }
-        for SessionRow { recent: _, index: _, session, name, state: said, cleanup, open, record } in rows {
+        for SessionRow { recent: _, index: _, session, name, state: said, cleanup, open, recovery, record } in rows {
             children.push(words(Role::Strong, name.clone()));
             children.push(words(Role::Body, said.clone()));
             if let Some(cleanup) = cleanup {
@@ -34,9 +36,27 @@ impl Builder<'_> {
                 let view = self.control(open);
                 children.push(self.one(view));
             }
+            if let Some(recovery) = recovery { children.push(self.instance_recovery(recovery)); }
             children.push(self.fold(record));
         }
         Node::Panel { kind: PanelKind::Card, children }
+    }
+
+    pub(super) fn instance_recovery(&mut self, recovery: &vm::recovery::Recovery) -> Node {
+        let chip = self.id("chip", &format!("recovery {}", recovery.name));
+        let mut children = vec![Node::Header(vec![
+            Node::PluginIdentity { name: recovery.name.clone(), detail: recovery.context.clone() },
+            Node::Chip { id: chip, status: status(&recovery.status) },
+        ])];
+        children.extend(recovery.detail.iter().map(text));
+        if recovery.actions.offers.is_empty() {
+            children.extend(recovery.actions.notes.iter().map(|note| words(Role::Detail, note.clone())));
+        } else { children.extend(self.row(&recovery.actions)); }
+        children.push(words(Role::Body, recovery.processing.clone()));
+        let support = self.control(&Control::go("Make a support report…", offers::Importance::Secondary, vm::Destination::Diagnostics));
+        children.push(self.one(support));
+        children.push(self.fold(&recovery.identity));
+        Node::Panel { kind: PanelKind::Recovery, children }
     }
 
     pub(super) fn attentions(&mut self, attention: &Attentions) -> Node {

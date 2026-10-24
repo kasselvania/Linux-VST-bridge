@@ -1,0 +1,31 @@
+{
+  "build": "Test258",
+  "source": "ed38c977542139e9d93b989275f7c35982777a19",
+  "service_sha256": "14c9322ced5a6600265f176ede287c07f59378347c8785e302df14fda3658734",
+  "platform": "SteamOS Deck",
+  "daw": "Bitwig Studio 6.1",
+  "plugin": "Reference Instrument",
+  "saved_level": 0.25,
+  "saved_colour": 0.5,
+  "recalled_level": 0.25,
+  "recalled_colour": 0.5,
+  "fresh_daw_audio_engine_and_plugin_host": true,
+  "transport_advanced_before_and_after_reopen": true,
+  "capture_source": "Bitwig Studio:out1/out2",
+  "capture_format": "stereo 48000 Hz signed 16-bit PCM",
+  "before": {
+    "seconds": 20,
+    "peak_s16": 280,
+    "rms_s16": 73.22180124884255
+  },
+  "reopen": {
+    "seconds": 20,
+    "peak_s16": 279,
+    "rms_s16": 73.35760100712695
+  },
+  "capture_note": "pw-record returned 1; measurements are from finalized WAV files with validated format and 960000 frames each.",
+  "normal_exit_both_sessions": true,
+  "original_project_byte_exact": true,
+  "temporary_capture_ports_remaining": 0,
+  "scope": "First-party save/full exit/fresh reopen only; no reboot or commercial qualification."
+}

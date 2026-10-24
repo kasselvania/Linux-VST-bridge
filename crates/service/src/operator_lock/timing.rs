@@ -150,7 +150,7 @@ mod enabled {
         match action {
             Action::CandidateSettingsPrepare {..} | Action::CandidateGraphicsPrepare {..} => Some(Kind::Prepare),
             Action::ExperimentalEnable {..} | Action::ExperimentalReplace {..}
-                | Action::CompatibilityPublishTest {..} => Some(Kind::Apply),
+                | Action::CompatibilityPublishTest {..} | Action::CandidateSettingsTest {..} => Some(Kind::Apply),
             Action::ExperimentalDisable {..} | Action::OrdinaryRollback {..}
                 | Action::OrdinaryRestoreRecommended {..} => Some(Kind::Restore),
             _ => None,

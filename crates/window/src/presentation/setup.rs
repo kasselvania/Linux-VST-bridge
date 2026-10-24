@@ -2,7 +2,7 @@
 use super::*;
 
 impl Builder<'_> {
-    pub(super) fn setup(&mut self, setup: &Setup, state: &State, update: Option<&updates::Panel>) -> Vec<Node> {
+    pub(super) fn setup(&mut self, setup: &Setup, state: &State, update: Option<&updates::Panel>, snapshot: Option<&Snapshot>) -> Vec<Node> {
         let Setup { heading, add, add_label, daw, progress, existing, showing_one, cards, empty, missing,
             apps, deleted, footer, history } = setup;
         let focused = showing_one.is_some() && cards.len() == 1;
@@ -53,7 +53,7 @@ impl Builder<'_> {
             out.push(self.deleted(deleted));
         }
         if let Some(panel) = update {
-            out.push(self.update_panel(panel));
+            out.push(self.update_panel(panel, snapshot));
         }
         out.push(words(Role::Detail, *footer));
         let history = self.control(history);
@@ -65,7 +65,7 @@ impl Builder<'_> {
         let SetupCard { installer: _, name, title, status: said, journey, primary, discovered, secondary, latest,
             replace, draft, details, removal, actionable: _ } = card;
         let mut children = if focused { vec![text(said)] }
-            else { vec![Node::Heading(name.clone()), words(Role::Strong, *title), text(said)] };
+            else { vec![Node::Heading(name.clone()), words(Role::Strong, title.clone()), text(said)] };
         if let Some(journey) = journey {
             children.extend(self.results(journey));
         }
@@ -123,7 +123,7 @@ impl Builder<'_> {
             children.push(self.fold(removal));
         }
         let panel = Node::Panel { kind: PanelKind::Card, children };
-        if focused { Node::Stack(vec![Node::Label((*title).into()), Node::Title(name.clone()), panel]) }
+        if focused { Node::Stack(vec![Node::Label(title.clone()), Node::Title(name.clone()), panel]) }
         else { panel }
     }
 

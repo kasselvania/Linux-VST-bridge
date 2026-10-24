@@ -274,6 +274,18 @@ fn first_control(nodes: &[crate::presentation::Node]) -> Option<String> {
     })
 }
 
+/// Product feedback contains the displayed refusal, never a routing identity.
+fn intent_notice(intent: &ActionIntent) -> Option<&str> {
+    match intent {
+        ActionIntent::Unavailable { reason, .. } => Some(if reason.trim().is_empty() {
+            "This action is unavailable. Refresh status and try again."
+        } else { reason }),
+        ActionIntent::AlreadyPending { .. } => Some("This action is already waiting. Please wait for its result."),
+        ActionIntent::ContextRequested { .. } => Some("Use the actions shown on this page."),
+        ActionIntent::Invoke { .. } | ActionIntent::None => None,
+    }
+}
+
 impl MatchEvent for App {
     fn handle_startup(&mut self, cx: &mut Cx) {
         let args = args();
@@ -299,20 +311,12 @@ impl MatchEvent for App {
         for intent in action_intents(actions) {
             match intent {
                 ActionIntent::Invoke { id, via } => self.press(cx, &id.0, via),
-                ActionIntent::Unavailable { id, via, reason } => {
-                    self.pressed = Some((Cx::monotonic_now(), format!("{} via {via:?} (held)", id.0)));
-                    let line = format!("Not passed on: {} via {via:?}. {reason}", id.0);
-                    self.controller().note(line);
-                    self.show(cx);
-                }
-                ActionIntent::AlreadyPending { id, via } => {
-                    let line = format!("Not passed on: {} via {via:?} is already waiting", id.0);
-                    self.controller().note(line);
-                    self.show(cx);
-                }
-                ActionIntent::ContextRequested { id, via, .. } => {
-                    let line = format!("{} via {via:?} asked for a context menu; the window has none, every action is on the page", id.0);
-                    self.controller().note(line);
+                held @ (ActionIntent::Unavailable { .. } | ActionIntent::AlreadyPending { .. }
+                    | ActionIntent::ContextRequested { .. }) => {
+                    if let ActionIntent::Unavailable { id, via, .. } = &held {
+                        self.pressed = Some((Cx::monotonic_now(), format!("{} via {via:?} (held)", id.0)));
+                    }
+                    if let Some(line) = intent_notice(&held) { self.controller().note(line.to_owned()); }
                     self.show(cx);
                 }
                 ActionIntent::None => {}
@@ -404,5 +408,25 @@ impl AppMain for App {
                     self.feedback_ms.len());
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn refused_and_pending_feedback_never_contains_internal_action_identity() {
+        let id = ActionId("Offer { PluginRestart { instance: secret_identity, snapshot: private_digest } }".into());
+        for via in [InputPath::Touch, InputPath::Pointer, InputPath::Keyboard] {
+            let intent = ActionIntent::Unavailable { id: id.clone(), via,
+                reason: "Restart is already in progress.".into() };
+            assert_eq!(intent_notice(&intent), Some("Restart is already in progress."));
+            let pending = ActionIntent::AlreadyPending {id:id.clone(),via};
+            assert_eq!(intent_notice(&pending), Some("This action is already waiting. Please wait for its result."));
+            assert_eq!(intent_notice(&ActionIntent::Invoke {id:id.clone(),via}), None);
+        }
+        let empty = ActionIntent::Unavailable {id,via:InputPath::Touch,reason:"  ".into()};
+        assert_eq!(intent_notice(&empty), Some("This action is unavailable. Refresh status and try again."));
     }
 }

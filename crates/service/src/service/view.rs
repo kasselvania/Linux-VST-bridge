@@ -40,6 +40,7 @@ const HELD_BYTES: usize = 32 * 1024 * 1024;
 #[derive(Default)]
 pub struct Views {
     changes: OnceLock<Changes>,
+    volatile_revision: AtomicU64,
     held: Mutex<Held>,
     answered_again: AtomicU64,
     composed: AtomicU64,
@@ -59,6 +60,25 @@ impl Views {
     pub fn cover(&self, changes: Changes) {
         let _ = self.changes.set(changes);
     }
+    /// Drain the same watch used by current reads. A push never grants offers.
+    pub fn records_revision(&self) -> Option<u64> {
+        let volatile = self.volatile_revision.load(Ordering::Acquire);
+        if volatile == u64::MAX { return None; }
+        self.changes.get().and_then(Changes::generation)
+            .and_then(|revision| revision.checked_add(volatile))
+    }
+    /// An owner changed a fact held only in service memory. This invalidates
+    /// both current replies and the subscription's record coverage together.
+    pub fn invalidate(&self) {
+        let mut revision = self.volatile_revision.load(Ordering::Acquire);
+        loop {
+            match self.volatile_revision.compare_exchange_weak(revision, revision.saturating_add(1),
+                Ordering::AcqRel, Ordering::Acquire) {
+                Ok(_) => break,
+                Err(current) => revision = current,
+            }
+        }
+    }
     fn held(&self) -> std::sync::MutexGuard<'_, Held> {
         self.held.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
     }
@@ -67,7 +87,7 @@ impl Views {
     pub fn answer(&self, read: &Read, service: u64,
         compose: impl FnOnce() -> crate::Result<Composed>) -> crate::Result<Arc<Vec<u8>>> {
         // Taken before composing: a change during composition is newer.
-        let generation = self.changes.get().and_then(Changes::generation)
+        let generation = self.records_revision()
             .map(|generation| (generation, service));
         if let Some(generation) = generation {
             let held = self.held();
@@ -200,6 +220,44 @@ mod tests {
         let current = views.answer(&product(), 0, || Ok(Composed { reply: fs::read(module).unwrap(),
             hold: Hold::Quiet, directories: vec![prefix.to_owned()] })).unwrap();
         assert_eq!(*current, b"after", "the page read before the watch is not answered again");
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn volatile_owner_changes_invalidate_held_and_in_progress_views() {
+        let root = root();
+        let views = Views::new();
+        views.cover(Changes::new(vec![Tree { root: root.join("managed"), depth: None }]));
+        let compose = |text: &[u8]| Composed { reply: text.to_vec(), hold: Hold::Quiet, directories: vec![] };
+        let first_revision = views.records_revision().unwrap();
+        views.answer(&product(), 0, || Ok(compose(b"before"))).unwrap();
+        assert_eq!(*views.answer(&product(), 0, || panic!("held view should be reused")).unwrap(), b"before");
+        views.invalidate();
+        assert!(views.records_revision().unwrap() > first_revision);
+        assert_eq!(*views.answer(&product(), 0, || Ok(compose(b"after"))).unwrap(), b"after");
+        // An owner update during composition must not cache the older offer.
+        views.invalidate();
+        views.answer(&product(), 0, || {
+            views.invalidate();
+            Ok(compose(b"crossed an owner change"))
+        }).unwrap();
+        assert_eq!(*views.answer(&product(), 0, || Ok(compose(b"current"))).unwrap(), b"current");
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn exhausted_volatile_revision_never_reuses_an_offer() {
+        let root = root();
+        let views = Views::new();
+        views.cover(Changes::new(vec![Tree { root: root.join("managed"), depth: None }]));
+        views.volatile_revision.store(u64::MAX - 1, Ordering::Release);
+        views.invalidate();
+        assert_eq!(views.records_revision(), None);
+        views.invalidate();
+        assert_eq!(views.records_revision(), None);
+        for text in [b"first".as_slice(), b"second".as_slice()] {
+            assert_eq!(views.answer(&product(), 0, || Ok(Composed {
+                reply: text.to_vec(), hold: Hold::Quiet, directories: vec![],
+            })).unwrap().as_slice(), text);
+        }
         fs::remove_dir_all(root).unwrap();
     }
 }

@@ -1,0 +1,72 @@
+{
+  "source": "09ddb5a216544f384f1163cca00cf01251ae3f0a",
+  "platform": "SteamOS Deck",
+  "daw": "REAPER 7.82",
+  "original_failure_records_preserved": 4,
+  "recalled_level": 0.25,
+  "recovery": {
+    "same_daw_process": true,
+    "controller_confirmed": true,
+    "replacement_generation": 2,
+    "final_observed_seconds": 10.0,
+    "blocks_100ms": 100,
+    "silent_blocks": 0,
+    "peak_s16": 2048,
+    "rms_s16": 1448.17844
+  },
+  "fresh_reopen": {
+    "observed_seconds": 19.7,
+    "blocks_100ms": 197,
+    "silent_blocks": 0,
+    "peak_s16": 2048,
+    "rms_s16": 1448.168845,
+    "normal_observer_and_daw_retirement": true
+  },
+  "standalone_level_percent": [
+    25,
+    75,
+    80
+  ],
+  "repair": {
+    "available_classes": 2,
+    "prefix_inode_before": 10093984,
+    "prefix_inode_after": 10093984,
+    "revision_before": 2,
+    "revision_after": 3
+  },
+  "cachyos": {
+    "platform": "CachyOS VM",
+    "daw": "REAPER 7.82",
+    "recalled_parameter": 0.46999999880791,
+    "same_fx_guid": true,
+    "original_project_preserved": true,
+    "normal_observer_and_daw_retirement": true,
+    "after_update": {
+      "observed_seconds": 20.0,
+      "blocks_100ms": 200,
+      "silent_blocks": 0,
+      "peak_s16": 293
+    },
+    "fresh_reopen": {
+      "observed_seconds": 20.0,
+      "blocks_100ms": 200,
+      "silent_blocks": 0,
+      "peak_s16": 295
+    }
+  },
+  "bitwig_partial": {
+    "platform": "SteamOS Deck",
+    "daw": "Bitwig Studio 6.1",
+    "reference_level": 0.25,
+    "reference_colour": 0.5,
+    "initial_pcm_seconds": 20.0,
+    "initial_pcm_peak_s16": 279,
+    "initial_pcm_rms_s16": 73.269452280606,
+    "fresh_process_values_recalled": true,
+    "fresh_reopen_transport_started": false,
+    "fresh_reopen_pcm_peak_s16": 0,
+    "reported_activation_limit": true,
+    "playback_qualification": "open",
+    "normal_daw_retirement": true
+  }
+}

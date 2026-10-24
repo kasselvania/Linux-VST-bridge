@@ -2,7 +2,7 @@
 use super::*;
 
 impl Builder<'_> {
-    pub(super) fn update_panel(&mut self, panel: &updates::Panel) -> Node {
+    pub(super) fn update_panel(&mut self, panel: &updates::Panel, snapshot: Option<&Snapshot>) -> Node {
         let updates::Panel { title, link, message, status: block, check } = panel;
         let mut children = vec![Node::Heading((*title).into())];
         match link {
@@ -31,6 +31,10 @@ impl Builder<'_> {
             children.push(words(Role::Caution, message.clone()));
         }
         if let Some(block) = block {
+            if matches!(block, updates::Block::Available { .. } | updates::Block::Waiting { .. }) {
+                children.push(Node::Label("What changes for your setups".into()));
+                children.extend(updates::package_impact(snapshot).into_iter().map(|line| words(Role::Body, line)));
+            }
             children.extend(self.update_block(block));
         }
         if let Some(check) = check {

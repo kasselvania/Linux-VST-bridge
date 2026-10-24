@@ -81,6 +81,9 @@ fn pulse_system_changed(pulse: &crate::model::Pulse, system: &System) -> bool {
 
 pub struct Operator {
     snapshot: Option<Snapshot>,
+    activity: Option<Activity>,
+    activity_loading: bool,
+    activity_error: Option<String>,
     overview: Option<CurrentOverview>,
     readiness: Option<(ReadinessAssessment, Instant, String)>,
     product_detail: Option<CurrentProductDetail>,
@@ -174,6 +177,7 @@ impl Operator {
         client::send(Query::Overview, sender.clone(), ctx.clone(), window_wake.clone());
         Self {
             snapshot: None,
+            activity: None, activity_loading: false, activity_error: None,
             overview: None,
             readiness: None,
             product_detail: None,
@@ -218,6 +222,7 @@ impl Operator {
         let (sender, receiver) = mpsc::channel();
         Self {
             snapshot: Some(snapshot),
+            activity: None, activity_loading: false, activity_error: None,
             overview: None,
             readiness: None,
             product_detail: None,
@@ -329,6 +334,7 @@ impl Operator {
         if matches!(q, Query::Overview | Query::CurrentOverview | Query::Snapshot) {
             self.pacing.started(Instant::now());
         }
+        if matches!(q, Query::Activity) { self.activity_loading = true; self.activity_error = None; }
         self.pending = true;
         self.origin = Some(origin);
         self.background_poll = origin == RequestOrigin::BackgroundActivity;
@@ -530,6 +536,7 @@ impl Operator {
         } else if self.background_poll {
             RequestOrigin::BackgroundActivity
         } else { RequestOrigin::InitialSnapshot });
+        let activity_loading = std::mem::take(&mut self.activity_loading);
         let was_action = origin == RequestOrigin::UserAction;
         self.pacing.finished(Instant::now());
         self.pending = false;
@@ -615,6 +622,8 @@ impl Operator {
                 self.refresh_after = !r.accepted;
             }
             Reply::Activity(mut a) => {
+                self.activity = Some(a.clone());
+                self.activity_error = None;
                 retain_projected_handoff(self.overview.as_ref().and_then(|overview|
                     overview.current.operation.as_ref()), &mut a.operation);
                 if a.system.capacity_available() {self.cleanup_failure_observed = a.system.cleanup_unconfirmed;}
@@ -714,6 +723,7 @@ impl Operator {
                 }
             }
             Reply::Error(e) => {
+                if activity_loading { self.activity = None; self.activity_error = Some(e.clone()); }
                 if origin == RequestOrigin::ProblemReportSave {
                     if let Some(feedback) = &mut self.feedback { feedback.text = e; }
                     return;
@@ -859,8 +869,8 @@ fn next_step(ui: &mut egui::Ui, next: &screen_model::home::Next, chosen: &mut Op
     use screen_model::home::Next;
     match next {
         Next::Service { title, what_happened, offers, review } => {
-            ui.strong(*title);
-            ui.label(*what_happened);
+            ui.strong(title);
+            ui.label(what_happened);
             widgets::offer_row(ui, offers, chosen);
             if ui.button(review.label).clicked() { *local = Some(review.does.clone()); }
         }
@@ -899,7 +909,7 @@ fn setup_card(ui: &mut egui::Ui, snapshot: &Snapshot, card: &setup::SetupCard, p
     egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
         ui.set_min_width((ui.available_width() - 1.0).max(0.0));
         ui.label(egui::RichText::new(&card.name).size(18.0).strong());
-        ui.strong(card.title);
+        ui.strong(&card.title);
         widgets::text(ui, &card.status);
         if let Some(journey) = &card.journey { widgets::journey(ui, journey); }
         if let Some(primary) = &card.primary {
@@ -1119,6 +1129,7 @@ impl Operator {
                             .min_size(egui::vec2(145.0, 44.0))).clicked() { local = Some(row.manage.does.clone()); }
                     });
                     if let Some(status) = row.status { ui.label(status); }
+                    ui.small(&row.activity);
                     if let Some(problem) = &row.problem { ui.colored_label(warning_color(ui), problem); }
                     if let Some(check) = &row.check { widgets::disclosure(ui, check, chosen); }
                 });
@@ -1284,7 +1295,7 @@ impl Operator {
     }
 
     fn sessions(ui: &mut egui::Ui, sessions: &screen_model::activity::Sessions,
-        activity_focus: &mut Option<String>, local: &mut Option<Local>) {
+        activity_focus: &mut Option<String>, local: &mut Option<Local>, chosen: &mut Option<Action>) {
         ui.heading(sessions.title);
         if let Some(warning) = sessions.warning { ui.colored_label(warning_color(ui), warning); }
         if let Some(empty) = sessions.empty { ui.label(empty); }
@@ -1300,6 +1311,7 @@ impl Operator {
                             *local = Some(open.does.clone());
                         }
                     }
+                    if let Some(recovery) = &row.recovery { widgets::instance_recovery(ui, recovery, chosen); }
                     widgets::disclosure(ui, &row.record, &mut None);
                 })
             });
@@ -1315,9 +1327,11 @@ impl Operator {
         let mut local = None;
         ui.heading(view.heading);
         ui.small(view.intro);
-        Self::sessions(ui, &view.live, &mut state.focus.activity, &mut local);
+        if let Some(notice) = &view.notice { widgets::text(ui, notice); }
+        if let Some(retry) = &view.retry { if control_button(ui, retry) { local = Some(retry.does.clone()); } }
+        Self::sessions(ui, &view.live, &mut state.focus.activity, &mut local, chosen);
         ui.separator();
-        Self::sessions(ui, &view.recent, &mut state.focus.activity, &mut local);
+        Self::sessions(ui, &view.recent, &mut state.focus.activity, &mut local, chosen);
         ui.separator();
         ui.heading(view.attention.title);
         Self::attention_list(ui, &view.attention, &mut local);
@@ -1367,6 +1381,14 @@ impl Operator {
         widgets::disclosure(ui, &view.technical, chosen);
     }
 
+    fn activity_section(&self) -> screen_model::diagnostics::Section<'_, &Activity> {
+        use screen_model::diagnostics::Section;
+        if self.activity_loading { Section::Loading }
+        else if let Some(error) = &self.activity_error { Section::Failed(error) }
+        else if let Some(activity) = &self.activity { Section::Loaded(activity) }
+        else { Section::NotRequested }
+    }
+
     /// The records and reading the frame and the page are built from.
     /// `product`: the opened plug-in's records over current status.
     /// `controls_pending`: read once at the start of the frame.
@@ -1380,6 +1402,7 @@ impl Operator {
             readiness: self.readiness.as_ref().filter(|_| readiness_visible).map(|(assessment, _, _)| assessment),
             health: self.current_health_system(),
             support: None,
+            activity: if self.preview { None } else { Some(self.activity_section()) },
         };
         let attempted = self.window.plugins.focused_product().is_some_and(|key|
             self.product_attempted.as_ref() == Some(key));
@@ -1462,7 +1485,7 @@ impl eframe::App for Operator {
         let mut refresh = false;
         let mut pick = false;
         let mut chosen = None;
-        let mut retry_details = false;
+        let mut retry = None;
         let selected_product_snapshot = self.selected_product_snapshot();
         let frame_view = |operator: &Self| operator.frame_view(selected_product_snapshot.as_ref(), readiness_visible,
             controls_pending);
@@ -1531,11 +1554,8 @@ impl eframe::App for Operator {
                                 action_controls_pending, &mut chosen, Self::product_details);
                         }
                     }
-                    Screen::PluginsLoading(list) => if let Some(current) = current {
-                        let attempted = self.window.plugins.focused_product().is_some_and(|key|
-                            self.product_attempted.as_ref() == Some(key));
-                        crate::library::show_current(ui, &mut self.window.plugins, current, Some(*list),
-                            actions_current, attempted && !self.pending, &mut retry_details);
+                    Screen::PluginsLoading(list) => if current.is_some() {
+                        crate::library::show_current(ui, &mut self.window.plugins, *list, &mut retry);
                     },
                     Screen::Activity(view) => Self::activity_page(ui, &view, &mut self.window, &mut chosen),
                     Screen::Diagnostics(view) => Self::diagnostics_page(ui, &view, &mut chosen),
@@ -1640,14 +1660,21 @@ impl eframe::App for Operator {
         if self.preview {
             #[cfg(test)]
             PREVIEW_INTENT.with(|intent| *intent.borrow_mut() =
-                format!("{chosen:?} refresh={refresh} pick={pick} retry={retry_details}"));
+                format!("{chosen:?} refresh={refresh} pick={pick} retry={retry:?}"));
             ui.ctx().request_repaint_after(Duration::from_millis(500));
             return;
         }
         if self.frontend_superseded { return; }
-        if retry_details { self.retry_details(); }
+        match retry {
+            Some(Local::RetryDetails) => self.retry_details(),
+            Some(Local::Refresh) => refresh = true,
+            _ => {}
+        }
         if pick { self.queued_import = true; }
-        if refresh { self.explicit_refresh_queued = true; }
+        if refresh {
+            self.explicit_refresh_queued = true;
+            if self.window.page == Page::Activity { self.retry_details(); }
+        }
         if let Some(a) = chosen {
             self.capture_chosen_action(a);
         }
@@ -1678,7 +1705,8 @@ impl eframe::App for Operator {
 impl Operator {
     /// "Try loading details again".
     fn retry_details(&mut self) {
-        if self.window.page == Page::Plugins { self.product_attempted = None; }
+        if self.window.page == Page::Activity { self.activity = None; self.activity_error = None; }
+        else if self.window.page == Page::Plugins { self.product_attempted = None; }
         else {
             self.details_attempted = false;
             self.pacing.details_explicit();
@@ -1706,16 +1734,19 @@ impl Operator {
             self.product_attempted = Some(key.clone());
             return Some((Query::Product(key), RequestOrigin::ProductDetail));
         }
+        if self.window.page == Page::Activity
+            && ((self.activity.is_none() && self.activity_error.is_none())
+                || (now.saturating_duration_since(self.last_poll) > Duration::from_secs(10)
+                    && self.retry_after.is_none_or(|at| now >= at))) {
+            return Some((Query::Activity, RequestOrigin::BackgroundActivity));
+        }
         if self.snapshot.is_none() && !self.details_attempted
-            && !matches!(self.window.page, Page::Home | Page::Setup | Page::Plugins)
+            && !matches!(self.window.page, Page::Home | Page::Setup | Page::Plugins | Page::Activity)
             && (!self.operation_live || self.pacing.details_explicit
                 || self.pacing.passive_due(now, true)) {
             self.details_attempted = true;
             self.pacing.details_explicit = false;
             return Some((Query::Snapshot, RequestOrigin::DetailSnapshot));
-        }
-        if self.window.page == Page::Activity && self.last_poll.elapsed() > Duration::from_secs(10) {
-            return Some((Query::Activity, RequestOrigin::BackgroundActivity));
         }
         if self.last_poll.elapsed() > Duration::from_secs(if self.operation_live { 2 } else { 10 })
             && self.retry_after.is_none_or(|at| now >= at) {
@@ -1763,7 +1794,7 @@ fn show_software_install_form(ctx: &egui::Context, daw: &mut Option<DawChoice>,
 }
 
 fn show_product_form(ctx: &egui::Context, form: &mut Action,
-    result_offer: Option<&Result<Option<String>, &'static str>>,
+    result_offer: Option<&Result<forms::ResultOffers, &'static str>>,
     action_controls_pending: bool) -> Option<(egui::Response, egui::Response)> {
     let words = forms::result_form();
     let expert = forms::expert_form();
@@ -1773,8 +1804,8 @@ fn show_product_form(ctx: &egui::Context, form: &mut Action,
         .max_width((ctx.content_rect().width() - 40.0).max(300.0))
         .show(ctx, |ui| {
             // Keep both actions visible; only the fields and their explanations scroll.
-            let refusal_height = if matches!(form, Action::CompatibilityResult { .. }) {
-                forms::compatibility_result_refusal(result_offer, &TestResultKind::Worked).map(|reason| {
+            let refusal_height = if let Action::CompatibilityResult {result, ..} = form {
+                forms::compatibility_result_refusal(result_offer, result).map(|reason| {
                     ui.painter().layout(reason.to_owned(), egui::TextStyle::Small.resolve(ui.style()),
                         ui.visuals().text_color(), ui.available_width()).size().y
                         + ui.spacing().item_spacing.y
@@ -1827,7 +1858,9 @@ fn show_product_form(ctx: &egui::Context, form: &mut Action,
                             let valid = forms::result_complete(result, passed, *failed_area, note);
                             let refusal = forms::compatibility_result_refusal(result_offer, result);
                             if !valid { ui.small(words.incomplete); }
-                            if refusal.is_some() && matches!(result_offer, Some(Ok(_))) {
+                            if matches!(result, TestResultKind::Worked) && refusal.is_some()
+                                && forms::compatibility_result_refusal(result_offer,
+                                    &TestResultKind::Problem {category:ProblemCategory::Other}).is_none() {
                                 ui.small(words.problem_only);
                             }
                             (valid && refusal.is_none(), words.submit, refusal)
@@ -1952,11 +1985,15 @@ mod tests {
     #[test]
     fn automatic_journey_keeps_successful_siblings_and_exact_failed_phase_continuation() {
         for (width,pending) in [(560.0,false),(960.0,false),(560.0,true)] {
+          for page in [Page::Home, Page::Setup] {
             let mut overview:CurrentOverview = overview_fixture().into();
             overview.current.products.clear();
+            overview.current.environments.clear();
+            overview.current.vendor_applications.clear();
             let resume = Action::SoftwareInstallResume {onboarding:"exact-environment".into()};
             overview.current.installer_setups = vec![automatic_setup(
                 automatic_journey(InstallationPhase::NeedsAttention),Some(resume.clone()))];
+            supplied_setups(&mut overview.current, &[(0, crate::model::SetupDisposition::NeedsAttention)]);
             let ctx = result_form_context();
             let mut chosen = None;
             let mut point = egui::Pos2::ZERO;
@@ -1967,24 +2004,37 @@ mod tests {
                 let mut output = ctx.run_ui(egui::RawInput {events,screen_rect:Some(
                     egui::Rect::from_min_size(egui::Pos2::ZERO,egui::vec2(width,1000.0))),
                     ..Default::default()},|ui| {
-                    Operator::fast_home(ui,&overview,None,true,false,pending,
-                        (&mut Page::Home,&mut crate::library::PluginsView::default(),
-                            &mut PageFocus::default(),&mut false,&mut chosen));
+                    if page == Page::Home {
+                        Operator::fast_home(ui,&overview,None,true,false,pending,
+                            (&mut Page::Home,&mut crate::library::PluginsView::default(),
+                                &mut PageFocus::default(),&mut false,&mut chosen));
+                    } else {
+                        Operator::fast_setup(ui,&overview,true,pending,
+                            (&mut false,&mut chosen,&mut false,&mut Page::Setup,
+                                &mut crate::library::PluginsView::default(),
+                                &mut PageFocus::default(),&mut None));
+                    }
                 });
+                output.textures_delta.clear();
                 if frame == 2 {
                     let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
-                    assert!(labels.iter().any(|(label,_)|label=="Installed instrument"));
-                    assert!(labels.iter().any(|(label,_)|label=="Available in your DAW"));
-                    assert!(labels.iter().any(|(label,_)|label=="Installed effect"));
-                    assert!(labels.iter().any(|(label,_)|label==
-                        "Plug-in inspection: The plug-in did not load during inspection."));
+                    if page == Page::Setup {
+                        assert!(labels.iter().any(|(label,_)|label=="Installed instrument"));
+                        assert!(labels.iter().any(|(label,_)|label=="Available in your DAW"));
+                        assert!(labels.iter().any(|(label,_)|label=="Installed effect"));
+                        assert!(labels.iter().any(|(label,_)|label==
+                            "Plug-in inspection: The plug-in did not load during inspection."));
+                    } else {
+                        assert!(labels.iter().any(|(label,_)|label=="Next: continue Chosen software"));
+                        assert!(labels.iter().any(|(label,_)|label=="Open this setup"));
+                    }
                     assert!(!labels.iter().any(|(label,_)|label.contains("activation failed")
                         || label=="Prepare for your DAW" || label=="Make available in your DAW"));
                     point=labels.iter().find(|(label,_)|label=="Continue installation and DAW connection").unwrap().1;
                 }
-                output.textures_delta.clear();
             }
             assert_eq!(chosen,(!pending).then_some(resume));
+          }
         }
     }
 
@@ -2108,6 +2158,7 @@ mod tests {
             "action":{"kind":"software_install", "installer":setup.installer,"daw":"reaper"}
         }));
         overview.current.installer_setups = vec![setup];
+        supplied_setups(&mut overview.current, &[(0, crate::model::SetupDisposition::InProgress)]);
         for page in [Page::Home, Page::Setup] {
             let ctx = result_form_context();
             let mut current_page = page;
@@ -2131,7 +2182,7 @@ mod tests {
             for shape in &output.shapes { text_centers(&shape.shape, &mut labels); }
             output.textures_delta.clear();
             assert!(labels.iter().any(|(label, _)| label.contains("Getting ready to install")));
-            assert!(labels.iter().any(|(label, _)| label == "Your DAW: REAPER"));
+            if page == Page::Setup { assert!(labels.iter().any(|(label, _)| label == "Your DAW: REAPER")); }
             assert!(!labels.iter().any(|(label, _)| label.contains("Install compatibility runtime in Setup")
                 || label == "Install and connect to your DAW" || label == "Continue installation and DAW connection"));
             assert!(chosen.is_none());
@@ -2159,6 +2210,12 @@ mod tests {
             overview.current.operation = Some(operation);
             overview.current.actions = vec![AvailableAction {label:"Reconcile interrupted transaction".into(),
                 action:Action::TransactionReconcile {},disabled_reason:Some("Service capacity unavailable".into())}];
+            supplied_setups(&mut overview.current, &[(0, crate::model::SetupDisposition::InProgress)]);
+            let crate::model::Observation::Observed(presentation) = &mut overview.current.presentation else { panic!() };
+            // Home consumes the owner's current phase, not the retained journey.
+            presentation.attention[0].title = format!("{} · {}",
+                presentation.setups[0].name, presentation.setups[0].headline);
+            if case != "owned" { supplied_service_problem(&mut overview.current); }
             let ctx = result_form_context();
             let mut chosen = None;
             let mut output = ctx.run_ui(egui::RawInput {screen_rect:Some(egui::Rect::from_min_size(
@@ -2174,7 +2231,7 @@ mod tests {
             output.textures_delta.clear();
             let paused = case == "owned";
             assert_eq!(labels.iter().any(|(label,_)|label == "Bridge temporarily paused for installation"),paused,"{case}");
-            assert_eq!(labels.iter().any(|(label,_)|label == "Next: resolve the bridge service problem"),!paused,"{case}");
+            assert_eq!(labels.iter().any(|(label,_)|label == "Review bridge service status"),!paused,"{case}");
             assert_eq!(labels.iter().any(|(label,_)|label == "Reconcile interrupted transaction"),!paused,"{case}");
             if paused {assert!(labels.iter().any(|(label,_)|label.contains("Connecting plug-ins to your DAW")));}
             assert!(!overview.current.system.capacity_available());
@@ -2193,6 +2250,8 @@ mod tests {
         overview.current.operation = Some(serde_json::json!({"operation":"current-op","state":"running",
             "journey":journey,"owned_service_pause":{"schema":1,"owner_operation":"child-op",
                 "automatic_operation":"current-op"}}));
+        supplied_setups(&mut overview.current, &[(0, crate::model::SetupDisposition::NeedsAttention)]);
+        supplied_service_problem(&mut overview.current);
         let mut state = state_fixture();state.apply_current_overview(overview.clone());
         let mut pulse = pulse_fixture(true);pulse.service_state = "inactive".into();
         pulse.operation = overview.current.operation.clone();pulse.cleanup_unconfirmed = Some(true);
@@ -2214,7 +2273,7 @@ mod tests {
             });
             let mut labels = vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
             output.textures_delta.clear();
-            assert!(labels.iter().any(|(label,_)|label == "Next: resolve the bridge service problem"));
+            assert!(labels.iter().any(|(label,_)|label == "Review bridge service status"));
             assert!(chosen.is_none());
         }
         let mut recovered = pulse_fixture(true);recovered.operation = overview.current.operation.clone();
@@ -2245,19 +2304,26 @@ mod tests {
         setup.discovered = vec![DiscoveredProduct {environment:first.environment.clone(),
             module_sha256:first.module_sha256.clone(),class_id:first.class_id.clone(),name:first.name.clone()}];
         overview.current.installer_setups = vec![setup];overview.current.products.push(sibling);
+        let crate::model::Observation::Observed(presentation) = &mut overview.current.presentation else { panic!() };
+        presentation.progress = vec![crate::model::ProductProgress { product: crate::model::ProductIdentity::from(&overview.current.products[0]),
+            stage: crate::model::ConnectionProgress::Inspecting }];
         let first = &overview.current.products[0];
         assert_eq!(screen_model::product::installation_progress(&overview.current,first),Some("Checking this plug-in"));
         assert!(screen_model::product::installation_progress(&overview.current,&overview.current.products[1]).is_none());
         let mut another = first.clone();another.module_sha256 = "different-module".into();
         assert!(screen_model::product::installation_progress(&overview.current,&another).is_none());
         another = first.clone();another.disposition = "needs_attention".into();
-        assert!(screen_model::product::installation_progress(&overview.current,&another).is_none());
+        assert_eq!(screen_model::product::installation_progress(&overview.current,&another),Some("Checking this plug-in"),
+            "raw local fields must not rederive owner progress");
         let mut ambiguous = overview.current.clone();
         let mut duplicate = ambiguous.installer_setups[0].discovered[0].clone();duplicate.module_sha256 = "other-module".into();
         ambiguous.installer_setups[0].discovered.push(duplicate);
-        assert!(screen_model::product::installation_progress(&ambiguous,first).is_none());
+        assert_eq!(screen_model::product::installation_progress(&ambiguous,first),Some("Checking this plug-in"),
+            "the exact owner binding replaces class-only frontend joins");
         let mut failed = overview.current.clone();
         failed.operation.as_mut().unwrap()["journey"]["plugins"][0]["stage"] = serde_json::json!("needs_attention");
+        let crate::model::Observation::Observed(presentation) = &mut failed.presentation else { panic!() };
+        presentation.progress.clear();
         assert!(screen_model::product::installation_progress(&failed,first).is_none());
         for home in [true,false] {
             let ctx = result_form_context();let mut chosen = None;
@@ -2456,6 +2522,7 @@ mod tests {
         let mut journey=automatic_journey(InstallationPhase::Available);journey.plugins.clear();
         overview.current.installer_setups=vec![automatic_setup(journey.clone(),None)];
         overview.current.installer_setups[0].status="Application session finished. No plug-ins were added.".into();
+        supplied_setups(&mut overview.current, &[(0, crate::model::SetupDisposition::Complete)]);
         overview.current.vendor_applications=vec![VendorApplication {id:"same-hub".into(),
             name:"Existing vendor hub".into(),version:"1.0.0".into(),state:"registered".into(),
             actions:vec![],details:serde_json::json!({"journey":journey})}];
@@ -2534,6 +2601,10 @@ mod tests {
                 module_sha256:product.module_sha256.clone(),class_id:product.class_id.clone(),name:product.name.clone()}];
             snapshot.operation=Some(serde_json::json!({"operation":"exact-check","state":"running",
                 "onboarding":product.environment,"journey":journey}));snapshot.installer_setups=vec![setup];
+            let crate::model::Observation::Observed(presentation) = &mut snapshot.presentation else { panic!() };
+            presentation.progress = if case == "checking" { vec![crate::model::ProductProgress {
+                product: crate::model::ProductIdentity::from(&snapshot.products[0]), stage: crate::model::ConnectionProgress::Inspecting }] }
+                else { vec![] };
             let ctx=result_form_context();let mut chosen=None;
             let mut output=ctx.run_ui(egui::RawInput::default(),|ui| {
                 crate::library::show(ui, &mut crate::library::PluginsView::default(), &snapshot, None,false,&mut chosen,Operator::product_details);
@@ -2575,6 +2646,16 @@ mod tests {
                 action:Action::CompatibilityFinishResult {operation:"exact-recovery".into()},
                 disabled_reason:Some("Close this plug-in first.".into())}),alternatives:vec![]});
         let exact=ProductKey::from(&*product);
+        let recovery_title=format!("Recover {}",product.name);
+        let recovery_detail=product.compatibility.as_ref().unwrap().summary.clone();
+        supplied_setups(&mut overview.current, &[]);
+        let crate::model::Observation::Observed(presentation)=&mut overview.current.presentation else {panic!()};
+        presentation.attention.push(crate::model::Attention {
+            purpose:crate::model::AttentionPurpose::Recovery,
+            target:crate::model::AttentionTarget::Product {product:crate::model::ProductIdentity {
+                environment:exact.environment.clone(),module_sha256:exact.module_sha256.clone(),class_id:exact.class_id.clone()}},
+            title:recovery_title.clone(),detail:recovery_detail,action:None,
+        });
         let ctx=result_form_context();
         let mut library=crate::library::PluginsView::default();
         let mut page=Page::Home;
@@ -2586,14 +2667,14 @@ mod tests {
             let mut output=ctx.run_ui(egui::RawInput {events,..Default::default()},|ui|
                 Operator::fast_home(ui,&overview,None,true,false,false,
                     (&mut page,&mut library,&mut PageFocus::default(),&mut false,&mut None)));
+            output.textures_delta.clear();
             if frame==2 {
                 let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
                 assert!(labels.iter().any(|(label,_)|label=="Available in your DAW"));
-                assert!(labels.iter().any(|(label,_)|label.starts_with("Next: recover")));
+                assert!(labels.iter().any(|(label,_)|label==&recovery_title));
                 assert!(!labels.iter().any(|(label,_)|label.starts_with("Plug-ins available in ")));
                 point=labels.iter().find(|(label,_)|label=="Open plug-in recovery").unwrap().1;
             }
-            output.textures_delta.clear();
         }
         assert_eq!(page,Page::Plugins);
         assert_eq!(library.focused_product(),Some(&exact));
@@ -2862,8 +2943,71 @@ mod tests {
     use crate::screen_model::journey::{current_label as current_journey_label, current_plugin_state,
         failure_text as installation_failure_text};
     use crate::screen_model::setup::{application_groups, display_name as setup_display_name,
-        history_settled_by_current_products as setup_history_settled_by_current_products, replacement_context,
-        replacement_offer, retained_records_need_refresh as retained_setup_records_need_refresh};
+        replacement_context, replacement_offer};
+    #[test]
+    fn retained_activity_adapter_passes_typed_success_loading_and_failure() {
+        use screen_model::diagnostics::Section;
+        let sample = screen_model::samples::Sample::new(screen_model::samples::Case::new(Page::Activity, "available"));
+        let mut operator = Operator::preview_sample(&sample);
+        operator.preview = false;
+        operator.window.page = Page::Activity;
+        operator.pending = false;
+        operator.refresh_after = false;
+        operator.explicit_refresh_queued = false;
+        assert!(matches!(operator.next_read(Instant::now()), Some((Query::Activity, _))));
+        operator.activity_loading = true;
+        let (records, reading) = operator.window_inputs(None, false, false);
+        assert!(matches!(records.activity, Some(Section::Loading)));
+        let Screen::Activity(view) = Screen::build(&records, &reading, &operator.window) else { panic!("Activity page") };
+        assert!(view.notice.is_some());
+        let mut fixture = sample.snapshot.clone();
+        let mut activity = screen_model::samples::recovery_fixture(&mut fixture);
+        activity.recent = Observation::Unavailable("recent fixture failure".into());
+        activity.incidents = Observation::Observed(vec![]);
+        operator.handle_reply(Reply::Activity(activity));
+        let (records, reading) = operator.window_inputs(None, false, false);
+        assert!(matches!(records.activity, Some(Section::Loaded(_))));
+        let Screen::Activity(view) = Screen::build(&records, &reading, &operator.window) else { panic!("Activity page") };
+        assert_eq!(view.live.rows.len(), 1);
+        assert_eq!(view.incidents.empty, Some("No incident is retained."));
+        assert!(format!("{view:?}").contains("recent fixture failure"));
+        operator.activity_loading = true;
+        operator.handle_reply(Reply::Error("activity transport failed".into()));
+        let (records, _) = operator.window_inputs(None, false, false);
+        assert!(matches!(records.activity, Some(Section::Failed("activity transport failed"))));
+        operator.retry_details();
+        assert!(matches!(operator.activity_section(), Section::NotRequested));
+    }
+
+    // Tests declare the owner result; they never reimplement its history policy.
+    fn supplied_setups(snapshot: &mut Snapshot, states: &[(usize, crate::model::SetupDisposition)]) {
+        use crate::model::{Observation as O, SetupState, CurrentPresentation, Attention, AttentionTarget, AttentionPurpose, SetupDisposition as D};
+        let mut attention = vec![];
+        let setups = states.iter().map(|(index, disposition)| {
+            let setup = &snapshot.installer_setups[*index];
+            if !matches!(disposition, D::Complete | D::SettledHistory) {
+                attention.push(Attention { purpose: AttentionPurpose::Installation,
+                    target: AttentionTarget::Setup { installer: setup.installer.clone(), environment: setup.environment.clone() },
+                    title: if *disposition == D::PartialInstallation { format!("Next: review the installation for {}", setup.name) }
+                        else { format!("Next: continue {}", setup.name) },
+                    detail: setup.status.clone(), action: setup.primary.as_ref().map(|offer| offer.action.clone()) });
+            }
+            SetupState { installer: setup.installer.clone(), environment: setup.environment.clone(), name: setup.name.clone(),
+                disposition: *disposition, headline: setup.journey.as_ref().map(screen_model::journey::phase_label)
+                    .unwrap_or_else(|| screen_model::setup::phase_label(&setup.phase)).into(), status: setup.status.clone(), connections: vec![] }
+        }).collect();
+        snapshot.presentation = O::Observed(CurrentPresentation { setups, attention, progress: vec![], change_previews: vec![], package_update: crate::model::PackageUpdatePreview { preserved_setups: vec![] },
+            settled_message: "Plug-ins available in your DAW".into() });
+    }
+
+    fn supplied_service_problem(snapshot: &mut Snapshot) {
+        let crate::model::Observation::Observed(presentation) = &mut snapshot.presentation else { panic!() };
+        presentation.attention.insert(0, crate::model::Attention { purpose: crate::model::AttentionPurpose::Service,
+            target: crate::model::AttentionTarget::Service, title: "Review bridge service status".into(),
+            detail: "Current owner service observation requires attention.".into(),
+            action: snapshot.actions.iter().find(|offer| matches!(offer.action, Action::TransactionReconcile {})).map(|offer| offer.action.clone()) });
+    }
+
     #[test]
     fn installer_rename_local_check_matches_manager_utf8_byte_bound() {
         assert!(plausible_installer_label("Lunacy Audio"));
@@ -2958,7 +3102,7 @@ mod tests {
     #[test]
     fn try_loading_details_again_starts_the_details_read_while_a_paced_refresh_waits() {
         let mut operator = state_fixture();
-        operator.window.page = Page::Activity;
+        operator.window.page = Page::Diagnostics;
         operator.operation_live = true;
         operator.overview = Some(overview_fixture().into());
         operator.refresh_after = true;
@@ -3018,6 +3162,7 @@ mod tests {
         Operator {
             snapshot: None,
             overview: None,
+            activity: None, activity_loading: false, activity_error: None,
             readiness: None,
             product_detail: None,
             product_attempted: None,
@@ -3349,6 +3494,10 @@ mod tests {
                 journey:Some(InstallationJourney {daw:DawChoice::Bitwig, phase:InstallationPhase::NeedsAttention,
                     plugins:vec![], failure:None}), history:vec![],
             }];
+            supplied_setups(&mut overview.current, &[(0, crate::model::SetupDisposition::NeedsAttention)]);
+            let crate::model::Observation::Observed(presentation) = &mut overview.current.presentation else { panic!() };
+            presentation.attention[0].title = format!("{} · {}",
+                presentation.setups[0].name, presentation.setups[0].headline);
             state.handle_reply(Reply::Overview(Box::new(overview)));
             let mut target = egui::Pos2::ZERO;
             let mut before = None;
@@ -3372,6 +3521,7 @@ mod tests {
                     Operator::fast_home(ui,state.overview.as_ref().unwrap(),None,current,state.health_refreshing(),pending,
                         (&mut state.window.page,&mut state.window.plugins,&mut state.window.focus,&mut false,&mut chosen));
                 });
+                output.textures_delta.clear();
                 let mut labels = vec![];
                 for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
                 let positions = |labels:&[(String,egui::Pos2)]| labels.iter()
@@ -3381,6 +3531,7 @@ mod tests {
                 if frame == 2 {
                     target = labels.iter().find(|(label,_)|label == "Open this setup").unwrap().1;
                     before = Some(positions(&labels));
+                    assert_eq!(before.as_ref().unwrap().len(),3,"the task and both controls must be measured");
                 }
                 if frame >= 3 {
                     assert_eq!(positions(&labels),*before.as_ref().unwrap(),"task/control reflow at width {width}");
@@ -3388,7 +3539,6 @@ mod tests {
                     assert!(!labels.iter().any(|(label,_)|label == "Refreshing plug-in status"
                         || label == "Bridge service status unavailable"));
                 }
-                output.textures_delta.clear();
             }
             assert_eq!(state.window.page,Page::Setup);
             assert_eq!(state.window.focus.setup_installer.as_deref(),Some("retained-installer"));
@@ -3764,7 +3914,7 @@ mod tests {
                             modifiers: egui::Modifiers::NONE }] } else { vec![] };
                     let mut output = ctx.run_ui(egui::RawInput { screen_rect: Some(screen), events,
                         ..Default::default() }, |_ui| {
-                        let (submit, cancel) = show_product_form(&ctx, &mut form, Some(&Ok(None)), false).unwrap();
+                        let (submit, cancel) = show_product_form(&ctx, &mut form, Some(&Ok(forms::ResultOffers {worked:Ok(None),problem:Ok(None)})), false).unwrap();
                         if frame >= 3 {
                             for response in [&submit, &cancel] {
                                 assert!(screen.contains_rect(response.rect), "{size:?}: {:?}", response.rect);
@@ -3805,6 +3955,7 @@ mod tests {
             (Ok(Some("This plug-in has not retired".into())), false, false, false),
             (Ok(Some("This plug-in has not retired".into())), false, true, true),
         ] {
+            let offer = offer.map(|worked| forms::ResultOffers {worked:Ok(worked),problem:Ok(None)});
             let ctx = result_form_context();
             let mut form = result_form_fixture();
             if problem {
@@ -3845,7 +3996,7 @@ mod tests {
                 if problem { *result = TestResultKind::Problem { category: ProblemCategory::Other }; }
             }
             let mut output = ctx.run_ui(egui::RawInput::default(), |_ui| {
-                let (submit, _) = show_product_form(&ctx, &mut form, Some(&Ok(None)), false).unwrap();
+                let (submit, _) = show_product_form(&ctx, &mut form, Some(&Ok(forms::ResultOffers {worked:Ok(None),problem:Ok(None)})), false).unwrap();
                 assert!(!submit.enabled(), "an incomplete result cannot be submitted");
             });
             output.textures_delta.clear();
@@ -3864,6 +4015,12 @@ mod tests {
         assert!(snapshot.system.inactive_reason().is_some());
         let worked = TestResultKind::Worked;
         let problem = TestResultKind::Problem {category:ProblemCategory::NoAudio};
+        let missing_problem = compatibility_result_offer(Some(&snapshot),&candidate,&current);
+        assert!(compatibility_result_refusal(Some(&missing_problem),&problem).is_some());
+        snapshot.products[0].actions.push(AvailableAction {label:"Report problem".into(),
+            action:Action::CompatibilityResult {candidate:candidate.clone(),expected_current:current.clone(),
+                result:TestResultKind::Problem {category:ProblemCategory::Other},passed:vec![],failed_area:None,note:String::new()},
+            disabled_reason:None});
         let offer = compatibility_result_offer(Some(&snapshot),&candidate,&current);
         assert_eq!(compatibility_result_refusal(Some(&offer),&worked),None);
         snapshot.products[0].actions[0].disabled_reason = Some("This plug-in has not retired".into());
@@ -3892,6 +4049,7 @@ mod tests {
             overview.current.products.truncate(1);
             overview.current.products[0].class_id = "exact-class".into();
             overview.current.products[0].module_sha256 = "exact-module".into();
+            supplied_setups(&mut overview.current, &[]);
             overview.readiness.products = vec![crate::model::ReadinessProduct {
                 name:"Unfamiliar plug-in".into(),class_id:"exact-class".into(),module_sha256:"exact-module".into(),
                 profile:None,status,installation_health:InstallationHealth::Healthy,
@@ -3917,7 +4075,7 @@ mod tests {
         }
     }
     #[test]
-    fn completed_home_states_availability_and_keeps_usage_help_optional() {
+    fn completed_home_uses_owner_availability_and_keeps_usage_help_optional() {
         for (choices, expected) in [
             ([Some(DawChoice::Bitwig),Some(DawChoice::Bitwig)], "Plug-ins available in Bitwig"),
             ([Some(DawChoice::Reaper),Some(DawChoice::Reaper)], "Plug-ins available in REAPER"),
@@ -3945,6 +4103,11 @@ mod tests {
                     overview.current.installer_setups.push(setup);
                 }
             }
+            supplied_setups(&mut overview.current, &[]);
+            let crate::model::Observation::Observed(presentation) = &mut overview.current.presentation else { panic!() };
+            // The owner supplies this message. Retained DAW choices are not
+            // permission for this drawing adapter to reconstruct readiness.
+            presentation.settled_message = expected.into();
             let ctx=result_form_context();
             let mut chosen=None;let mut point=egui::Pos2::ZERO;
             for frame in 0..8 {
@@ -3958,6 +4121,7 @@ mod tests {
                         (&mut Page::Home,&mut crate::library::PluginsView::default(),
                             &mut PageFocus::default(),&mut false,&mut chosen));
                 });
+                output.textures_delta.clear();
                 let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
                 assert!(labels.iter().any(|(label,_)|label==expected));
                 assert!(!labels.iter().any(|(label,_)|label.starts_with("Next:")
@@ -3967,7 +4131,6 @@ mod tests {
                     point=labels.iter().find(|(label,_)|label=="Using your plug-ins").unwrap().1;
                 }
                 if frame==7 {assert!(labels.iter().any(|(label,_)|label.starts_with("Available plug-ins appear")));}
-                output.textures_delta.clear();
             }
             assert!(chosen.is_none(), "Reading usage help must not submit a mutation or success report");
         }
@@ -4057,6 +4220,8 @@ mod tests {
                 details:serde_json::json!({"managed_product":true,"scan":{},"installation":{
                     "state":if failed {"failed"} else {"completed"},"cleanup_confirmed":true,"owned_live":0}})}];
             overview.current.installer_setups=vec![setup];
+            supplied_setups(&mut overview.current, &[(0, if failed { crate::model::SetupDisposition::NeedsAttention }
+                else { crate::model::SetupDisposition::SettledHistory })]);
             let ctx=result_form_context();presentation::configure_style(&ctx);
             let mut page=Page::Home;let mut library=crate::library::PluginsView::default();
             let mut focus=PageFocus::default();let mut point=egui::Pos2::ZERO;
@@ -4081,74 +4246,22 @@ mod tests {
         }
     }
     #[test]
-    fn current_available_products_settle_history_without_rewriting_it() {
-        let mut overview: CurrentOverview = overview_fixture().into();
-        overview.current.products.truncate(1);
-        let product = &mut overview.current.products[0];
-        product.disposition = "ready".into();
-        product.compatibility = None;
-        product.availability = Some(NativeAvailability {available:true,reason:None});
-        let environment = product.environment.clone();
-        let discovered = DiscoveredProduct {environment:environment.clone(),
-            module_sha256:product.module_sha256.clone(),class_id:product.class_id.clone(),name:product.name.clone()};
-        let installer = "retained-partial-installer".to_owned();
-        overview.current.installer_setups = vec![InstallerSetup {installer:installer.clone(),name:"Earlier setup".into(),
-            label_source:"operator_named".into(),byte_size:1024,format:"pe_executable".into(),imported_at:1,
-            phase:SetupPhase::SetupNeedsAttention,status:"Earlier installation completeness was unproved.".into(),
-            environment:Some(environment.clone()),compatibility:None,discovered:vec![discovered],primary:None,secondary:vec![],
-            rename:AvailableAction {label:"Rename".into(),action:Action::InstallerRename {installer:installer.clone(),label:String::new()},disabled_reason:None},
-            journey:None,history:vec![]}];
-        overview.current.onboarding = vec![crate::model::Onboarding {installer,name:"Earlier setup".into(),byte_size:1024,
-            format:"pe_executable".into(),environment:Some(environment),state:"needs_attention".into(),failure:None,
-            required_human_action:"Review retained history before installation changes".into(),actions:vec![],
-            details:serde_json::json!({"installation":{"state":"completed","cleanup_confirmed":true,"owned_live":0,
-                "error":null,"failure":null,"transaction":{"outcome":"partial_installation",
-                    "installation_completeness":"unproved","first_failure":null}}})}];
-        let retained = serde_json::to_value(&overview.current.onboarding).unwrap();
-        assert!(setup_history_settled_by_current_products(&overview.current.installer_setups[0],&overview.current));
-        for outcome in ["partial_installation","installed"] {
-            for available in [true,false] {
-                let mut readback=overview.clone();
-                readback.current.onboarding[0].details["managed_product"]=serde_json::json!(true);
-                readback.current.onboarding[0].details["scan"]=serde_json::json!({});
-                readback.current.onboarding[0].details["installation"]["transaction"]["outcome"]=serde_json::json!(outcome);
-                readback.current.products[0].availability.as_mut().unwrap().available=available;
-                let ctx = result_form_context();
-                let mut output = ctx.run_ui(egui::RawInput::default(),|ui| {
-                    Operator::fast_home(ui,&readback,None,true,false,false,(&mut Page::Home,
-                        &mut crate::library::PluginsView::default(),&mut PageFocus::default(),&mut false,&mut None));
-                });
-                let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
-                assert_eq!(labels.iter().any(|(label,_)|label.contains("Earlier setup")
-                    && label.starts_with("Next:")),!available,"{outcome}, available={available}");
-                output.textures_delta.clear();
-            }
-        }
-        assert_eq!(serde_json::to_value(&overview.current.onboarding).unwrap(),retained);
-        for case in 0..12 {
-            let mut changed=overview.clone();
-            match case {
-                0=>changed.current.installer_setups[0].environment=Some("different-environment".into()),
-                1=>changed.current.products[0].module_sha256="changed-module".into(),
-                2=>changed.current.products[0].environment="different-environment".into(),
-                3=>changed.current.products.clear(),
-                4=>changed.current.products[0].availability=Some(NativeAvailability {available:false,reason:Some("Current connection failed".into())}),
-                5=>changed.current.products[0].availability=None,
-                6=>{let environment=changed.current.installer_setups[0].environment.clone().unwrap();
-                    changed.current.installer_setups[0].discovered.push(DiscoveredProduct {environment,
-                        module_sha256:"missing-module".into(),class_id:"missing-sibling".into(),name:"Missing sibling".into()});},
-                7|8=>changed.current.installer_setups[0].journey=Some(InstallationJourney {daw:DawChoice::Bitwig,
-                    phase:if case==7 {InstallationPhase::VendorRunning}else{InstallationPhase::NeedsAttention},plugins:vec![],
-                    failure:if case==7 {None}else{Some(InstallationFailure {stage:InstallationFailureStage::Inspection,
-                        reason:"Current inspection failed".into(),code:"inspection_failed".into(),retryable:true})}}),
-                9=>changed.current.installer_setups[0].primary=Some(AvailableAction {label:"Resume".into(),
-                    action:Action::SoftwareInstallResume {onboarding:"exact-owner".into()},disabled_reason:None}),
-                10=>changed.current.onboarding[0].actions.push(AvailableAction {label:"Repair".into(),
-                    action:Action::SoftwareInstallResume {onboarding:"exact-owner".into()},disabled_reason:None}),
-                _=>changed.current.onboarding[0].details["installation"]["transaction"]["first_failure"]=serde_json::json!("retained failure"),
-            }
-            assert!(!setup_history_settled_by_current_products(&changed.current.installer_setups[0],&changed.current),"case {case}");
-        }
+    fn home_obeys_supplied_setup_disposition_without_reinterpreting_history() {
+        let mut snapshot = crate::screen_model::samples::snapshot(crate::screen_model::window::Page::Setup, Some("existing_setup"));
+        assert!(!snapshot.installer_setups.is_empty());
+        supplied_setups(&mut snapshot, &[(0, crate::model::SetupDisposition::SettledHistory)]);
+        let retained = serde_json::to_value(&snapshot.onboarding).unwrap();
+        let home = crate::screen_model::home::Home::build(&snapshot, None, true, false, false);
+        assert!(matches!(home.next, crate::screen_model::home::Next::Ready { .. }));
+        // Raw JSON and publication mutations alone cannot replace the owner's disposition.
+        snapshot.onboarding.clear(); snapshot.products[0].availability = None;
+        assert!(matches!(crate::screen_model::home::Home::build(&snapshot, None, true, false, false).next,
+            crate::screen_model::home::Next::Ready { .. }));
+        snapshot.onboarding = serde_json::from_value(retained.clone()).unwrap();
+        supplied_setups(&mut snapshot, &[(0, crate::model::SetupDisposition::NeedsAttention)]);
+        assert!(matches!(crate::screen_model::home::Home::build(&snapshot, None, true, false, false).next,
+            crate::screen_model::home::Next::Setup { .. }));
+        assert_eq!(serde_json::to_value(&snapshot.onboarding).unwrap(), retained);
     }
 
     #[test]
@@ -4367,12 +4480,16 @@ mod tests {
                     "transaction":{"outcome":outcome,"durable_installation":outcome,"installation_completeness":"unproved",
                         "safe_next_action":"review_retained_outcome_before_retry","outer_launcher_exit":0,"first_failure":null}}})});
         }
-        for (index,setup) in overview.current.installer_setups.iter().enumerate() {
-            assert_eq!(retained_setup_records_need_refresh(setup,&overview.current),!matches!(index,1|4));
-        }
+        overview.current.installer_setups[1].name = "Plug-in 1.0".into();
+        supplied_setups(&mut overview.current, &[(1, crate::model::SetupDisposition::PartialInstallation),
+            (4, crate::model::SetupDisposition::PartialInstallation), (0, crate::model::SetupDisposition::SettledHistory),
+            (2, crate::model::SetupDisposition::SettledHistory), (3, crate::model::SetupDisposition::SettledHistory),
+            (5, crate::model::SetupDisposition::SettledHistory), (6, crate::model::SetupDisposition::SettledHistory),
+            (7, crate::model::SetupDisposition::SettledHistory)]);
         let intended=&overview.current.installer_setups[1];
         let mut unmatched=intended.clone();unmatched.discovered[0].module_sha256="different-module".into();
-        assert_eq!(setup_display_name(&unmatched,&overview.current),unmatched.name);
+        assert_eq!(setup_display_name(&unmatched,&overview.current), "Plug-in 1.0",
+            "the window must not rederive an owner-supplied setup name from products");
         let ctx=result_form_context();presentation::configure_style(&ctx);
         let mut page=Page::Home;let mut library=crate::library::PluginsView::default();let mut focus=PageFocus::default();
         let mut point=egui::Pos2::ZERO;
@@ -4387,7 +4504,7 @@ mod tests {
             if frame==2 {
                 let mut text=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut text);}
                 assert!(text.iter().any(|(label,_)|label=="Next: review the installation for Plug-in 1.0"));
-                point=text.iter().find(|(label,_)|label=="Review this installation").unwrap().1;
+                point=text.iter().find(|(label,_)|label=="Open this setup").unwrap().1;
                 assert!(!text.iter().any(|(label,_)|label.starts_with("Plug-ins available in ")));
             }
             output.textures_delta.clear();
@@ -4411,6 +4528,8 @@ mod tests {
             overview.current.installer_setups=vec![make("Older import",SetupPhase::Imported,None),
                 make("Current installation",SetupPhase::InstallerRunning,Some(AvailableAction {
                     label:"Show vendor installer".into(),action:action.clone(),disabled_reason:None}))];
+            supplied_setups(&mut overview.current, &[(1, crate::model::SetupDisposition::InProgress),
+                (0, crate::model::SetupDisposition::InProgress)]);
             let ctx=result_form_context();presentation::configure_style(&ctx);
             let mut point=egui::Pos2::ZERO;let mut chosen=None;
             for frame in 0..5 {
@@ -4521,10 +4640,10 @@ mod tests {
     }
     fn handoff_poll_reply(state: &Operator, raw: &serde_json::Value, activity: bool) -> Reply {
         if activity {
-            Reply::Activity(crate::model::Activity {schema:crate::model::OPERATOR_SCHEMA,
+            Reply::Activity(crate::model::Activity {schema:crate::model::OPERATOR_SCHEMA, live: crate::model::LiveActivity::unavailable("fixture"), recent: crate::model::Observation::Unavailable("fixture".into()), incidents: crate::model::Observation::Unavailable("fixture".into()),
                 system:state.overview.as_ref().unwrap().current.system.clone(),
                 capture:serde_json::Value::Null, operation:Some(raw.clone()),
-                workspace_product_install_ready:false})
+                })
         } else {
             let mut pulse = pulse_fixture(false);
             pulse.operation = Some(raw.clone());
@@ -4820,10 +4939,9 @@ mod tests {
             operator.background_poll = true;
             operator.origin = Some(RequestOrigin::BackgroundActivity);
             operator.handle_reply(Reply::Activity(Activity {
-                schema: crate::model::OPERATOR_SCHEMA, system: snapshot.system.clone(), capture: snapshot.capture.clone(),
+                schema: crate::model::OPERATOR_SCHEMA, live: crate::model::LiveActivity::unavailable("fixture"), recent: crate::model::Observation::Unavailable("fixture".into()), incidents: crate::model::Observation::Unavailable("fixture".into()), system: snapshot.system.clone(), capture: snapshot.capture.clone(),
                 operation: snapshot.operation.clone(),
-                workspace_product_install_ready: false,
-            }));
+                }));
             assert!(!operator.controls_pending());
             assert!(operator.feedback.is_none());
             assert!(operator.message.starts_with("Added Lunacy"));
@@ -5168,7 +5286,9 @@ mod tests {
             apply_local(card.discovered.expect("discovered plug-ins").does, &mut state, &mut false, &mut false);
             assert_eq!(state.page,Page::Plugins);
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-                crate::library::show_current(ui, &mut state.plugins, &overview.current, None,true,false,&mut false);
+                let view = screen_model::plugins::LoadingList::build(&overview.current, &state.plugins.query(),
+                    screen_model::plugins::CurrentRead::Ready, false);
+                crate::library::show_current(ui, &mut state.plugins, view, &mut None);
             });
             let mut text = Vec::new();
             for clipped in &output.shapes { labels(&clipped.shape,&mut text); }
@@ -5287,8 +5407,15 @@ mod tests {
         let journey = InstallationJourney {daw:DawChoice::Reaper,phase:InstallationPhase::Available,
             plugins:vec![InstallationPlugin {selection:"selection".into(),class_id:product.class_id.clone(),
                 name:product.name.clone(),stage:InstallationPluginStage::Available,failure:None}],failure:None};
+        overview.current.presentation = crate::model::Observation::Observed(crate::model::CurrentPresentation {
+            setups: vec![crate::model::SetupState { installer: "exact".into(), environment: Some(product.environment.clone()),
+                name: "Exact setup".into(), disposition: crate::model::SetupDisposition::Complete,
+                headline: "Not in your DAW".into(), status: String::new(), connections: vec![crate::model::JourneyConnection {
+                    selection: "selection".into(), product: crate::model::Observation::Observed(crate::model::ProductIdentity::from(&product)),
+                    disposition: crate::model::Observation::Observed(crate::model::ConnectionDisposition::Removed), reason: None }] }],
+            attention: vec![], progress: vec![], change_previews: vec![], package_update: crate::model::PackageUpdatePreview { preserved_setups: vec![] }, settled_message: String::new() });
         let current = Some((&overview.current, product.environment.as_str()));
-        assert_eq!(current_journey_label(&journey, current), "Not in your DAW");
+        assert_eq!(current_journey_label(&journey, current), "DAW connection complete");
         assert_eq!(current_plugin_state(&journey, &journey.plugins[0], current).map(|state| state.words),
             Some("Removed from your DAW"));
         assert_eq!(current_journey_label(&journey, None), "DAW connection complete");
@@ -5665,6 +5792,7 @@ mod tests {
     fn running_snapshot(operation: &str) -> Snapshot {
         let id = "aa".repeat(16);
         Snapshot {
+            presentation: crate::model::Observation::Unavailable("Fixture presentation not supplied".into()),
             managed_runtime_records:vec![],
             schema: crate::model::OPERATOR_SCHEMA,
             state_token: "current".into(),
@@ -5702,7 +5830,6 @@ mod tests {
             environments: vec![],
             vendor_applications: vec![],
             products: vec![],
-            workspaces: vec![],
             active_sessions: vec![],
             capture: serde_json::Value::Null,
             recent_incidents: vec![],
@@ -5731,12 +5858,11 @@ mod tests {
     }
     fn activity_from(s: &Snapshot) -> Reply {
         Reply::Activity(Activity {
-            schema: crate::model::OPERATOR_SCHEMA,
+            schema: crate::model::OPERATOR_SCHEMA, live: crate::model::LiveActivity::unavailable("fixture"), recent: crate::model::Observation::Unavailable("fixture".into()), incidents: crate::model::Observation::Unavailable("fixture".into()),
             system: s.system.clone(),
             capture: s.capture.clone(),
             operation: s.operation.clone(),
-            workspace_product_install_ready: false,
-        })
+            })
     }
     #[test]
     fn terminal_retry_offers_survive_snapshot_and_poll_without_frontend_inference() {
@@ -6529,7 +6655,7 @@ mod tests {
         });
         let mut s = running_snapshot(&"22".repeat(16));
         s.operation = Some(serde_json::json!({"operation":"22".repeat(16),"state":"completed"}));
-        s.products.push(Product{class_id:"aa".repeat(16),name:"Generated instrument".into(),vendor:"Fixture".into(),role:"instrument".into(),version:"1".into(),disposition:"prepared".into(),active_revision:None,recommended_revision:None,environment:"ef".repeat(16),runner:"pinned".into(),module_sha256:"ff".repeat(32),limitations:vec![],history:vec![],actions:vec![],availability:None,compatibility:None,details:serde_json::json!({"preparation":{"operation":{"operation":"11".repeat(16),"state":"completed"}}})});
+        s.products.push(Product{class_id:"aa".repeat(16),name:"Generated instrument".into(),vendor:"Fixture".into(),role:"instrument".into(),version:"1".into(),disposition:"prepared".into(),active_revision:None,recommended_revision:None,environment:"ef".repeat(16),runner:"pinned".into(),module_sha256:"ff".repeat(32),limitations:vec![],history:vec![],actions:vec![],availability:None,compatibility:None,display:screen_model::model::DisplayConfiguration::unavailable(),details:serde_json::json!({"preparation":{"operation":{"operation":"11".repeat(16),"state":"completed"}}})});
         f.reconcile_snapshot(&s);
         assert!(f.terminal);
         assert!(!f.blocking);

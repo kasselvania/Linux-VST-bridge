@@ -249,7 +249,7 @@ class NativeUiTests(unittest.TestCase):
         for size in ("1280x800", "640x720"):
             with self.subTest(size=size), App("result-" + size, "--page=plugins", "--state=guided", "--size=" + size) as app:
                 app.mouse("click", app.scroll_to("Help and testing"))
-                app.mouse("click", app.scroll_to("Record a test result or problem"))
+                app.mouse("click", app.scroll_to("Record what worked…"))
                 app.click("Report a problem")
                 app.mouse("click", app.scroll_to("Other problem", viewport="form_scroll"))
                 submit = app.scroll_to("Record this test result", viewport="form_scroll")

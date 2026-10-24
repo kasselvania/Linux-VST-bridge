@@ -36,11 +36,17 @@ if bool(a.frontend_build) != bool(a.frontend_source):
  raise ValueError('--frontend-build and --frontend-source must be supplied together')
 frontend=s/'manager-ui/target/x86_64-unknown-linux-gnu/release/linux-audio-compatibility-manager'
 frontend_record=None
+installer_record=None
 if a.frontend_build:
  frontend=a.frontend_build.resolve().with_name(frontend_build.BINARY)
- frontend_record=frontend_build.verify_record(json.loads(a.frontend_build.read_bytes()),s,a.frontend_source,frontend)
+ frontend_record,installer_record=frontend_build.verify_pair(a.frontend_build,s,a.frontend_source)
 copies={s/'crates/cli/target/x86_64-unknown-linux-gnu/release/linux-vst-bridge':'linux-vst-bridge',frontend:'linux-audio-compatibility-manager',a.windows_package/'wf0-factory-probe.exe':'host.exe',a.windows_package/'host-source-manifest.json':'host-source-manifest.json',a.kit:'preparation-kit.zip',s/'compatibility/arturia-pure-lofi.json':'profile.json',s/'COPYRIGHT.md':'LVB-Proprietary.txt',a.fixture:'fixture.vst3'}
 for source,name in copies.items():shutil.copyfile(source,p/name)
+if installer_record:
+ installer=a.frontend_build.resolve().with_name(frontend_build.INSTALLER)
+ shutil.copyfile(installer,p/frontend_build.INSTALLER)
+ (p/frontend_build.INSTALLER).chmod(0o555)
+ (p/'installer-build.json').write_text(json.dumps(installer_record,sort_keys=True,indent=2)+'\n')
 (p/'preparation-kit.zip').write_bytes(public_launch_kit((p/'preparation-kit.zip').read_bytes()))
 for name in ('session','ownership'):
  shutil.copyfile(s/f'bridge-manager/runtime/{name}.py', p/(name+'.py'))
@@ -56,6 +62,7 @@ with zipfile.ZipFile(p/'preparation-kit.zip') as z:
 if frontend_record:
  compliance=json.loads((p/'COMPLIANCE_MANIFEST.json').read_text())
  compliance['frontend_build']=frontend_record
+ compliance['installer_build']=installer_record
  (p/'COMPLIANCE_MANIFEST.json').write_text(json.dumps(compliance,sort_keys=True))
 rows=[('usr/bin/linux-vst-bridge','linux-vst-bridge','manager'),('usr/bin/linux-audio-compatibility-manager','linux-audio-compatibility-manager','frontend'),('usr/lib/linux-vst-bridge/supervisor/session.py','session.py','supervisor'),('usr/lib/linux-vst-bridge/supervisor/ownership.py','ownership.py','ownership'),('usr/lib/linux-vst-bridge/host/bridge-host.exe','host.exe','windows_host'),('usr/lib/linux-vst-bridge/host/source-manifest.json','host-source-manifest.json','host_source'),('usr/lib/linux-vst-bridge/preparation/preparation-kit.zip','preparation-kit.zip','preparation_kit'),('usr/lib/linux-vst-bridge/proxy/ReusableEngine.so','proxy.so','proxy'),('usr/lib/linux-vst-bridge/self-test/ap10-return-fixture.vst3','fixture.vst3','fixture'),('usr/lib/linux-vst-bridge/profiles/arturia-pure-lofi.json','profile.json','profile')]
 if a.reference_directory is not None:
@@ -71,7 +78,7 @@ if a.reference_directory is not None:
  rows.append(('usr/lib/linux-vst-bridge/self-test/LVB_REFERENCE_MANIFEST.json','LVB_REFERENCE_MANIFEST.json','fixture_resource'))
  (p/'START_HERE.html').write_text((p/'START_HERE.html').read_text()+'<p>First-party development fixtures are included in the application\'s <a href="../../../lib/linux-vst-bridge/self-test/">self-test folder</a>. Import LVB_Reference_Plugins_1_0_0.exe through Setup for the stateful instrument/effect journey. The Recovery installer deliberately holds a window for Focus/Stop; Partial deliberately holds after installing the instrument. These fixtures require no vendor sign-in and do not qualify commercial software.</p>')
  (p/'THIRD_PARTY_NOTICES.txt').write_text((p/'THIRD_PARTY_NOTICES.txt').read_text()+'The additional LVB Reference instrument, effect and three installers are first-party test instrumentation. Their exact modules, including the MIT SDK boundary, are inventoried by digest.\n')
-rust_packages=(capture_rust_notices(s,p,frontend_source=a.frontend_source,frontend_build=frontend_record)
+rust_packages=(capture_rust_notices(s,p,frontend_source=a.frontend_source,frontend_build=frontend_record,installer_build=installer_record)
                if frontend_record else capture_rust_notices(s,p))
 rows += [('usr/share/doc/linux-vst-bridge-beta/licenses/'+name,name,'license') for name in ('LVB-Proprietary.txt','vst3sdk.txt','base.txt','pluginterfaces.txt','public.sdk.txt','Rust-Dependency-Notices.txt','Rust-Dependency-Inventory.json')]
 (p/'THIRD_PARTY_NOTICES.txt').write_text((p/'THIRD_PARTY_NOTICES.txt').read_text()+'Resolved Rust release dependencies, including the signature verifier, are inventoried by exact registry archive digest with upstream license declarations and full license texts in licenses/Rust-Dependency-Inventory.json and licenses/Rust-Dependency-Notices.txt. Development-only dependencies are excluded. This inventory does not select customer release authority.\n')

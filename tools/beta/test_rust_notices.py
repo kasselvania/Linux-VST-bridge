@@ -71,7 +71,8 @@ class FrontendNotices(unittest.TestCase):
             commit(bridge)
             commit(private)
             identity = rust_notices.qualification.source_identity(private)
-            record = {"bridge_source": rust_notices.qualification.source_identity(bridge),
+            record = {"binary": rust_notices.qualification.BINARY,
+                      "bridge_source": rust_notices.qualification.source_identity(bridge),
                       "frontend_source": {**rust_notices.qualification.source_identity(bridge),
                                           "manifest": "crates/window/Cargo.toml"}}
             original_check_output = rust_notices.subprocess.check_output
@@ -96,11 +97,14 @@ class FrontendNotices(unittest.TestCase):
                 result["packages"][0]["manifest_path"] = command[command.index("--manifest-path") + 1]
                 return json.dumps(result).encode()
 
-            def capture():
+            installer = {**record, "binary": rust_notices.qualification.INSTALLER}
+
+            def capture(installer_record=installer):
                 with patch.dict(os.environ, {"CARGO_HOME": str(root / "empty-cache")}), \
                         patch.object(rust_notices.qualification, "release_metadata", side_effect=cargo_metadata), \
                         patch.object(rust_notices.subprocess, "check_output", side_effect=check_output):
-                    return rust_notices.capture(bridge, output, frontend_source=private, frontend_build=record)
+                    return rust_notices.capture(bridge, output, frontend_source=private,
+                                                frontend_build=record, installer_build=installer_record)
 
             inventory = capture()
             self.assertEqual({p["name"] for p in inventory}, {"makepad-app", "vendor", "registry-fixture"})
@@ -111,6 +115,10 @@ class FrontendNotices(unittest.TestCase):
                          "Bundled font license"):
                 self.assertIn(text, notices)
             self.assertNotIn(str(root), (output / "Rust-Dependency-Inventory.json").read_text())
+            for mismatch in (None, {**installer, 'binary': 'egui-installer'},
+                             {**installer, 'bridge_source': {'head':'a'*40, 'tree':'b'*40}}):
+                with self.assertRaisesRegex(ValueError, 'manager and installer build identities differ'):
+                    capture(mismatch)
             # Both ignored root notices and ignored bundled-font notices used
             # to enter the inventory under this unchanged Git head/tree.
             for text in ("unrecorded notice A", "unrecorded notice B"):

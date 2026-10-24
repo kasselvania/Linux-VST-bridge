@@ -5,28 +5,44 @@ impl Builder<'_> {
     // ----- the forms a pressed offer opened -----
 
     /// The open form, if any, with the control it focuses first.
-    pub fn form(&mut self, state: &State, snapshot: &Snapshot, actions: Option<&Snapshot>, pending: bool)
+    pub fn form(&mut self, state: &State, snapshot: &Snapshot, actions: Option<&Snapshot>)
         -> Option<(Vec<Node>, Option<String>)> {
+        let availability = if self.why.superseded {
+            Availability::Refused(vm::window::superseded().title.into())
+        } else if self.why.form_stale {
+            Availability::Refused("This form is no longer current.".into())
+        } else if self.why.pending || self.why.in_flight {
+            Availability::Waiting
+        } else if !self.why.fresh {
+            Availability::Held
+        } else {
+            Availability::Enabled
+        };
         let forms = &state.forms;
-        if let Some(form) = &forms.confirm {
-            return Some(self.confirmation(form, forms.forget_installer, snapshot, pending));
+        let (mut nodes, focus) = if let Some(form) = &forms.confirm {
+            self.confirmation(form, forms.forget_installer, snapshot, &availability, state.focus.repair.as_ref())
+        } else if let Some(form) = &forms.install {
+            self.install_form(form, forms.daw, actions, &availability)
+        } else if let Some(form) = &forms.rename {
+            self.rename_form(form, &availability)
+        } else if let Some(form) = &forms.record {
+            self.record_form(form, snapshot, &availability)
+        } else {
+            return None;
+        };
+        if self.why.form_stale {
+            // Keep the return path visible even when an owner refusal or an
+            // incomplete field supplies the submit button's own reason.
+            nodes.insert(1, words(Role::Body, "The manager's status changed since this form was opened. Close this dialog and choose the action again from current status."));
         }
-        if let Some(form) = &forms.install {
-            return Some(self.install_form(form, forms.daw, actions, pending));
-        }
-        if let Some(form) = &forms.rename {
-            return Some(self.rename_form(form, pending));
-        }
-        if let Some(form) = &forms.record {
-            return Some(self.record_form(form, snapshot, pending));
-        }
-        None
+        Some((nodes, focus))
     }
 
-    pub(super) fn confirmation(&mut self, form: &Action, forget: bool, snapshot: &Snapshot, pending: bool)
+    pub(super) fn confirmation(&mut self, form: &Action, forget: bool, snapshot: &Snapshot, availability: &Availability,
+        repair: Option<&vm::plugins::repair::InstallerDraft>)
         -> (Vec<Node>, Option<String>) {
         let forms::Confirmation { title, body, confirm, cancel, offer, forget: choice } =
-            forms::removal_confirmation(Some(snapshot), form);
+            forms::confirmation_with_repair(Some(snapshot), form, repair);
         let mut out = vec![Node::Title(title.into())];
         for line in body {
             out.push(words(Role::Body, line));
@@ -40,17 +56,19 @@ impl Builder<'_> {
         }
         let reason = match &offer {
             Err(reason) => Some(reason.clone()),
-            Ok(_) if pending => Some(offers::WAITING.to_string()),
-            Ok(_) => None,
+            Ok(_) => availability.reason().map(str::to_owned),
         };
-        let confirm = self.local(confirm, Importance::Destructive, Target::Form(FormStep::Confirm), reason);
+        let importance = if form.environment_installer_start().is_some()
+            || matches!(form, Action::EnvironmentRuntimeSelect { .. } | Action::CandidateSettingsTest { .. }) { Importance::Primary }
+            else { Importance::Destructive };
+        let confirm = self.local(confirm, importance, Target::Form(FormStep::Confirm), reason);
         let cancel = self.local(cancel, Importance::Secondary, Target::Form(FormStep::CancelConfirm), None);
         let focus = cancel.id.0.clone();
         out.push(self.actions("confirm", vec![cancel, confirm]));
         (out, Some(focus))
     }
 
-    pub(super) fn install_form(&mut self, form: &Action, daw: Option<DawChoice>, actions: Option<&Snapshot>, pending: bool)
+    pub(super) fn install_form(&mut self, form: &Action, daw: Option<DawChoice>, actions: Option<&Snapshot>, availability: &Availability)
         -> (Vec<Node>, Option<String>) {
         let forms::InstallForm { title, question, daw: picker, explanation, note, submit, refusal, cancel } =
             forms::InstallForm::build(actions, form);
@@ -64,14 +82,14 @@ impl Builder<'_> {
         out.push(words(Role::Detail, note));
         let reason = refusal.clone()
             .or_else(|| daw.is_none().then(|| picker.placeholder.to_string()))
-            .or_else(|| pending.then(|| offers::WAITING.to_string()));
+            .or_else(|| availability.reason().map(str::to_owned));
         let submit = self.local(submit, Importance::Primary, Target::Form(FormStep::StartInstall), reason);
         let cancel = self.local(cancel, Importance::Secondary, Target::Form(FormStep::CancelInstall), None);
         out.push(self.actions("install", vec![submit, cancel]));
         (out, first)
     }
 
-    pub(super) fn rename_form(&mut self, form: &Action, pending: bool) -> (Vec<Node>, Option<String>) {
+    pub(super) fn rename_form(&mut self, form: &Action, availability: &Availability) -> (Vec<Node>, Option<String>) {
         let Action::InstallerRename { installer, label } = form else { return (vec![], None) };
         let forms::RenameForm { title, explanation, identity, save, cancel } = forms::RenameForm::build(installer);
         let mut out = vec![Node::Title(title.into()), words(Role::Body, explanation), words(Role::Code, identity)];
@@ -80,7 +98,7 @@ impl Builder<'_> {
         let reason = if !forms::plausible_installer_label(label) {
             Some("Use a name of at most 96 UTF-8 bytes, with no surrounding spaces, control or direction-formatting characters, /, \\, or :. The name cannot be '.' or '..'.".to_string())
         } else {
-            pending.then(|| offers::WAITING.to_string())
+            availability.reason().map(str::to_owned)
         };
         let save = self.local(save, Importance::Primary, Target::Form(FormStep::SaveRename), reason);
         let cancel = self.local(cancel, Importance::Secondary, Target::Form(FormStep::CancelRename), None);
@@ -88,7 +106,7 @@ impl Builder<'_> {
         (out, None)
     }
 
-    pub(super) fn record_form(&mut self, form: &Action, snapshot: &Snapshot, pending: bool) -> (Vec<Node>, Option<String>) {
+    pub(super) fn record_form(&mut self, form: &Action, snapshot: &Snapshot, availability: &Availability) -> (Vec<Node>, Option<String>) {
         let words_ = forms::result_form();
         let expert = forms::expert_form();
         let mut out = Vec::new();
@@ -138,7 +156,9 @@ impl Builder<'_> {
                 if !valid {
                     out.push(words(Role::Detail, words_.incomplete));
                 }
-                if refusal.is_some() && offer.is_ok() {
+                if matches!(result, TestResultKind::Worked) && refusal.is_some()
+                    && forms::compatibility_result_refusal(Some(&offer),
+                        &TestResultKind::Problem {category:ProblemCategory::Other}).is_none() {
                     out.push(words(Role::Detail, words_.problem_only));
                 }
                 let reason = refusal.clone().or_else(|| (!valid).then(|| words_.incomplete.to_string()));
@@ -173,7 +193,7 @@ impl Builder<'_> {
                 (words_.submit, false, Some(offers::WAITING.to_string()))
             }
         };
-        let reason = refusal.filter(|_| !valid).or_else(|| pending.then(|| offers::WAITING.to_string()));
+        let reason = refusal.filter(|_| !valid).or_else(|| availability.reason().map(str::to_owned));
         let submit = self.local(submit_label, Importance::Primary, Target::Form(FormStep::SubmitRecord), reason);
         let cancel = self.local(cancel_label, Importance::Secondary, Target::Form(FormStep::CancelRecord), None);
         out.push(self.actions("record", vec![submit, cancel]));

@@ -38,6 +38,7 @@ public:
  }
  ~FaultStatus(){close();}
  FaultStatus(const FaultStatus&)=delete;
+ bool mapped() const { return view != nullptr; }
  void publish(size_t lane,Row row){
   if(!view)return;
   // Native owns generation. Read only a stable published generation, bounded.

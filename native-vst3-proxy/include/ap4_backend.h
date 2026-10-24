@@ -62,10 +62,30 @@ struct ap6_snapshot_t {
   uint8_t digest[32];
 };
 uint32_t ap6_snapshot(uint64_t handle, struct ap6_snapshot_t *out);
+/* Read-only owner-thread save after established failure. Copies the latest
+   integrity-checked complete snapshot from this exact instance/generation.
+   No capture, process launch or default substitution. On failure both outputs
+   remain unchanged. Later edits are reported by info.uncaptured. */
+uint32_t ap6_failed_save_owned_v1(uint64_t handle, struct ap4_owned_state_v1 *output,
+                                struct ap6_snapshot_t *info);
 uint32_t ap6_recover(uint64_t handle, uint64_t revision, uint8_t *out,
                     uint32_t capacity, uint32_t *written);
 uint32_t ap6_recover_owned_v1(uint64_t handle, uint64_t revision,
                             struct ap4_owned_state_v1 *output);
+/* Owner timer mailboxes only. Slow restore/activation runs on a non-audio
+   worker. No queued command is a completed restart. */
+struct lvb_recovery_event_v1 {
+  uint32_t stage, reason;
+  uint64_t generation;
+  uint8_t operation[16];
+  uint32_t active, processing;
+};
+uint32_t lvb_recovery_poll_v1(uint64_t handle,uint32_t timer,
+                            struct lvb_recovery_event_v1 *event,
+                            struct ap4_owned_state_v1 *state);
+uint32_t lvb_recovery_begin_v1(uint64_t handle,const uint8_t *operation,
+                             uint32_t maximum,uint32_t mode,uint32_t active,uint32_t processing);
+uint32_t lvb_recovery_ack_v1(uint64_t handle,const uint8_t *operation,uint32_t stage,uint32_t success);
 
 #ifdef __cplusplus
 }

@@ -26,7 +26,7 @@ impl Reference {
 fn live(shared: Arc<Shared>, delivery: crate::performance::DeliveryMode, delay: usize) -> u64 {
     INSTANCES.insert(|| Ok::<_, ()>(Live {
         shared, callback: UnsafeCell::new(Callback::new()), busy: AtomicBool::new(false),
-        worker: None, report: None, max: 256, recovery_blocked: false,
+        worker: None, report: None, max: 256, recovery_blocked: false, proxy: None,
         installed_delay: Some(delay as u32), delivery_mode: delivery, minor: 15, setup: None,
     })).unwrap().unwrap()
 }

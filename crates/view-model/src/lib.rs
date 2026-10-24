@@ -33,6 +33,7 @@ pub mod offers;
 pub mod plugins;
 pub mod product;
 pub mod request;
+pub mod recovery;
 pub mod screen;
 pub mod service;
 pub mod settings;
@@ -242,6 +243,10 @@ pub enum Local {
     /// Choose a different installer, or a required app's installer, for this
     /// setup. The draft carries the setup's identity at the time of choosing.
     ChooseReplacement(setup::InstallerReplacement),
+    /// Choose a file for an explicitly identified existing plug-in setup.
+    ChooseRepairInstaller(plugins::repair::InstallerDraft),
+    /// Select retained installer bytes locally; no operation is sent yet.
+    SelectRepairInstaller(plugins::repair::InstallerDraft),
     /// Drop the replacement draft and keep the current installer.
     KeepCurrentInstaller,
     /// Stop showing only the selected installer.

@@ -103,6 +103,34 @@ class SelectionTests(unittest.TestCase):
  def declare(self):
   p=self.root/s.NativeProtonSession.COMPONENT;p.write_text(json.dumps(self.component));p.chmod(0o600)
   self.runner['files']=[{'path':str(p),'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}]
+ def test_detached_launch_retains_real_host_custody_without_audio_transport(self):
+  self.declare()
+  directory=self.envroot/'compatdata/pfx/drive_c/bridge/sessions'/self.spec['session']
+  directory.mkdir(parents=True,mode=0o700)
+  self.spec.update(directory=str(directory),detached=True,inspect=False,keeper=False,vendor_access=False)
+  self.spec['registration'].update(host={'path':str(self.root/'host.exe'),'sha256':'1'*64},
+   module={'path':str(self.root/'plugin.vst3'),'sha256':'2'*64},host_source_sha256='3'*64,
+   metadata={'class_id':'4'*32})
+  command,_=s.command(self.spec)
+  def attempt():
+   runtime=s.NativeProtonSession.selected(self.spec);runtime.endpoint=self.root/'test-endpoint'
+   try:
+    with patch.object(runtime,'find_keeper'),patch.object(s.subprocess,'Popen',return_value=object()) as launch:
+     runtime.spawn(command,{'HOME':str(self.root)})
+     self.assertIsInstance(runtime.host_custody,o.FinalHostCustody)
+     runtime.host_custody.revalidate()
+     self.assertEqual(runtime.host_custody.ready_fields['mode'],'detached-instance')
+     self.assertIn('--credential-stdout',launch.call_args.args[0])
+     self.assertFalse(runtime.host_custody.admitted,'mapping alone does not identify a Windows process')
+   finally:runtime.close()
+  with self.assertRaises(FileNotFoundError):attempt()
+  status=directory/'ap12.status'
+  data=bytearray(1024);data[:32]=b'LVFS'+s.struct.pack('<III',2,1024,0)+bytes.fromhex(self.spec['session'])
+  status.write_bytes(data);status.chmod(0o600)
+  attempt()
+  self.assertEqual(list(directory.iterdir()),[status])
+  data[16:32]=bytes.fromhex('c'*32);status.write_bytes(data)
+  with self.assertRaisesRegex(RuntimeError,'final_host_status_binding'):attempt()
  def declare_managed(self,rows=None):
   self.runner.update(id='managed-ge-proton11-7-slr4-20260805-r3',
    proton=str(self.root/'GE-Proton11-7-x86_64/proton'),

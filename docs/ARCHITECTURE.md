@@ -29,6 +29,15 @@ existing installations, but do not advertise them on a new default runtime until
 useful behavior is physically demonstrated there. This is a target, not a claim
 that every cell already passes.
 
+The approved product surface is frozen during beta integration; compatibility
+expansion uses the existing owners rather than new vendor architectures.
+Valhalla and CHOW are permanent compatibility canaries; Musio requires honest
+classification but is not a named core support promise. Profiles describe facts,
+not qualification. The [release contract](INTEGRATED_BETA_DELIVERY.md) binds
+acceptance to one immutable signed candidate, reruns affected gates after changes,
+and promotes the accepted bytes without rebuilding. No Beta RC is implied by
+source completion, test-build installation or a historical vendor result.
+
 ## 2. One maintained compatibility line
 
 Wine implements Windows behavior. The Proton/GE-derived runtime packages a
@@ -37,7 +46,7 @@ userspace. The Steam Linux Runtime is that userspace; the Steam client is not a
 product prerequisite.
 
 The production maintenance line starts from the known GE-derived reference. The
-current r5 generation is the recovery reference, not an automatic beta claim: a
+current r7 generation is the recovery reference, not an automatic beta claim: a
 current package must prove it again.
 
 One maintained generation is recommended for new setups. Runtime files are

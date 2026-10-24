@@ -1051,6 +1051,7 @@ pub fn is_action(a: &ui::Action) -> bool {
             | ui::Action::CandidateGraphicsAssess { .. }
             | ui::Action::CandidateGraphicsPrepare { .. }
             | ui::Action::CandidateSettingsPrepare { .. }
+            | ui::Action::CandidateSettingsTest { .. }
             | ui::Action::PluginReinspect { .. }
             | ui::Action::CompatibilityCheck { .. }
             | ui::Action::CompatibilityRevalidate { .. }
@@ -1111,6 +1112,7 @@ fn action_selection_with(m: &Manager, sw: &Software, action: &ui::Action,
         | ui::Action::CandidateGraphicsAssess { candidate }
         | ui::Action::CandidateGraphicsPrepare { candidate, .. }
         | ui::Action::CandidateSettingsPrepare { candidate, .. }
+        | ui::Action::CandidateSettingsTest { candidate, .. }
         | ui::Action::CompatibilityPublishTest { candidate, .. }
         | ui::Action::CompatibilityResult { candidate, .. }
         | ui::Action::ExperimentalReplace { candidate, .. }
@@ -1806,6 +1808,26 @@ pub(super) fn execute_with_progress(
                 result.recommendation.requirement, &mut preparation_assessor(m));
             Ok(json!({"candidate":candidate,"assessment":result,"applied":applied,"publication_changed":false}))
         }
+        ui::Action::CandidateSettingsTest { candidate, settings, expected_current } => {
+            let base = timing::measure(Stage::CandidateVerification, ||
+                prep::candidate_record(m, candidate))?;
+            // Retain ordinary trial ancestry first. Publication has its own
+            // exact baseline check after this lock is released; preparation
+            // alone never selects settings or establishes a passing result.
+            let next = {
+                let _guard = registry_admission()?;
+                prep::configuration::prepare_settings(m, &base, settings,
+                    expected_current.as_ref().map(publication_reference).as_ref())?
+            };
+            progress("publication");
+            let revision = match expected_current {
+                Some(expected) => prep::replace_with_registry(m, &next,
+                    &publication_reference(expected), registry_admission)?,
+                None => prep::enable_with_registry(m, &next, false, registry_admission)?,
+            };
+            Ok(json!({"candidate":next.id()?,"predecessor":candidate,"publication":revision,
+                "ordinary":false,"experimental":true,"awaiting_test":true}))
+        }
         ui::Action::CandidateSettingsPrepare { candidate, settings, expected_current } => {
             let c = timing::measure(Stage::CandidateVerification, ||
                 prep::candidate_record(m, candidate))?;
@@ -2053,6 +2075,7 @@ pub fn failure(action: &ui::Action) -> Option<Value> {
         | ui::Action::ExperimentalEnable { .. }
         | ui::Action::ExperimentalDisable { .. }
         | ui::Action::CompatibilityPublishTest { .. }
+        | ui::Action::CandidateSettingsTest { .. }
         | ui::Action::CandidatePublishOrdinary { .. } => "publication_transaction",
         ui::Action::CandidateObserve { .. } | ui::Action::CandidateReview { .. }
         | ui::Action::CompatibilityResult { .. }
@@ -2141,6 +2164,70 @@ pub(crate) mod tests {
             assert!(product.actions.iter().any(|offer|
                 matches!(offer.action, ui::Action::CandidateSettingsPrepare {..}) && offer.disabled_reason.is_none()));
         }
+    }
+
+    #[test]
+    fn settings_test_selects_exact_choices_without_inventing_evidence_and_restores_baseline() {
+        let (f, base) = projection_fixture();
+        let sw = projection_software(&base);
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let baseline = prep::enable(&f.m, &base, false).unwrap();
+        let before = fs::read(base.selection.environment.root.join("environment.json")).unwrap();
+        let settings = ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
+            accessibility:ui::AccessibilityChoice::DisabledForHost};
+        let mut products = vec![projection_product(&base)];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        let action = products[0].actions.iter().find(|offer| matches!(&offer.action,
+            ui::Action::CandidateSettingsTest {settings:offered,..} if offered == &settings)).unwrap().action.clone();
+        assert!(action.requires_inactive());
+        let result = execute(&f.m, &action, &random_id().unwrap(), || f.m.lock("registry.lock")).unwrap();
+        assert_eq!(result["awaiting_test"], true);
+        let next = prep::candidate_record(&f.m, result["candidate"].as_str().unwrap()).unwrap();
+        assert_eq!(prep::configuration::settings(&next), settings);
+        assert_eq!(next.profile.capabilities.accessibility, profiles::Accessibility::DisabledForVendorProcess);
+        assert_eq!(next.settings_trial.as_ref().unwrap().baseline.as_ref(), Some(&baseline));
+        assert!(prep::observations(&f.m, &next).unwrap().is_empty());
+        assert!(prep::observations(&f.m, &base).unwrap().is_empty());
+        assert_eq!(prep::publication_state(&f.m, &next).unwrap(), "experimental");
+        let mut products = vec![projection_product(&next)];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        assert!(matches!(&products[0].compatibility.as_ref().unwrap().primary.as_ref().unwrap().action,
+            ui::Action::CompatibilityResult {candidate,..} if candidate == &next.id().unwrap()));
+        let selected = f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision.clone().unwrap();
+        prep::disable_exact(&f.m, &next, &selected).unwrap();
+        assert_eq!(f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision, Some(baseline));
+        assert_eq!(fs::read(base.selection.environment.root.join("environment.json")).unwrap(), before);
+    }
+
+    #[test]
+    fn settings_test_rechecks_expected_publication_after_preparation() {
+        let (f, base) = projection_fixture();
+        atomic_json(&f.m.root.join("software.json"), &projection_software(&base)).unwrap();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let baseline = prep::enable(&f.m, &base, false).unwrap();
+        let other = prep::configuration::prepare_settings(&f.m, &base,
+            &ui::LocalSettings {graphics:None,accessibility:ui::AccessibilityChoice::WindowsDefault},
+            Some(&baseline)).unwrap();
+        let action = ui::Action::CandidateSettingsTest {candidate:base.id().unwrap(),
+            settings:ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
+                accessibility:ui::AccessibilityChoice::DisabledForHost},
+            expected_current:Some(publication_identity(&baseline))};
+        let mut calls = 0;
+        let mut changed = None;
+        let result = execute(&f.m, &action, &random_id().unwrap(), || {
+            calls += 1;
+            if calls == 2 { changed = Some(prep::replace(&f.m, &other, &baseline)?); }
+            f.m.lock("registry.lock")
+        });
+        assert!(result.is_err(), "a newer exact selection must not be overwritten");
+        let changed = changed.expect("publication admission follows preparation");
+        assert_eq!(f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision, Some(changed));
+        assert!(prep::observations(&f.m, &base).unwrap().is_empty());
+        assert!(prep::observations(&f.m, &other).unwrap().is_empty());
+        let state = fs::read(f.m.root.join("registry.json")).unwrap();
+        assert!(execute(&f.m, &action, &random_id().unwrap(), || f.m.lock("registry.lock")).is_err());
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), state);
     }
 
     #[test]
@@ -3041,6 +3128,7 @@ pub(crate) mod tests {
     pub(crate) fn projection_product(c: &prep::Candidate) -> ui::Product {
         let s = &c.selection;
         ui::Product {
+            display:ui::DisplayConfiguration::unavailable(),
             class_id: s.class.id.clone(),
             name: s.class.name.clone(),
             vendor: s.class.vendor.clone(),

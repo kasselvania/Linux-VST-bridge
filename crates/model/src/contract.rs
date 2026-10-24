@@ -9,6 +9,7 @@
 //! command transport ([`Subprocess`]). [`Installed`] uses only the service;
 //! an unavailable service never promotes a client into a local state owner.
 use crate::operator_model as ui;
+pub mod subscription;
 use std::{
     ffi::OsString,
     fs::File,
@@ -870,7 +871,9 @@ mod tests {
             "cleanup_unconfirmed": false
         });
         let activity = serde_json::json!({
-            "schema": ui::OPERATOR_SCHEMA, "system": system, "capture": null, "operation": null
+            "schema": ui::OPERATOR_SCHEMA, "system": system, "capture": null, "operation": null,
+            "live": {"instances":{"state":"observed","value":[]}},
+            "recent":{"state":"observed","value":[]}, "incidents":{"state":"observed","value":[]}
         });
         assert!(matches!(decode(&Request::Read(Read::Activity), &bytes(&activity)), Ok(Reply::Activity(_))));
         let pulse = serde_json::json!({"schema":ui::OPERATOR_SCHEMA,
@@ -880,6 +883,7 @@ mod tests {
         assert!(matches!(decode(&Request::Read(Read::Pulse), &bytes(&pulse)), Ok(Reply::Pulse(_))));
         let snapshot = serde_json::json!({
             "schema": ui::OPERATOR_SCHEMA, "state_token": "exact-state", "system": system,
+            "presentation": {"state":"observed","value":{"setups":[],"attention":[],"progress":[],"change_previews":[],"package_update":{"preserved_setups":[]},"settled_message":"Nothing needs attention"}},
             "capture": null, "operation": null, "onboarding": [], "environments": [],
             "vendor_applications": [], "products": [], "active_sessions": [],
             "recent_incidents": [], "actions": []

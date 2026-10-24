@@ -6,6 +6,7 @@ pub mod environment_revision;
 pub mod runtime_delivery;
 pub mod acceptance;
 pub mod capacity;
+pub mod instance;
 pub mod transport_storage;
 pub mod mapped_file;
 pub mod catalogue;
@@ -909,6 +910,19 @@ impl Manager {
         }
         atomic_json(&destination, &LeaseOwner { schema:1, temporary_owner:path.into(), owner })
     }
+    /// Read only the exact durable manager pointer. Observation callers must
+    /// not search every setup when a historical session has no retained pointer.
+    /// Caller holds shared or exclusive registry custody.
+    pub(crate) fn retained_lease_owner(&self, sid: &str, report: &Path) -> Result<serde_json::Value> {
+        require(valid_hex(sid, 32)
+            && report.parent() == Some(self.root.join("runtime/results").as_path()), "lease_identity")?;
+        let retained = self.root.join("runtime/lease-owners").join(format!("{sid}.json"));
+        let record: LeaseOwner = read_json(&retained)?;
+        require(record.schema == 1
+            && self.lease_owner_location(sid, report, &record.owner)? == record.temporary_owner,
+            "lease_identity")?;
+        Ok(record.owner)
+    }
     /// Caller holds registry.lock. The manager record remains authoritative
     /// until lease release. Legacy leases retain their original exact lookup.
     pub fn lease_owner(&self, sid: &str, report: &Path)
@@ -962,7 +976,7 @@ impl Manager {
         for owner in capacity::owners_for(self, environment.as_ref())? {
             match owner.kind {
                 capacity::Kind::Keeper => {}
-                capacity::Kind::Dsp => require(
+                capacity::Kind::Dsp | capacity::Kind::Detached => require(
                     class.is_some_and(|c| !c.eq_ignore_ascii_case(&owner.class_id)),
                     "active_device_lease",
                 )?,
@@ -1496,18 +1510,28 @@ mod tests {
             fs::write(&replacement, bytes)?;
             fs::rename(replacement, &path)?; Ok(())
         };
-        // Replaced once while read, as a supervisor's receipt is: the
-        // replacement is read, whole (#382).
+        // One or two replacements retry, then read the newest object whole.
+        for replacements in 1..=2 {
+            fs::write(&path, b"{}\n").unwrap();
+            let attempts = Cell::new(0);
+            assert_eq!(read_control_bytes_with(&path, 32, || {
+                let attempt = attempts.get() + 1;
+                attempts.set(attempt);
+                if attempt <= replacements { replace(format!("[{attempt}]\n").as_bytes())?; }
+                Ok(())
+            }).unwrap(), format!("[{replacements}]\n").as_bytes());
+            assert_eq!(attempts.get(), replacements + 1);
+        }
+        // Replacement on every attempt refuses after exactly three reads.
         fs::write(&path, b"{}\n").unwrap();
-        let replaced = Cell::new(false);
+        let attempts = Cell::new(0);
         assert_eq!(read_control_bytes_with(&path, 32, || {
-            if !replaced.replace(true) { replace(b"[1]\n")?; }
-            Ok(())
-        }).unwrap(), b"[1]\n");
-        // Replaced during every read: it refuses.
-        fs::write(&path, b"{}\n").unwrap();
-        assert_eq!(read_control_bytes_with(&path, 32, || replace(b"[]\n"))
-            .unwrap_err().to_string(), "control_record_changed_during_read");
+            let attempt = attempts.get() + 1;
+            attempts.set(attempt);
+            replace(format!("[{attempt}]\n").as_bytes())
+        }).unwrap_err().to_string(), "control_record_changed_during_read");
+        assert_eq!(attempts.get(), 3);
+        assert_eq!(read_control_bytes(&path, 32).unwrap(), b"[3]\n");
         assert_eq!(record.read_record::<serde_json::Value>(32).unwrap_err().to_string(),
             "control_record_digest_changed");
     }

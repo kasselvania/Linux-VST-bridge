@@ -1,8 +1,18 @@
 //! Versioned operator projection and closed requests. No filesystem or launch authority.
 use serde::{Deserialize, Serialize};
+mod observation;
+pub use observation::*;
+mod instance;
+pub use instance::*;
+mod recovery;
+pub use recovery::*;
+mod display;
+pub use display::*;
+mod update_preview;
+pub use update_preview::*;
 /// Manager/frontend wire generation. Durable installer and operation records
 /// keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 29;
+pub const OPERATOR_SCHEMA: u32 = 31;
 /// Explicit delivery policy, independent from the remembered buffered delay.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -83,6 +93,13 @@ pub enum Action {
     CandidateGraphicsAssess { candidate: String },
     /// Prepare a retained trial; publication and shared environment are unchanged.
     CandidateSettingsPrepare {
+        candidate: String,
+        settings: LocalSettings,
+        expected_current: Option<PublicationIdentity>,
+    },
+    /// Prepare these exact local choices and select their reversible test publication.
+    /// This does not record a passing test or start a plug-in instance.
+    CandidateSettingsTest {
         candidate: String,
         settings: LocalSettings,
         expected_current: Option<PublicationIdentity>,
@@ -264,6 +281,12 @@ pub enum Action {
     },
     PluginSetupFocus { operation: String },
     PluginSetupStop { operation: String },
+    /// Ordinary detached instance of the exact current native publication.
+    PluginOpen { product: ProductIdentity, expected_current: PublicationIdentity },
+    PluginFocus { operation: String, session: String },
+    PluginClose { operation: String, session: String },
+    /// Restores only the confirmed snapshot of this still-connected DAW proxy.
+    PluginRestart { instance: String, generation: u64, snapshot: RecoverySnapshot },
     QuarantinedModuleRetry {
         environment: String,
         scan: String,
@@ -293,31 +316,6 @@ pub enum Action {
     CaptureDisarm {},
     IncidentExport {
         incident: String,
-    },
-    /// The FL Studio workspace's actions. The workspace is retired (#504 E3):
-    /// the manager never offers these and refuses them as `workspace_retired`.
-    /// They are deleted with the schema-30 update.
-    WorkspaceSelectInstaller {
-        installer: String,
-        release: String,
-    },
-    WorkspaceInstall {},
-    WorkspaceFinishInstall {},
-    WorkspaceLaunch {},
-    WorkspaceUninstall {},
-    WorkspaceFinishUninstall {},
-    WorkspaceFocus {},
-    WorkspaceStop {},
-    WorkspaceSelectProductInstaller {
-        product: WorkspaceProductId,
-        installer: String,
-        release: String,
-    },
-    WorkspaceInstallProduct {
-        product: WorkspaceProductId,
-    },
-    WorkspaceFinishProductInstall {
-        product: WorkspaceProductId,
     },
     /// Remove one plug-in's native connection from the DAW plug-in folder. The
     /// exact publication is retained so the same bytes can be added back.
@@ -355,12 +353,7 @@ pub enum Action {
         confirmed: bool,
     },
 }
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[serde(rename_all = "snake_case")]
-pub enum WorkspaceProductId {
-    Serum2,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct AvailableAction {
     pub label: String,
@@ -383,6 +376,8 @@ pub struct History {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Product {
+    #[serde(default = "DisplayConfiguration::unavailable")]
+    pub display: Observation<DisplayConfiguration>,
     pub class_id: String,
     pub name: String,
     pub vendor: String,
@@ -471,43 +466,6 @@ pub struct Incident {
     pub summary: serde_json::Value,
     pub export: Option<AvailableAction>,
 }
-/// Retired with the FL Studio workspace (#504 E3); never sent. Deleted with
-/// the schema-30 update, as is `DawWorkspaceProduct`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DawWorkspace {
-    pub id: String,
-    pub name: String,
-    pub state: String,
-    pub selected_installer: String,
-    #[serde(default)]
-    pub application_installers: Vec<String>,
-    pub selected_release: String,
-    pub installed_advertised_release: Option<String>,
-    pub observed_file_version: Option<String>,
-    pub installed_image_sha256: Option<String>,
-    pub active_installation_operation: Option<String>,
-    pub cleanup: String,
-    pub first_useful_failure: Option<String>,
-    pub actions: Vec<AvailableAction>,
-    pub installer_choices: Vec<AvailableAction>,
-    #[serde(default)]
-    pub products: Vec<DawWorkspaceProduct>,
-    pub details: serde_json::Value,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DawWorkspaceProduct {
-    pub id: WorkspaceProductId,
-    pub name: String,
-    pub state: String,
-    pub selected_release: Option<String>,
-    pub module_sha256: Option<String>,
-    pub current_failure: Option<String>,
-    pub actions: Vec<AvailableAction>,
-    pub installer_choices: Vec<AvailableAction>,
-    pub details: serde_json::Value,
-}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct System {
@@ -523,6 +481,7 @@ pub struct System {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Snapshot {
+    pub presentation: Observation<CurrentPresentation>,
     #[serde(default)]
     pub managed_runtime_records: Vec<serde_json::Value>,
     pub onboarding: Vec<Onboarding>,
@@ -536,9 +495,6 @@ pub struct Snapshot {
     pub environments: Vec<Environment>,
     pub vendor_applications: Vec<VendorApplication>,
     pub products: Vec<Product>,
-    /// Always empty: the FL Studio workspace is retired (#504 E3).
-    #[serde(default)]
-    pub workspaces: Vec<DawWorkspace>,
     pub active_sessions: Vec<serde_json::Value>,
     pub capture: serde_json::Value,
     pub recent_incidents: Vec<Incident>,
@@ -938,12 +894,12 @@ pub struct Receipt {
 #[serde(deny_unknown_fields)]
 pub struct Activity {
     pub schema: u32,
+    pub live: LiveActivity,
+    pub recent: Observation<Vec<RecentInstance>>,
+    pub incidents: Observation<Vec<IncidentSummary>>,
     pub system: System,
     pub capture: serde_json::Value,
     pub operation: Option<serde_json::Value>,
-    /// Always false: the FL Studio workspace is retired (#504 E3).
-    #[serde(default)]
-    pub workspace_product_install_ready: bool,
 }
 impl System {
     /// Preserve the version-1 wire shape so an exactly retained frontend can
@@ -1011,6 +967,7 @@ impl Action {
                 | Self::CandidateHistoryComplete { .. }
                 | Self::CandidateGraphicsAssess { .. }
                 | Self::CandidateGraphicsPrepare { .. }
+                | Self::CandidateSettingsTest { .. }
                 | Self::DependencyPrepare {}
                 | Self::RendererDiscover {}
                 | Self::RendererOpen { .. }
@@ -1069,6 +1026,7 @@ mod tests {
         for action in [
             Action::CandidateHistoryComplete {candidate:candidate.clone(),expected_history:"history".into()},
             Action::CompatibilityPublishTest {candidate:candidate.clone(),expected_current:Some(current.clone())},
+            Action::CandidateSettingsTest {candidate:candidate.clone(),settings:LocalSettings::default(),expected_current:Some(current.clone())},
             Action::CompatibilityResult {candidate:candidate.clone(),expected_current:current.clone(),
                 result:TestResultKind::Worked,passed:vec![],failed_area:None,note:String::new()},
             Action::CompatibilityFinishResult {operation:"operation".into()},
@@ -1118,6 +1076,18 @@ mod tests {
             command_sha256:"c".into(),confirmed:false};
         assert_eq!(serde_json::to_value(&uninstall).unwrap(), serde_json::json!({"kind":"product_uninstall",
             "environment":"a","registration":"b","command_sha256":"c"}));
+    }
+    #[test]
+    fn settings_test_is_one_closed_action_with_exact_publication_and_affected_inactivity() {
+        let action = Action::CandidateSettingsTest {candidate:"ab".repeat(32),
+            settings:LocalSettings {graphics:Some(GraphicsBackend::WineD3d11),accessibility:AccessibilityChoice::DisabledForHost},
+            expected_current:Some(PublicationIdentity {id:"cd".repeat(16),sha256:"ef".repeat(32)})};
+        let mut wire = serde_json::to_value(&action).unwrap();
+        assert_eq!(wire["kind"],"candidate_settings_test");
+        assert_eq!(serde_json::from_value::<Action>(wire.clone()).unwrap(),action);
+        assert!(action.requires_inactive());
+        wire["automatically_play"] = serde_json::json!(true);
+        assert!(serde_json::from_value::<Action>(wire).is_err());
     }
     #[test]
     fn local_settings_trial_is_closed_typed_and_does_not_require_inactivity() {

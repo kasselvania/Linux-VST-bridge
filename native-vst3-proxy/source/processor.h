@@ -2,6 +2,7 @@
 #include "public.sdk/source/vst/vstaudioeffect.h"
 #include "admission_refusal.h"
 #include "host_block.h"
+#include "host_application.h"
 #include <atomic>
 #include <cstdint>
 #include <memory>
@@ -88,6 +89,7 @@ private:
     Terminated,
     ContainedTerminal
   };
+  LVBHost::Name host_name_; // Captured only during initialize, before activation.
   std::atomic<Phase> phase_{New};
   std::atomic<bool> terminal_latched_{false};
   bool terminal();
@@ -173,6 +175,16 @@ private:
   bool activation_refusal_recorded_ = false;
   Steinberg::tresult recover(uint64_t revision);
   bool controller_synced_ = false;
+#ifdef AP8_PREVIEW
+  Steinberg::tresult recoveryPoll();
+  // Protected by busy_, including all callback reads. Closed before begin can
+  // publish a replacement; opened only after the exact final ack succeeds.
+  bool recovery_output_blocked_=false;
+  bool recovery_sync_=false,recovery_waiting_controller_=false;
+  bool recovery_active_=false,recovery_processing_=false;
+  uint8_t recovery_operation_[16]{};
+  uint64_t recovery_generation_=0;
+#endif
   std::atomic<bool> want_active_{false}, want_processing_{false};
   Steinberg::tresult rejected(Steinberg::Vst::ProcessData &data);
   std::atomic<uint64_t> rejected_frames_{0}, discontinuities_{0};

@@ -16,9 +16,40 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pkg0"))
-from assemble import validate_release_roster  # noqa: E402
+from assemble import validate_frontend_build, validate_release_roster  # noqa: E402
 
 DOMAIN = b"Linux VST Bridge user package v1\0"
+
+
+def verify_native_pair(compliance, manifest, base, frontend, public_key, key_class):
+    """The native application route must use its declared native installer.
+
+    Older egui/private-app payloads keep their existing wrapping contract. This
+    check binds the new public window's two artifacts before any signing work.
+    """
+    manager = compliance.get("frontend_build")
+    installer = compliance.get("installer_build")
+    if "frontend_build" in compliance:
+        validate_frontend_build(manager, manifest["source_head"], manifest["source_tree"],
+                                hashlib.sha256(frontend).hexdigest())
+    native = (isinstance(manager, dict) and isinstance(manager.get("frontend_source"), dict)
+              and manager["frontend_source"].get("manifest") == "crates/window/Cargo.toml")
+    if not native and "installer_build" not in compliance:
+        return
+    if not native or not isinstance(installer, dict) or installer.get("binary") != "linux-vst-bridge-install":
+        raise ValueError("native manager requires its exact native installer build")
+    validate_frontend_build(installer, manifest["source_head"], manifest["source_tree"],
+                            hashlib.sha256(base).hexdigest(), expected_binary="linux-vst-bridge-install")
+    if ({k: v for k, v in manager.items() if k not in ("binary", "artifact_sha256")}
+            != {k: v for k, v in installer.items() if k not in ("binary", "artifact_sha256")}
+            or manager["portable_public_key"] != public_key
+            or manager["portable_key_class"] != key_class
+            or any(manager["frontend_source"][key] != manifest["source_" + key]
+                   for key in ("head", "tree"))):
+        raise ValueError("native manager and installer source or trust identities differ")
+    embedded = {key: value for key, value in installer.items() if key != "artifact_sha256"}
+    if json.dumps(embedded, sort_keys=True, separators=(",", ":")).encode() not in base:
+        raise ValueError("native installer embedded build identity differs")
 
 
 def package(installer, staged, private_key, public_key, key_class, output):
@@ -50,12 +81,15 @@ def package(installer, staged, private_key, public_key, key_class, output):
             component = archive.extractfile(name).read()
             if public_key.encode() not in component:
                 raise ValueError("manager/frontend was not built with the same public trust root")
+        frontend = archive.extractfile("usr/bin/linux-audio-compatibility-manager").read()
+        try:
+            compliance = json.load(archive.extractfile("usr/share/doc/linux-vst-bridge-beta/COMPLIANCE_MANIFEST.json"))
+        except (KeyError, ValueError, TypeError) as error:
+            raise ValueError("package compliance declaration is missing or invalid") from error
+        if not isinstance(compliance, dict):
+            raise ValueError("package compliance declaration is missing or invalid")
+        verify_native_pair(compliance, manifest, base, frontend, public_key, key_class)
     if key_class == "release":
-        with tarfile.open(staged / "payload.tar") as archive:
-            try:
-                compliance = json.load(archive.extractfile("usr/share/doc/linux-vst-bridge-beta/COMPLIANCE_MANIFEST.json"))
-            except (ValueError, TypeError) as error:
-                raise ValueError("customer release obligations remain unselected") from error
         if (compliance.get("classification") != "customer_release"
                 or any(compliance.get(k) is not True for k in ("release_authorized",
                            "third_party_notice_archive_complete", "customer_signing_key_selected"))):

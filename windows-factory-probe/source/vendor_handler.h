@@ -2,6 +2,7 @@
 #include "offline_processing.h"
 #include <atomic>
 #include <cstring>
+#include <cmath>
 #include <thread>
 namespace linux_vst_bridge::wf0 {
 using namespace Steinberg;
@@ -15,12 +16,31 @@ class VendorHandler final : public IComponentHandler,
                             public IComponentHandler2 {
   std::atomic<uint32> refs{1};
   VendorEditSink *sink_ = nullptr;
+  IEditController *standalone_ = nullptr;
   const uint64_t native_ = 0;
   const uint32_t epoch_ = 0;
   bool owned_ = false;
   const std::thread::id owner_ = std::this_thread::get_id();
   tresult edit(uint32_t kind, uint32_t id = 0, double value = 0) {
     if (owned_ && owner_ != std::this_thread::get_id()) return kResultFalse;
+    if (standalone_) {
+      // This is a controller-local editor, with no DAW automation, processing
+      // or project persistence. The plug-in updates its own controller value.
+      if (kind >= 101 && kind <= 103) {
+        if (kind == 102 && (!std::isfinite(value) || value < 0. || value > 1.))
+          return kInvalidArgument;
+        const auto count = standalone_->getParameterCount();
+        for (int32 i = 0; i < count; ++i) {
+          ParameterInfo info{};
+          if (standalone_->getParameterInfo(i, info) == kResultOk && info.id == id)
+            return kResultOk;
+        }
+        return kInvalidArgument;
+      }
+      // Grouping is local notification only. No project is marked saved/dirty,
+      // and this handler cannot open another editor on behalf of a DAW.
+      return kind == 105 || kind == 106 ? kResultOk : kNotImplemented;
+    }
     if (owned_) return sink_ ? sink_->scoped_edit(native_, epoch_, kind, id, value) : kNotImplemented;
     return external ? external->editor_edit(kind, id, value) : kNotImplemented;
   }
@@ -29,7 +49,9 @@ public:
   VendorHandler() = default;
   VendorHandler(VendorEditSink &sink, uint64_t native, uint32_t epoch)
       : sink_(&sink), native_(native), epoch_(epoch), owned_(true) {}
-  void retire() { sink_ = nullptr; }
+  explicit VendorHandler(IEditController &controller)
+      : standalone_(&controller), owned_(true) {}
+  void retire() { sink_ = nullptr; standalone_ = nullptr; }
   ExternalProcessing *external = nullptr;
   tresult PLUGIN_API queryInterface(const TUID id, void **out) override {
     if (!out)

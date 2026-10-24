@@ -9,6 +9,8 @@ pub(crate) mod experimental_runner;
 pub(crate) mod plugin_services;
 pub(crate) mod vendor_product_cli;
 pub(crate) mod operator_cli;
+pub(crate) mod detached_instance;
+pub(crate) mod instance_recovery;
 pub(crate) mod readiness;
 pub(crate) mod graphics_cli;
 pub(crate) mod installer_import;
@@ -360,6 +362,8 @@ struct SessionSpec {
     vendor_access: bool,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     finish_setup: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    detached: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     required_services: Vec<String>,
     #[serde(default)]
@@ -375,11 +379,16 @@ struct SessionSpec {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     native_execution: Option<NativeExecution>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    restart_origin: Option<NativeRestartOrigin>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     keeper_startup_seconds: Option<u64>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct NativeExecution { engine: [u8; 32], descriptor: [u8; 32] }
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NativeRestartOrigin { instance: String, operation: String }
 impl NativeExecution {
     fn identity(&self) -> ap1_native_client::admission::ExecutionIdentity {
         ap1_native_client::admission::ExecutionIdentity {engine:self.engine,descriptor:self.descriptor}
@@ -685,6 +694,7 @@ fn spec_with_package_refresh(
         binding_sent: !inspect,
         vendor_access: false,
         finish_setup: false,
+        detached: false,
         required_services,
         shared_inspection: false,
         shared_runtime: false,
@@ -692,6 +702,7 @@ fn spec_with_package_refresh(
         transport: None,
         graphical_session: None,
         native_execution: None,
+        restart_origin: None,
         keeper_startup_seconds: keeper.then_some(KEEPER_OWNER_STARTUP_SECONDS),
     };
     let path = directory.join("owner.json");
@@ -775,7 +786,9 @@ fn spawn(m: &Manager, s: &Software, path: &Path, peer: Option<UnixStream>) -> Re
     atomic_json(&job.lease, &job.report).map_err(|e|format!("session lease record: {e}"))?;
     let mut command = Command::new("/usr/bin/python3");
     command.args(supervisor_args);
-    if job.registration.compatibility.graphics.is_some() && !job.keeper {
+    if job.detached {
+        command.arg("--detached-instance-v1");
+    } else if job.registration.compatibility.graphics.is_some() && !job.keeper {
         // Older retained supervisors expect the first argument to be the job
         // file. A versioned entry point makes them refuse before preflight or
         // Windows launch, rather than discovering unsupported settings after
@@ -807,13 +820,13 @@ struct LeaseGeneration {
 #[derive(Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum LeaseGenerationBasis { BeforeLaunch, StoppedServiceObservation }
-fn valid_kernel_boot(value: &str) -> bool {
+pub(crate) fn valid_kernel_boot(value: &str) -> bool {
     value.len() == 36 && value.bytes().enumerate().all(|(index, byte)| {
         if matches!(index, 8 | 13 | 18 | 23) { byte == b'-' }
         else { byte.is_ascii_digit() || matches!(byte, b'a'..=b'f') }
     })
 }
-fn kernel_boot() -> Result<Option<String>> {
+pub(crate) fn kernel_boot() -> Result<Option<String>> {
     #[cfg(target_os = "linux")]
     {
         let boot = fs::read_to_string("/proc/sys/kernel/random/boot_id")?.trim().to_owned();
@@ -823,6 +836,38 @@ fn kernel_boot() -> Result<Option<String>> {
     #[cfg(not(target_os = "linux"))]
     { Ok(None) }
 }
+/// PID/start and socket identities identify a live owner only within the
+/// exact kernel generation retained before its launch.
+pub(crate) fn require_current_lease_generation(m: &Manager, session: &str, report: &Path) -> Result<()> {
+    require(valid_hex(session,32), "lease_generation_binding")?;
+    let generation: LeaseGeneration = read_json(&m.root.join("runtime/lease-generations")
+        .join(format!("{session}.json")))?;
+    require(generation.schema == 1 && generation.session == session && generation.report == report
+        && matches!(generation.basis,LeaseGenerationBasis::BeforeLaunch)
+        && valid_kernel_boot(&generation.kernel_boot)
+        && kernel_boot()?.as_deref() == Some(generation.kernel_boot.as_str()), "lease_generation_binding")
+}
+
+/// Read only the genuine before-launch kernel record and authenticated native
+/// peer retained for this exact session. Later stopped-service observations
+/// and old PID-only owners cannot establish a consumer generation.
+pub(crate) fn lease_consumer(m: &Manager, session: &str, report: &Path,
+    owner: &serde_json::Value) -> Result<operator_model::ConsumerIdentity> {
+    require(valid_hex(session, 32) && owner["session"].as_str() == Some(session)
+        && owner["report"].as_str() == report.to_str(), "consumer_session_binding")?;
+    let generation: LeaseGeneration = read_json(&m.root.join("runtime/lease-generations")
+        .join(format!("{session}.json")))?;
+    require(generation.schema == 1 && generation.session == session && generation.report == report
+        && valid_kernel_boot(&generation.kernel_boot)
+        && matches!(generation.basis, LeaseGenerationBasis::BeforeLaunch), "consumer_kernel_binding")?;
+    let graphical: transport_storage::GraphicalSession = serde_json::from_value(owner["graphical_session"].clone())?;
+    let _: NativeExecution = serde_json::from_value(owner["native_execution"].clone())?;
+    require(graphical.schema == 1 && graphical.peer_pid > 0 && graphical.peer_start_ticks > 0,
+        "consumer_peer_binding")?;
+    Ok(operator_model::ConsumerIdentity { boot_id:generation.kernel_boot,
+        pid:graphical.peer_pid, uid:unsafe { libc::getuid() }, start_ticks:graphical.peer_start_ticks })
+}
+
 fn record_lease_generation(job: &SessionSpec) -> Result<()> {
     let boot = kernel_boot()?.ok_or("session_requires_linux_kernel_identity")?;
     let runtime = job.lease.parent().and_then(Path::parent).ok_or("lease_generation_path")?;
@@ -908,6 +953,15 @@ fn reconcile_lease_in_kernel(m: &Manager, path: &Path, boot: Option<&str>) -> Re
     match proof {
         Ok(r) if r["cleanup_confirmed"] == true => { fs::remove_file(path)?; Ok(false) },
         _ => {
+            #[cfg(target_os = "linux")]
+            if let Ok(Some(proof)) = ended_consumer_proof(m, session, &report, boot,
+                Path::new("/proc"), &transport_storage::root()) {
+                // Preserve the supervisor's failed acknowledgement and all
+                // original ownership. This separate fact records containment,
+                // never a successful session or permission to replay a restart.
+                retire_ended_consumer(path, &report, &proof)?;
+                return Ok(false);
+            }
             let generation_path = m.root.join("runtime/lease-generations")
                 .join(format!("{session}.json"));
             if generation_path.try_exists()? {
@@ -929,6 +983,74 @@ fn reconcile_lease_in_kernel(m: &Manager, path: &Path, boot: Option<&str>) -> Re
             Ok(true)
         },
     }
+}
+
+// Caller holds registry custody and has just revalidated the exact proof.
+fn retire_ended_consumer(lease: &Path, report: &Path, proof: &serde_json::Value) -> Result<()> {
+    require(read_json::<PathBuf>(lease)? == report, "lease_retirement_binding_changed")?;
+    atomic_json(&report.with_extension("reconciled.json"), proof)?;
+    fs::remove_file(lease)?;
+    Ok(())
+}
+
+fn exact_absence(path: &Path) -> Result<bool> {
+    match fs::symlink_metadata(path) {
+        Ok(_) => Ok(false), // includes dangling symlinks
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(true),
+        Err(error) => Err(error.into()),
+    }
+}
+fn absent_private_child(path: &Path) -> Result<bool> {
+    use std::os::unix::fs::MetadataExt;
+    let parent = path.parent().ok_or("retirement_parent")?;
+    let before = fs::symlink_metadata(parent)?;
+    require(before.is_dir() && before.uid() == unsafe { libc::getuid() }
+        && before.mode() & 0o077 == 0 && parent.canonicalize()? == parent,
+        "retirement_parent_authority")?;
+    let absent = exact_absence(path)?;
+    let after = fs::symlink_metadata(parent)?;
+    require(before.dev() == after.dev() && before.ino() == after.ino()
+        && parent.canonicalize()? == parent, "retirement_parent_changed")?;
+    Ok(absent)
+}
+/// Caller holds registry custody. Only an authenticated before-launch consumer
+/// and a positive process-cleanup receipt can complete a lost R acknowledgement.
+fn ended_consumer_proof(m: &Manager, session: &str, report: &Path, boot: Option<&str>,
+    proc_root: &Path, transport_root: &Path) -> Result<Option<serde_json::Value>> {
+    let receipt: serde_json::Value = read_json(&report.with_extension("ownership.json"))?;
+    require(receipt["session"] == session && receipt["cleanup_confirmed"] == true
+        && receipt["transport_retired"] == false && receipt.get("reporting_error") == Some(&serde_json::Value::Null),
+        "retirement_cleanup_unconfirmed")?;
+    let owner = m.retained_lease_owner(session, report)?;
+    let consumer = lease_consumer(m, session, report, &owner)?;
+    require(boot == Some(consumer.boot_id.as_str()), "retirement_kernel_changed")?;
+    let spec: SessionSpec = serde_json::from_value(owner.clone())?;
+    let transport = spec.transport.as_ref().ok_or("retirement_transport_missing")?;
+    require(!spec.inspect && !spec.keeper && !spec.vendor_access && !spec.detached
+        && spec.shared_runtime && transport.schema == 1 && transport.device != 0 && transport.inode != 0
+        && spec.directory == transport_root.join(session)
+        && read_json::<PathBuf>(&spec.lease)? == report
+        && spec.report == m.root.join("runtime/results").join(format!("windows-{session}.json")),
+        "retirement_transport_binding")?;
+    let durable = spec.registration.environment.root
+        .join("compatdata/pfx/drive_c/bridge/sessions").join(session);
+    require(fs::symlink_metadata(proc_root)?.is_dir() && proc_root.canonicalize()? == proc_root,
+        "retirement_process_observation_unavailable")?;
+    // An existing PID, including a reused one, remains outside this narrow
+    // recovery. Only actual ENOENT counts; inaccessible/malformed proc is unknown.
+    if !exact_absence(&proc_root.join(consumer.pid.to_string()))?
+        || !absent_private_child(&spec.directory)? || !absent_private_child(&durable)? {
+        return Ok(None);
+    }
+    require(m.retained_lease_owner(session, report)? == owner
+        && lease_consumer(m, session, report, &owner)? == consumer
+        && read_json::<PathBuf>(&spec.lease)? == report
+        && read_json::<serde_json::Value>(&report.with_extension("ownership.json"))? == receipt,
+        "retirement_records_changed")?;
+    Ok(Some(serde_json::json!({"schema":1,"session":session,
+        "retirement_basis":"authenticated_consumer_ended_after_process_cleanup",
+        "consumer":consumer,"report":report,"directory":spec.directory,"durable_directory":durable,
+        "cleanup_confirmed":true,"transport_retired":true,"successful_session":false})))
 }
 fn retired_keeper(owner: &KeeperOwner, status: ExitStatus) -> Result<()> {
     let report: serde_json::Value = read_json(&owner.report)?;
@@ -1122,6 +1244,10 @@ fn occupied_environments(m:&Manager,owners:&[capacity::Owner])
         match owner.kind {
             capacity::Kind::Keeper=>{}
             capacity::Kind::Inspection|capacity::Kind::VendorAccess=>return Ok(None),
+            capacity::Kind::Detached => match m.lease_environment(&owner.session) {
+                Ok(environment) => { occupied.insert(environment.id); }
+                Err(_) => return Ok(None),
+            },
             capacity::Kind::Dsp=>match registry.classes.get(&owner.class_id) {
                 Some(entry)=>{occupied.insert(entry.registration.environment.id.clone());}
                 None=>return Ok(None),
@@ -1404,10 +1530,16 @@ fn view_changes(m: &Manager) -> service::changes::Changes {
 /// The reading process is this user's (checked for every connection) and its
 /// frontend must still be the selected one.
 fn answer_view(m: &Manager, peer: &mut UnixStream, views: &service::view::Views,
-    blocked: &AdmissionCleanup) -> Result<()> {
+    blocked: &AdmissionCleanup, observations: &service::subscription::Publisher) -> Result<()> {
     let answered = (|| {
         let read = service::contract::read_view_request(peer)?;
         package_authority::require_current_frontend_peer(m, peer)?;
+        if read == service::contract::Read::Activity {
+            let activity = observations.activity_when_current(|| views.records_revision())?;
+            package_authority::require_current_frontend_peer(m, peer)?;
+            return service::contract::Reply::Activity(activity)
+                .written().map(Arc::new).map_err(Into::into);
+        }
         if read == service::contract::Read::Overview {
             let process = transport_storage::peer_process(peer)?;
             let graphical = transport_storage::graphical_session(peer, &process)
@@ -1440,6 +1572,8 @@ fn answer_command(m: &Manager, peer: &mut UnixStream) -> Result<()> {
         let (request, input) = service::contract::read_command_request(peer)?;
         use service::contract::{Request, Reply};
         let reply = match request {
+            Request::Action(request) if matches!(request.action, operator_model::Action::PluginOpen { .. }) =>
+                detached_instance::with_frontend(m, peer, || Ok(operator_cli::answer_action(m, request)))?,
             Request::Action(request) => operator_cli::answer_action(m, request),
             Request::ImportInstaller { name } => Reply::Imported(installer_import::import_named(
                 m, input.ok_or("installer_descriptor_missing")?, &name)?),
@@ -1535,13 +1669,19 @@ pub fn serve(m: Manager) -> Result<()> {
     }
     // A service restart cannot turn missing cleanup into a fresh admission.
     // Clean reports retire their leases; uncertain ones remain inspectable.
-    reconcile_leases(&manager)?;
+    {
+        let (_registry, _) = manager.lock_bounded(operator_model::OperatorLock::Registry,
+            operator_model::LockPurpose::ServiceRecovery, None, Duration::from_secs(2))?;
+        reconcile_leases(&manager)?;
+    }
     let blocked = Arc::new(AdmissionCleanup::default());
     for entry in fs::read_dir(manager.root.join("runtime/leases"))? {
         blocked.record(&entry?.path());
     }
     let keepers = Arc::new(Mutex::new(Vec::new()));
     let limits = capacity::service_limits();
+    detached_instance::initialize(manager.clone(), s.clone(), limits.clone(), keepers.clone(),
+        blocked.clone(), launch_verification.clone())?;
     let workers = Arc::new(AtomicUsize::new(0));
     let census = (manager.clone(), limits.clone(), workers.clone(), blocked.clone(), blocked.clone());
     let _ = SERVICE_CENSUS.set(ServiceCensus {
@@ -1552,12 +1692,45 @@ pub fn serve(m: Manager) -> Result<()> {
     // Status reads are composed until the change watch covers them; its walk
     // never delays admission, capacity or pulse.
     let views = Arc::new(service::view::Views::new());
+    let recovery_views = views.clone();
+    instance_recovery::initialize(manager.clone(), Arc::new(move || recovery_views.invalidate()))?;
     let watch_manager = manager.clone();
     let watch_views = views.clone();
     if let Err(error) = std::thread::Builder::new().spawn(move ||
         watch_views.cover(view_changes(&watch_manager))) {
         eprintln!("status change watch unavailable; every status read is composed: {error}");
     }
+    let observed_views = views.clone();
+    let observed_manager = manager.clone();
+    let activity_views = views.clone();
+    let observed_limits = limits.clone();
+    let observed_workers = workers.clone();
+    let observed_blocked = blocked.clone();
+    let host_names = Arc::new(crate::instance::HostNames::default());
+    let mut instance_observer = crate::instance::Observer::with_hosts(host_names.clone());
+    let mut activity_composer = operator_cli::ActivityComposer::default();
+    let observations = service::subscription::Publisher::start(
+        move || observed_views.records_revision(),
+        move || {
+            let revision = activity_views.records_revision();
+            let mut live = instance_observer.sample(&observed_manager);
+            if instance_recovery::augment_activity(&observed_manager, &mut live).is_err() {
+                live = operator_model::LiveActivity::unavailable("Current instance recovery could not be read");
+            }
+            let capacity = capacity::status_observed(&observed_manager, observed_limits.clone(),
+                observed_workers.load(Ordering::Acquire), observed_blocked.blocked()).ok()
+                .and_then(|status| serde_json::to_value(status).ok())
+                .and_then(|value| serde_json::from_value::<operator_cli::CapacityReadback>(value).ok());
+            let activity = match activity_composer.sample(&observed_manager, live, capacity.as_ref(), revision) {
+                Ok(activity) => operator_model::Observation::Observed(activity),
+                Err(_) => operator_model::Observation::Unavailable("Current activity could not be read".into()),
+            };
+            if activity_views.records_revision() != revision {
+                (revision, operator_model::Observation::Unavailable("Activity changed while it was read".into()))
+            } else {
+                (revision, activity)
+            }
+        })?;
     let idle_manager = manager.clone();
     let idle_keepers = keepers.clone();
     let idle_retirement = std::thread::Builder::new().spawn(move || {
@@ -1602,6 +1775,8 @@ pub fn serve(m: Manager) -> Result<()> {
         let limits = limits.clone();
         let workers = workers.clone();
         let views = views.clone();
+        let observations = observations.clone();
+        let host_names = host_names.clone();
         workers.fetch_add(1, Ordering::AcqRel);
         let worker_count = WorkerCount(workers.clone());
         let launched = std::thread::Builder::new().spawn(move || {
@@ -1614,10 +1789,26 @@ pub fn serve(m: Manager) -> Result<()> {
             }
             let outcome = (|| -> Result<()> {
                 peer.set_read_timeout(Some(Duration::from_secs(5)))?;
-                let mut greeting = [0; 117];
+                let mut greeting = [0; 149];
                 peer.read_exact(&mut greeting[..5])?;
+                if &greeting[..5] == instance_recovery::GREETING {
+                    instance_recovery::attach(peer.try_clone()?)?;
+                    return Ok(());
+                }
+                if &greeting[..5] == ap1_native_client::host_identity::GREETING {
+                    host_names.receive(&m, &mut peer)?;
+                    return Ok(());
+                }
+                if &greeting[..5] == service::contract::subscription::GREETING {
+                    service::contract::subscription::accept(&mut peer)?;
+                    package_authority::require_subscribed_frontend(&m, &peer)?;
+                    let selected_manager = m.clone();
+                    observations.attach(peer.try_clone()?, move |peer|
+                        package_authority::require_subscribed_frontend(&selected_manager, peer))?;
+                    return Ok(());
+                }
                 if &greeting[..5] == service::contract::VIEW_GREETING {
-                    if let Err(error) = answer_view(&m, &mut peer, &views, &blocked) {
+                    if let Err(error) = answer_view(&m, &mut peer, &views, &blocked, &observations) {
                         eprintln!("status read: {error}");
                     }
                     return Ok(());
@@ -1755,8 +1946,9 @@ pub fn serve(m: Manager) -> Result<()> {
                     peer.write_all(&(reply.len() as u32).to_le_bytes())?;peer.write_all(&reply)?;
                     return Ok(());
                 }
-                let version5 = &greeting[..5] == ap1_native_client::admission::GREETING_V5;
-                let extent = if version5 { 117 } else { 53 };
+                let version6 = &greeting[..5] == ap1_native_client::admission::GREETING_V6;
+                let version5 = version6 || &greeting[..5] == ap1_native_client::admission::GREETING_V5;
+                let extent = if version6 { 149 } else if version5 { 117 } else { 53 };
                 peer.read_exact(&mut greeting[5..extent])?;
                 let version4 = &greeting[..5] == ap1_native_client::admission::GREETING_V4;
                 let version3 = version5 || version4 || &greeting[..5] == ap1_native_client::admission::GREETING;
@@ -1770,6 +1962,10 @@ pub fn serve(m: Manager) -> Result<()> {
                     engine:greeting[53..85].try_into().unwrap(),
                     descriptor:greeting[85..117].try_into().unwrap(),
                 });
+                let recovery_registration = if version6 {
+                    Some(instance_recovery::authorize_launch(&m, &peer,
+                        greeting[117..133].try_into().unwrap(), greeting[133..149].try_into().unwrap())?)
+                } else { None };
                 let mut startup=NativeStartup::new(&m,request,class.clone());
                 // The registration this admission resolved (and verified), kept
                 // so a refusal record never resolves or hashes anything again.
@@ -1789,6 +1985,8 @@ pub fn serve(m: Manager) -> Result<()> {
                     };
                     let ((registration, execution), verified)=launch_verification.prepare(keeper_deadline, || {
                         let registration = m.resolve(&greeting[5..53])?;
+                        require(recovery_registration.as_ref().is_none_or(|expected| expected == &registration),
+                            "proxy_restart_registration_changed")?;
                         resolved = Some(registration.clone());
                         let prepare_execution=|| -> Result<_> {
                             experimental_runner::verify_selected_bg1_history(&m, &registration.environment)?;
@@ -1901,6 +2099,19 @@ pub fn serve(m: Manager) -> Result<()> {
                     job.graphical_session=Some(graphical_session.clone());
                     let caller = loaded.as_ref().ok_or("loaded_execution_binding_absent")?;
                     job.native_execution=Some(NativeExecution{engine:caller.engine,descriptor:caller.descriptor});
+                    // This is the already-authorized LVB6 request, bound into
+                    // the immutable owner before its replacement lease exists.
+                    // Reconnection cannot substitute another instance from the
+                    // same DAW process and publication.
+                    if version6 {
+                        job.restart_origin = Some(NativeRestartOrigin {
+                            instance: hex(&greeting[117..133]),
+                            operation: hex(&greeting[133..149]),
+                        });
+                    }
+                    if !version6 {
+                        instance_recovery::retain_fresh_instance(&m, &job.session)?;
+                    }
                     job.crash_capture = crash_capture::claim(&m,&full_registration,&job.session)
                         .unwrap_or_else(|e| { eprintln!("CA1 capture unavailable: {e}"); None });
                     atomic_json(&path, &job)?;
@@ -1933,9 +2144,8 @@ pub fn serve(m: Manager) -> Result<()> {
                         let replied=if version3 {
                             let reason=e.downcast_ref::<capacity::Refusal>().copied()
                                 .unwrap_or(capacity::Refusal::BindingInvalid);
-                            startup_reply(&mut peer,&(if version5 {ap1_native_client::admission::refused_v5}
-                                else if version4 {ap1_native_client::admission::refused_v4}
-                                else {ap1_native_client::admission::refused})(request,reason))
+                            startup_reply(&mut peer,&ap1_native_client::admission::refused_for(
+                                &greeting[..5],request,reason)?)
                         } else {Ok(())};
                         note_refusal(&mut startup,&*e,resolved.as_ref(),|| recorded_registration(&m,&class));
                         replied?;
@@ -1946,9 +2156,7 @@ pub fn serve(m: Manager) -> Result<()> {
                 // Cold Wine startup then uses the existing bounded transport accept.
                 let reply = if version3 {
                     let session=std::array::from_fn(|i|u8::from_str_radix(&job.session[i*2..i*2+2],16).unwrap());
-                    (if version5 {ap1_native_client::admission::accepted_v5}
-                        else if version4 {ap1_native_client::admission::accepted_v4}
-                        else {ap1_native_client::admission::accepted})(request,&ap1_native_client::admission::Binding {
+                    ap1_native_client::admission::accepted_for(&greeting[..5],request,&ap1_native_client::admission::Binding {
                         session,added_frames:performance.added_frames,delivery_mode:performance.delivery_mode as u32,
                         directory:job.directory.to_str().ok_or("session directory encoding")?.into(),
                     })?
@@ -1974,12 +2182,9 @@ pub fn serve(m: Manager) -> Result<()> {
                     if version3 {
                         let _ = startup_reply(
                             &mut peer,
-                            &(if version5 {ap1_native_client::admission::refused_v5}
-                                else if version4 {ap1_native_client::admission::refused_v4}
-                                else {ap1_native_client::admission::refused})(
-                                request,
-                                capacity::Refusal::BindingInvalid,
-                            ),
+                            &ap1_native_client::admission::refused_for(
+                                &greeting[..5], request, capacity::Refusal::BindingInvalid,
+                            )?,
                         );
                     }
                     cleanup?;
@@ -3371,6 +3576,81 @@ mod tests {
         }
     }
     #[test]
+    fn ended_consumer_requires_exact_cleanup_binding_and_absent_owned_directories() {
+        for changed in ["none", "live", "reused", "wrong_receipt", "no_cleanup", "no_reporting_fact",
+            "wrong_boot", "late_generation", "wrong_directory", "no_transport", "remaining_transport",
+            "remaining_session", "dangling_transport", "aliased_parent", "missing_proc", "wrong_owner",
+            "wrong_environment", "wrong_setup_root", "wrong_lease", "missing_transport_parent"] {
+            let f = test_fixture::Fixture::new();
+            let (mut job, owner_path) = spec(&f.m, f.r.clone().into(), true, false, false).unwrap();
+            let proc_root = f.outer.join("retirement-proc"); private_dir(&proc_root).unwrap();
+            let memory = f.outer.join("retirement-memory"); private_dir(&memory).unwrap();
+            job.inspect = false; job.shared_runtime = true;
+            job.directory = memory.join(&job.session);
+            job.transport = Some(transport_storage::MemoryTransport { schema:1, device:4, inode:5 });
+            job.graphical_session = Some(transport_storage::GraphicalSession {schema:1,
+                peer_pid:12345, peer_start_ticks:678, display:":0".into(), wayland_display:None,
+                xauthority:None, dbus_session_bus_address:None});
+            job.native_execution = Some(NativeExecution {engine:[1;32],descriptor:[2;32]});
+            if changed == "wrong_directory" {job.directory = memory.join("other");}
+            if changed == "no_transport" {job.transport = None;}
+            atomic_json(&owner_path, &job).unwrap();
+            f.m.retain_lease_owner(&owner_path).unwrap();
+            atomic_json(&job.lease, &job.report).unwrap();
+            let boot = "11111111-1111-1111-1111-111111111111";
+            let generations = f.m.root.join("runtime/lease-generations"); private_dir(&generations).unwrap();
+            atomic_json(&generations.join(format!("{}.json", job.session)), &LeaseGeneration {
+                schema:1, session:job.session.clone(), report:job.report.clone(), kernel_boot:boot.into(),
+                basis:if changed == "late_generation" {LeaseGenerationBasis::StoppedServiceObservation}
+                    else {LeaseGenerationBasis::BeforeLaunch} }).unwrap();
+            let mut receipt = serde_json::json!({"session":job.session,"cleanup_confirmed":true,
+                "transport_retired":false,"reporting_error":null});
+            if changed == "wrong_receipt" {receipt["session"] = serde_json::json!("ab".repeat(16));}
+            if changed == "no_cleanup" {receipt["cleanup_confirmed"] = serde_json::json!(false);}
+            if changed == "no_reporting_fact" {receipt.as_object_mut().unwrap().remove("reporting_error");}
+            atomic_json(&job.report.with_extension("ownership.json"), &receipt).unwrap();
+            atomic_json(&job.report, &serde_json::json!({"error":"prelaunch failure","cleanup_confirmed":true,
+                "transport_retired":false})).unwrap();
+            fs::remove_dir_all(owner_path.parent().unwrap()).unwrap();
+            match changed {
+                "live" | "reused" => {private_dir(&proc_root.join("12345")).unwrap();
+                    fs::write(proc_root.join("12345/stat"), if changed == "live" {"start678"} else {"start999"}).unwrap();},
+                "remaining_transport" => {private_dir(&job.directory).unwrap();},
+                "remaining_session" => {private_dir(owner_path.parent().unwrap()).unwrap();},
+                "dangling_transport" => {std::os::unix::fs::symlink("missing", &job.directory).unwrap();},
+                "aliased_parent" => {let real=f.outer.join("real-memory"); fs::rename(&memory,&real).unwrap();
+                    std::os::unix::fs::symlink(real,&memory).unwrap();},
+                "missing_proc" => {fs::remove_dir(&proc_root).unwrap();},
+                "missing_transport_parent" => {fs::remove_dir(&memory).unwrap();},
+                "wrong_owner" | "wrong_environment" | "wrong_setup_root" => {
+                    let path=f.m.root.join("runtime/lease-owners").join(format!("{}.json",job.session));
+                    let mut record:serde_json::Value=read_json(&path).unwrap();
+                    match changed {
+                        "wrong_owner" => record["owner"]["lease"]=serde_json::json!("/other/lease"),
+                        "wrong_environment" => record["owner"]["registration"]["environment"]["id"]=serde_json::json!("other"),
+                        _ => record["owner"]["registration"]["environment"]["root"]=serde_json::json!("/other/setup"),
+                    }
+                    atomic_json(&path,&record).unwrap();
+                },
+                "wrong_lease" => {atomic_json(&job.lease,&f.m.root.join("runtime/results/other.json")).unwrap();},
+                _ => {},
+            }
+            let before = test_fixture::snapshot(&f.m.root);
+            let proof = ended_consumer_proof(&f.m,&job.session,&job.report,
+                Some(if changed == "wrong_boot" {"22222222-2222-2222-2222-222222222222"} else {boot}),
+                &proc_root,&memory);
+            if changed == "none" {
+                let proof=proof.unwrap().unwrap();
+                assert_eq!(proof["session"],job.session);
+                assert_eq!(proof["consumer"]["start_ticks"],678);
+                assert_eq!(proof["successful_session"],false);
+                assert_eq!(proof["transport_retired"],true);
+            } else {assert!(proof.is_err() || proof.unwrap().is_none(), "{changed}");}
+            assert_eq!(test_fixture::snapshot(&f.m.root),before,"proof never rewrites failure or ownership: {changed}");
+            assert!(job.lease.exists());
+        }
+    }
+    #[test]
     fn kernel_restart_retires_bound_leases_and_preserves_failed_result() {
         let f = test_fixture::Fixture::new();
         let (job, _) = spec(&f.m, f.r.clone().into(), true, false, false).unwrap();
@@ -3436,6 +3716,22 @@ mod tests {
         assert!(record_lease_generation(&job).is_err());
         assert_eq!(fs::read(&path).unwrap(), original);
         assert!(!job.lease.exists());
+    }
+    #[test]
+    fn retained_restart_origin_cannot_be_rebound_to_another_instance() {
+        let f = test_fixture::Fixture::new();
+        let (mut job, path) = spec(&f.m, f.r.clone().into(), true, false, false).unwrap();
+        assert!(serde_json::to_value(&job).unwrap().get("restart_origin").is_none());
+        job.restart_origin = Some(NativeRestartOrigin { instance: "ab".repeat(16), operation: "cd".repeat(16) });
+        atomic_json(&path, &job).unwrap();
+        f.m.retain_lease_owner(&path).unwrap();
+        let retained = f.m.retained_lease_owner(&job.session, &job.report).unwrap();
+        assert_eq!(retained["restart_origin"]["instance"], "ab".repeat(16));
+        assert_eq!(retained["restart_origin"]["operation"], "cd".repeat(16));
+        job.restart_origin.as_mut().unwrap().instance = "ef".repeat(16);
+        atomic_json(&path, &job).unwrap();
+        assert!(f.m.retain_lease_owner(&path).is_err());
+        assert_eq!(f.m.retained_lease_owner(&job.session, &job.report).unwrap(), retained);
     }
     #[test]
     fn stopped_legacy_keeper_needs_a_subsequent_restart_without_inferred_launch() {

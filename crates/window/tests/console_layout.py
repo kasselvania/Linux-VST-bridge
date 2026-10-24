@@ -4,6 +4,7 @@
 Runs hidden native sample windows. These check layout and navigation only;
 service behavior and physical touch are qualified on the installed Linux route.
 """
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -18,6 +19,117 @@ class ProductApp(ui.App):
 
 
 class ConsoleLayout(unittest.TestCase):
+    def test_display_and_repair_are_focused_subpages_at_desktop_and_deck_widths(self):
+        reason = "Close this exact plug-in window before changing its accessibility settings."
+        for width in (1280, 640):
+            with self.subTest(width=width), ProductApp("console-display", "--display-fixture",
+                    "--state=plugin_ready", "--page=plugins", f"--size={width}x800") as app:
+                def reveal(label):
+                    x, y = app.center(app.required(prefix="page_scroll"))
+                    app.request("/m", k="scroll", x=x, y=y, dy=-10000, dx=0, wait=1)
+                    return app.scroll_to(label)
+
+                def usable(label):
+                    control = reveal(label)
+                    x, _, w, h = control["r"]
+                    self.assertGreaterEqual(h, 44)
+                    self.assertGreaterEqual(x, 0)
+                    self.assertLessEqual(x + w, width)
+                    return control
+
+                self.assertIsNone(app.find("Prepare Wine D3D11 · default accessibility"))
+                initial_fix = usable("Fix it step by step")["i"]
+                app.capture(f"product-detail-{width}")
+                mark = app.mark()
+                app.mouse("click", usable("Display mode"))
+                app.required("Back to plug-in", kind="ActionButton")
+                app.capture(f"display-page-{width}")
+                record = usable("Record what worked…")
+                app.mouse("click", record)
+                app.scroll_to("Record this test result", viewport="form_scroll")
+                app.key("Escape", wait=True)
+                usable("Choose this mode")
+                self.assertIsNone(app.find("Use this prepared setup"))
+                app.mouse("click", reveal("Choose a prepared setting…"))
+                usable("Use this prepared setup")
+                self.assertIsNone(app.find("This step is unavailable right now."))
+                app.capture(f"prepared-setting-{width}")
+                app.mouse("click", usable("Back to plug-in"))
+                self.assertIsNone(app.find("Use this prepared setup"))
+                app.mouse("click", usable("Fix it step by step"))
+                app.capture(f"repair-page-{width}")
+                usable("Open on its own")
+                self.assertIsNone(app.find("Prepare Wine D3D11 · default accessibility"))
+                app.mouse("click", usable("Choose…"))
+                usable("Choose this mode")
+                app.mouse("click", usable("Back to plug-in"))
+                app.mouse("click", usable("Fix it step by step"))
+                blocked = usable("Use this and test")
+                self.assertNotIn("shown above", repr(app.snapshot()))
+                app.capture(f"repair-refusal-{width}")
+                app.mouse("click", blocked)
+                self.assertTrue(any(reason in line for line in app.logs(mark)))
+                app.mouse("click", usable("Back to plug-in"))
+                self.assertEqual(usable("Fix it step by step")["i"], initial_fix,
+                                 "Back must retain the exact product identity")
+                app.no_capture(mark)
+                # Select both choices locally, then send one confirmed owner
+                # operation. Retained prepared-history controls above remain a
+                # separate, exact historical path.
+                app.mouse("click", usable("Display mode"))
+                app.mouse("click", usable("Choose this mode"))
+                app.mouse("click", usable("On · Windows defaults"))
+                app.no_capture(mark)
+                app.mouse("click", usable("Use this and test"))
+                app.no_capture(mark)
+                confirm = app.scroll_to("Use this and test", viewport="form_scroll", prefix="local.")
+                self.assertGreaterEqual(confirm["r"][3], 44)
+                self.assertLessEqual(confirm["r"][0] + confirm["r"][2], width)
+                app.capture(f"display-test-confirmation-{width}")
+                app.mouse("click", confirm)
+                self.assertEqual(usable("Fix it step by step")["i"], initial_fix,
+                                 "The confirmed test returns to the same exact plug-in readiness page")
+                self.assertIsNone(app.find("Back to plug-in"))
+                app.capture(f"display-test-readiness-{width}")
+                app.key("Enter", wait=True)
+                captured = [line for line in app.logs(mark) if "Captured, not sent" in line]
+                self.assertEqual(len(captured), 1, "One explicit choice must capture exactly one request")
+                action = json.loads(captured[0].split("): ", 1)[1])
+                self.assertEqual(action["kind"], "candidate_settings_test")
+                self.assertEqual(action["candidate"], "ab" * 32)
+                self.assertEqual(action["expected_current"], {"id": "ab" * 16, "sha256": "cd" * 32})
+                self.assertEqual(action["settings"], {"graphics": "wine_d3d11", "accessibility": "windows_default"})
+
+    def test_restart_confirmation_names_possible_lost_changes_and_cancels(self):
+        for width in (1280, 640):
+            with self.subTest(width=width), ProductApp("console-restart", "--recovery-fixture",
+                    "--state=plugin_ready", "--page=plugins", f"--size={width}x800") as app:
+                button = app.scroll_to("Restart this instance")
+                x, _, w, h = button["r"]
+                self.assertGreaterEqual(h, 44)
+                self.assertGreaterEqual(x, 0)
+                self.assertLessEqual(x + w, width)
+                app.capture(f"restart-detail-{width}")
+                mark = app.mark()
+                app.mouse("click", button)
+                # Blocks draws prose directly; the pure test checks exact warning text.
+                # The retained capture is inspected for wrapping and visibility.
+                confirm = app.scroll_to("Restart from confirmed state", viewport="form_scroll")
+                x, _, w, h = confirm["r"]
+                self.assertGreaterEqual(h, 44)
+                self.assertGreaterEqual(x, 0)
+                self.assertLessEqual(x + w, width)
+                app.capture(f"restart-confirmation-{width}")
+                app.mouse("click", app.scroll_to("Not now", viewport="form_scroll"))
+                self.assertIsNone(app.find("Restart from confirmed state"))
+                app.mouse("click", app.required("Activity", kind="ActionButton"))
+                app.mouse("click", app.scroll_to("Restart this instance"))
+                # Blocks draws prose directly; the pure test checks exact warning text.
+                # The retained capture is inspected for wrapping and visibility.
+                app.key("Escape", wait=True)
+                self.assertIsNone(app.find("Restart from confirmed state"))
+                app.no_capture(mark)
+
     def test_retained_health_fits_during_refresh(self):
         for width in (1280, 640):
             for request in (None, "renewing"):

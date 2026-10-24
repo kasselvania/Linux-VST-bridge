@@ -14,26 +14,26 @@ pub use crate::screen_model::state::PluginsView;
 
 /// Current product identity remains visible while the separately requested
 /// compatibility/history readback loads. It carries no action authority.
-/// `built`: the list as the window's screen built it, if it did.
-pub fn show_current(ui: &mut egui::Ui, state: &mut PluginsView, current: &Snapshot, built: Option<LoadingList>,
-    fresh: bool, details_attempted: bool, retry_details: &mut bool) {
+/// The list is built by the screen model; query edits request a new frame.
+pub fn show_current(ui: &mut egui::Ui, state: &mut PluginsView, view: LoadingList, retry: &mut Option<crate::screen_model::Local>) {
     if state.scroll_to_focus {
         ui.scroll_to_cursor(Some(egui::Align::Min));
         state.scroll_to_focus = false;
     }
     ui.heading(plugins::HEADING);
-    let mut view = built.unwrap_or_else(|| LoadingList::build(current, &state.query(), fresh, details_attempted));
     if let Some(title) = view.focus_title {
         ui.strong(title);
         if ui.add_sized([180.0, 44.0], egui::Button::new(plugins::SHOW_ALL)).clicked() {
             state.focus = None;
-            view = LoadingList::build(current, &state.query(), fresh, details_attempted);
+            ui.ctx().request_repaint();
+            return;
         }
     }
     widgets::text(ui, &view.notice);
-    if let Some(retry) = view.retry {
-        if ui.add_sized([240.0, 44.0], egui::Button::new(retry)).clicked() {
-            *retry_details = true;
+    if let Some(control) = view.retry {
+        if ui.add_enabled(control.enabled, egui::Button::new(control.label)
+            .min_size(egui::vec2(240.0, 44.0))).clicked() {
+            *retry = Some(control.does);
         }
     }
     let searched = state.search.clone();
@@ -44,7 +44,8 @@ pub fn show_current(ui: &mut egui::Ui, state: &mut PluginsView, current: &Snapsh
         state.search.clear();
     }
     if state.search != searched {
-        view = LoadingList::build(current, &state.query(), fresh, details_attempted);
+        ui.ctx().request_repaint();
+        return;
     }
     ui.small(&view.count);
     if let Some(empty) = view.empty {
@@ -86,11 +87,13 @@ pub fn show(
         state.scroll_to_focus = false;
     }
     let before = state.clone();
-    let single_product = built.as_ref().map_or_else(|| state.focused_product().is_some(), |(_, single)| *single);
+    let mut single_product = built.as_ref().map_or_else(|| state.focused_product().is_some(), |(_, single)| *single);
     ui.horizontal_wrapped(|ui| {
         ui.heading(plugins::HEADING);
         if state.focus.is_some() && ui.add_sized([180.0, 44.0],
-            egui::Button::new(plugins::SHOW_ALL)).clicked() {state.focus = None;}
+            egui::Button::new(plugins::SHOW_ALL)).clicked() {
+                state.focus = None; state.page = crate::screen_model::state::ProductPage::Overview; single_product = false;
+            }
     });
     if !single_product {
         ui.add(egui::TextEdit::singleline(&mut state.search)
@@ -115,6 +118,7 @@ pub fn show(
     let list = match built {
         Some((list, _)) if *state == before => list,
         _ => PluginList::build(snapshot, &state.query(), single_product, plugins::Context {
+            activity: crate::screen_model::diagnostics::Section::NotRequested,
             busy: snapshot.system.inactive_reason(), pending, expanded: state.expanded }),
     };
     for line in &list.summary { ui.small(line); }
@@ -129,15 +133,87 @@ pub fn show(
             ui.strong(heading);
         }
         for card in &group.cards {
-            plugin_card(ui, card, chosen, |ui| {
+            if single_product && state.page != crate::screen_model::state::ProductPage::Overview {
+                product_page(ui, card, state, chosen);
+                continue;
+            }
+            plugin_card(ui, card, state, chosen, |ui| {
                 if let Some(record) = card.record { details(ui, &snapshot.products[record]); }
             });
         }
     }
 }
 
+fn product_page(ui: &mut egui::Ui, card: &PluginCard, state: &mut PluginsView, chosen: &mut Option<Action>) {
+    use crate::screen_model::state::ProductPage;
+    ui.heading(&card.name);
+    ui.heading(if state.page == ProductPage::Display {"Display mode"} else {"Fix it step by step"});
+    if ui.add_sized([150.0,44.0], egui::Button::new("Back to plug-in")).clicked() {
+        state.show_page(card.key.clone(), ProductPage::Overview);
+        ui.ctx().request_repaint();
+        return;
+    }
+    if let Some(notice) = &card.display.notice {widgets::text(ui,notice);}
+    if state.page == ProductPage::Display {
+        for mode in &card.display.modes {
+            egui::Frame::group(ui.style()).show(ui, |ui| {
+                ui.strong(&mode.label); ui.small(&mode.posture); widgets::text(ui, &mode.result);
+                display_actions(ui, &mode.prepare, chosen);
+                for trial in mode.trials.iter().filter(|trial|trial.current) {
+                    display_trial(ui,trial,chosen);
+                }
+                if mode.trials.iter().any(|trial|trial.prepared) {
+                    egui::CollapsingHeader::new("Choose a prepared setting…").id_salt((&mode.label,"prepared")).show(ui,|ui| {
+                        for (index,trial) in mode.trials.iter().enumerate().filter(|(_,trial)|trial.prepared) {
+                            ui.push_id(index,|ui|display_trial(ui,trial,chosen));
+                        }
+                    });
+                }
+                egui::CollapsingHeader::new("Earlier checks and details").id_salt(&mode.label).show(ui,|ui| {
+                    if let Some(record) = &mode.result_record {widgets::disclosure(ui,record,chosen);}
+                    for (index,trial) in mode.trials.iter().enumerate().filter(|(_,trial)|!trial.current && !trial.prepared) {
+                        ui.push_id(index,|ui|display_trial(ui,trial,chosen));
+                    }
+                });
+            });
+        }
+    } else {
+        for (index,step) in card.display.repairs.iter().enumerate() {
+            egui::Frame::group(ui.style()).show(ui,|ui| {
+                if step.kind == crate::model::RepairStepKind::TryDisplayMode {
+                    ui.strong(format!("{:02}  Choose another display mode",index+1));
+                    ui.label("Compare the available modes and their last editor checks.");
+                    if ui.add_sized([100.0,44.0],egui::Button::new("Choose…")).clicked() {
+                        state.show_page(card.key.clone(),ProductPage::Display);
+                        ui.ctx().request_repaint();
+                    }
+                } else {
+                    ui.strong(format!("{:02}  {}",index+1,step.label)); ui.label(&step.detail);
+                    display_actions(ui,&step.actions,chosen);
+                }
+            });
+        }
+    }
+    if let Some(provenance) = &card.display.provenance {widgets::disclosure(ui,provenance,chosen);}
+}
+
+fn display_trial(ui: &mut egui::Ui, trial: &plugins::display::DisplayTrial, chosen: &mut Option<Action>) {
+    if !trial.current {ui.strong(&trial.posture);widgets::text(ui,&trial.result);}
+    if let Some(evidence) = &trial.evidence {widgets::text(ui,evidence);}
+    display_actions(ui,&trial.actions,chosen);
+    egui::CollapsingHeader::new(&trial.identity.title).show(ui,|ui| {
+        display_actions(ui,&trial.technical,chosen);
+        widgets::details(ui,&trial.identity.content,chosen);
+    });
+}
+
+fn display_actions(ui: &mut egui::Ui, row: &crate::screen_model::offers::OfferRow, chosen: &mut Option<Action>) {
+    if row.offers.is_empty() { for note in &row.notes { ui.small(note); } }
+    else { widgets::offer_row(ui, row, chosen); }
+}
+
 /// One plug-in's card. Same class can have several installed builds or environments.
-fn plugin_card(ui: &mut egui::Ui, card: &PluginCard, chosen: &mut Option<Action>,
+fn plugin_card(ui: &mut egui::Ui, card: &PluginCard, state: &mut PluginsView, chosen: &mut Option<Action>,
     records: impl FnOnce(&mut egui::Ui)) {
     ui.push_id((&card.key.environment, &card.key.class_id, &card.key.module_sha256), |ui| {
         egui::Frame::group(ui.style())
@@ -155,15 +231,27 @@ fn plugin_card(ui: &mut egui::Ui, card: &PluginCard, chosen: &mut Option<Action>
                 });
                 ui.small(fact_line(&card.facts));
                 for note in &card.notes { widgets::text(ui, note); }
+                for recovery in &card.recovery { widgets::instance_recovery(ui, recovery, chosen); }
                 if let Some(lead) = &card.lead {
                     if let Some(preface) = &lead.preface { ui.label(preface); }
                     widgets::lead_offer(ui, &lead.offer, chosen);
+                }
+                if !card.standalone.is_empty() {
+                    ui.strong("Outside your DAW");
+                    ui.small("These plug-in windows do not open an audio device.");
+                    for row in &card.standalone { widgets::offer_row(ui, row, chosen); }
                 }
                 widgets::offer_row(ui, &card.offers, chosen);
                 for uninstall in &card.uninstallers {
                     widgets::offer_row(ui, &uninstall.row, chosen);
                     ui.small(&uninstall.explanation);
                 }
+                ui.horizontal_wrapped(|ui| {
+                    for (label,page) in [("Fix it step by step", crate::screen_model::state::ProductPage::Repair),
+                        ("Display mode", crate::screen_model::state::ProductPage::Display)] {
+                        if ui.add_sized([180.0,44.0], egui::Button::new(label)).clicked() {state.show_page(card.key.clone(), page);}
+                    }
+                });
                 for section in [&card.settings, &card.help, &card.availability,
                     &card.other_setups, &card.previous_setups].into_iter().flatten() {
                     widgets::disclosure(ui, section, chosen);
@@ -464,8 +552,10 @@ mod tests {
         assert_eq!(status(product).words, "Available in your DAW");
         // Finishing a recovery is the plug-in's lead step, not an optional test result.
         assert!(PluginCard::build(&snapshot, &snapshot.products[0], plugins::Context {
+            activity: crate::screen_model::diagnostics::Section::NotRequested,
             busy: Some("Cleanup unconfirmed"), pending: false, expanded: false }).lead.is_some());
         let card = PluginCard::build(&snapshot, &snapshot.products[0], plugins::Context {
+            activity: crate::screen_model::diagnostics::Section::NotRequested,
             busy: Some("Cleanup unconfirmed"), pending: false, expanded: false });
         assert!(card.offers.offers.iter().any(|offer| offer.pressed() == Some(problem.action.clone())));
         let product = &snapshot.products[0];
@@ -803,6 +893,45 @@ mod tests {
     }
 
     #[test]
+    fn loading_retry_preserves_the_screen_models_intent_and_enabled_state() {
+        fn center(shape: &egui::epaint::Shape) -> Option<egui::Pos2> {
+            match shape {
+                egui::epaint::Shape::Text(text) if text.galley.text() == "Load plug-in controls again" =>
+                    Some(text.pos + text.galley.size() * 0.5),
+                egui::epaint::Shape::Vec(items) => items.iter().find_map(center),
+                _ => None,
+            }
+        }
+        for (current, expected) in [
+            (plugins::CurrentRead::Ready, crate::screen_model::Local::RetryDetails),
+            (plugins::CurrentRead::Unavailable, crate::screen_model::Local::Refresh),
+        ] {
+            for enabled in [true, false] {
+                let snapshot = snapshot();
+                let mut state = PluginsView::default();
+                let ctx = egui::Context::default();
+                let mut retry = None;
+                let mut point = egui::Pos2::ZERO;
+                for pressed in [None, Some(true), Some(false)] {
+                    let events = pressed.map(|pressed| vec![egui::Event::PointerMoved(point),
+                        egui::Event::PointerButton { pos: point, button: egui::PointerButton::Primary,
+                            pressed, modifiers: egui::Modifiers::NONE }]).unwrap_or_default();
+                    let mut output = ctx.run_ui(egui::RawInput { events, ..Default::default() }, |ui| {
+                        let mut view = LoadingList::build(&snapshot, &state.query(), current, true);
+                        view.retry.as_mut().unwrap().enabled = enabled;
+                        show_current(ui, &mut state, view, &mut retry);
+                    });
+                    if pressed.is_none() {
+                        point = output.shapes.iter().find_map(|shape| center(&shape.shape)).unwrap();
+                    }
+                    output.textures_delta.clear();
+                }
+                assert_eq!(retry, enabled.then(|| expected.clone()));
+            }
+        }
+    }
+
+    #[test]
     fn multi_class_setup_route_offers_each_exact_product_detail() {
         fn texts(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
             match shape {
@@ -820,7 +949,9 @@ mod tests {
             assert!(library.focused_product().is_none());
             let ctx = egui::Context::default();
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-                show_current(ui, &mut library, &snapshot, None, fresh, false, &mut false);
+                let view = LoadingList::build(&snapshot, &library.query(),
+                    if fresh { plugins::CurrentRead::Ready } else { plugins::CurrentRead::Unavailable }, false);
+                show_current(ui, &mut library, view, &mut None);
             });
             let mut labels = vec![];
             for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
@@ -872,14 +1003,14 @@ mod tests {
                 let mut text = vec![]; for shape in &output.shapes { centers(&shape.shape, &mut text); }
                 output.textures_delta.clear();
                 if frame == 2 {
-                    assert!(!text.iter().any(|(label,_)| label == "Record a test result or problem" || label == "Observed: Audio passed"));
+                    assert!(!text.iter().any(|(label,_)| label == "Report a problem…" || label == "Observed: Audio passed"));
                     assert!(text.iter().any(|(label,_)| label.starts_with("In your native Linux DAW")));
                     point = text.iter().find(|(label,_)| label == "Help and testing").unwrap().1;
                 }
                 if frame == 6 {
                     assert!(text.iter().any(|(label,_)| label == "Observed: Audio passed"));
                     assert!(text.iter().any(|(label,_)| label == "Not yet checked: Saved-project recall"));
-                    point = text.iter().find(|(label,_)| label == "Record a test result or problem").unwrap().1;
+                    point = text.iter().find(|(label,_)| label == "Report a problem…").unwrap().1;
                 }
             }
             assert_eq!(chosen, (!pending).then_some(report));

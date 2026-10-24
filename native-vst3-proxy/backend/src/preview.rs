@@ -175,7 +175,8 @@ fn connect_once(root: &Path, greeting: &[u8], deadline: Option<Instant>) -> io::
     };
     let mut owner = private(root, true)
         .and_then(|_| private(&address, false))
-        .and_then(|_| UnixStream::connect(&address))
+        .and_then(|_| crate::control_socket::connect(&address, Duration::from_secs(5)))
+        .and_then(|stream| {stream.set_nonblocking(false)?;Ok(stream)})
         .map_err(unreachable)?;
     owner.set_write_timeout(Some(match deadline {
         Some(end) => end
@@ -184,12 +185,13 @@ fn connect_once(root: &Path, greeting: &[u8], deadline: Option<Instant>) -> io::
             .min(Duration::from_secs(5)),
         None => Duration::from_secs(5),
     }))?;
-    let version5 = greeting.starts_with(ap1_native_client::admission::GREETING_V5);
+    let version6 = greeting.starts_with(ap1_native_client::admission::GREETING_V6);
+    let version5 = version6 || greeting.starts_with(ap1_native_client::admission::GREETING_V5);
     let version4 = greeting.starts_with(ap1_native_client::admission::GREETING_V4);
     let version3 = version5 || version4 || greeting.starts_with(ap1_native_client::admission::GREETING);
     let mut request = [0u8; 16];
     if version3 {
-        need(greeting.len() == if version5 { 117 } else { 53 }, "admission greeting extent")?;
+        need(greeting.len() == if version6 {149} else if version5 { 117 } else { 53 }, "admission greeting extent")?;
         std::fs::File::open("/dev/urandom")?.read_exact(&mut request)?;
         need(request != [0; 16], "admission request identity")?;
     }
@@ -224,7 +226,8 @@ fn connect_once(root: &Path, greeting: &[u8], deadline: Option<Instant>) -> io::
     let mut bytes = vec![0; n];
     read(&mut bytes)?;
     if version3 {
-        let binding = (if version5 { ap1_native_client::admission::decode_v5(&bytes, request) }
+        let binding = (if version6 { ap1_native_client::admission::decode_v6(&bytes, request) }
+            else if version5 { ap1_native_client::admission::decode_v5(&bytes, request) }
             else if version4 { ap1_native_client::admission::decode_v4(&bytes, request) }
             else { ap1_native_client::admission::decode(&bytes, request) })?
             .map_err(io::Error::other)?;
@@ -327,6 +330,15 @@ pub fn discover_performance(
 ) -> io::Result<Binding> {
     let greeting = performance_greeting(identity, execution)?;
     connect_greeting(&performance_root(identity.is_some()), &greeting)
+}
+pub fn discover_recovery(identity:Option<crate::state::Identity>,
+    execution:Option<ap1_native_client::admission::ExecutionIdentity>,original:[u8;16],operation:[u8;16])->io::Result<Binding> {
+    let mut greeting=performance_greeting_for(true,identity,execution)?;
+    need(greeting.len()==117 && original!=[0;16] && operation!=[0;16],"recovery original execution binding")?;
+    greeting[..5].copy_from_slice(ap1_native_client::admission::GREETING_V6);
+    greeting.extend_from_slice(&original);greeting.extend_from_slice(&operation);
+    // A delivered restart is never retried, including uncertain startup replies.
+    connect_once(&performance_root(true),&greeting,Some(Instant::now()+Duration::from_secs(65)))
 }
 pub fn discover() -> io::Result<Binding> {
     let home = std::env::var_os("HOME").ok_or_else(|| invalid("preview home absent"))?;

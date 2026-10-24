@@ -4401,7 +4401,7 @@ with zipfile.ZipFile(kit,'w') as z:
         pe[128..132].copy_from_slice(b"PE\0\0");pe[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
         pe[150]=0x22;pe[1023]=b'a';pe.extend_from_slice(b"new installer bytes");
         let installer=hex(&sha2::Sha256::digest(&pe));
-        for (schema,policy) in [(26,None),(27,None),(28,None),(ui::OPERATOR_SCHEMA,None),
+        for (schema,policy) in [(26,None),(27,None),(28,None),(29,None),(ui::OPERATOR_SCHEMA,None),
             (ui::OPERATOR_SCHEMA,Some(ui::Powershell::Inherited)),
             (ui::OPERATOR_SCHEMA,Some(ui::Powershell::IntentionallyUnavailable))] {
             let request=ui::Request {schema,state_token:"accepted".into(),
@@ -5684,6 +5684,7 @@ finally:
         };
         prep::retain_guided_result(&f.m, &report, &serde_json::to_value(action).unwrap()).unwrap();
         let mut product = ui::Product {
+            display:ui::DisplayConfiguration::unavailable(),
             class_id: c.selection.class.id.clone(),
             name: c.selection.class.name.clone(),
             vendor: c.selection.class.vendor.clone(),

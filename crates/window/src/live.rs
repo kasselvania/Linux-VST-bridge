@@ -5,7 +5,9 @@ use lvb_client::{Query, Reply};
 use lvb_view_model::{self as vm, forms, model::{Action, Activity, CurrentOverview, CurrentProductDetail, ProblemCategory, ReadinessAssessment, Request, Snapshot, TestResultKind},
     screen::{Reading, Records, Window}, state::{Effect, Imported, State}, window::Page, Destination, ProductKey};
 use makepad_product_ui::{makepad_widgets::Cx, Availability, InputPath};
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, time::Instant};
+#[cfg(test)]
+use std::time::Duration;
 use vm::request::RequestFeedback as Support;
 
 const LIMITATION: &str = "Sample controls are unavailable in the installed manager.";
@@ -40,7 +42,7 @@ enum PendingDetails {
 enum Flight {
     Current,
     Overview,
-    Import,
+    Import { repair: Option<(vm::plugins::repair::InstallerDraft, String)> },
     OpenCurrent,
     Product { key: ProductKey, binding: Binding },
     Details { generation: String },
@@ -77,6 +79,7 @@ pub struct Live {
     need_current: bool,
     need_interactive: bool,
     need_details: bool,
+    need_operation: bool,
     queued: Option<(Query, Flight)>,
     in_flight: Option<Flight>,
     support: Option<Support>,
@@ -94,7 +97,6 @@ pub struct Live {
     offers: BTreeMap<String, Binding>,
     log: Vec<String>,
     clipboard: Option<String>,
-    next_poll: f64,
     render_revision: u64,
     bootstrap_panel: Option<lvb_client::bootstrap::Panel>,
     bootstrap_step: Option<lvb_client::bootstrap::Step>,
@@ -105,16 +107,25 @@ pub struct Live {
     update_waiting: bool,
     update_available: bool,
     close_requested: bool,
-    health_observed: Option<f64>,
+    health_observed: Option<Instant>,
+    observation_cursor: Option<lvb_client::observation::Cursor>,
+    observation_records: Option<(String, Option<u64>)>,
+    current_read_records: Option<(String, Option<u64>)>,
+    observation_seen: Option<Instant>,
+    authority_generation: u64,
+    current_read_authority: u64,
+    status_read_cursor: Option<lvb_client::observation::Cursor>,
 }
 impl Live {
     pub fn new(_posture: String, reveal: bool) -> Self {
         let mut live = Self { state: State::default(), built: Built::default(), ui: LocalUi::default(),
             overview: None, readiness: None, pending_import: None, product: None, details: None, status: None, status_notice: None, status_attempted: false, need_status: false, inspection_requested: false, pending_details: None, details_notice: None, details_retried: false, fresh: false, current_read_error: None, current_retried: false, superseded: false,
-            product_attempted: false, details_attempted: false, need_current: true, need_interactive: false, need_details: false,
+            product_attempted: false, details_attempted: false, need_current: true, need_interactive: false, need_details: false, need_operation: false,
             queued: None, in_flight: None, support: None, report_preview: None, report_reading: None, message: String::new(), reveal,
             epoch: 0, shown_binding: None, form_origin: None, form_generation: 0, last_current: Cx::monotonic_now(), operation_live: None, drawn: BTreeMap::new(), offers: BTreeMap::new(), log: vec![], clipboard: None,
-            next_poll: Cx::monotonic_now() + 3.0, render_revision: 0, bootstrap_panel: None, bootstrap_step: None, bootstrap_waiting: false, update_panel: None, update_headline: None, update_step: None, update_waiting: false, update_available: false, close_requested: false, health_observed: None };
+            render_revision: 0, bootstrap_panel: None, bootstrap_step: None, bootstrap_waiting: false, update_panel: None, update_headline: None, update_step: None, update_waiting: false, update_available: false, close_requested: false, health_observed: None,
+            observation_cursor: None, observation_records: None, current_read_records: None, observation_seen: None,
+            authority_generation: 0, current_read_authority: 0, status_read_cursor: None };
         live.drive();
         live.rebuild();
         live
@@ -126,7 +137,7 @@ impl Live {
     fn foreground_busy(&self) -> bool {
         self.report_preview.is_some() || self.report_reading.is_some() ||
             self.queued.as_ref().map(|(_, flight)| flight).into_iter().chain(self.in_flight.as_ref())
-            .any(|flight| matches!(flight, Flight::Action { .. } | Flight::Save(_) | Flight::Import | Flight::OpenCurrent))
+            .any(|flight| matches!(flight, Flight::Action { .. } | Flight::Save(_) | Flight::Import {..} | Flight::OpenCurrent))
     }
     /// Background transport work alone does not replace native nodes or focus.
     pub fn render_revision(&self) -> u64 { self.render_revision }
@@ -149,6 +160,7 @@ impl Live {
         self.support.as_ref().filter(|s| !s.terminal).and_then(|s| s.operation.clone())
     }
     fn read_report_operation(&mut self) {
+        self.need_operation = false;
         if let Some(id) = self.retained_operation() {
             self.queue(Query::Operation(id.clone()), Flight::Operation(id));
         } else {
@@ -162,13 +174,15 @@ impl Live {
     }
     fn drive(&mut self) {
         if self.bootstrap_panel.is_some() || self.busy() || self.superseded { return; }
-        if self.need_interactive {
+        if self.need_operation && self.retained_operation().is_some() {
+            self.read_report_operation();
+        } else if self.need_interactive {
             self.need_interactive = false; self.need_current = false;
             self.queue(Query::Overview, Flight::Overview);
         } else if self.need_current {
             self.need_current = false;
             self.queue(Query::CurrentOverview, Flight::Current);
-        } else if self.need_status && self.state.page == Page::Diagnostics && self.overview.is_some() {
+        } else if self.need_status && matches!(self.state.page, Page::Diagnostics | Page::Activity) && self.overview.is_some() {
             self.need_status = false; self.status_attempted = true;
             self.status_notice = None;
             self.queue(Query::Activity, Flight::Status);
@@ -179,7 +193,7 @@ impl Live {
                 self.details_notice = None;
                 self.queue(Query::Snapshot, Flight::Details { generation: binding.generation });
             }
-        } else if self.state.page == Page::Plugins && self.product.is_none() && !self.product_attempted {
+        } else if self.fresh && self.state.page == Page::Plugins && self.product.is_none() && !self.product_attempted {
             if let (Some(key), Some(binding)) = (self.state.plugins.focused_product().cloned(), self.binding()) {
                 self.product_attempted = true;
                 self.queue(Query::Product(key.clone()), Flight::Product { key, binding });
@@ -205,10 +219,10 @@ impl Live {
     fn offered_in(&self, original: &Action, context: &State, ui: &LocalUi) -> bool {
         let current = self.overview.as_ref().map(|o| &o.current);
         let records = Records { current, actions: current, product: self.product.as_ref(), details: self.details.as_ref(),
-            support: Some(self.support_read()), ..Records::default() };
+            activity: Some(self.support_read().status), support: Some(self.support_read()), ..Records::default() };
         let window = Window::build(&records, &Reading { fresh: true, ..Reading::default() }, context);
         let rendered = presentation::build(&window, self.product.as_ref().or(current).or(self.details.as_ref()), current,
-            context, ui, Why { fresh: true, pending: false, in_flight: false, superseded: false }, None, self.reveal, self.form_generation);
+            context, ui, Why { fresh: true, pending: false, in_flight: false, superseded: false, form_stale: false }, None, self.reveal, self.form_generation);
         rendered.targets.values().any(|target| matches!(target,
             Target::Offer { offer, .. } if &offer.intent == original && offer.availability.enabled()))
     }
@@ -247,6 +261,12 @@ impl Live {
                 support.transitions.push("submitted".into());
             }
         }
+        if matches!(flight, Flight::Current | Flight::Overview) {
+            self.need_current = false;
+            self.current_read_records = self.observation_records.clone();
+            self.current_read_authority = self.authority_generation;
+        }
+        if matches!(flight, Flight::Status) { self.status_read_cursor = self.observation_cursor.clone(); }
         self.in_flight = Some(flight);
         self.rebuild();
         Some(query)
@@ -274,7 +294,7 @@ impl Live {
             self.bootstrap_waiting = false; self.bootstrap_step = None; self.rebuild();
         } else { self.receive(Reply::Error(error.clone())); self.updater_failed(error); }
     }
-    pub fn updater_reading(&self) -> Option<(bool, f64)> {
+    pub fn updater_reading(&self) -> Option<(bool, Instant)> {
         if !self.fresh || self.superseded { return None; }
         let system = &self.overview.as_ref()?.current.system;
         system.capacity_available().then_some((system.dsp > 0, self.health_observed?))
@@ -294,23 +314,108 @@ impl Live {
     pub fn updater_failed(&mut self, error: String) { self.update_waiting = false; self.message = error; self.rebuild(); }
     pub fn take_close_request(&mut self) -> bool { std::mem::take(&mut self.close_requested) }
     pub fn take_clipboard(&mut self) -> Option<String> { self.clipboard.take() }
-    /// Poll only while idle; reads never replay an action with an uncertain acknowledgment.
-    pub fn tick(&mut self) -> bool {
-        let now = Cx::monotonic_now();
-        if self.bootstrap_panel.is_some() || self.busy() || self.superseded || now < self.next_poll { return false; }
-        self.next_poll = now + 3.0;
-        if !self.fresh || self.overview.is_none() || now - self.last_current >= 6.0 {
-            self.need_current = true;
+    /// Receive a complete owner observation independently of command completion.
+    /// It can retire current offers, but only a current overview can renew them.
+    #[cfg(test)]
+    pub fn observe(&mut self, event: lvb_client::observation::Event) {
+        self.observe_received(lvb_client::observation::Received::now(event));
+    }
+    /// Returns true when an aged receipt requires a replacement subscription.
+    pub fn observe_received(&mut self, received: lvb_client::observation::Received) -> bool {
+        use lvb_client::observation::{Event, STALE_AFTER};
+        let expired = matches!(received.event, Event::State(_) | Event::Heartbeat { .. })
+            && received.at.elapsed() >= STALE_AFTER;
+        let event = if expired {
+            Event::Unavailable { reason: "Live status is stale. Reconnecting…".into() }
+        } else { received.event };
+        self.observe_at(event, received.at);
+        expired
+    }
+    fn observe_at(&mut self, event: lvb_client::observation::Event, received_at: Instant) {
+        use lvb_client::observation::Event;
+        use vm::model::Observation;
+        if self.bootstrap_panel.is_some() || self.superseded { return; }
+        match event {
+            Event::FrontendSuperseded => { self.pause_superseded(); return; },
+            Event::Heartbeat { cursor } => {
+                if self.observation_cursor.as_ref() == Some(&cursor) {
+                    self.observation_seen = Some(received_at);
+                    // Renew only the exact healthy system already covered by
+                    // the current overview. This never grants action authority.
+                    if self.fresh && self.status_notice.is_none()
+                        && self.status.as_ref().zip(self.overview.as_ref())
+                            .is_some_and(|(status, overview)| status.system == overview.current.system)
+                    {
+                        self.health_observed = self.observation_seen;
+                    }
+                }
+                return;
+            }
+            Event::Unavailable { reason } => {
+                self.authority_generation = self.authority_generation.wrapping_add(1);
+                self.observation_seen = None;
+                self.observation_cursor = None;
+                self.health_observed = None;
+                self.fresh = false;
+                self.current_read_error = Some(CurrentReadError::Failed(reason.clone()));
+                self.status_notice = Some(reason);
+                self.status_attempted = true; self.need_status = false;
+                if self.queued.as_ref().is_some_and(|(_, flight)| matches!(flight, Flight::Status)) {
+                    self.queued = None;
+                }
+            }
+            Event::State(observed) => {
+                let records = (observed.cursor.service_epoch.clone(), observed.records_revision);
+                let changed = self.observation_records.as_ref() != Some(&records)
+                    || self.observation_seen.is_none();
+                let system_changed = matches!(&observed.activity, Observation::Observed(activity)
+                    if self.status.as_ref().is_some_and(|old| old.system != activity.system));
+                self.observation_records = Some(records);
+                self.observation_cursor = Some(observed.cursor);
+                self.observation_seen = Some(received_at);
+                if changed || system_changed {
+                    self.authority_generation = self.authority_generation.wrapping_add(1);
+                    self.fresh = false; self.need_current = true;
+                    self.invalidate_pages();
+                    self.need_operation = self.retained_operation().is_some();
+                }
+                match observed.activity {
+                    Observation::Observed(activity) => {
+                        self.status = Some(activity); self.status_notice = None;
+                        self.health_observed = self.observation_seen;
+                    }
+                    Observation::Unavailable(reason) => {
+                        self.status_notice = Some(reason); self.health_observed = None;
+                    }
+                }
+                self.status_attempted = true; self.need_status = false;
+                if observed.records_revision.is_none() {
+                    self.fresh = false; self.need_current = false;
+                    self.current_read_error = Some(CurrentReadError::Failed("Current record changes cannot be observed. Reconnecting…".into()));
+                }
+                if self.queued.as_ref().is_some_and(|(_, flight)| matches!(flight, Flight::Status)) {
+                    self.queued = None;
+                }
+            }
         }
-        // A retained result remains readable even when current status is not.
-        // Read it first, then let drive renew the overview when due.
-        if self.retained_operation().is_some() || !self.need_current { self.read_report_operation(); }
-        self.drive();
-        self.rebuild();
-        true
+        self.drive(); self.rebuild();
+    }
+    /// Clock work only expires a lost subscription. No ordinary status polling.
+    pub fn tick(&mut self) -> bool {
+        let now = Instant::now();
+        if self.bootstrap_panel.is_some() || self.superseded { return false; }
+        if self.observation_seen.is_some_and(|seen| now.duration_since(seen) >= lvb_client::observation::STALE_AFTER) {
+            self.observe_at(lvb_client::observation::Event::Unavailable { reason: "Live status is stale. Reconnecting…".into() }, now);
+            return true;
+        }
+        false
     }
     pub fn receive(&mut self, reply: Reply) {
         let Some(flight) = self.in_flight.take() else { return };
+        if matches!(flight, Flight::Status) && self.status_read_cursor != self.observation_cursor
+            && !matches!(reply, Reply::FrontendSuperseded) {
+            self.drive(); self.rebuild(); return;
+        }
         match (flight, reply) {
             (_, Reply::FrontendSuperseded) => {
                 self.superseded = true; self.fresh = false; self.queued = None;
@@ -323,7 +428,21 @@ impl Live {
                 self.receive(Reply::CurrentOverview(Box::new((*overview).into())));
                 return;
             }
-            (Flight::Import, Reply::Imported(imported)) => {
+            (Flight::Import {repair:Some((mut draft,generation))}, Reply::Imported(imported)) => {
+                if self.binding().is_some_and(|binding| binding.generation == generation)
+                    && self.state.plugins.focused_product() == Some(&draft.product)
+                    && self.state.plugins.page == vm::state::ProductPage::Repair
+                    && self.state.focus.repair.as_ref() == Some(&draft) {
+                    draft.selected = Some(imported.installer_sha256);
+                    self.state.focus.repair = Some(draft);
+                    self.message = format!("Selected {}. Review this setup before running it.",imported.display_label);
+                } else {
+                    self.state.focus.repair = None;
+                    self.message = "Installer added. The selected plug-in or bridge changed; choose it again for the intended setup.".into();
+                }
+                self.fresh = false; self.need_current = true;
+            }
+            (Flight::Import {repair:None}, Reply::Imported(imported)) => {
                 if let Some(draft) = &mut self.state.focus.replacement {
                     draft.selected = Some(imported.installer_sha256);
                     self.message = format!("Selected {}. Review it in this setup before running it.", imported.display_label);
@@ -333,10 +452,16 @@ impl Live {
                 }
                 self.fresh = false; self.need_current = true;
             }
-            (Flight::Import, Reply::Cancelled) => { self.message = "No installer selected.".into(); self.state.focus.replacement = None; }
+            (Flight::Import {..}, Reply::Cancelled) => { self.message = "No installer selected.".into(); self.state.focus.replacement = None; self.state.focus.repair = None; }
             (Flight::OpenCurrent, Reply::CurrentManagerOpened) => { self.message = "The current manager was opened.".into(); }
             (Flight::Current, Reply::CurrentOverview(overview)) => {
-                self.current_read_error = None;
+                if self.current_read_records != self.observation_records
+                    || self.current_read_authority != self.authority_generation {
+                    self.fresh = false; self.need_current = true;
+                    self.drive(); self.rebuild(); return;
+                }
+                let covered = self.observation_records.as_ref().is_some_and(|(_, revision)| revision.is_some());
+                if covered && self.observation_seen.is_some() { self.current_read_error = None; }
                 self.current_retried = false;
                 let changed = self.binding().as_ref() != Some(&Binding { token: overview.current.state_token.clone(), generation: overview.current_generation.clone() });
                 let system_changed = self.overview.as_ref().is_some_and(|old| old.current.system != overview.current.system);
@@ -349,7 +474,8 @@ impl Live {
                         Imported::NotYet(message) => { self.message = message.into(); self.pending_import = Some((installer, added, label)); }
                     }
                 }
-                self.overview = Some(*overview); self.fresh = true; self.last_current = Cx::monotonic_now(); self.health_observed = Some(self.last_current);
+                self.overview = Some(*overview); self.fresh = covered && self.observation_seen.is_some(); self.last_current = Cx::monotonic_now();
+                if self.fresh { self.health_observed = self.observation_seen; }
                 if let Some(pending) = self.pending_details.take() {
                     match pending {
                         PendingDetails::Snapshot(snapshot, requested) if self.binding().as_ref() == Some(&requested)
@@ -362,7 +488,7 @@ impl Live {
                     }
                 }
                 if self.wants_details() && self.details.is_none() && !self.details_attempted { self.need_details = true; }
-                if self.state.page == Page::Diagnostics && !self.status_attempted { self.need_status = true; }
+                if matches!(self.state.page, Page::Diagnostics | Page::Activity) && !self.status_attempted { self.need_status = true; }
             }
             (Flight::Product { key, binding }, Reply::Product(detail)) => {
                 if self.binding().as_ref() == Some(&binding) && self.state.plugins.focused_product() == Some(&key)
@@ -501,7 +627,7 @@ impl Live {
                         self.current_read_error.as_ref().map(CurrentReadError::message).unwrap_or_default().chars().take(1024).collect::<String>()));
                 }
             },
-            Flight::Import | Flight::OpenCurrent | Flight::Status => {}
+            Flight::Import {..} | Flight::OpenCurrent | Flight::Status => {}
             Flight::Product { .. } => self.product = None,
             Flight::Details { .. } => { self.details = None; }
         }
@@ -577,7 +703,7 @@ impl Live {
         let records = Records { current, details: self.details.as_ref(), product: self.product.as_ref(), actions,
             readiness: self.readiness.as_ref().filter(|(value, requested)| binding.as_ref() == Some(requested) && current.is_some_and(|current| value.system == current.system)).map(|(value, _)| value),
             health: retained_health.then(|| current.map(|s| &s.system)).flatten(),
-            support: Some(self.support_read()) };
+            activity: Some(self.support_read().status), support: Some(self.support_read()) };
         let mut window = Window::build(&records, &reading, &self.state);
         if changed_read && !current_pending && !self.superseded {
             // This is the controller's read lifecycle, not a new service fact.
@@ -587,7 +713,8 @@ impl Live {
             if current.is_none() { window.frame.health.status.words = "Current records changed while loading"; }
         }
         self.built = presentation::build(&window, self.product.as_ref().or(current).or(self.details.as_ref()), actions,
-            &self.state, &self.ui, Why { fresh: self.fresh, pending: blocked || self.form_origin.as_ref().is_some_and(|(origin, _)| !self.fresh || Some(origin) != binding.as_ref()), in_flight: foreground, superseded: self.superseded },
+            &self.state, &self.ui, Why { fresh: self.fresh, pending: blocked, in_flight: foreground, superseded: self.superseded,
+                form_stale: self.form_origin.as_ref().is_some_and(|(origin, _)| Some(origin) != binding.as_ref()) },
             self.update_panel.as_ref(), self.reveal, self.form_generation);
         self.built.preview.clear();
         let mut renames = BTreeMap::new();
@@ -617,6 +744,7 @@ impl Live {
         let Some(reason) = self.drawn.get(id) else { return Outcome::Refused };
         if let Some(reason) = reason { self.note(reason.clone()); return Outcome::Refused; }
         let before = (self.state.page, self.state.plugins.focus.clone());
+        let before_product_page = self.state.plugins.page;
         match target {
             Target::Offer { offer, after } => {
                 if self.foreground_busy() || self.support_waiting() || !self.fresh
@@ -657,31 +785,35 @@ impl Live {
                 ListStep::Role(role) => self.state.plugins.role = role,
                 ListStep::Status(status) => self.state.plugins.status = status,
                 ListStep::Open(key) => self.state.go(&Destination::Product(key)),
+                ListStep::ProductPage { key, page } => self.state.plugins.show_page(key, page),
             },
             Target::Choose { group, key } => { self.ui.choices.insert(group, key); }
             _ => { self.note(LIMITATION.into()); return Outcome::Refused; }
         }
+        self.state.retire_repair_if_left();
+        self.retire_empty_form_origin();
         let navigated = before != (self.state.page, self.state.plugins.focus.clone());
         if navigated {
             self.product = None; self.product_attempted = false;
             if self.state.page == Page::Diagnostics {
-                self.status = None; self.status_attempted = false; self.status_notice = None; self.need_status = true;
                 self.inspection_requested = false;
             }
+            if matches!(self.state.page, Page::Diagnostics | Page::Activity) && self.status.is_none()
+                && self.status_notice.is_none() { self.need_status = true; }
             self.need_details = self.wants_details() && !self.details_attempted;
             // Navigation can retire an unsent page read. An already running
             // read still finishes normally; it cannot authorize a new action.
             if self.queued.as_ref().is_some_and(|(_, flight)| match flight {
                 Flight::Details { .. } => !self.wants_details(),
-                Flight::Status => self.state.page != Page::Diagnostics,
+                Flight::Status => !matches!(self.state.page, Page::Diagnostics | Page::Activity),
                 _ => false,
             }) { self.queued = None; }
         }
         self.drive(); self.rebuild();
-        if navigated { Outcome::Navigated } else { Outcome::Changed }
+        if navigated || before_product_page != self.state.plugins.page { Outcome::Navigated } else { Outcome::Changed }
     }
     fn wants_details(&self) -> bool {
-        self.state.page == Page::Activity || (self.state.page == Page::Diagnostics && self.inspection_requested)
+        self.state.page == Page::Diagnostics && self.inspection_requested
     }
     fn support_read(&self) -> vm::diagnostics::SupportRead<'_> {
         use vm::diagnostics::{Section, SupportRead};
@@ -712,7 +844,7 @@ impl Live {
         }
         // Activity is an independent last-read observation, not bound to the
         // current overview token. Refresh it on page entry or explicit Refresh.
-        self.need_status = self.state.page == Page::Diagnostics && !self.status_attempted;
+        self.need_status = matches!(self.state.page, Page::Diagnostics | Page::Activity) && !self.status_attempted;
         self.need_details = !self.details_attempted && self.wants_details();
     }
     fn retry_changed_details(&mut self) {
@@ -794,7 +926,11 @@ impl Live {
                 if let Some(report) = self.support.as_ref().and_then(|s| s.report.clone()) { self.save_report(report); }
             },
             Effect::ChooseInstaller => if !self.foreground_busy() && !self.support_waiting() && !self.superseded {
-                self.queue_foreground(Query::PickInstaller, Flight::Import);
+                let repair = if let Some(draft) = self.state.focus.repair.clone() {
+                    let Some(binding) = self.binding() else {return;};
+                    Some((draft,binding.generation))
+                } else {None};
+                self.queue_foreground(Query::PickInstaller, Flight::Import {repair});
             },
             Effect::OpenCurrentManager => if !self.foreground_busy() {
                 // This is the one explicit handoff allowed from a superseded window.
@@ -832,7 +968,8 @@ impl Live {
             FormStep::ToggleForget => forms.forget_installer = !forms.forget_installer,
             FormStep::Confirm => {
                 let Some(form) = forms.confirm.clone() else { return };
-                let confirmation = forms::removal_confirmation(self.product.as_ref().or_else(|| self.overview.as_ref().map(|o| &o.current)), &form);
+                let confirmation = forms::confirmation_with_repair(self.product.as_ref().or_else(|| self.overview.as_ref().map(|o| &o.current)), &form, self.state.focus.repair.as_ref());
+                if confirmation.offer.is_err() {return;}
                 if let Some(action) = self.state.forms.confirmed(confirmation.forget.is_some()) {
                     if let Some((binding, offer)) = origin { self.submit(action, binding, offer); }
                 }
@@ -880,6 +1017,9 @@ impl Live {
             }
             FormStep::CancelRecord => forms.record = None,
         }
+        self.retire_empty_form_origin();
+    }
+    fn retire_empty_form_origin(&mut self) {
         let forms = &self.state.forms;
         if forms.install.is_none() && forms.rename.is_none() && forms.record.is_none() && forms.confirm.is_none() {
             self.form_origin = None;
@@ -947,7 +1087,7 @@ fn bind_nodes(nodes: &mut [Node], renames: &BTreeMap<String, String>, limitation
 }
 
 #[cfg(all(test, feature = "samples"))]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use vm::{model::{AvailableAction, Receipt}, samples::{Case, Sample}, Local};
 
@@ -970,17 +1110,123 @@ mod tests {
         Reply::Overview(Box::new(vm::model::InteractiveOverview { schema: 1, operator_schema: vm::model::OPERATOR_SCHEMA,
             scope: "current_only".into(), current_generation: generation.into(), current: snapshot, readiness }))
     }
-    fn ready() -> Live {
-        let mut live = Live::new("test posture".into(), false);
+    fn status(s: &Snapshot) -> Activity {
+        Activity { schema: vm::model::OPERATOR_SCHEMA, system:s.system.clone(),
+            capture:s.capture.clone(), operation:s.operation.clone(),
+            live:vm::model::LiveActivity { instances:vm::model::Observation::Observed(vec![]) },
+            recent:vm::model::Observation::Observed(vec![]), incidents:vm::model::Observation::Observed(vec![]) }
+    }
+    fn observe_state(live: &mut Live, s: &Snapshot, epoch: &str, records: u64) {
+        use lvb_client::observation::{Cursor, Event, State};
+        let revision = live.observation_cursor.as_ref().map_or(1, |cursor| cursor.revision + 1);
+        live.observe(Event::State(Box::new(State { cursor:Cursor { service_epoch:epoch.into(), revision },
+            records_revision:Some(records), activity:vm::model::Observation::Observed(status(s)) })));
+    }
+    fn observing(posture: String, reveal: bool) -> Live {
+        let mut live = Live::new(posture, reveal);
+        observe_state(&mut live, &snapshot(), "service-a", 1);
+        live
+    }
+    fn record_change(live: &mut Live) {
+        let s = live.overview.as_ref().map(|view| view.current.clone()).unwrap_or_else(snapshot);
+        let records = live.observation_records.as_ref().and_then(|(_, records)| *records).unwrap_or(0) + 1;
+        observe_state(live, &s, "service-a", records);
+    }
+    fn background(live: &mut Live, current: bool) {
+        live.queue(if current { Query::CurrentOverview } else { Query::Pulse },
+            if current { Flight::Current } else { Flight::Pulse });
+    }
+    fn heartbeat(live: &mut Live) {
+        live.observe(lvb_client::observation::Event::Heartbeat {
+            cursor:live.observation_cursor.clone().unwrap() });
+    }
+    pub(crate) fn ready() -> Live {
+        let mut live = observing("test posture".into(), false);
         assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
         assert!(live.take_query().is_none());
         live.receive(overview(snapshot(), "generation-a"));
         live
     }
-    fn activity(s: &Snapshot) -> Reply {
-        Reply::Activity(Activity { schema: vm::model::OPERATOR_SCHEMA, system: s.system.clone(),
-            capture: s.capture.clone(), operation: s.operation.clone(), workspace_product_install_ready: false })
+    pub(crate) fn assert_paused(live: &Live) {
+        assert!(live.superseded && !live.fresh);
+        assert!(live.message.contains("This window is paused"));
     }
+    pub(crate) fn age_health(live: &mut Live) {
+        live.health_observed = Some(Instant::now() - Duration::from_secs(60));
+    }
+    pub(crate) fn complete_current(live: &mut Live) {
+        live.receive(overview(snapshot(), "generation-a"));
+    }
+    pub(crate) fn expire_observation(live: &mut Live) {
+        live.observation_seen = Some(Instant::now() - Duration::from_millis(3001));
+    }
+    pub(crate) fn observation(live: &Live) -> lvb_client::observation::Event {
+        lvb_client::observation::Event::State(Box::new(lvb_client::observation::State {
+            cursor: live.observation_cursor.clone().unwrap(), records_revision: Some(1),
+            activity: vm::model::Observation::Observed(status(&snapshot())),
+        }))
+    }
+    #[test]
+    fn quiet_post_staging_heartbeat_renews_only_covered_idle_reading() {
+        let mut live = ready();
+        // Deterministic staging boundary between the previous reading and the
+        // next heartbeat. No State or explicit refresh follows staging.
+        live.health_observed = Some(Instant::now() - Duration::from_secs(20));
+        let staged = Instant::now() - Duration::from_secs(1);
+        assert!(live.updater_reading().unwrap().1 < staged);
+        let revision = live.render_revision();
+        let authority = live.authority_generation;
+        heartbeat(&mut live);
+        let (in_use, observed) = live.updater_reading().unwrap();
+        assert!(!in_use && observed > staged);
+        assert_eq!(live.render_revision(), revision);
+        assert_eq!(live.authority_generation, authority);
+        assert!(live.take_query().is_none());
+        for invalid in ["failed", "uncovered", "different-system", "wrong-cursor"] {
+            let mut live = ready();
+            let old = Instant::now() - Duration::from_secs(20);
+            live.health_observed = Some(old);
+            let mut cursor = live.observation_cursor.clone().unwrap();
+            match invalid {
+                "failed" => live.status_notice = Some("unavailable".into()),
+                "uncovered" => { live.fresh = false; live.observation_records = Some(("service-a".into(), None)); },
+                "different-system" => live.status.as_mut().unwrap().system.dsp += 1,
+                _ => cursor.revision += 1,
+            }
+            live.observe(lvb_client::observation::Event::Heartbeat { cursor });
+            assert_eq!(live.health_observed, Some(old), "{invalid}");
+        }
+    }
+    #[test]
+    fn pending_receipt_before_staging_cannot_become_post_staging() {
+        use lvb_client::observation::{Event, Received};
+        let mut live = ready();
+        let at = Instant::now() - Duration::from_millis(100);
+        let staged = Instant::now();
+        let received = Received { event: Event::Heartbeat { cursor: live.observation_cursor.clone().unwrap() }, at };
+        assert!(!live.observe_received(received));
+        assert_eq!(live.updater_reading().unwrap().1, at);
+        assert!(live.updater_reading().unwrap().1 < staged);
+        // A late current-overview reply must not relabel the retained receipt.
+        live.need_current = true;
+        live.drive();
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        complete_current(&mut live);
+        assert_eq!(live.updater_reading().unwrap().1, at);
+    }
+    #[test]
+    fn aged_pending_state_and_heartbeat_expire_instead_of_renewing() {
+        use lvb_client::observation::{Event, Received, STALE_AFTER};
+        for state in [false, true] {
+            let mut live = ready();
+            let event = if state { observation(&live) } else { Event::Heartbeat { cursor: live.observation_cursor.clone().unwrap() } };
+            assert!(live.observe_received(Received { event, at: Instant::now() - STALE_AFTER }), "request a replacement subscription");
+            assert!(!live.fresh);
+            assert!(live.observation_seen.is_none());
+            assert!(live.updater_reading().is_none());
+        }
+    }
+    fn activity(s: &Snapshot) -> Reply { Reply::Activity(status(s)) }
     fn ready_support() -> Live {
         let mut live = ready();
         show_page(&mut live, Page::Diagnostics, &snapshot());
@@ -1031,8 +1277,7 @@ mod tests {
             if page != Page::Home { show_page(&mut live, page, &snapshot()); }
             let before = live.built.clone();
             for current in [false, true] {
-                live.last_current = Cx::monotonic_now() - if current { 6.0 } else { 0.0 };
-                live.next_poll = Cx::monotonic_now(); live.tick();
+                background(&mut live, current);
                 assert!(same_render(&before, &live.built), "queuing a background read changed {page:?}");
                 assert!(matches!((current, live.take_query()),
                     (false, Some(Query::Pulse)) | (true, Some(Query::CurrentOverview))));
@@ -1044,13 +1289,12 @@ mod tests {
     }
     #[test]
     fn failed_technical_read_remains_retryable_through_background_status_reads() {
-        for page in [Page::Activity, Page::Diagnostics] {
+        for page in [Page::Diagnostics] {
             let mut live = ready(); live.state.page = page; live.inspection_requested = true; live.status_attempted = true; live.need_details = true; live.drive();
             assert!(matches!(live.take_query(), Some(Query::Snapshot)));
             live.receive(Reply::Error("Full records read timed out".into()));
             for current in [false, true, true] {
-                live.last_current = Cx::monotonic_now() - if current { 6.0 } else { 0.0 };
-                live.next_poll = Cx::monotonic_now(); live.tick();
+                background(&mut live, current);
                 let retry = target(&live, |t| matches!(t, Target::Control(c) if c.does == Local::RetryDetails));
                 assert!(live.drawn[&retry].is_none());
                 assert!(matches!((current, live.take_query()),
@@ -1069,7 +1313,7 @@ mod tests {
     }
     #[test]
     fn a_newer_full_snapshot_is_validated_without_an_endless_overview_snapshot_loop() {
-        for page in [Page::Activity, Page::Diagnostics] {
+        for page in [Page::Diagnostics] {
             let mut live = ready(); live.state.page = page; live.inspection_requested = true; live.status_attempted = true; live.need_details = true; live.drive();
             assert!(matches!(live.take_query(), Some(Query::Snapshot)));
             let mut newer = snapshot(); newer.state_token = "newer-owner-state".into();
@@ -1084,7 +1328,7 @@ mod tests {
     }
     #[test]
     fn failed_snapshot_validation_finishes_with_retry_instead_of_loading_forever() {
-        let mut live = ready(); live.state.page = Page::Activity; live.need_details = true; live.drive();
+        let mut live = ready(); live.state.page = Page::Diagnostics; live.inspection_requested = true; live.need_details = true; live.drive();
         assert!(matches!(live.take_query(), Some(Query::Snapshot)));
         let mut newer = snapshot(); newer.state_token = "new-owner-state".into();
         live.receive(Reply::Snapshot(Box::new(newer)));
@@ -1099,8 +1343,7 @@ mod tests {
     fn a_click_during_a_background_read_is_queued_once_and_revalidated_before_submission() {
         for change in ["none", "token", "generation", "disabled", "read_error"] {
             let mut live = ready_support();
-            live.last_current = Cx::monotonic_now() - 6.0;
-            live.next_poll = Cx::monotonic_now(); live.tick();
+            background(&mut live, true);
             assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
             let id = export(&live);
             assert_eq!(press(&mut live, &id), Outcome::Changed);
@@ -1197,7 +1440,7 @@ mod tests {
     }
     #[test]
     fn startup_has_no_fabricated_records_and_only_one_current_read() {
-        let mut live = Live::new(String::new(), false);
+        let mut live = observing(String::new(), false);
         assert!(live.overview.is_none() && live.details.is_none() && live.product.is_none());
         assert!(live.built.targets.values().all(|t| !matches!(t, Target::Offer { .. })));
         assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
@@ -1218,7 +1461,7 @@ mod tests {
         live.receive(readback("exact-operation", serde_json::json!({"operation":"exact-operation","state":"running"})));
         current_if_queued(&mut live, Some(completed("someone-else")));
         assert!(live.support.as_ref().unwrap().report.is_none());
-        live.next_poll = Cx::monotonic_now(); assert!(live.tick());
+        record_change(&mut live);
         assert!(matches!(live.take_query(), Some(Query::Operation(id)) if id == "exact-operation"));
         live.receive(readback("exact-operation", completed("exact-operation")));
         current_if_queued(&mut live, Some(completed("someone-else")));
@@ -1489,7 +1732,7 @@ mod tests {
         let rescan = Action::EnvironmentRescan { environment: "12".repeat(16) };
         s.actions.push(AvailableAction { label: "Find plug-ins in this setup".into(),
             action: rescan.clone(), disabled_reason: None });
-        let mut live = Live::new(String::new(), false);
+        let mut live = observing(String::new(), false);
         assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
         live.receive(overview(s.clone(), "generation-a"));
         show_page(&mut live, Page::Diagnostics, &s);
@@ -1548,7 +1791,7 @@ mod tests {
     #[test]
     fn repeated_changed_reads_settle_initial_and_retained_views_without_a_retry_loop() {
         for retained in [false, true] {
-            let mut live = if retained { ready() } else { Live::new(String::new(), false) };
+            let mut live = if retained { ready() } else { observing(String::new(), false) };
             if retained { live.queue(Query::CurrentOverview, Flight::Current); }
             assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
             for attempt in 0..2 {
@@ -1572,9 +1815,9 @@ mod tests {
             }
             let retry = target(&live, |t| matches!(t, Target::Control(c) if c.does == Local::Refresh));
             assert!(live.drawn[&retry].is_none());
-            // Existing periodic polling may recover, but cannot refill the
+            // A pushed owner change requests readback but cannot refill the
             // immediate retry budget after another obsolete response.
-            live.next_poll = Cx::monotonic_now(); live.tick();
+            record_change(&mut live);
             assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
             live.receive(Reply::Error("operator_state_changed_refresh".into()));
             assert!(live.take_query().is_none());
@@ -1639,14 +1882,14 @@ mod tests {
         assert!(live.take_query().is_none(), "The queued action must be refused, not retried");
         let support = live.support.as_ref().unwrap();
         assert!(support.terminal && support.operation.is_none() && !support.acknowledgment_uncertain);
-        live.next_poll = Cx::monotonic_now(); live.tick();
+        record_change(&mut live);
         assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
         live.receive(overview(snapshot(), "generation-a"));
         assert!(live.take_query().is_none(), "Even the same offer cannot replay the retired click");
     }
     #[test]
     fn an_obsolete_current_read_does_not_discard_a_snapshot_awaiting_validation() {
-        let mut live = ready(); live.state.page = Page::Activity; live.need_details = true; live.drive();
+        let mut live = ready(); live.state.page = Page::Diagnostics; live.inspection_requested = true; live.need_details = true; live.drive();
         assert!(matches!(live.take_query(), Some(Query::Snapshot)));
         let mut newer = snapshot(); newer.state_token = "new-owner-state".into();
         live.receive(Reply::Snapshot(Box::new(newer.clone())));
@@ -1687,7 +1930,7 @@ mod tests {
             current_if_queued(&mut live, Some(completed("other-operation")));
             assert!(live.support.as_ref().unwrap().report.is_none());
             assert!(!live.support.as_ref().unwrap().terminal);
-            live.next_poll = Cx::monotonic_now(); live.tick();
+            record_change(&mut live);
             assert!(matches!(live.take_query(), Some(Query::Operation(id)) if id == "exact-operation"));
         }
     }
@@ -1702,7 +1945,7 @@ mod tests {
             assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
             live.receive(Reply::Error("current status unavailable".into()));
             assert!(!live.fresh);
-            live.next_poll = Cx::monotonic_now(); assert!(live.tick());
+            record_change(&mut live);
         }
         assert!(matches!(live.take_query(), Some(Query::Operation(id)) if id == "exact-operation"));
         live.receive(readback("exact-operation", completed("exact-operation")));
@@ -1725,8 +1968,11 @@ mod tests {
         assert!(live.support.as_ref().unwrap().text.contains("unconfirmed"));
         let id = export(&live);
         assert_eq!(press(&mut live, &id), Outcome::Refused);
-        live.next_poll = Cx::monotonic_now(); assert!(live.tick());
-        assert!(matches!(live.take_query(), Some(Query::Pulse)));
+        record_change(&mut live);
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        live.receive(overview(snapshot(), "generation-a"));
+        assert!(live.support.as_ref().unwrap().report.is_none());
+        assert!(live.take_query().is_none());
     }
     #[test]
     fn completed_report_with_malformed_identity_cannot_be_saved() {
@@ -1770,7 +2016,7 @@ mod tests {
     #[test]
     fn background_recovery_retires_only_the_read_error_and_keeps_the_open_page() {
         for notice in ["", "A separate updater notice"] {
-            let mut live = Live::new("test".into(), false);
+            let mut live = observing("test".into(), false);
             assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
             live.receive(Reply::Error("initial read unavailable".into()));
             let support = target(&live, |target| matches!(target, Target::Tab(Tab::Support)));
@@ -1787,8 +2033,7 @@ mod tests {
             assert!(!format!("{:?}", live.built.page).contains("initial read unavailable"));
             assert_eq!(live.message, notice);
             assert_eq!(live.state.page, Page::Diagnostics);
-            assert!(matches!(live.take_query(), Some(Query::Activity)));
-            live.receive(activity(&snapshot()));
+            assert!(live.take_query().is_none());
             assert!(live.status.is_some() && live.details.is_none());
             if !notice.is_empty() { assert!(format!("{:?}", live.built.page).contains(notice)); }
         }
@@ -1796,7 +2041,7 @@ mod tests {
 
     #[test]
     fn failed_initial_status_settles_and_retry_reads_without_submitting_an_action() {
-        let mut live = Live::new("test".into(), false);
+        let mut live = observing("test".into(), false);
         assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
         live.receive(Reply::Error("artifact missing or changed".into()));
         for page in [Page::Home, Page::Setup, Page::Plugins, Page::Activity, Page::Diagnostics] {
@@ -1848,8 +2093,7 @@ mod tests {
             let key = ProductKey::from(&s.products[0]);
             // Opening the product can happen while a background overview is
             // still pending. The product then queues behind that exact read.
-            live.last_current = Cx::monotonic_now() - 6.0;
-            live.next_poll = Cx::monotonic_now(); live.tick();
+            background(&mut live, true);
             assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
             live.state.go(&Destination::Product(key.clone())); live.drive(); live.rebuild();
             loading(&live);
@@ -1863,8 +2107,7 @@ mod tests {
                 // Unrelated reads do not retry this product or erase its error,
                 // either while queued, in flight, or after the same-state reply.
                 for current in [false, true] {
-                    live.last_current = Cx::monotonic_now() - if current { 6.0 } else { 0.0 };
-                    live.next_poll = Cx::monotonic_now(); assert!(live.tick());
+                    background(&mut live, current);
                     failed(&live);
                     let query = live.take_query();
                     assert!(matches!((current, query),
@@ -1894,6 +2137,63 @@ mod tests {
         }
     }
     #[test]
+    fn repair_progress_renews_product_without_false_failure_and_failed_current_read_can_retry() {
+        fn contains(nodes: &[Node], words: &str) -> bool {
+            nodes.iter().any(|node| match node {
+                Node::Text(_, text) => text.contains(words),
+                Node::Panel { children, .. } | Node::Fold { children, .. } | Node::Row(children)
+                | Node::Stack(children) | Node::Columns(children) | Node::Header(children) => contains(children, words),
+                _ => false,
+            })
+        }
+        let mut live = ready_case(Page::Plugins, "plugin_ready");
+        let current = live.overview.as_ref().unwrap().current.clone();
+        let key = ProductKey::from(&current.products[0]);
+        let old = live.built.targets.iter().find(|(_, target)| matches!(target, Target::Offer {..}))
+            .map(|(id, _)| id.clone()).unwrap();
+        let mut support = Support::captured(Action::EnvironmentInstallerStart {
+            environment: key.environment.clone(), installer: "ab".repeat(32) });
+        support.operation = Some("repair-owned".into()); support.blocking = false;
+        live.support = Some(support);
+        record_change(&mut live);
+        assert!(!live.fresh && live.product.is_none());
+        assert_eq!(press(&mut live, &old), Outcome::Refused, "retained details cannot authorize stale actions");
+        assert!(contains(&live.built.page, "Refreshing this plug-in"));
+        assert!(!contains(&live.built.page, "could not be loaded"));
+        assert!(matches!(live.take_query(), Some(Query::Operation(id)) if id == "repair-owned"));
+        live.receive(readback("repair-owned", serde_json::json!({
+            "operation":"repair-owned", "state":"vendor_running" })));
+        assert!(live.support.as_ref().unwrap().text.contains("running"));
+        assert!(contains(&live.built.page, "Refreshing this plug-in"));
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        // The operation banner can progress while the current view becomes
+        // obsolete. Neither the old product nor the old overview grants offers.
+        record_change(&mut live);
+        live.receive(overview(current.clone(), "generation-a"));
+        assert!(!live.fresh);
+        assert!(matches!(live.take_query(), Some(Query::Operation(_))));
+        live.receive(readback("repair-owned", serde_json::json!({
+            "operation":"repair-owned", "state":"running" })));
+        assert!(!contains(&live.built.page, "could not be loaded"));
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        live.receive(Reply::Error("current records unreadable".into()));
+        assert!(contains(&live.built.page, "Current plug-in status could not be loaded"));
+        let retry = target(&live, |target| matches!(target,
+            Target::Control(control) if control.does == Local::Refresh));
+        assert_eq!(press(&mut live, &retry), Outcome::Changed);
+        assert!(matches!(live.take_query(), Some(Query::Overview)), "retry renews current authority, not only product details");
+        live.receive(interactive(current.clone(), "generation-a"));
+        assert!(live.fresh);
+        assert!(matches!(live.take_query(), Some(Query::Product(asked)) if asked == key));
+        live.receive(Reply::Product(Box::new(CurrentProductDetail { schema: 1,
+            operator_schema: vm::model::OPERATOR_SCHEMA, state_token: current.state_token.clone(),
+            current_generation: "generation-a".into(), system: current.system.clone(),
+            product: current.products[0].clone(), environments: current.environments.clone(),
+            vendor_applications: current.vendor_applications.clone() })));
+        assert!(live.product.is_some() && !contains(&live.built.page, "could not be loaded"));
+        assert!(live.take_query().is_none(), "reads never repeat the installer action");
+    }
+    #[test]
     fn disabled_owner_reason_survives_the_frontend_limitation() {
         let mut live = ready_support();
         let mut s = snapshot(); s.actions[0].disabled_reason = Some("Owner export unavailable".into());
@@ -1906,13 +2206,213 @@ mod tests {
     }
     fn ready_case(page: Page, name: &str) -> Live {
         let sample = Sample::new(Case::new(page, name));
-        let mut live = Live::new(String::new(), false);
+        let mut live = observing(String::new(), false);
+        observe_state(&mut live, &sample.snapshot, "service-a", 1);
         assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
         live.receive(overview(sample.snapshot.clone(), "generation-a"));
         live.state = sample.state(); live.reveal = true;
         if page == Page::Plugins { live.drive(); finish_page_read(&mut live, page, &sample.snapshot); }
         live.rebuild(); live
     }
+    #[test]
+    fn failed_instance_restart_survives_exact_confirmation_and_dispatch_revalidation() {
+        use vm::model::{Observation, RecoveryPhase};
+        for change in ["none", "offer", "observation", "snapshot-revision", "snapshot-hash", "owner", "refusal"] {
+            let mut live = ready_case(Page::Plugins, "plugin_ready");
+            let mut failed = live.product.as_ref().unwrap().clone();
+            let activity = vm::samples::recovery_fixture(&mut failed);
+            let restart = failed.products[0].actions.iter().find(|offer|
+                matches!(offer.action, Action::PluginRestart {..})).unwrap().action.clone();
+            let mut healthy = failed.clone();
+            healthy.products[0].actions.retain(|offer| offer.action != restart);
+            let mut connected = activity.clone();
+            let Observation::Observed(instances) = &mut connected.live.instances else {panic!()};
+            instances[0].recovery.as_mut().unwrap().phase = RecoveryPhase::Connected;
+            instances[0].recovery.as_mut().unwrap().restart = None;
+            live.overview.as_mut().unwrap().current = healthy.clone();
+            live.product = Some(healthy);
+            live.status = Some(connected);
+            live.status_attempted = true;
+            live.need_status = false;
+            live.rebuild();
+            assert!(!live.built.targets.values().any(|target| matches!(target,
+                Target::Offer {offer,..} if offer.intent == restart)));
+
+            // The same live instance fails, and the owner offers its exact captured state.
+            live.overview.as_mut().unwrap().current = failed.clone();
+            live.product = Some(failed);
+            live.status = Some(activity);
+            live.rebuild();
+            let offer = target(&live, |target| matches!(target,
+                Target::Offer {offer,..} if offer.intent == restart));
+            assert_eq!(press(&mut live, &offer), Outcome::Changed);
+            assert!(live.take_query().is_none(), "restart must wait for confirmation");
+            let confirm = target(&live, |target| matches!(target, Target::Form(FormStep::Confirm)));
+            assert_eq!(press(&mut live, &confirm), Outcome::Changed);
+            // Revalidation must still reject a changed owner or observation after confirmation.
+            match change {
+                "offer" => live.product.as_mut().unwrap().products[0].actions.retain(|offer| offer.action != restart),
+                "refusal" => live.product.as_mut().unwrap().products[0].actions.iter_mut()
+                    .find(|offer|offer.action==restart).unwrap().disabled_reason = Some("Restart is already in progress".into()),
+                "observation" => {
+                    let Observation::Observed(instances) = &mut live.status.as_mut().unwrap().live.instances else {panic!()};
+                    instances[0].recovery.as_mut().unwrap().generation += 1;
+                }
+                "snapshot-revision" | "snapshot-hash" => {
+                    let Observation::Observed(instances) = &mut live.status.as_mut().unwrap().live.instances else {panic!()};
+                    let Observation::Observed(snapshot) = &mut instances[0].recovery.as_mut().unwrap().snapshot else {panic!()};
+                    if change == "snapshot-revision" { snapshot.revision += 1; }
+                    else { snapshot.sha256 = "ef".repeat(32); }
+                }
+                "owner" => live.overview.as_mut().unwrap().current_generation = "generation-b".into(),
+                _ => {},
+            }
+            if change == "none" {
+                let Some(Query::Action(request)) = live.take_query() else {panic!("unchanged exact restart must be dispatched")};
+                assert_eq!(request.action, restart);
+                assert!(live.take_query().is_none(), "restart is sent only once");
+            } else {
+                assert!(live.take_query().is_none(), "changed authority must refuse");
+                assert!(live.support.as_ref().unwrap().text.contains("not submitted"));
+            }
+        }
+    }
+
+    #[test]
+    fn renewed_restart_confirmation_returns_to_current_offer_without_waiting_or_replay() {
+        for changed in ["token", "generation"] {
+            let mut current = snapshot();
+            let activity = vm::samples::recovery_fixture(&mut current);
+            let restart = current.products[0].actions.iter().find(|offer|
+                matches!(offer.action, Action::PluginRestart { .. })).unwrap().action.clone();
+            let mut live = observing(String::new(), false);
+            assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+            live.receive(overview(current.clone(), "generation-a"));
+            show_page(&mut live, Page::Activity, &current);
+            live.status = Some(activity.clone()); live.rebuild();
+            let offer = target(&live, |t| matches!(t, Target::Offer { offer, .. } if offer.intent == restart));
+            assert_eq!(press(&mut live, &offer), Outcome::Changed);
+            let origin = live.form_origin.clone();
+            let confirm = target(&live, |t| matches!(t, Target::Form(FormStep::Confirm)));
+            assert!(live.drawn[&confirm].is_none());
+            assert!(live.take_query().is_none());
+
+            // Finish an ordinary background renewal. The exact instance,
+            // generation and captured state remain offered under new authority.
+            background(&mut live, true);
+            assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+            if changed == "token" { current.state_token = "renewed-token".into(); }
+            live.receive(overview(current.clone(), if changed == "generation" { "generation-b" } else { "generation-a" }));
+            assert!(live.take_query().is_none(), "the background read has finished");
+            assert!(live.fresh && !live.busy() && !live.support_waiting());
+            assert_eq!(live.form_origin, origin, "an open form must never borrow new authority");
+            assert_eq!(live.state.forms.confirm.as_ref(), Some(&restart));
+            assert!(!format!("{:?}", live.built.form).contains(vm::offers::WAITING),
+                "an idle stale form must not claim that a request or read is pending");
+            assert_eq!(live.drawn[&confirm].as_deref(), Some("This form is no longer current."));
+            let shown = format!("{:?}", live.built.form);
+            assert!(shown.contains("Close this dialog") && shown.contains("choose the action again"));
+            assert_eq!(press(&mut live, &confirm), Outcome::Refused);
+            live.form_step(FormStep::Confirm);
+            assert!(live.support.is_none() && live.take_query().is_none(), "no stale submission");
+
+            let cancel = target(&live, |t| matches!(t, Target::Form(FormStep::CancelConfirm)));
+            assert!(live.drawn[&cancel].is_none(), "the return control remains reachable");
+            assert_eq!(press(&mut live, &cancel), Outcome::Changed);
+            assert!(live.built.form.is_none() && live.form_origin.is_none());
+            assert_eq!(live.state.page, Page::Activity);
+            assert_eq!(press(&mut live, &offer), Outcome::Refused, "the old offer stays retired");
+            let offer = target(&live, |t| matches!(t, Target::Offer { offer, .. } if offer.intent == restart));
+            assert_eq!(press(&mut live, &offer), Outcome::Changed);
+            assert_eq!(press(&mut live, &confirm), Outcome::Refused, "old form controls stay retired");
+            let confirm = target(&live, |t| matches!(t, Target::Form(FormStep::Confirm)));
+            assert_eq!(press(&mut live, &confirm), Outcome::Changed);
+            let Some(Query::Action(request)) = live.take_query() else { panic!("current exact restart") };
+            assert_eq!(request.state_token, current.state_token);
+            assert_eq!(request.action, restart);
+            assert!(live.take_query().is_none(), "one explicit restart only");
+
+            live.receive(Reply::Error("connection closed after submission".into()));
+            assert!(matches!(live.take_query(), Some(Query::Pulse)));
+            live.receive(pulse(Some(completed("unrelated-operation"))));
+            assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+            current.operation = Some(completed("unrelated-operation"));
+            live.receive(overview(current, "generation-c"));
+            let support = live.support.as_ref().unwrap();
+            assert!(support.acknowledgment_uncertain && support.operation.is_none());
+            assert!(support.text.contains("unconfirmed"));
+            assert!(live.take_query().is_none(), "renewal cannot replay an uncertain restart");
+        }
+    }
+
+    #[test]
+    fn renewed_editable_forms_keep_their_drafts_and_explain_the_return_path() {
+        use vm::model::{DawChoice, PublicationIdentity, TestArea};
+        let installer = "ab".repeat(32);
+        let result = |result| Action::CompatibilityResult { candidate: "exact-candidate".into(),
+            expected_current: PublicationIdentity { id: "cd".repeat(16), sha256: "ef".repeat(32) },
+            result, passed: vec![TestArea::DawLoad], failed_area: None, note: "Observed in the DAW".into() };
+        let cases = [
+            (Action::SoftwareInstall { installer: installer.clone(), daw: DawChoice::Other },
+                FormStep::StartInstall, FormStep::CancelInstall),
+            (Action::InstallerRename { installer, label: "My instrument setup".into() },
+                FormStep::SaveRename, FormStep::CancelRename),
+            (result(TestResultKind::Worked), FormStep::SubmitRecord, FormStep::CancelRecord),
+            (result(TestResultKind::Problem { category: ProblemCategory::NoAudio }), FormStep::SubmitRecord, FormStep::CancelRecord),
+            (Action::CandidateObserve { candidate: "exact-candidate".into(), area: "audio".into(),
+                status: "passed".into(), note: "Observed in the DAW".into() }, FormStep::SubmitRecord, FormStep::CancelRecord),
+            (Action::CandidateReview { candidate: "exact-candidate".into(), accept: true,
+                rationale: "Checked this configuration".into() }, FormStep::SubmitRecord, FormStep::CancelRecord),
+        ];
+        for (action, submit_step, cancel_step) in cases {
+            for complete in [false, true] {
+                let mut live = ready_case(Page::Setup, "setup_many");
+                let current = &mut live.overview.as_mut().unwrap().current;
+                let offered = AvailableAction { label: "Exact test offer".into(), action: action.clone(), disabled_reason: None };
+                if let Action::SoftwareInstall { installer, .. } = &action {
+                    current.installer_setups[0].installer = installer.clone();
+                    current.installer_setups[0].primary = Some(offered.clone());
+                }
+                for setup in &mut current.installer_setups { setup.journey = None; }
+                current.products[0].actions.push(offered);
+                let current = current.clone();
+                // Exercise each shared form through ordinary view-model routing.
+                // Only the Restart regression above dispatches an owner request.
+                live.state.forms.daw = None;
+                assert!(live.state.press(action.clone()).is_none());
+                live.form_origin = Some((live.binding().unwrap(), action.clone()));
+                if complete { live.state.forms.daw = Some(DawChoice::Bitwig); }
+                else {
+                    live.field("field.rename", ""); live.field("field.note", "");
+                    if let Some(Action::CompatibilityResult { passed, .. }) = &mut live.state.forms.record { passed.clear(); }
+                }
+                live.rebuild();
+                let submit = target(&live, |t| matches!(t, Target::Form(step) if step == &submit_step));
+                assert_eq!(live.drawn[&submit].is_none(), complete, "{action:?}");
+                let draft = live.state.forms.clone();
+                let origin = live.form_origin.clone();
+                background(&mut live, true);
+                assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+                live.receive(overview(current, "generation-b"));
+                assert!(live.fresh && !live.busy() && !live.support_waiting());
+                assert_eq!(live.state.forms, draft);
+                assert_eq!(live.form_origin, origin);
+                let shown = format!("{:?}", live.built.form);
+                assert!(!shown.contains(vm::offers::WAITING));
+                assert!(shown.contains("Close this dialog") && shown.contains("choose the action again"));
+                if complete { assert_eq!(live.drawn[&submit].as_deref(), Some("This form is no longer current.")); }
+                assert_eq!(press(&mut live, &submit), Outcome::Refused);
+                live.form_step(submit_step.clone());
+                assert!(live.support.is_none() && live.take_query().is_none());
+                let cancel = target(&live, |t| matches!(t, Target::Form(step) if step == &cancel_step));
+                assert!(live.drawn[&cancel].is_none());
+                assert_eq!(press(&mut live, &cancel), Outcome::Changed);
+                assert!(live.built.form.is_none() && live.form_origin.is_none());
+                assert_eq!(live.state.page, Page::Setup);
+            }
+        }
+    }
+
     #[test]
     fn confirmation_cancels_safely_and_only_the_current_form_submits_its_exact_action() {
         let mut live = ready_case(Page::Setup, "setup_removal");
@@ -1938,8 +2438,7 @@ mod tests {
             assert_eq!(press(&mut live, &rename), Outcome::Changed);
             live.field("field.rename", "My instrument setup");
             if changed {
-                live.last_current = Cx::monotonic_now() - 6.0;
-                live.next_poll = Cx::monotonic_now(); live.tick();
+                record_change(&mut live);
                 assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
                 let s = live.overview.as_ref().unwrap().current.clone();
                 live.receive(overview(s, "generation-b"));
@@ -1957,7 +2456,7 @@ mod tests {
     #[test]
     fn an_intentional_click_before_background_dispatch_is_not_dropped() {
         let mut live = ready_support();
-        live.next_poll = Cx::monotonic_now(); live.tick();
+        background(&mut live, true);
         let id = export(&live); assert_eq!(press(&mut live, &id), Outcome::Changed);
         assert!(matches!(live.take_query(), Some(Query::Action(_))));
         assert!(live.take_query().is_none());
@@ -1985,41 +2484,222 @@ mod tests {
         live.receive(Reply::CurrentManagerOpened);
         assert!(live.superseded && !live.fresh);
     }
+
+    #[test]
+    fn leaving_repair_retires_confirmation_origin_before_current_status_changes() {
+        let mut live = ready();
+        let mut current = snapshot(); vm::samples::repair_fixture(&mut current);
+        let key = ProductKey::from(&current.products[0]);
+        live.overview.as_mut().unwrap().current=current.clone();
+        live.product=Some(current.clone()); live.product_attempted=true;
+        live.state.go(&Destination::Product(key.clone()));
+        live.state.plugins.page=vm::state::ProductPage::Repair;
+        let mut draft=vm::plugins::repair::draft(&current,&key).unwrap();
+        draft.selected=Some("11".repeat(32));
+        live.state.apply(Local::SelectRepairInstaller(draft)); live.rebuild();
+        let run=target(&live,|t|matches!(t,Target::Offer {offer,..}
+            if offer.intent.environment_installer_start().is_some()));
+        press(&mut live,&run);
+        assert!(live.form_origin.is_some() && live.state.forms.confirm.is_some());
+        let home=target(&live,|t|matches!(t,Target::Tab(Tab::Home)));
+        press(&mut live,&home);
+        assert!(live.form_origin.is_none() && live.state.forms.confirm.is_none()
+            && live.state.focus.repair.is_none());
+        record_change(&mut live);
+        assert!(matches!(live.take_query(),Some(Query::CurrentOverview)));
+        current.state_token="renewed-after-repair".into();
+        live.receive(overview(current.clone(),"generation-a"));
+        show_page(&mut live,Page::Diagnostics,&current);
+        let report=export(&live);
+        assert!(live.drawn[&report].is_none(),"retired confirmation cannot hold ordinary controls after renewal");
+        press(&mut live,&report);
+        assert!(matches!(live.take_query(),Some(Query::Action(Request {action:Action::SupportExport {},..}))));
+    }
+    #[test]
+    fn repair_import_stays_bound_to_product_generation_and_setup_revision() {
+        for change in ["none","cancel","product","generation","revision"] {
+            let mut live = ready();
+            let mut current = snapshot(); vm::samples::repair_fixture(&mut current);
+            let key = ProductKey::from(&current.products[0]);
+            live.overview.as_mut().unwrap().current=current.clone();
+            live.product=Some(current.clone()); live.product_attempted=true;
+            live.state.go(&Destination::Product(key.clone()));
+            live.state.plugins.page=vm::state::ProductPage::Repair;
+            let draft=vm::plugins::repair::draft(&current,&key).unwrap();
+            let effect=live.state.apply(Local::ChooseRepairInstaller(draft)).unwrap();
+            live.effect(effect);
+            assert!(matches!(live.take_query(),Some(Query::PickInstaller)));
+            if change == "product" {
+                let mut different=key.clone(); different.module_sha256="ff".repeat(32);
+                live.state.plugins.focus_product(different);
+            }
+            if change == "generation" {live.overview.as_mut().unwrap().current_generation="generation-b".into();}
+            if change == "cancel" {
+                live.receive(Reply::Cancelled);
+            } else {
+                live.receive(Reply::Imported(vm::model::InstallerImportResult {schema:2,
+                    installer_sha256:"11".repeat(32),byte_size:100,format:"exe".into(),
+                    newly_imported:false,display_label:"First-party repair installer".into(),created_at:1}));
+            }
+            if matches!(change,"cancel"|"product"|"generation") {
+                assert!(live.state.focus.repair.is_none(),"{change} cannot assign an imported file to another setup");
+                assert!(!matches!(live.take_query(),Some(Query::Action(_))));
+                continue;
+            }
+            assert!(matches!(live.take_query(),Some(Query::CurrentOverview)),"import must renew owner offers");
+            if change == "revision" {current.environment_installers[0].runtime.as_mut().unwrap().revision+=1;}
+            live.receive(overview(current.clone(),"generation-a"));
+            let choice=live.state.focus.repair.as_ref().unwrap();
+            assert_eq!(choice.product,key);
+            assert_eq!(choice.selected,Some("11".repeat(32)));
+            assert_eq!(vm::plugins::repair::offered(&current,choice).is_ok(),change == "none");
+            assert!(!matches!(live.take_query(),Some(Query::Action(_))),"file selection never starts the installer");
+        }
+    }
     #[test]
     fn superseded_frontend_stops_all_queries_and_preserves_unknown_ack() {
         let mut live = ready(); start(&mut live);
         live.receive(Reply::FrontendSuperseded);
         assert!(live.superseded && !live.fresh);
         assert!(live.support.is_some());
-        live.next_poll = Cx::monotonic_now(); assert!(!live.tick());
+        assert!(!live.tick());
         assert!(live.take_query().is_none());
     }
     #[test]
-    fn navigation_and_same_binding_offers_keep_ids_through_idle_reads() {
+    fn navigation_and_same_binding_offers_keep_ids_through_quiet_heartbeats() {
         let mut live = ready_support();
         let nav = target(&live, |t| matches!(t, Target::Tab(Tab::Plugins)));
         let offered = export(&live);
-        live.next_poll = Cx::monotonic_now(); assert!(live.tick());
-        assert!(live.built.targets.contains_key(&nav));
-        assert!(matches!(live.take_query(), Some(Query::Pulse)));
-        live.receive(pulse(None));
-        assert!(live.built.targets.contains_key(&nav));
+        let before = live.built.clone(); let revision = live.render_revision();
+        for _ in 0..3 { heartbeat(&mut live); assert!(!live.tick()); }
+        assert!(same_render(&before, &live.built));
+        assert_eq!(live.render_revision(), revision);
+        assert!(live.take_query().is_none(), "heartbeats cannot poll status or replay commands");
         assert_eq!(export(&live), offered);
         assert_eq!(press(&mut live, &nav), Outcome::Navigated);
     }
+
     #[test]
-    fn same_generation_counter_change_and_six_second_bound_refresh_current() {
-        let mut live = ready();
-        live.next_poll = Cx::monotonic_now(); assert!(live.tick());
-        assert!(matches!(live.take_query(), Some(Query::Pulse)));
-        let Reply::Pulse(mut changed) = pulse(None) else { unreachable!() };
-        changed.dsp = Some(9);
-        live.receive(Reply::Pulse(changed));
+    fn pushed_system_change_requires_current_read_but_idle_time_never_polls() {
+        let mut live = ready(); let mut changed = snapshot(); changed.system.dsp = 9;
+        observe_state(&mut live, &changed, "service-a", 1);
         assert!(!live.fresh);
-        current_if_queued(&mut live, None);
-        live.last_current = Cx::monotonic_now() - 6.0;
-        live.next_poll = Cx::monotonic_now(); assert!(live.tick());
         assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        live.receive(overview(changed, "generation-a"));
+        live.last_current = Cx::monotonic_now() - 60.0;
+        heartbeat(&mut live);
+        assert!(!live.tick());
+        assert!(live.take_query().is_none());
+    }
+
+    #[test]
+    fn uncovered_record_watch_cannot_renew_current_offers() {
+        let mut live = ready_support();
+        let offered = export(&live);
+        let mut cursor = live.observation_cursor.clone().unwrap(); cursor.revision += 1;
+        live.observe(lvb_client::observation::Event::State(Box::new(lvb_client::observation::State {
+            cursor, records_revision:None, activity:vm::model::Observation::Observed(status(&snapshot())),
+        })));
+        assert!(!live.fresh && live.drawn.get(&offered).is_none_or(Option::is_some));
+        assert_eq!(press(&mut live, &offered), Outcome::Refused);
+        assert!(live.support.is_none(), "a retired or disabled offer cannot submit");
+        // Even a genuine current read cannot supply continuing watch coverage.
+        if live.queued.is_none() { background(&mut live, true); }
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        live.receive(overview(snapshot(), "generation-a"));
+        assert!(!live.fresh && live.drawn.get(&offered).is_none_or(Option::is_some));
+        assert_eq!(press(&mut live, &offered), Outcome::Refused);
+        assert!(live.support.is_none(), "a retired or disabled offer cannot submit");
+        heartbeat(&mut live);
+        assert!(!live.fresh, "a connected heartbeat is not covered record observation");
+        observe_state(&mut live, &snapshot(), "service-a", 2);
+        assert!(!live.fresh, "coverage alone cannot grant offers");
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        live.receive(overview(snapshot(), "generation-a"));
+        assert!(live.fresh && live.drawn[&export(&live)].is_none());
+    }
+
+    #[test]
+    fn system_changed_during_current_read_cannot_restore_old_authority() {
+        let mut live = ready_support(); let original = live.binding().unwrap();
+        background(&mut live, true);
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        let mut changed = snapshot(); changed.system.dsp += 1;
+        observe_state(&mut live, &changed, "service-a", 1);
+        assert!(!live.fresh);
+        let mut obsolete = snapshot(); obsolete.state_token = "obsolete-system-read".into();
+        live.receive(overview(obsolete, "obsolete-generation"));
+        assert!(!live.fresh);
+        assert_eq!(live.binding().as_ref(), Some(&original));
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        assert!(live.take_query().is_none());
+        live.receive(overview(changed, "generation-a"));
+        assert!(live.fresh && live.take_query().is_none());
+        assert!(live.support.is_none(), "renewing status must never submit a request");
+    }
+
+    #[test]
+    fn older_explicit_activity_reply_cannot_replace_a_newer_push() {
+        use vm::model::Observation;
+        let mut live = ready_support();
+        live.queue(Query::Activity, Flight::Status);
+        assert!(matches!(live.take_query(), Some(Query::Activity)));
+        let mut newer = status(&snapshot());
+        newer.incidents = Observation::Unavailable("New retained incident observation".into());
+        let mut cursor = live.observation_cursor.clone().unwrap(); cursor.revision += 1;
+        live.observe(lvb_client::observation::Event::State(Box::new(lvb_client::observation::State {
+            cursor, records_revision:Some(1), activity:Observation::Observed(newer),
+        })));
+        live.receive(activity(&snapshot()));
+        assert!(matches!(&live.status.as_ref().unwrap().incidents,
+            Observation::Unavailable(reason) if reason == "New retained incident observation"));
+        assert!(live.fresh && live.take_query().is_none());
+        assert!(live.support.is_none());
+    }
+
+    #[test]
+    fn records_changed_during_current_read_require_one_new_read_and_no_replay() {
+        let mut live = ready(); let original = live.binding().unwrap();
+        record_change(&mut live);
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        record_change(&mut live);
+        record_change(&mut live);
+        assert!(live.take_query().is_none(), "in-flight invalidations coalesce");
+        let mut stale = snapshot(); stale.state_token = "stale-read-token".into();
+        live.receive(overview(stale, "stale-generation"));
+        assert!(!live.fresh);
+        assert_eq!(live.binding().as_ref(), Some(&original), "obsolete reply cannot replace authority");
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        assert!(live.take_query().is_none());
+        let mut current = snapshot(); current.state_token = "current-read-token".into();
+        live.receive(overview(current, "generation-b"));
+        assert!(live.fresh && live.support.is_none());
+        assert!(live.take_query().is_none(), "one read, never an action replay");
+    }
+    #[test]
+    fn pushed_instance_progress_does_not_invalidate_unchanged_offers_or_fetch_snapshot() {
+        use vm::model::{CleanupState, LiveInstance, Observation, ProcessingObservation, SignalObservation};
+        let mut live = ready_support(); let offered = export(&live);
+        let mut activity = status(&snapshot());
+        for completed_end in [64, 128] {
+            activity.live.instances = Observation::Observed(vec![LiveInstance { kind:vm::model::InstanceKind::Daw,
+                session:"01".repeat(16), product:Observation::Observed((&snapshot().products[0]).into()),
+                consumer:Observation::Unavailable("fixture consumer".into()), daw:Observation::Unavailable("unrecognized".into()),
+                transport:Observation::Unavailable("fixture transport".into()), lifecycle:Observation::Unavailable("fixture lifecycle".into()),
+                processing:ProcessingObservation::Advancing { epoch:1, completed_end, observed_age_ms:0 },
+                signal:SignalObservation::NotMeasured, terminal:Observation::Observed(None), cleanup:CleanupState::NotReported, recovery:None,
+            }]);
+            let mut cursor = live.observation_cursor.clone().unwrap(); cursor.revision += 1;
+            live.observe(lvb_client::observation::Event::State(Box::new(lvb_client::observation::State {
+                cursor, records_revision:Some(1), activity:Observation::Observed(activity.clone()),
+            })));
+            assert!(live.fresh);
+            assert_eq!(export(&live), offered);
+            assert!(live.drawn[&offered].is_none());
+            assert!(live.take_query().is_none(), "processing changes are observations, not invalidations");
+            assert!(live.details.is_none());
+        }
+        assert_eq!(live.status.as_ref().unwrap().live.instances.observed().unwrap()[0].signal, SignalObservation::NotMeasured);
     }
     #[test]
     fn duplicate_exact_product_records_never_grant_a_product_projection() {
@@ -2046,24 +2726,27 @@ mod tests {
         assert!(live.support.as_ref().unwrap().text.contains("unconfirmed"));
     }
     #[test]
-    fn failed_status_read_recovers_through_current_overview_not_a_pulse_claim() {
-        let mut live = ready();
-        live.next_poll = Cx::monotonic_now(); live.tick();
-        assert!(matches!(live.take_query(), Some(Query::Pulse)));
-        live.receive(Reply::Error("service unavailable".into()));
-        assert!(!live.fresh);
-        live.next_poll = Cx::monotonic_now(); live.tick();
+    fn lost_subscription_expires_once_and_reconnect_needs_current_authority() {
+        let mut live = ready(); let old = live.observation_cursor.clone().unwrap();
+        live.observation_seen = Some(Instant::now() - Duration::from_millis(3001));
+        assert!(live.tick()); assert!(!live.fresh);
+        assert!(live.take_query().is_none(), "expiry does not introduce polling");
+        assert!(!live.tick(), "an already stale stream does not rebuild every timer");
+        live.observe(lvb_client::observation::Event::Heartbeat { cursor:old });
+        assert!(live.observation_seen.is_none() && !live.fresh);
+        observe_state(&mut live, &snapshot(), "service-restarted", 1);
+        assert!(!live.fresh, "reconnect cannot renew offers");
         assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        live.receive(overview(snapshot(), "generation-a"));
+        assert!(live.fresh && live.take_query().is_none());
     }
 
     fn show_page(live: &mut Live, page: Page, s: &Snapshot) {
         live.state.page = page;
         if page == Page::Plugins {
             live.state.go(&Destination::Product(ProductKey::from(&s.products[0])));
-        } else if page == Page::Diagnostics {
+        } else if matches!(page, Page::Diagnostics | Page::Activity) {
             live.need_status = true;
-        } else {
-            live.need_details = true;
         }
         live.drive(); live.rebuild();
         finish_page_read(live, page, s);
@@ -2079,10 +2762,8 @@ mod tests {
                     environments: s.environments.clone(), vendor_applications: s.vendor_applications.clone(),
                 })));
             }
-            (Page::Diagnostics, Some(Query::Activity)) => live.receive(activity(s)),
-            (Page::Activity, Some(Query::Snapshot)) => {
-                live.receive(Reply::Snapshot(Box::new(s.clone())));
-            }
+            (Page::Diagnostics | Page::Activity, Some(Query::Activity)) => live.receive(activity(s)),
+            (Page::Diagnostics | Page::Activity, None) => assert!(live.status.is_some()),
             _ => panic!("the opened page must read its own current records"),
         }
     }
@@ -2098,7 +2779,7 @@ mod tests {
                 if changed_counters { s.system.dsp += 1; }
                 live.receive(interactive(s.clone(), "generation-a"));
                 finish_page_read(&mut live, page, &s);
-                if page == Page::Diagnostics { assert_eq!(live.status.as_ref().unwrap().system, s.system); }
+                if matches!(page, Page::Diagnostics | Page::Activity) { assert_eq!(live.status.as_ref().unwrap().system, s.system); }
                 else { assert_eq!(live.product.as_ref().or(live.details.as_ref()).unwrap().system, s.system); }
             }
         }
@@ -2108,10 +2789,9 @@ mod tests {
         for page in [Page::Plugins, Page::Activity] {
             let mut live = ready(); let mut s = snapshot();
             show_page(&mut live, page, &s);
-            live.last_current = Cx::monotonic_now() - 6.0;
-            live.next_poll = Cx::monotonic_now(); live.tick();
-            assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
             s.system.dsp += 1;
+            observe_state(&mut live, &s, "service-a", 2);
+            assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
             live.receive(overview(s.clone(), "generation-a"));
             assert!(live.product.is_none() && live.details.is_none());
             finish_page_read(&mut live, page, &s);
@@ -2120,7 +2800,7 @@ mod tests {
 
     #[test]
     fn support_opens_from_current_and_export_can_preempt_the_status_read() {
-        let mut live = ready();
+        let mut live = ready(); live.status = None; live.status_attempted = false;
         live.overview.as_mut().unwrap().current.capture = serde_json::Value::Null;
         let tab = target(&live, |t| matches!(t, Target::Tab(Tab::Support)));
         assert_eq!(press(&mut live, &tab), Outcome::Navigated);
@@ -2152,7 +2832,7 @@ mod tests {
 
     #[test]
     fn failed_support_status_is_separate_bounded_and_retried_only_by_explicit_refresh() {
-        let mut live = ready();
+        let mut live = ready(); live.status = None; live.status_attempted = false;
         let tab = target(&live, |t| matches!(t, Target::Tab(Tab::Support)));
         press(&mut live, &tab);
         assert!(matches!(live.take_query(), Some(Query::Activity)));
@@ -2226,10 +2906,11 @@ mod tests {
         let mut live = ready();
         let activity_tab = target(&live, |t| matches!(t, Target::Tab(Tab::Activity)));
         press(&mut live, &activity_tab);
-        assert!(matches!(live.queued.as_ref(), Some((Query::Snapshot, _))));
+        assert!(!matches!(live.queued.as_ref(), Some((Query::Snapshot, _))));
+        assert!(live.details.is_none());
         let support_tab = target(&live, |t| matches!(t, Target::Tab(Tab::Support)));
         press(&mut live, &support_tab);
-        assert!(matches!(live.take_query(), Some(Query::Activity)));
+        assert!(live.take_query().is_none(), "the pushed Activity is already available");
         assert!(!live.need_details && !live.inspection_requested);
         live.pause_superseded();
         assert!(!page_says(&live, "Loading service and capture status"));
