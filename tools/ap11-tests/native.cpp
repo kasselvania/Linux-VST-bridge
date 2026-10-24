@@ -1453,8 +1453,8 @@ void real_restart_regression(unsigned outcome){
   check(processor.activateBus(kEvent,kOutput,0,true)==kResultOk,"real returned events active");
   check(processor.setupProcessing(setup)==kResultOk&&processor.setActive(true)==kResultOk&&processor.setProcessing(true)==kResultOk,"real initial START");
   check(sibling.initialize(context)==kResultOk&&sibling.setupProcessing(setup)==kResultOk&&sibling.setActive(true)==kResultOk&&sibling.setProcessing(true)==kResultOk,"real sibling START");
-  std::array<float,128> left{},right{},input{};
-  float* in[]={input.data(),input.data()};float* out[]={left.data(),right.data()};
+  std::array<float,128> left{},right{},input_left{},input_right{};
+  float* in[]={input_left.data(),input_right.data()};float* out[]={left.data(),right.data()};
   AudioBusBuffers inputs{},outputs{};inputs.numChannels=outputs.numChannels=2;
   inputs.channelBuffers32=in;outputs.channelBuffers32=out;
   EventList notes;ParameterChanges points;
