@@ -329,7 +329,9 @@ pub(crate) enum PublicationBoundary {
     Published,
 }
 #[cfg(test)]
-thread_local! {pub(crate) static PUBLICATION_CHECKPOINT: std::cell::RefCell<Option<Box<dyn FnMut(bool,PublicationBoundary)>>> = const {std::cell::RefCell::new(None)};}
+type PublicationCheckpoint = Box<dyn FnMut(bool, PublicationBoundary)>;
+#[cfg(test)]
+thread_local! {pub(crate) static PUBLICATION_CHECKPOINT: std::cell::RefCell<Option<PublicationCheckpoint>> = const {std::cell::RefCell::new(None)};}
 #[cfg(test)]
 fn publication_checkpoint(alias: bool, boundary: PublicationBoundary) {
     PUBLICATION_CHECKPOINT.with(|hook| {
