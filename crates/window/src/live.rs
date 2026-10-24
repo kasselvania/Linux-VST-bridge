@@ -5,7 +5,9 @@ use lvb_client::{Query, Reply};
 use lvb_view_model::{self as vm, forms, model::{Action, Activity, CurrentOverview, CurrentProductDetail, ProblemCategory, ReadinessAssessment, Request, Snapshot, TestResultKind},
     screen::{Reading, Records, Window}, state::{Effect, Imported, State}, window::Page, Destination, ProductKey};
 use makepad_product_ui::{makepad_widgets::Cx, Availability, InputPath};
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, time::Instant};
+#[cfg(test)]
+use std::time::Duration;
 use vm::request::RequestFeedback as Support;
 
 const LIMITATION: &str = "Sample controls are unavailable in the installed manager.";
@@ -105,11 +107,11 @@ pub struct Live {
     update_waiting: bool,
     update_available: bool,
     close_requested: bool,
-    health_observed: Option<f64>,
+    health_observed: Option<Instant>,
     observation_cursor: Option<lvb_client::observation::Cursor>,
     observation_records: Option<(String, Option<u64>)>,
     current_read_records: Option<(String, Option<u64>)>,
-    observation_seen: Option<f64>,
+    observation_seen: Option<Instant>,
     authority_generation: u64,
     current_read_authority: u64,
     status_read_cursor: Option<lvb_client::observation::Cursor>,
@@ -292,7 +294,7 @@ impl Live {
             self.bootstrap_waiting = false; self.bootstrap_step = None; self.rebuild();
         } else { self.receive(Reply::Error(error.clone())); self.updater_failed(error); }
     }
-    pub fn updater_reading(&self) -> Option<(bool, f64)> {
+    pub fn updater_reading(&self) -> Option<(bool, Instant)> {
         if !self.fresh || self.superseded { return None; }
         let system = &self.overview.as_ref()?.current.system;
         system.capacity_available().then_some((system.dsp > 0, self.health_observed?))
@@ -314,7 +316,22 @@ impl Live {
     pub fn take_clipboard(&mut self) -> Option<String> { self.clipboard.take() }
     /// Receive a complete owner observation independently of command completion.
     /// It can retire current offers, but only a current overview can renew them.
+    #[cfg(test)]
     pub fn observe(&mut self, event: lvb_client::observation::Event) {
+        self.observe_received(lvb_client::observation::Received::now(event));
+    }
+    /// Returns true when an aged receipt requires a replacement subscription.
+    pub fn observe_received(&mut self, received: lvb_client::observation::Received) -> bool {
+        use lvb_client::observation::{Event, STALE_AFTER};
+        let expired = matches!(received.event, Event::State(_) | Event::Heartbeat { .. })
+            && received.at.elapsed() >= STALE_AFTER;
+        let event = if expired {
+            Event::Unavailable { reason: "Live status is stale. Reconnecting…".into() }
+        } else { received.event };
+        self.observe_at(event, received.at);
+        expired
+    }
+    fn observe_at(&mut self, event: lvb_client::observation::Event, received_at: Instant) {
         use lvb_client::observation::Event;
         use vm::model::Observation;
         if self.bootstrap_panel.is_some() || self.superseded { return; }
@@ -322,7 +339,7 @@ impl Live {
             Event::FrontendSuperseded => { self.pause_superseded(); return; },
             Event::Heartbeat { cursor } => {
                 if self.observation_cursor.as_ref() == Some(&cursor) {
-                    self.observation_seen = Some(Cx::monotonic_now());
+                    self.observation_seen = Some(received_at);
                     // Renew only the exact healthy system already covered by
                     // the current overview. This never grants action authority.
                     if self.fresh && self.status_notice.is_none()
@@ -355,7 +372,7 @@ impl Live {
                     if self.status.as_ref().is_some_and(|old| old.system != activity.system));
                 self.observation_records = Some(records);
                 self.observation_cursor = Some(observed.cursor);
-                self.observation_seen = Some(Cx::monotonic_now());
+                self.observation_seen = Some(received_at);
                 if changed || system_changed {
                     self.authority_generation = self.authority_generation.wrapping_add(1);
                     self.fresh = false; self.need_current = true;
@@ -385,10 +402,10 @@ impl Live {
     }
     /// Clock work only expires a lost subscription. No ordinary status polling.
     pub fn tick(&mut self) -> bool {
-        let now = Cx::monotonic_now();
+        let now = Instant::now();
         if self.bootstrap_panel.is_some() || self.superseded { return false; }
-        if self.observation_seen.is_some_and(|seen| now - seen >= lvb_client::observation::STALE_AFTER.as_secs_f64()) {
-            self.observe(lvb_client::observation::Event::Unavailable { reason: "Live status is stale. Reconnecting…".into() });
+        if self.observation_seen.is_some_and(|seen| now.duration_since(seen) >= lvb_client::observation::STALE_AFTER) {
+            self.observe_at(lvb_client::observation::Event::Unavailable { reason: "Live status is stale. Reconnecting…".into() }, now);
             return true;
         }
         false
@@ -458,7 +475,7 @@ impl Live {
                     }
                 }
                 self.overview = Some(*overview); self.fresh = covered && self.observation_seen.is_some(); self.last_current = Cx::monotonic_now();
-                if self.fresh { self.health_observed = Some(self.last_current); }
+                if self.fresh { self.health_observed = self.observation_seen; }
                 if let Some(pending) = self.pending_details.take() {
                     match pending {
                         PendingDetails::Snapshot(snapshot, requested) if self.binding().as_ref() == Some(&requested)
@@ -1129,14 +1146,18 @@ pub(crate) mod tests {
         live.receive(overview(snapshot(), "generation-a"));
         live
     }
+    pub(crate) fn assert_paused(live: &Live) {
+        assert!(live.superseded && !live.fresh);
+        assert!(live.message.contains("This window is paused"));
+    }
     pub(crate) fn age_health(live: &mut Live) {
-        live.health_observed = Some(Cx::monotonic_now() - 60.0);
+        live.health_observed = Some(Instant::now() - Duration::from_secs(60));
     }
     pub(crate) fn complete_current(live: &mut Live) {
         live.receive(overview(snapshot(), "generation-a"));
     }
     pub(crate) fn expire_observation(live: &mut Live) {
-        live.observation_seen = Some(Cx::monotonic_now() - 3.001);
+        live.observation_seen = Some(Instant::now() - Duration::from_millis(3001));
     }
     pub(crate) fn observation(live: &Live) -> lvb_client::observation::Event {
         lvb_client::observation::Event::State(Box::new(lvb_client::observation::State {
@@ -1149,8 +1170,8 @@ pub(crate) mod tests {
         let mut live = ready();
         // Deterministic staging boundary between the previous reading and the
         // next heartbeat. No State or explicit refresh follows staging.
-        live.health_observed = Some(Cx::monotonic_now() - 20.0);
-        let staged = Cx::monotonic_now() - 1.0;
+        live.health_observed = Some(Instant::now() - Duration::from_secs(20));
+        let staged = Instant::now() - Duration::from_secs(1);
         assert!(live.updater_reading().unwrap().1 < staged);
         let revision = live.render_revision();
         let authority = live.authority_generation;
@@ -1162,7 +1183,8 @@ pub(crate) mod tests {
         assert!(live.take_query().is_none());
         for invalid in ["failed", "uncovered", "different-system", "wrong-cursor"] {
             let mut live = ready();
-            live.health_observed = Some(-20.0);
+            let old = Instant::now() - Duration::from_secs(20);
+            live.health_observed = Some(old);
             let mut cursor = live.observation_cursor.clone().unwrap();
             match invalid {
                 "failed" => live.status_notice = Some("unavailable".into()),
@@ -1171,7 +1193,36 @@ pub(crate) mod tests {
                 _ => cursor.revision += 1,
             }
             live.observe(lvb_client::observation::Event::Heartbeat { cursor });
-            assert_eq!(live.health_observed, Some(-20.0), "{invalid}");
+            assert_eq!(live.health_observed, Some(old), "{invalid}");
+        }
+    }
+    #[test]
+    fn pending_receipt_before_staging_cannot_become_post_staging() {
+        use lvb_client::observation::{Event, Received};
+        let mut live = ready();
+        let at = Instant::now() - Duration::from_millis(100);
+        let staged = Instant::now();
+        let received = Received { event: Event::Heartbeat { cursor: live.observation_cursor.clone().unwrap() }, at };
+        assert!(!live.observe_received(received));
+        assert_eq!(live.updater_reading().unwrap().1, at);
+        assert!(live.updater_reading().unwrap().1 < staged);
+        // A late current-overview reply must not relabel the retained receipt.
+        live.need_current = true;
+        live.drive();
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        complete_current(&mut live);
+        assert_eq!(live.updater_reading().unwrap().1, at);
+    }
+    #[test]
+    fn aged_pending_state_and_heartbeat_expire_instead_of_renewing() {
+        use lvb_client::observation::{Event, Received, STALE_AFTER};
+        for state in [false, true] {
+            let mut live = ready();
+            let event = if state { observation(&live) } else { Event::Heartbeat { cursor: live.observation_cursor.clone().unwrap() } };
+            assert!(live.observe_received(Received { event, at: Instant::now() - STALE_AFTER }), "request a replacement subscription");
+            assert!(!live.fresh);
+            assert!(live.observation_seen.is_none());
+            assert!(live.updater_reading().is_none());
         }
     }
     fn activity(s: &Snapshot) -> Reply { Reply::Activity(status(s)) }
@@ -2534,7 +2585,7 @@ pub(crate) mod tests {
     #[test]
     fn lost_subscription_expires_once_and_reconnect_needs_current_authority() {
         let mut live = ready(); let old = live.observation_cursor.clone().unwrap();
-        live.observation_seen = Some(Cx::monotonic_now() - 3.001);
+        live.observation_seen = Some(Instant::now() - Duration::from_millis(3001));
         assert!(live.tick()); assert!(!live.fresh);
         assert!(live.take_query().is_none(), "expiry does not introduce polling");
         assert!(!live.tick(), "an already stale stream does not rebuild every timer");

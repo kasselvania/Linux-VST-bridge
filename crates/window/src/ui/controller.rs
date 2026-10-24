@@ -186,8 +186,10 @@ impl Controller {
                 let before = model.render_revision();
                 // The timer runs before pump in the native event loop. Consume
                 // the worker's latest observation before judging UI-side age.
-                if let Some(event) = worker.observations.as_ref().and_then(lvb_client::observation::Watch::take) {
-                    model.observe(event);
+                if let Some(watch) = &worker.observations {
+                    if let Some(event) = watch.take() {
+                        if model.observe_received(event) { watch.restart(); }
+                    }
                 }
                 if model.tick() {
                     if let Some(watch) = &worker.observations { watch.restart(); }
@@ -204,10 +206,12 @@ impl Controller {
             Self::Live { model, worker } => {
                 let before = model.render_revision();
                 if let Some(reason) = worker.observation_error.take() {
-                    model.observe(lvb_client::observation::Event::Unavailable { reason });
+                    model.observe_received(lvb_client::observation::Received::now(lvb_client::observation::Event::Unavailable { reason }));
                 }
-                if let Some(event) = worker.observations.as_ref().and_then(lvb_client::observation::Watch::take) {
-                    model.observe(event);
+                if let Some(watch) = &worker.observations {
+                    if let Some(event) = watch.take() {
+                        if model.observe_received(event) { watch.restart(); }
+                    }
                 }
                 if let Some(reply) = worker.receive() {
                     match reply {
@@ -252,7 +256,7 @@ enum WorkerRequest {
     Client(lvb_client::Query),
     ReportPreview(lvb_client::SupportReport),
     Update(lvb_view_model::updates::Step, Option<String>),
-    Reading(Option<(bool, f64)>),
+    Reading(Option<(bool, std::time::Instant)>),
 }
 #[cfg(feature = "live")]
 #[allow(dead_code)]
@@ -285,7 +289,7 @@ pub struct Worker {
     requests: std::sync::mpsc::SyncSender<WorkerRequest>,
     replies: std::sync::mpsc::Receiver<WorkerReply>,
     disconnected: bool,
-    reading: Option<(bool, f64)>,
+    reading: Option<(bool, std::time::Instant)>,
     observations: Option<lvb_client::observation::Watch>,
     observation_error: Option<String>,
     #[cfg(feature = "samples")]
@@ -432,7 +436,7 @@ impl Worker {
                     }
                     Some(WorkerRequest::Reading(value)) => {
                         #[cfg(target_os = "linux")]
-                        { reading = observed_reading(value); }
+                        { reading = value; }
                         #[cfg(not(target_os = "linux"))]
                         let _ = value;
                     }
@@ -497,7 +501,7 @@ impl Worker {
     fn update(&self, step: lvb_view_model::updates::Step, draft: Option<String>) -> Result<(), String> {
         self.requests.try_send(WorkerRequest::Update(step, draft)).map_err(|_| "The updater could not receive this choice. Try again.".into())
     }
-    fn reading(&mut self, value: Option<(bool, f64)>) {
+    fn reading(&mut self, value: Option<(bool, std::time::Instant)>) {
         if self.reading != value && self.requests.try_send(WorkerRequest::Reading(value)).is_ok() { self.reading = value; }
     }
     fn receive(&mut self) -> Option<WorkerReply> {
@@ -511,14 +515,6 @@ impl Worker {
             Err(_) => None,
         }
     }
-}
-
-#[cfg(all(feature = "live", any(target_os = "linux", test)))]
-fn observed_reading(value: Option<(bool, f64)>) -> Option<(bool, std::time::Instant)> {
-    value.and_then(|(in_use, observed)| {
-        let age = (makepad_product_ui::makepad_widgets::Cx::monotonic_now() - observed).max(0.0);
-        std::time::Instant::now().checked_sub(std::time::Duration::from_secs_f64(age)).map(|at| (in_use, at))
-    })
 }
 
 #[cfg(all(test, feature = "live"))]
@@ -536,7 +532,7 @@ mod tests {
             observations: None, observation_error: None, draw_fixture: None };
         worker.reading(model.updater_reading());
         let WorkerRequest::Reading(value) = incoming.recv().unwrap() else { panic!("reading") };
-        let before = observed_reading(value).unwrap();
+        let before = value.unwrap();
         let staged = Instant::now() - Duration::from_secs(30);
         assert!(before.1 < staged);
         #[cfg(target_os = "linux")]
@@ -555,7 +551,7 @@ mod tests {
         model.observe(lvb_client::observation::Event::Heartbeat { cursor: state.cursor });
         worker.reading(model.updater_reading());
         let WorkerRequest::Reading(value) = incoming.try_recv().expect("heartbeat must escape reading deduplication") else { panic!("reading") };
-        let after = observed_reading(value).unwrap();
+        let after = value.unwrap();
         assert!(!after.0 && after.1 > staged);
         #[cfg(target_os = "linux")]
         {
@@ -605,7 +601,7 @@ mod tests {
         let watch = Watch::start(home.clone(), "unused".into(), move || { let _ = wake.send(()); }).unwrap();
         awakened.recv_timeout(Duration::from_secs(5)).unwrap();
         // Consume initial State, then delay only the UI's consumed timestamp.
-        model.observe(watch.take().unwrap());
+        model.observe_received(watch.take().unwrap());
         crate::live::tests::expire_observation(&mut model);
         commands.send(true).unwrap();
         awakened.recv_timeout(Duration::from_secs(5)).unwrap();
@@ -631,9 +627,9 @@ mod tests {
             awakened.recv_timeout(Duration::from_secs(5)).unwrap();
             let Controller::Live { worker, .. } = &mut controller else { unreachable!() };
             if let Some(event) = worker.observations.as_ref().unwrap().take() {
-                assert!(matches!(event, Event::State(_)));
+                assert!(matches!(event.event, Event::State(_)));
                 let Controller::Live { model, .. } = &mut controller else { unreachable!() };
-                model.observe(event);
+                model.observe_received(event);
                 assert!(model.updater_reading().is_none());
                 assert!(matches!(model.take_query(), Some(lvb_client::Query::CurrentOverview)));
                 crate::live::tests::complete_current(model);
@@ -648,6 +644,74 @@ mod tests {
         drop(controller);
         std::fs::remove_dir_all(home).unwrap();
     }
+    #[cfg(all(target_os = "macos", feature = "samples"))]
+    #[test]
+    fn terminal_publication_between_take_and_restart_reaches_paused_window() {
+        use lvb_client::observation::{Event, Watch};
+        use lvb_model::contract::subscription;
+        use std::{io::Read, os::unix::net::UnixListener, sync::mpsc, time::Duration};
+        let home = std::path::PathBuf::from("/tmp").join(format!("bw-term-{}", std::process::id()));
+        let socket = home.join(".local/share/linux-vst-bridge/managed/runtime/owner.sock");
+        std::fs::create_dir_all(socket.parent().unwrap()).unwrap();
+        let listener = UnixListener::bind(&socket).unwrap();
+        let (send, sent) = mpsc::channel();
+        let server = std::thread::spawn(move || {
+            let (mut peer, _) = listener.accept().unwrap();
+            let mut greeting = [0; 5]; peer.read_exact(&mut greeting).unwrap();
+            subscription::accept(&mut peer).unwrap();
+            sent.recv().unwrap();
+            subscription::write(&mut peer, &Event::FrontendSuperseded).unwrap();
+        });
+        let (wake, awakened) = mpsc::channel();
+        let (release, released) = mpsc::channel();
+        let watch = Watch::start(home.clone(), "unused".into(), move || {
+            wake.send(()).unwrap(); released.recv().unwrap();
+        }).unwrap();
+        let mut model = crate::live::tests::ready();
+        crate::live::tests::expire_observation(&mut model);
+        // Deterministically split the production take / expiry / restart path.
+        assert!(watch.take().is_none());
+        send.send(()).unwrap();
+        awakened.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert!(model.tick());
+        watch.restart();
+        release.send(()).unwrap();
+        let (requests, _incoming) = mpsc::sync_channel(8);
+        let (_outgoing, replies) = mpsc::sync_channel(8);
+        let mut controller = Controller::Live { model: Box::new(model), worker: Worker {
+            requests, replies, disconnected: false, reading: None,
+            observations: Some(watch), observation_error: None, draw_fixture: None,
+        }};
+        controller.pump();
+        let Controller::Live { model, .. } = &controller else { unreachable!() };
+        crate::live::tests::assert_paused(model);
+        server.join().unwrap();
+        drop(controller);
+        std::fs::remove_dir_all(home).unwrap();
+    }
+
+    #[cfg(feature = "samples")]
+    #[test]
+    fn queued_pre_staging_receipt_keeps_time_through_updater_queue() {
+        use lvb_client::observation::{Event, Received};
+        use std::{sync::mpsc, time::{Duration, Instant}};
+        let mut model = crate::live::tests::ready();
+        let Event::State(state) = crate::live::tests::observation(&model) else { unreachable!() };
+        let receipt = Instant::now() - Duration::from_millis(100);
+        let pending = Received { event: Event::Heartbeat { cursor: state.cursor }, at: receipt };
+        let staged = Instant::now();
+        model.observe_received(pending);
+        let (requests, incoming) = mpsc::sync_channel(8);
+        let (_outgoing, replies) = mpsc::sync_channel(8);
+        let mut worker = Worker { requests, replies, disconnected: false, reading: None,
+            observations: None, observation_error: None, draw_fixture: None };
+        worker.reading(model.updater_reading());
+        let WorkerRequest::Reading(Some((in_use, at))) = incoming.recv().unwrap() else { panic!("reading") };
+        assert!(!in_use);
+        assert_eq!(at, receipt);
+        assert!(at < staged, "queue consumption cannot make a pre-staging receipt eligible");
+    }
+
     #[test]
     fn chooser_return_rechecks_selection_before_any_update_work() {
         use std::sync::{atomic::{AtomicBool, Ordering}, mpsc, Arc};
