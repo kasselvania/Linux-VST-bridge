@@ -1,0 +1,55 @@
+{
+  "source": "ed38c977542139e9d93b989275f7c35982777a19",
+  "platform": "SteamOS Deck",
+  "plugin": "Serum 2 instrument",
+  "plugin_version": "2.1.5",
+  "module_sha256": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+  "class_id": "56534558667350736572756D20320000",
+  "service_sha256": "14c9322ced5a6600265f176ede287c07f59378347c8785e302df14fda3658734",
+  "console_sha256": "28273d87373c5869d2827ed0e117ac6a9d710086f2c94e7039b91db59b151150",
+  "backup": {
+    "console_operation_completed": true,
+    "files": 1,
+    "bytes": 2466
+  },
+  "automatic_refresh": {
+    "displayed_file_counts": [
+      1,
+      0,
+      1,
+      0,
+      1
+    ],
+    "external_removals": 2,
+    "external_returns": 1,
+    "restore_offer_appeared_after_removal": true,
+    "restore_offer_retired_after_return": true,
+    "console_restarts": 0,
+    "navigation_or_refresh_used": false,
+    "same_console_process": true
+  },
+  "restore": {
+    "console_confirmation_used": true,
+    "console_operation_completed": true,
+    "missing_files": 1,
+    "conflicts": 0,
+    "restored_files": 1,
+    "restored_bytes": 2466,
+    "matches_original_sha256": true,
+    "preexisting_files_unchanged": 1
+  },
+  "regression": {
+    "preset_tests_passed": 28,
+    "service_observation_tests_passed": 18,
+    "read_recorder_tests_passed": 1,
+    "native_window_tests_passed": 94,
+    "changed_root_restore_refused": true,
+    "late_product_reply_cannot_restore_stale_counts": true,
+    "quiet_observation_does_not_poll": true
+  },
+  "fresh_vendor_instance": {
+    "restored_preset_loaded": true,
+    "saved_name_and_settings_visible": true,
+    "normal_editor_retirement": true
+  }
+}
