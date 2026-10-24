@@ -168,7 +168,9 @@ impl Screen {
                         Some(product) => Self::plugins(product, actions_pending,
                             (!reading.fresh).then(|| window::plugins_not_current(reading.renewing)), state, activity),
                         None => Self::PluginsLoading(Box::new(LoadingList::build(current, &state.plugins.query(),
-                            fresh, reading.product_attempted))),
+                            if fresh { plugins::CurrentRead::Ready }
+                            else if reading.renewing || reading.health_renewing { plugins::CurrentRead::Refreshing }
+                            else { plugins::CurrentRead::Unavailable }, reading.product_attempted))),
                     },
                     Page::Diagnostics if records.support.is_some() => return Self::Diagnostics(Box::new(
                         Diagnostics::from_current(current, records.support.unwrap(), actions_pending,

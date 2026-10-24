@@ -538,7 +538,7 @@ pub struct LoadingList {
     pub focus_title: Option<&'static str>,
     pub notice: Text,
     /// Offered when loading the controls failed.
-    pub retry: Option<&'static str>,
+    pub retry: Option<crate::Control>,
     pub count: String,
     pub empty: Option<&'static str>,
     pub rows: Vec<LoadingRow>,
@@ -557,10 +557,16 @@ pub struct LoadingRow {
     pub manage: Option<&'static str>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CurrentRead { Ready, Refreshing, Unavailable }
+
 impl LoadingList {
-    pub fn build(snapshot: &Snapshot, query: &Query, fresh: bool, details_attempted: bool) -> Self {
+    pub fn build(snapshot: &Snapshot, query: &Query, current: CurrentRead, details_attempted: bool) -> Self {
+        let fresh = current == CurrentRead::Ready;
         let single = query.single();
-        let (notice, retry) = if !fresh {
+        let (notice, retry) = if current == CurrentRead::Refreshing {
+            (Text::body("Refreshing this plug-in’s status… The last known details are shown below."), None)
+        } else if !fresh {
             (Text::caution("Current plug-in status could not be loaded. Try loading it again before continuing."), Some("Load plug-in controls again"))
         } else if details_attempted {
             (Text::caution("Plug-in controls could not be loaded. The last plug-in summary is shown below."),
@@ -587,7 +593,8 @@ impl LoadingList {
                 "Showing the selected plug-ins"
             }),
             notice,
-            retry,
+            retry: retry.map(|label| crate::Control { label, importance: Importance::Secondary,
+                enabled: true, does: if fresh { crate::Local::RetryDetails } else { crate::Local::Refresh } }),
             count: format!("{} of {} current plug-ins", products.len(), snapshot.products.len()),
             empty,
             rows: products.into_iter().map(|product| {
@@ -1117,11 +1124,11 @@ mod tests {
                 assert!(detail.groups[0].heading.is_none(), "{state}");
                 assert_eq!(detail.groups[0].cards.len(), 1, "{state}");
                 assert_eq!(detail.groups[0].cards[0].key, card.key);
-                let loading = LoadingList::build(&snapshot, &opened, true, false);
+                let loading = LoadingList::build(&snapshot, &opened, CurrentRead::Ready, false);
                 assert_eq!(loading.focus_title, Some("Showing the selected plug-in"));
                 assert!(loading.rows.iter().all(|row| row.manage.is_none()), "{state}");
             }
-            let loading = LoadingList::build(&snapshot, &all, true, false);
+            let loading = LoadingList::build(&snapshot, &all, CurrentRead::Ready, false);
             assert!(loading.rows.iter().all(|row| row.manage == Some(MANAGE)), "{state}");
             assert_eq!(loading.count, format!("{0} of {0} current plug-ins", snapshot.products.len()));
         }
@@ -1269,15 +1276,19 @@ mod tests {
         let list = PluginList::build(&snapshot, &all, false, context(&snapshot, false, false));
         assert_eq!(list.empty.unwrap().0, "No plug-ins discovered yet");
         assert!(list.groups.is_empty());
-        assert_eq!(LoadingList::build(&snapshot, &all, true, false).empty,
+        assert_eq!(LoadingList::build(&snapshot, &all, CurrentRead::Ready, false).empty,
             Some("No plug-ins discovered yet. Open Setup to add and scan an installer."));
         let snapshot = sample(Page::Plugins, "stale");
-        let stale = LoadingList::build(&snapshot, &all, false, false);
+        let stale = LoadingList::build(&snapshot, &all, CurrentRead::Unavailable, false);
         assert_eq!(stale.notice, Text::caution(
             "Current plug-in status could not be loaded. Try loading it again before continuing."));
         assert!(stale.rows.iter().all(|row| row.status.is_none()));
-        let failed = LoadingList::build(&snapshot, &all, true, true);
-        assert_eq!(failed.retry, Some("Load plug-in controls again"));
+        let failed = LoadingList::build(&snapshot, &all, CurrentRead::Ready, true);
+        assert_eq!(failed.retry.unwrap().does, crate::Local::RetryDetails);
+        assert_eq!(stale.retry.unwrap().does, crate::Local::Refresh);
+        let renewing = LoadingList::build(&snapshot, &all, CurrentRead::Refreshing, false);
+        assert!(!renewing.notice.words.contains("could not be loaded"));
+        assert!(renewing.retry.is_none() && renewing.rows.iter().all(|row| row.status.is_none()));
     }
 
     #[test]

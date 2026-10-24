@@ -291,8 +291,7 @@ impl Builder<'_> {
         }
         out.push(text(notice));
         if let Some(retry) = retry {
-            let view = self.control(&Control { label: retry, importance: offers::Importance::Secondary,
-                enabled: true, does: Local::RetryDetails });
+            let view = self.control(retry);
             out.push(self.one(view));
         }
         if !focused { out.push(words(Role::Detail, count.clone())); }
