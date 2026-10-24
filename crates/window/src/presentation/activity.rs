@@ -23,7 +23,7 @@ impl Builder<'_> {
         if let Some(empty) = empty {
             children.push(words(Role::Body, *empty));
         }
-        for SessionRow { recent: _, index: _, session, name, state: said, cleanup, open, record } in rows {
+        for SessionRow { recent: _, index: _, session, name, state: said, cleanup, open, recovery, record } in rows {
             children.push(words(Role::Strong, name.clone()));
             children.push(words(Role::Body, said.clone()));
             if let Some(cleanup) = cleanup {
@@ -36,9 +36,20 @@ impl Builder<'_> {
                 let view = self.control(open);
                 children.push(self.one(view));
             }
+            if let Some(recovery) = recovery { children.push(self.instance_recovery(recovery)); }
             children.push(self.fold(record));
         }
         Node::Panel { kind: PanelKind::Card, children }
+    }
+
+    pub(super) fn instance_recovery(&mut self, recovery: &vm::recovery::Recovery) -> Node {
+        let mut children = vec![Node::Label("Recover this instance".into())];
+        children.extend(recovery.detail.iter().map(text));
+        if recovery.actions.offers.is_empty() {
+            children.extend(recovery.actions.notes.iter().map(|note| words(Role::Detail, note.clone())));
+        } else { children.extend(self.row(&recovery.actions)); }
+        children.push(self.fold(&recovery.identity));
+        Node::Stack(children)
     }
 
     pub(super) fn attentions(&mut self, attention: &Attentions) -> Node {

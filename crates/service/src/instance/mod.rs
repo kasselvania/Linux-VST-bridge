@@ -70,6 +70,7 @@ impl Observer {
             signal: SignalObservation::NotMeasured,
             terminal: Observation::Unavailable("Terminal status is unavailable".into()),
             cleanup: cleanup(&record.report, session),
+            recovery: None,
         };
         if record.owner.kind == capacity::Kind::Detached {
             self.previous.remove(session);

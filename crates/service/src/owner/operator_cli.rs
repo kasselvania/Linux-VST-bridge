@@ -125,6 +125,7 @@ fn token_with_registry(m: &Manager, registry: &Registry) -> Result<String> {
     Ok(hex(&sha2::Sha256::digest(serde_json::to_vec(
         &json!({"software":optional(&m.root.join("software.json"))?,"registry":registry,
             "managed_runtimes":managed_runtimes,
+            "instance_recovery":instance_recovery::revision(m),
             "preparation":optional(&m.root.join("preparation/revision.json"))?,
             // The retired FL Studio workspace's record (#504 E3) is no input;
             // its key stays, absent, until the schema-30 update.
@@ -606,7 +607,7 @@ fn pulse_generation(m: &Manager) -> Result<String> {
     let paths = paths.into_iter().map(|relative|m.root.join(relative))
         .chain(std::iter::once(m.root.join("runners")))
         .chain(runtime_records.iter().cloned());
-    let mut stamps = Vec::new();
+    let mut stamps = vec![json!(["instance_recovery", instance_recovery::revision(m)])];
     for path in paths {
         let relative = path.strip_prefix(&m.root)?;
         match fs::symlink_metadata(&path) {
@@ -1558,6 +1559,9 @@ fn validate_current_request(m: &Manager, request: &ui::Request) -> Result<()> {
 fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Result<()> {
     require(request.schema == ui::OPERATOR_SCHEMA,
         "operator_schema_mismatch_update_manager_frontend")?;
+    if matches!(request.action, ui::Action::PluginRestart { .. }) {
+        return instance_recovery::validate(m, &request.action);
+    }
     if matches!(request.action, ui::Action::PluginFocus { .. } | ui::Action::PluginClose { .. }) {
         return detached_instance::validate_control(m, &request.action);
     }
@@ -1662,7 +1666,7 @@ fn scoped_product_action(action: &ui::Action) -> bool {
 }
 fn current_offer_action(action: &ui::Action) -> bool {
     matches!(action, ui::Action::RuntimeInstall {} | ui::Action::SupportExport {}
-        | ui::Action::PluginOpen { .. } | ui::Action::PluginFocus { .. } | ui::Action::PluginClose { .. }
+        | ui::Action::PluginOpen { .. } | ui::Action::PluginFocus { .. } | ui::Action::PluginClose { .. } | ui::Action::PluginRestart { .. }
         | ui::Action::TransactionReconcile {}
         | ui::Action::SoftwareInstall { .. }
         | ui::Action::SoftwareInstallWithPolicy {..}
@@ -1727,6 +1731,9 @@ fn validate_current_worker(m: &Manager, request: &ui::Request, id: &str,
         "operator_schema_mismatch_update_manager_frontend")?;
     // Recovery controls recheck this exact owned cohort. A suspended DSP
     // service cannot grant new-work capacity, and is not needed to stop it.
+    if matches!(request.action, ui::Action::PluginRestart { .. }) {
+        return instance_recovery::validate(m, &request.action);
+    }
     if matches!(request.action, ui::Action::PluginFocus { .. } | ui::Action::PluginClose { .. }) {
         return detached_instance::validate_control(m, &request.action);
     }
@@ -1767,6 +1774,10 @@ fn validate_accepted_worker(m: &Manager, request: &ui::Request, id: &str,
     capacity_read: &dyn Fn() -> Option<CapacityReadback>) -> Result<()> {
     require(request.schema == ui::OPERATOR_SCHEMA,
         "operator_schema_mismatch_update_manager_frontend")?;
+    if matches!(request.action, ui::Action::PluginRestart { .. }) {
+        preconditions::recheck(m, facts)?;
+        return instance_recovery::validate(m, &request.action);
+    }
     if matches!(request.action, ui::Action::PluginFocus { .. } | ui::Action::PluginClose { .. }) {
         preconditions::recheck(m, facts)?;
         return detached_instance::validate_control(m, &request.action);
@@ -1873,6 +1884,15 @@ fn write_operation(m: &Manager, id: &str, value: &Value, make_latest: bool) -> R
     }
     // Later vendor/cleanup owners retain the completed validation wait.
     let mut value = value.clone();
+    // A service interruption can follow delivery to the live proxy. Retiring
+    // that executor cannot prove the restart was refused or safely replayable.
+    if value["state"] == "refused" && value["reason"] == "operator_worker_terminated"
+        && prior["state"] == "running" && prior["action"]["kind"] == "plugin_restart" {
+        value["state"] = "completed".into();
+        value["outcome"] = "unconfirmed".into();
+        value["result"] = json!({"restart":"unconfirmed",
+            "detail":"The bridge service stopped before the restart result was confirmed. The request will not be sent again."});
+    }
     if value.get("lock_waits").is_none() && prior.get("lock_waits").is_some() {
         value["lock_waits"] = prior["lock_waits"].clone();
     }
@@ -2315,7 +2335,7 @@ fn admit(m: &Manager, request: &ui::Request, id: &str) -> Result<Software> {
     }
     Ok(sw)
 }
-/// As the window's request is accepted, without starting its worker unit.
+/// As the window's request is accepted, without starting its service executor.
 #[cfg(test)]
 pub(super) fn test_accept(m: &Manager, request: &ui::Request) -> Result<ui::Receipt> {
     dispatch_recorded(m, request, |id| {
@@ -2434,6 +2454,9 @@ fn execute_with_receipt_policy_progress(
     waits: &mut Vec<ui::LockFacts>,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Value> {
+    if matches!(a, ui::Action::PluginRestart { .. }) {
+        return instance_recovery::execute(m, a, operation.ok_or("operator_operation_identity")?);
+    }
     if matches!(a, ui::Action::PluginOpen { .. } | ui::Action::PluginFocus { .. } | ui::Action::PluginClose { .. }) {
         return detached_instance::execute(m, a, operation.ok_or("operator_operation_identity")?);
     }
@@ -2596,7 +2619,7 @@ fn execute_with_receipt_policy_progress(
                 "operator_stale_request_refresh")?;
             readiness::export(m, &current)
         }
-        ui::Action::PluginOpen { .. } | ui::Action::PluginFocus { .. } | ui::Action::PluginClose { .. }
+        ui::Action::PluginOpen { .. } | ui::Action::PluginFocus { .. } | ui::Action::PluginClose { .. } | ui::Action::PluginRestart { .. }
         | ui::Action::PluginFinishSetup {..}|ui::Action::PluginSetupFocus {..}|ui::Action::PluginSetupStop {..}
         | ui::Action::CandidateHistoryComplete { .. }
         | ui::Action::CandidateGraphicsAssess { .. }
@@ -3506,10 +3529,8 @@ fn suspend(
 ) -> Result<()> {
     maintenance::acquire(m, owner, vendor_operation, timeout, waits)
 }
-/// Take over the pause an ended operation (an uninstaller run whose worker
-/// stopped) still holds, so it covers this operation's work and only this
-/// operation releases it. With no pause held, this operation pauses the
-/// bridge. After a restart the bridge may run again; it is stopped again.
+/// Transfer an ended operation's setup reservation to this continuation.
+/// Historical whole-service suspensions require their own recovery first.
 fn take_pause(m: &Manager, from: &str, to: &str, timeout: Duration, waits: &mut Vec<ui::LockFacts>) -> Result<()> {
     if maintenance::transfer(m, from, to, timeout, waits)? { return Ok(()); }
     // A retained pre-service operation must first be recovered by its old
@@ -4282,7 +4303,11 @@ fn worker_with_capacity_observed(
     let result = if accepted_with_facts { preconditions::with_accepted(id, execute) } else { execute() };
     let value = match result {
         Ok(v) => {
-            json!({"schema":1,"operation":id,"state":"completed","result":v,"lock_waits":waits})
+            // The executor ended. Its terminal record remains readable by
+            // earlier releases; mutation outcome is recorded separately.
+            let outcome = if matches!(request.action, ui::Action::PluginRestart { .. })
+                && v["restart"] == "unconfirmed" { "unconfirmed" } else { "confirmed" };
+            json!({"schema":1,"operation":id,"state":"completed","outcome":outcome,"result":v,"lock_waits":waits})
         }
         Err(e) => {
             let failure = e
@@ -5411,7 +5436,7 @@ pub(crate) mod tests {
             "workspace_launch", "workspace_uninstall", "workspace_finish_uninstall", "workspace_focus",
             "workspace_stop", "workspace_select_product_installer", "workspace_install_product",
             "workspace_finish_product_install"] {
-            let request = json!({"schema":29,"state_token":current.state_token,"action":{"kind":kind}});
+            let request = json!({"schema":ui::OPERATOR_SCHEMA,"state_token":current.state_token,"action":{"kind":kind}});
             assert!(serde_json::from_value::<ui::Request>(request).is_err(), "{kind}");
         }
         assert_eq!(test_fixture::snapshot(&workspace), before);
@@ -8949,7 +8974,11 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
     }
     #[test]
     fn native_access_restoration_requires_idle_bridge_two_keepers_and_no_resume_owner() {
-        let base=json!({"schema":7,"system":{"service":"active","keepers":2,"dsp":0,"maintenance":0,
+        let base=json!({"schema":ui::OPERATOR_SCHEMA,
+            "live":ui::LiveActivity { instances:ui::Observation::Observed(vec![]) },
+            "recent":ui::Observation::<Vec<ui::RecentInstance>>::Observed(vec![]),
+            "incidents":ui::Observation::<Vec<ui::IncidentSummary>>::Observed(vec![]),
+            "system":{"service":"active","keepers":2,"dsp":0,"maintenance":0,
             "ceiling":6,"pending_transactions":0,"stale_transports":0,"cleanup_unconfirmed":false},
             "capture":{"armed":false,"active_retention":0},"operation":null});
         let activity:ui::Activity=serde_json::from_value(base.clone()).unwrap();
@@ -9762,6 +9791,33 @@ mod dead_worker_reconciliation {
     }
     fn receipt(m: &Manager, id: &str) -> Value {
         optional(&job_dir(m, id).unwrap().join("result.json")).unwrap()
+    }
+    #[test]
+    fn interrupted_restart_retains_unknown_outcome_without_replay() {
+        let f = test_fixture::Fixture::new();
+        let restart = ui::Request { schema: ui::OPERATOR_SCHEMA, state_token: "fixture".into(),
+            action: ui::Action::PluginRestart { instance: "ab".repeat(16), generation: 4,
+                snapshot: ui::RecoverySnapshot { revision: 2, sha256: "cd".repeat(32) } } };
+        for state in ["queued", "waiting", "running"] {
+            let id = launch_queued(&f.m, &restart, |_| Ok(true)).unwrap().operation.unwrap();
+            write_operation(&f.m, &id, &json!({"schema":1,"operation":id,"state":state,
+                "action":restart.action}), false).unwrap();
+            // This is the same terminal reconciliation used after service loss.
+            refuse_unfinished(&f.m, &id, "operator_worker_terminated").unwrap();
+            let final_receipt = receipt(&f.m, &id);
+            if state == "running" {
+                assert_eq!(final_receipt["state"], "completed");
+                assert_eq!(final_receipt["outcome"], "unconfirmed");
+                assert_eq!(final_receipt["result"]["restart"], "unconfirmed");
+                assert_eq!(activity::latest_operation(&f.m).unwrap().unwrap()["outcome"], "unconfirmed");
+            } else {
+                assert_eq!(final_receipt["state"], "refused", "dispatch had not begun");
+            }
+            // Late executor cleanup cannot overwrite the retained uncertainty.
+            write_operation(&f.m, &id, &json!({"schema":1,"operation":id,"state":"completed",
+                "outcome":"confirmed","result":{"restart":"completed"}}), false).unwrap();
+            assert_eq!(receipt(&f.m, &id), final_receipt);
+        }
     }
     #[test]
     fn runtime_progress_preserves_control_generation_and_terminal_receipts() {

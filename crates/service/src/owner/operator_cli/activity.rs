@@ -24,7 +24,7 @@ pub(super) fn latest_operation(m: &Manager) -> Result<Option<Value>> {
     let mut summary = json!({"summary":true,"operation":operation,"state":state});
     // Deliberately omit live-derived owned_service_pause and all request/result
     // payloads. The exact retained Operation read remains the full receipt path.
-    for key in ["error", "refusal"] {
+    for key in ["error", "refusal", "outcome"] {
         if let Some(reason) = record[key].as_str() { summary[key] = json!(reason.chars().take(512).collect::<String>()); }
     }
     Ok(Some(summary))
@@ -145,6 +145,11 @@ mod tests {
         assert_eq!(summary["operation"], "ab".repeat(16)); assert_eq!(summary["state"], "running");
         assert_eq!(summary["summary"], true);
         assert!(summary.get("owned_service_pause").is_none() && summary.get("journey").is_none() && summary.get("result").is_none());
+        atomic_json(&path, &json!({"operation":"ab".repeat(16),"state":"completed",
+            "outcome":"unconfirmed","result":{"restart":"unconfirmed"}})).unwrap();
+        let summary = latest_operation(&fixture.m).unwrap().unwrap();
+        assert_eq!(summary["outcome"], "unconfirmed", "terminal execution is not confirmed success");
+        assert!(summary.get("result").is_none());
         fs::write(&path, b"invalid").unwrap();
         assert!(latest_operation(&fixture.m).is_err());
         assert!(ActivityComposer::default().sample(&fixture.m, ui::LiveActivity::unavailable("fixture"), None, None).is_err());
@@ -162,9 +167,13 @@ mod tests {
     #[test]
     fn summary_cache_is_only_for_the_exact_covered_revision() {
         let fixture = test_fixture::Fixture::new();
+        // The running service creates its admission lock before read-only
+        // observers start; an absent lock deliberately makes recent unavailable.
+        drop(fixture.m.lock("registry.lock").unwrap());
         let mut composer = ActivityComposer::default();
         let live = || ui::LiveActivity::unavailable("fixture");
         let first = composer.sample(&fixture.m, live(), None, Some(10)).unwrap();
+        assert!(matches!(first.recent, Observation::Observed(ref rows) if rows.is_empty()), "{:?}", first.recent);
         assert!(matches!(first.incidents, Observation::Observed(rows) if rows.is_empty()));
         let folder = fixture.m.root.join("runtime/incidents").join("ab".repeat(16));
         private_dir(&folder).unwrap();

@@ -1154,15 +1154,17 @@ pub fn display_fixture(snapshot: &mut model::Snapshot) {
     let close = Action::PluginClose { operation:"ab".repeat(16), session:"cd".repeat(16) };
     let prepare = Action::CandidateSettingsPrepare {candidate:original.clone(), settings:settings.clone(), expected_current:Some(current.clone())};
     let choose = Action::CompatibilityPublishTest {candidate:alternate.clone(), expected_current:Some(current.clone())};
+    let assess = Action::CandidateGraphicsAssess {candidate:original.clone()};
     let record = Action::CompatibilityResult {candidate:original.clone(), expected_current:current,
         result:TestResultKind::Worked, passed:vec![], failed_area:None, note:String::new()};
     let accessibility = Action::CandidateSettingsPrepare {candidate:original.clone(),
-        settings:LocalSettings {graphics:None,accessibility:AccessibilityChoice::DisabledForHost},
+        settings:LocalSettings {graphics:None,accessibility:AccessibilityChoice::ProfileDefault},
         expected_current:None};
     for (label, action, reason) in [
         ("Open on its own", open.clone(), None), ("Show the plug-in window", focus, None), ("Close this plug-in window", close, None),
         ("Prepare display trial", prepare.clone(), None), ("Try this prepared display mode", choose.clone(), None),
         ("Record this editor result", record.clone(), None),
+        ("Check the current display setting", assess.clone(), None),
         ("Prepare accessibility trial", accessibility.clone(), Some("Close this exact plug-in window before preparing its accessibility trial.")),
     ] { p.actions.push(AvailableAction {label:label.into(),action,disabled_reason:reason.map(str::to_owned)}); }
     let failed = DisplayResult {candidate:original.clone(), ordinal:2, recorded_at:1_700_000_000,
@@ -1170,10 +1172,29 @@ pub fn display_fixture(snapshot: &mut model::Snapshot) {
     let passed = DisplayResult {candidate:alternate.clone(), ordinal:4, recorded_at:1_700_000_100,
         status:DisplayTestStatus::Passed, witness:DisplayWitness::Machine,
         detail:"The supervised editor opened and closed; sound and project recall were not tested.".into()};
+    // Use the production recipe's complete row count and copy; only the
+    // synthetic observations and exact offers are local preview data.
+    let recipe:serde_json::Value = serde_json::from_str(include_str!("../../../compatibility/editor-repair.json")).unwrap();
+    let mut steps:Vec<RepairStep> = serde_json::from_value(recipe["steps"].clone()).unwrap();
+    for step in &mut steps {
+        step.action = match step.kind {
+            RepairStepKind::OpenStandalone => Some(open.clone()),
+            RepairStepKind::AssessDisplay => Some(assess.clone()),
+            RepairStepKind::TryDisplayMode => Some(prepare.clone()),
+            RepairStepKind::ProfileAccessibility => Some(accessibility.clone()),
+            RepairStepKind::ReportProblem => Some(record.clone()),
+            _ => None,
+        };
+        step.unavailable_reason = match step.kind {
+            RepairStepKind::RepairInstallation => Some("No installation repair is available for this plug-in.".into()),
+            RepairStepKind::RestorePrevious => Some("No previous settings are available to restore.".into()),
+            _ => None,
+        };
+    }
     p.display = Observation::Observed(DisplayConfiguration {observed_candidate:original.clone(), selected_candidate:Some(original.clone()),
         modes:vec![DisplayModeChoice {backend:None,label:"Runtime defaults".into(),selected:true,suggested:false,prepare:None,
             last_result:Observation::Observed(Some(failed.clone())), trials:vec![DisplayTrial {candidate:original.clone(),
-                settings:LocalSettings::default(),predecessor:None,previous_publication:None,current_inputs:true,selected:true,last_result:Observation::Observed(Some(failed)),
+                settings:LocalSettings {graphics:None,accessibility:AccessibilityChoice::DisabledForHost},predecessor:None,previous_publication:None,current_inputs:true,selected:true,last_result:Observation::Observed(Some(failed)),
                 evidence:DisplayEvidenceState::FailureRetained,actions:vec![record]}]},
             DisplayModeChoice {backend:Some(GraphicsBackend::WineD3d11),label:"Wine Direct3D 11".into(),selected:false,suggested:true,
                 prepare:Some(prepare.clone()),last_result:Observation::Observed(Some(passed.clone())),
@@ -1181,15 +1202,32 @@ pub fn display_fixture(snapshot: &mut model::Snapshot) {
                     previous_publication:Some(PublicationIdentity {id:"ab".repeat(16),sha256:"cd".repeat(32)}),current_inputs:true,selected:false,
                     last_result:Observation::Observed(Some(passed)), evidence:DisplayEvidenceState::FailureRetained, actions:vec![choose]}]}],
         repair:RepairLadder {profile_id:"sample-editor-profile".into(),profile_revision:3,
-            evidence:vec!["Synthetic profile recipe for the native layout check.".into()], steps:vec![
-                RepairStep {kind:RepairStepKind::OpenStandalone,label:"Open the plug-in on its own".into(),
-                    detail:"Inspect the separate window without changing the DAW instance.".into(),action:Some(open),unavailable_reason:None},
-                RepairStep {kind:RepairStepKind::TryDisplayMode,label:"Try another display mode".into(),
-                    detail:"Prepare one reversible launch choice, then explicitly select its exact trial.".into(),action:Some(prepare),unavailable_reason:None},
-                RepairStep {kind:RepairStepKind::ProfileAccessibility,label:"Try the profile accessibility choice".into(),
-                    detail:"This profile proposes a launch-only change for this plug-in host.".into(),action:Some(accessibility),unavailable_reason:None},
-                RepairStep {kind:RepairStepKind::RestorePrevious,label:"Return to a previous setup".into(),
-                    detail:"A previous setup can be selected only when its owner offers it.".into(),action:None,
-                    unavailable_reason:Some("No previous working setup is retained for this exact plug-in.".into())},
-            ]} });
+            evidence:vec!["Synthetic profile recipe for the native layout check.".into()], steps} });
+}
+
+/// A failed Windows host with a still-current native proxy, confirmed state,
+/// and the owner's exact Restart offer. Synthetic; never included in production.
+pub fn recovery_fixture(snapshot: &mut model::Snapshot) -> model::Activity {
+    use model::*;
+    let product = &mut snapshot.products[0];
+    let confirmed = RecoverySnapshot { revision: 7, sha256: "ab".repeat(32) };
+    let offer = AvailableAction { label: "Restart this instance".into(), disabled_reason: None,
+        action: Action::PluginRestart {instance: "cd".repeat(16), generation: 3, snapshot: confirmed.clone()} };
+    product.actions.push(offer.clone());
+    let instance = LiveInstance {
+        kind: InstanceKind::Daw, session: "cd".repeat(16), product: Observation::Observed(ProductIdentity::from(&*product)),
+        consumer: Observation::Unavailable("Synthetic preview does not observe a process.".into()),
+        daw: Observation::Observed(HostApplication {name:"Example DAW".into(), source:HostIdentitySource::Vst3HostApplication}),
+        transport: Observation::Unavailable("The Windows host stopped; no current transport progress is observed.".into()),
+        lifecycle: Observation::Unavailable("The Windows host stopped.".into()),
+        processing: ProcessingObservation::Unavailable {reason:"The Windows host stopped.".into()},
+        signal: SignalObservation::NotMeasured, terminal: Observation::Observed(Some(InstanceFailure::WindowsHostExited)),
+        cleanup: CleanupState::Confirmed,
+        recovery: Some(InstanceRecovery {instance: "cd".repeat(16), generation: 3,
+            snapshot:Observation::Observed(confirmed), uncaptured_changes_possible:true,
+            detail:"The Windows plug-in host stopped. Your DAW instance is still connected.".into(), restart:Some(offer)}),
+    };
+    Activity {schema: model::OPERATOR_SCHEMA, live:LiveActivity {instances:Observation::Observed(vec![instance])},
+        recent:Observation::Observed(vec![]), incidents:Observation::Observed(vec![]),
+        system:snapshot.system.clone(), capture:serde_json::Value::Null, operation:None}
 }

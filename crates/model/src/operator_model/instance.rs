@@ -99,6 +99,8 @@ pub struct LiveInstance {
     pub signal: SignalObservation,
     pub terminal: Observation<Option<InstanceFailure>>,
     pub cleanup: CleanupState,
+    #[serde(default)]
+    pub recovery: Option<super::InstanceRecovery>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

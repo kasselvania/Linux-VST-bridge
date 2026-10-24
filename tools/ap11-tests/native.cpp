@@ -58,6 +58,9 @@ uint32_t actual_mode=UINT32_MAX,process_calls=0;
 std::vector<ap8_event_t> transported; // every event the processor admitted
 uint32_t configured_maximum=0, activated_maximum=0;
 if1_terminal_t terminal_record{};
+bool recovery_fixture=false,recovery_final_ack_refused=false;
+std::deque<uint32_t> recovery_stages;
+uint32_t recovery_begun=0,recovery_controller_ack=0,recovery_complete_ack=0,recovery_gui_polls=0,recovery_rejected=0;
 std::thread::id owner = std::this_thread::get_id();
 struct Host final : HostApplication,
                     Linux::IRunLoop,
@@ -271,6 +274,7 @@ uint32_t __wrap_ap11_gui_command(uint64_t, uint64_t g, ap11_gui_message_t *m) {
   return 0;
 }
 uint32_t __wrap_ap11_gui_take(uint64_t, uint64_t g, ap11_gui_message_t *m) {
+  if(recovery_fixture)++recovery_gui_polls;
   if (g != generation)
     return 5;
   *m = ap11_gui_message_t{};
@@ -330,6 +334,29 @@ uint32_t __wrap_ap4_state_owned_v1(uint64_t, const uint8_t *restore, uint32_t re
 }
 void __wrap_ap4_state_release_v1(ap4_owned_state_v1 *state) {
   delete[] state->data;state->data=nullptr;state->length=0;
+}
+uint32_t __wrap_lvb_recovery_poll_v1(uint64_t,uint32_t timer,lvb_recovery_event_v1* event,ap4_owned_state_v1* bytes){
+  *event={};if(!recovery_fixture||recovery_stages.empty())return 0;
+  check(timer==1,"restart events consumed by actual SDK owner timer");
+  event->stage=recovery_stages.front();recovery_stages.pop_front();
+  std::fill_n(event->operation,16,uint8_t(2));event->active=event->processing=1;
+  if(event->stage==2){
+    ++generation;terminal_record={};dsp=.375;
+    check(__wrap_ap4_state_owned_v1(1,nullptr,0,bytes)==0,"actual opaque readback fixture");
+  }
+  event->generation=generation;
+  if(event->stage==3)check(recovery_controller_ack==1,"final readiness follows controller acknowledgement");
+  return 0;
+}
+uint32_t __wrap_lvb_recovery_begin_v1(uint64_t,const uint8_t* operation,uint32_t,uint32_t,uint32_t active,uint32_t processing){
+  check(operation[0]==2&&active==1&&processing==1,"exact command preserves DAW processing intention");++recovery_begun;return 0;
+}
+uint32_t __wrap_lvb_recovery_ack_v1(uint64_t,const uint8_t* operation,uint32_t stage,uint32_t success){
+  check(operation[0]==2&&success<=1,"only exact recovery is acknowledged");
+  if(!success){++recovery_rejected;return 0;}
+  if(stage==3&&recovery_final_ack_refused){++recovery_rejected;return 1;}
+  if(stage==2)++recovery_controller_ack;else if(stage==3)++recovery_complete_ack;else check(false,"known recovery acknowledgement");
+  return 0;
 }
 uint32_t __wrap_ap23_finish_callback(uint64_t) { return 0; }
 uint32_t __wrap_ap23_process_outputs(uint64_t, uint32_t n, uint32_t mode, const ap8_event_t *e,
@@ -1114,6 +1141,55 @@ void presentation_focus_regression() {
   check(c->panelClose(token),"presentation focus close");c->disconnect(&processor);processor.disconnect(c);
   check(c->terminate()==kResultOk&&processor.terminate()==kResultOk,"presentation focus normal retirement");c->release();
 }
+void delayed_instance_restart_regression(bool stop_during_restart=false,bool final_ack_expired=false){
+  events.clear();commands.clear();gui_fault=0;terminal_record={};generation=7;processing_state_fixture=false;
+  save_code=close_code=transition_refusal=0;open_refused=false;readback_invalid=false;
+  recovery_fixture=true;recovery_final_ack_refused=final_ack_expired;recovery_stages.clear();recovery_begun=recovery_controller_ack=recovery_complete_ack=recovery_gui_polls=recovery_rejected=0;
+  Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
+  host.processor=&processor;host.controller=controller;auto* context=static_cast<IHostApplication*>(&host);
+  check(processor.initialize(context)==kResultOk&&controller->initialize(context)==kResultOk,"restart initialize");
+  check(controller->setComponentHandler(static_cast<IComponentHandler*>(&host))==kResultOk,"restart handler");
+  check(processor.connect(controller)==kResultOk&&controller->connect(&processor)==kResultOk,"restart connect");
+  ProcessSetup setup{kRealtime,kSample32,128,48000};
+  check(processor.setupProcessing(setup)==kResultOk&&processor.setActive(true)==kResultOk&&processor.setProcessing(true)==kResultOk,"restart starts from actual active SDK instance");
+  terminal_record.words[0]=1;terminal_record.words[1]=123;terminal_record.words[2]=456;
+  terminal_record.words[3]=generation;terminal_record.words[4]=2;terminal_record.words[5]=104687;
+  terminal_record.words[6]=512;terminal_record.words[7]=9;terminal_record.words[14]=1;
+  terminal_record.words[15]=5;terminal_record.words[18]=3;terminal_record.words[19]=4;
+  host.tick();check(controller->setParamNormalized(0,.8)==kResultFalse,"failed generation cannot edit");
+  recovery_stages.push_back(1);host.tick();check(recovery_begun==1,"one owner-thread start");
+  recovery_stages.push_back(2);host.tick();
+  check(recovery_controller_ack==0&&recovery_complete_ack==0,"queued refresh is not restored controller");
+  const auto polls=recovery_gui_polls;
+  for(int i=0;i<12;++i)host.tick();
+  check(recovery_gui_polls>polls&&recovery_controller_ack==0,"terminal processor drains delayed current-generation controller messages");
+  ap11_gui_message_t begin{};begin.kind=AP11::RefreshBegin;begin.count=1;begin.revision=revision++;
+  ap11_gui_message_t parameter{};parameter.kind=AP11::Parameter;parameter.id=0;parameter.revision=begin.revision;parameter.value=.375;parameter.flags=1;
+  auto end=begin;end.kind=AP11::RefreshEnd;
+  events.push_back(begin);events.push_back(parameter);events.push_back(end);
+  host.tick();check(recovery_controller_ack==0,"metadata alone cannot replace missing MIDI observation");
+  ap11_gui_message_t midi{};midi.kind=AP11::MidiMapBegin;midi.revision=revision++;events.push_back(midi);
+  midi.kind=AP11::MidiMapEnd;events.push_back(midi);host.tick();
+  check(recovery_controller_ack==1&&recovery_complete_ack==0,"delayed complete metadata confirms exact new controller");
+  if(stop_during_restart)check(processor.setProcessing(false)==kResultOk&&processor.setActive(false)==kResultOk,
+      "DAW stops and deactivates while replacement is awaiting final confirmation");
+  recovery_stages.push_back(3);host.tick();
+  if(stop_during_restart||final_ack_expired){
+    check(recovery_complete_ack==0&&recovery_rejected==1,"stopped DAW intent or expired acknowledgement cannot complete restart");
+    check(controller->setParamNormalized(0,.8)==kResultFalse,"refused replacement remains unavailable");
+    check(processor.setActive(true)==kResultFalse,"old recovery cannot reactivate the stopped instance");
+  }else{
+    check(recovery_complete_ack==1&&controller->getParamNormalized(0)==.375,"opaque restored value survives completed restart");
+    check(controller->setParamNormalized(0,.8)==kResultOk,"new generation accepts editing after confirmation");
+  }
+  check(host.reload_calls==0,"recovery never substitutes a DAW reload");
+  check(processor.setProcessing(false)==kResultOk&&processor.setActive(false)==kResultOk,"restarted instance normal stop");
+  if(stop_during_restart||final_ack_expired)
+    check(processor.setActive(true)==kResultFalse,"failed final acknowledgement preserves the terminal latch after normal stop");
+  controller->disconnect(&processor);processor.disconnect(controller);
+  check(controller->terminate()==kResultOk&&processor.terminate()==kResultOk&&host.timers.empty(),"restarted instance normal retirement");
+  controller->release();recovery_fixture=false;recovery_final_ack_refused=false;terminal_record={};generation=7;
+}
 int main(int argc,char** argv) {
   {
     Host host;LVBHost::Name name;
@@ -1127,7 +1203,8 @@ int main(int argc,char** argv) {
     name.capture(nullptr);check(name.length==0,"absent host is unavailable");
   }
   if(argc>1){
-    if(!std::strcmp(argv[1],"--state-migration")){historical_controller_regression();processing_state_restore_regression();failed_restore_retirement_regression();}
+    if(!std::strcmp(argv[1],"--restart")){delayed_instance_restart_regression();delayed_instance_restart_regression(true);delayed_instance_restart_regression(false,true);}
+    else if(!std::strcmp(argv[1],"--state-migration")){historical_controller_regression();processing_state_restore_regression();failed_restore_retirement_regression();}
     else if(!std::strcmp(argv[1],"--curve-refusal"))curve_refusal_regression();
     else if(!std::strcmp(argv[1],"--refused-admission"))refused_admission_regression();
     else if(!std::strcmp(argv[1],"--held-state"))held_state_regression();
@@ -1366,6 +1443,9 @@ int main(int argc,char** argv) {
   processor->terminate();
   check(closes == 1, "only final teardown closes DSP");
   terminal_instance_regression();
+  delayed_instance_restart_regression();
+  delayed_instance_restart_regression(true);
+  delayed_instance_restart_regression(false,true);
   std::cout << "AP11 production native SDK gestures, echo, refresh, zero-frame "
                "save, failure, lifetime PASS\n";
 }

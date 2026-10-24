@@ -859,8 +859,8 @@ fn next_step(ui: &mut egui::Ui, next: &screen_model::home::Next, chosen: &mut Op
     use screen_model::home::Next;
     match next {
         Next::Service { title, what_happened, offers, review } => {
-            ui.strong(*title);
-            ui.label(*what_happened);
+            ui.strong(title);
+            ui.label(what_happened);
             widgets::offer_row(ui, offers, chosen);
             if ui.button(review.label).clicked() { *local = Some(review.does.clone()); }
         }
@@ -1285,7 +1285,7 @@ impl Operator {
     }
 
     fn sessions(ui: &mut egui::Ui, sessions: &screen_model::activity::Sessions,
-        activity_focus: &mut Option<String>, local: &mut Option<Local>) {
+        activity_focus: &mut Option<String>, local: &mut Option<Local>, chosen: &mut Option<Action>) {
         ui.heading(sessions.title);
         if let Some(warning) = sessions.warning { ui.colored_label(warning_color(ui), warning); }
         if let Some(empty) = sessions.empty { ui.label(empty); }
@@ -1301,6 +1301,7 @@ impl Operator {
                             *local = Some(open.does.clone());
                         }
                     }
+                    if let Some(recovery) = &row.recovery { widgets::instance_recovery(ui, recovery, chosen); }
                     widgets::disclosure(ui, &row.record, &mut None);
                 })
             });
@@ -1318,9 +1319,9 @@ impl Operator {
         ui.small(view.intro);
         if let Some(notice) = &view.notice { widgets::text(ui, notice); }
         if let Some(retry) = &view.retry { if control_button(ui, retry) { local = Some(retry.does.clone()); } }
-        Self::sessions(ui, &view.live, &mut state.focus.activity, &mut local);
+        Self::sessions(ui, &view.live, &mut state.focus.activity, &mut local, chosen);
         ui.separator();
-        Self::sessions(ui, &view.recent, &mut state.focus.activity, &mut local);
+        Self::sessions(ui, &view.recent, &mut state.focus.activity, &mut local, chosen);
         ui.separator();
         ui.heading(view.attention.title);
         Self::attention_list(ui, &view.attention, &mut local);
@@ -6538,7 +6539,7 @@ mod tests {
         });
         let mut s = running_snapshot(&"22".repeat(16));
         s.operation = Some(serde_json::json!({"operation":"22".repeat(16),"state":"completed"}));
-        s.products.push(Product{class_id:"aa".repeat(16),name:"Generated instrument".into(),vendor:"Fixture".into(),role:"instrument".into(),version:"1".into(),disposition:"prepared".into(),active_revision:None,recommended_revision:None,environment:"ef".repeat(16),runner:"pinned".into(),module_sha256:"ff".repeat(32),limitations:vec![],history:vec![],actions:vec![],availability:None,compatibility:None,details:serde_json::json!({"preparation":{"operation":{"operation":"11".repeat(16),"state":"completed"}}})});
+        s.products.push(Product{class_id:"aa".repeat(16),name:"Generated instrument".into(),vendor:"Fixture".into(),role:"instrument".into(),version:"1".into(),disposition:"prepared".into(),active_revision:None,recommended_revision:None,environment:"ef".repeat(16),runner:"pinned".into(),module_sha256:"ff".repeat(32),limitations:vec![],history:vec![],actions:vec![],availability:None,compatibility:None,display:screen_model::model::DisplayConfiguration::unavailable(),details:serde_json::json!({"preparation":{"operation":{"operation":"11".repeat(16),"state":"completed"}}})});
         f.reconcile_snapshot(&s);
         assert!(f.terminal);
         assert!(!f.blocking);

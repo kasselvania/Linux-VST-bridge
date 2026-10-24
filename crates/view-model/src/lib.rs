@@ -33,6 +33,7 @@ pub mod offers;
 pub mod plugins;
 pub mod product;
 pub mod request;
+pub mod recovery;
 pub mod screen;
 pub mod service;
 pub mod settings;

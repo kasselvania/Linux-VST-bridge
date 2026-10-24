@@ -24,6 +24,7 @@ pub struct DisplayMode {
 #[derive(Clone, Debug, PartialEq)]
 pub struct DisplayTrial {
     pub posture: String,
+    pub current: bool,
     pub evidence: Text,
     pub result: Text,
     pub actions: OfferRow,
@@ -32,6 +33,7 @@ pub struct DisplayTrial {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RepairStep {
+    pub kind: model::RepairStepKind,
     pub label: String,
     pub detail: String,
     pub actions: OfferRow,
@@ -43,14 +45,14 @@ pub(super) fn references(product: &Product) -> Vec<Action> {
         .chain(display.repair.steps.iter().filter_map(|step| step.action.as_ref())).cloned().collect()
 }
 
-/// Already-shown exact controls may also be mentioned by a repair recipe.
-/// Keep one control and say where it is; do not create a second authority.
-pub(super) fn build(product: &Product, busy: Option<&str>, pending: bool, shown: &[Action]) -> DisplayView {
+/// Each local page receives the same exact current offers. Navigation never
+/// substitutes a prose reference for the control the musician needs there.
+pub(super) fn build(product: &Product, busy: Option<&str>, pending: bool) -> DisplayView {
     let Observation::Observed(display) = &product.display else {
         return DisplayView { notice: Some(Text::detail("Display choices and repair steps are unavailable. Refresh the plug-in controls to check again.")),
             modes: vec![], repairs: vec![], provenance: None };
     };
-    let mut resolver = Resolver { product, busy, pending, shown: shown.to_vec() };
+    let mut resolver = Resolver { product, busy, pending };
     let modes = display.modes.iter().map(|mode| DisplayMode {
         label: mode.label.clone(),
         posture: match (mode.selected, mode.suggested) {
@@ -61,8 +63,10 @@ pub(super) fn build(product: &Product, busy: Option<&str>, pending: bool, shown:
         }.into(),
         result: result(&mode.last_result),
         result_record: result_record(&mode.last_result),
-        prepare: resolver.actions(mode.prepare.iter(), None),
+        prepare: if mode.prepare.is_some() { resolver.actions(mode.prepare.iter(), None) }
+            else { OfferRow::default() },
         trials: mode.trials.iter().map(|trial| DisplayTrial {
+            current: trial.selected || trial.current_inputs,
             posture: match (trial.selected, trial.current_inputs) {
                 (true, true) => "Current display setting",
                 (true, false) => "Current display setting · needs checking after setup changes",
@@ -86,6 +90,7 @@ pub(super) fn build(product: &Product, busy: Option<&str>, pending: bool, shown:
         }).collect(),
     }).collect();
     let repairs = display.repair.steps.iter().map(|step| RepairStep {
+        kind: step.kind,
         label: step.label.clone(), detail: step.detail.clone(),
         actions: resolver.actions(step.action.iter(), step.unavailable_reason.as_deref()),
     }).collect();
@@ -123,7 +128,7 @@ fn result_record(result: &Observation<Option<model::DisplayResult>>) -> Option<D
     Some(Disclosure::new("Exact editor result", vec![crate::record(&serde_json::to_value(result).unwrap_or_default())]))
 }
 
-struct Resolver<'a> { product: &'a Product, busy: Option<&'a str>, pending: bool, shown: Vec<Action> }
+struct Resolver<'a> { product: &'a Product, busy: Option<&'a str>, pending: bool }
 impl Resolver<'_> {
     fn actions<'a>(&mut self, references: impl Iterator<Item = &'a Action>, unavailable: Option<&str>) -> OfferRow {
         let mut actions: Vec<AvailableAction> = vec![];
@@ -136,11 +141,7 @@ impl Resolver<'_> {
                 notes.push("This exact step is no longer offered. Refresh the plug-in controls.".into());
                 continue;
             };
-            if self.shown.contains(action) {
-                notes.push(format!("{} is shown above.", current.label));
-                continue;
-            }
-            self.shown.push(action.clone());
+            if actions.iter().any(|offer| &offer.action == action) { continue; }
             actions.push(current.clone());
         }
         let mut row = offers::row(&actions, Importance::Secondary, self.busy, self.pending);
@@ -166,10 +167,12 @@ mod tests {
         // Old untyped display fields are not an alternate mode list or result.
         p.details = serde_json::json!({"graphics":{"requested":"fastest supported renderer"},
             "configuration":{"assessment":{"editor":{"status":"working"}}}});
-        let view = build(p, None, false, &[]);
+        let view = build(p, None, false);
         assert_eq!(view.modes.iter().map(|mode| mode.label.as_str()).collect::<Vec<_>>(),
             ["Runtime defaults", "Wine Direct3D 11"]);
         assert_eq!(view.modes[0].posture, "Current display setting");
+        assert!(view.modes[0].prepare.offers.is_empty() && view.modes[0].prepare.notes.is_empty(),
+            "a mode with no preparation control is not a failed step");
         assert_eq!(view.modes[1].posture, "Suggested");
         assert!(view.modes[0].result.words.contains("Failed · your report"));
         assert!(view.modes[1].result.words.contains("Passed · automated check"));
@@ -180,12 +183,12 @@ mod tests {
         assert_eq!(view.modes[1].trials[0].actions.offers[0].pressed(), Some(display.modes[1].trials[0].actions[0].clone()));
         assert_eq!(view.repairs.iter().map(|step| step.label.as_str()).collect::<Vec<_>>(),
             display.repair.steps.iter().map(|step| step.label.as_str()).collect::<Vec<_>>());
-        assert_eq!(view.repairs[2].actions.offers[0].availability,
+        assert_eq!(view.repairs[3].actions.offers[0].availability,
             offers::Availability::Refused("Close this exact plug-in window before preparing its accessibility trial.".into()));
-        assert!(view.repairs[3].actions.offers.is_empty());
-        assert!(view.repairs[3].actions.notes[0].contains("No previous working setup"));
-        assert!(view.repairs[1].actions.offers.is_empty(), "the exact prepare control appears once");
-        assert!(view.repairs[1].actions.notes[0].ends_with("is shown above."));
+        assert!(view.repairs[5].actions.offers.is_empty());
+        assert!(view.repairs[5].actions.notes[0].contains("No previous settings"));
+        assert_eq!(view.repairs[2].actions.offers[0].intent, view.modes[1].prepare.offers[0].intent,
+            "the repair page keeps the exact control available on its own");
         assert!(!format!("{view:?}").contains("fastest supported renderer"));
     }
 
@@ -196,22 +199,22 @@ mod tests {
         let model::Observation::Observed(display) = &p.display else { panic!() };
         let offered = display.modes[1].prepare.clone().unwrap();
         let index = p.actions.iter().position(|offer| offer.action == offered).unwrap();
-        let pending = build(p, None, true, &[]);
+        let pending = build(p, None, true);
         assert_eq!(pending.modes[1].prepare.offers[0].availability, offers::Availability::Waiting);
         assert!(pending.modes[1].prepare.offers[0].pressed().is_none());
-        assert!(matches!(pending.repairs[2].actions.offers[0].availability, offers::Availability::Refused(_)));
+        assert!(matches!(pending.repairs[3].actions.offers[0].availability, offers::Availability::Refused(_)));
         if let Action::CandidateSettingsPrepare {expected_current:Some(current), ..} = &mut p.actions[index].action {
             current.sha256 = "ef".repeat(32);
         } else { panic!() }
-        let changed = build(p, None, false, &[]);
+        let changed = build(p, None, false);
         assert!(changed.modes[1].prepare.offers.is_empty());
         assert!(changed.modes[1].prepare.notes.iter().any(|note| note.contains("no longer offered")));
         p.actions.clear();
-        let gone = build(p, None, false, &[]);
+        let gone = build(p, None, false);
         assert!(gone.modes.iter().all(|mode| mode.prepare.offers.is_empty()
             && mode.trials.iter().all(|trial| trial.actions.offers.is_empty())));
         p.display = Observation::Unavailable("No exact candidate".into());
-        let missing = build(p, None, false, &[]);
+        let missing = build(p, None, false);
         assert!(missing.modes.is_empty() && missing.repairs.is_empty() && missing.notice.is_some());
     }
 }

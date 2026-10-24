@@ -4,6 +4,8 @@ mod observation;
 pub use observation::*;
 mod instance;
 pub use instance::*;
+mod recovery;
+pub use recovery::*;
 mod display;
 pub use display::*;
 mod update_preview;
@@ -276,6 +278,8 @@ pub enum Action {
     PluginOpen { product: ProductIdentity, expected_current: PublicationIdentity },
     PluginFocus { operation: String, session: String },
     PluginClose { operation: String, session: String },
+    /// Restores only the confirmed snapshot of this still-connected DAW proxy.
+    PluginRestart { instance: String, generation: u64, snapshot: RecoverySnapshot },
     QuarantinedModuleRetry {
         environment: String,
         scan: String,
@@ -342,7 +346,7 @@ pub enum Action {
         confirmed: bool,
     },
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct AvailableAction {
     pub label: String,

@@ -96,6 +96,19 @@ impl RequestFeedback {
         if let Ok(journey) = serde_json::from_value::<InstallationJourney>(op["journey"].clone()) {
             self.journey = Some(journey);
         }
+        // A terminal executor receipt is not proof that the plug-in restarted.
+        // Keep the exact operation and uncertainty through a subsequent refresh.
+        if op["state"] == "completed" && op["outcome"] == "unconfirmed" {
+            self.terminal = true;
+            self.release_after_snapshot = true;
+            self.transition("outcome_unconfirmed");
+            self.text = if matches!(self.action, Action::PluginRestart { .. }) {
+                "The restart result could not be confirmed. Check this instance in your DAW. The request will not be sent again.".into()
+            } else {
+                "The result could not be confirmed. Check its current status. The request will not be sent again.".into()
+            };
+            return;
+        }
         if let Some(
             state @ ("refused"
             | "completed"
@@ -410,5 +423,30 @@ mod tests {
         feedback.refreshed();
         assert!(!feedback.blocking && !feedback.release_after_snapshot && !feedback.terminal);
         assert_eq!(feedback.operation.as_deref(), Some("owned-operation"));
+    }
+    #[test]
+    fn unconfirmed_restart_never_becomes_success_after_refresh() {
+        let mut feedback = RequestFeedback::captured(Action::PluginRestart {
+            instance: "ab".repeat(16), generation: 7,
+            snapshot: RecoverySnapshot { revision: 3, sha256: "cd".repeat(32) },
+        });
+        feedback.receipt(&Receipt { schema: OPERATOR_SCHEMA, accepted: true,
+            operation: Some("exact-operation".into()), refusal: None });
+        let mut record = serde_json::json!({"operation":"other-operation", "state":"completed",
+            "outcome":"unconfirmed", "result":{"restart":"unconfirmed"}});
+        feedback.observe(&record);
+        assert!(!feedback.terminal);
+        record["operation"] = "exact-operation".into();
+        feedback.observe(&record);
+        assert!(feedback.terminal && feedback.blocking && feedback.release_after_snapshot);
+        assert_eq!(feedback.transitions.last().map(String::as_str), Some("outcome_unconfirmed"));
+        assert!(!feedback.transitions.iter().any(|state| state == "completed"));
+        let warning = feedback.text.clone();
+        assert!(warning.contains("could not be confirmed"));
+        feedback.refreshed();
+        assert!(!feedback.blocking);
+        assert_eq!(feedback.text, warning);
+        assert_eq!(feedback.operation.as_deref(), Some("exact-operation"));
+        assert!(feedback.report.is_none());
     }
 }

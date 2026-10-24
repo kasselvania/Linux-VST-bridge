@@ -315,6 +315,9 @@ fn sdk_group(reason: &str) -> Option<&'static str> {
     else if SETTINGS_REPORT.contains(&reason) { Some("settings") }
     else if LIST.contains(&reason) { Some("list") }
     else if reason == "multiple audio classes require explicit selection" { Some("multiple") }
+    else if reason == "detached instance mode binding" { Some("standalone_binding") }
+    else if matches!(reason,"detached editor open failed"|"openDetachedEditor") { Some("standalone_open") }
+    else if reason == "closeDetachedEditor" { Some("standalone_close") }
     else { None }
 }
 
@@ -346,6 +349,18 @@ fn sdk_failure(report: &Value) -> Explanation {
             "The plug-in file loaded, but the list of plug-ins it contains could not be read correctly.",
             "It returned incomplete or invalid information about itself.",
             "Update the plug-in to its latest version, then run the check again."),
+        Some("standalone_binding") => Explanation::new("standalone_launch_binding",
+            "The bridge could not open this plug-in on its own.",
+            "The launch did not match the selected plug-in or the requested window mode.",
+            "Refresh the plug-in's details and try Open on its own again. If it fails again, create a problem report."),
+        Some("standalone_open") => Explanation::new("standalone_editor_open",
+            "The plug-in loaded, but its own window could not be opened.",
+            "Its editor did not open successfully in this session.",
+            "Open the plug-in's Display page to review its window settings. If it keeps failing, create a problem report."),
+        Some("standalone_close") => Explanation::new("standalone_editor_close",
+            "The plug-in's own window did not close cleanly.",
+            "Its editor reported a problem while closing.",
+            "Check Activity for this instance's status before opening another one. If it keeps failing, create a problem report."),
         Some(_) => Explanation::new("multiple_plugins_in_file",
             "This file contains several plug-ins.",
             "Each one is checked on its own.",
@@ -561,6 +576,10 @@ mod tests {
             ("getClassInfo", "sdk_plugin_list"),
             ("audio class absent", "sdk_plugin_list"),
             ("multiple audio classes require explicit selection", "multiple_plugins_in_file"),
+            ("detached instance mode binding", "standalone_launch_binding"),
+            ("detached editor open failed", "standalone_editor_open"),
+            ("openDetachedEditor", "standalone_editor_open"),
+            ("closeDetachedEditor", "standalone_editor_close"),
             ("std::bad_alloc", "sdk_unrecognised_step"),
         ] {
             let e = sdk(reason);

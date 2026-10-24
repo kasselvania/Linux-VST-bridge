@@ -6,6 +6,9 @@ use std::{io, os::unix::net::UnixStream, sync::{Arc, Condvar, Mutex, atomic::{At
 const SUBSCRIBERS: usize = 4;
 const RECORD_INTERVAL: Duration = Duration::from_millis(100);
 const LIVE_INTERVAL: Duration = Duration::from_millis(250);
+/// Explicit reads can arrive between a record change and its next sample.
+/// Wait off the window thread, within four normal sampling intervals.
+const READ_SETTLE: Duration = Duration::from_secs(1);
 struct Held { state: wire::State, encoded: Vec<u8>, activity_at: Instant, records_at: Instant }
 pub(crate) struct Publisher {
     held: Mutex<Held>,
@@ -13,9 +16,37 @@ pub(crate) struct Publisher {
     subscribers: AtomicUsize,
 }
 impl Publisher {
+    /// Wait for the shared sampler to cover the current records. This never
+    /// composes another census or renews the sampler's freshness timestamps.
+    pub fn activity_when_current(&self, records: impl Fn() -> Option<u64>) -> crate::Result<Activity> {
+        self.activity_within(records, READ_SETTLE)
+    }
+    fn activity_within(&self, records: impl Fn() -> Option<u64>, bound: Duration) -> crate::Result<Activity> {
+        let deadline = Instant::now() + bound;
+        loop {
+            let revision = records();
+            let held = self.held.lock().unwrap_or_else(|p| p.into_inner());
+            let mut reason = "Current activity is not yet available. Try again shortly.".to_owned();
+            if revision.is_some() && held.state.records_revision == revision
+                && held.activity_at.elapsed() < wire::STALE_AFTER && held.records_at.elapsed() < wire::STALE_AFTER {
+                match &held.state.activity {
+                    Observation::Observed(activity) => return Ok(activity.clone()),
+                    Observation::Unavailable(detail) => reason = detail.clone(),
+                }
+            }
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() { return Err(reason.into()); }
+            // Drop the publisher lock before consulting the record watch.
+            // The short cap also covers a record change between reading its
+            // revision and taking this lock, even if its notification passed.
+            drop(self.changed.wait_timeout(held, remaining.min(RECORD_INTERVAL))
+                .unwrap_or_else(|p| p.into_inner()).0);
+        }
+    }
     /// Explicit Activity reads consume the same observation as subscribers.
     /// Reading never renews its timestamp or reconstructs a second census.
-    pub fn activity(&self, records_revision: Option<u64>) -> crate::Result<Activity> {
+    #[cfg(test)]
+    fn activity(&self, records_revision: Option<u64>) -> crate::Result<Activity> {
         let held = self.held.lock().unwrap_or_else(|p| p.into_inner());
         crate::require(records_revision.is_some() && held.state.records_revision == records_revision
             && held.activity_at.elapsed() < wire::STALE_AFTER && held.records_at.elapsed() < wire::STALE_AFTER,
@@ -77,7 +108,12 @@ impl Publisher {
             encoded = serde_json::to_vec(&unavailable).unwrap_or_default();
             unavailable
         } else { activity };
-        if held.state.records_revision == records_revision && held.encoded == encoded { return; }
+        if held.state.records_revision == records_revision && held.encoded == encoded {
+            // Freshness may have recovered without a semantic change. Wake
+            // explicit readers without publishing a new cursor or UI frame.
+            self.changed.notify_all();
+            return;
+        }
         held.state.records_revision = records_revision;
         held.state.activity = activity;
         held.state.cursor.revision += 1;
@@ -204,6 +240,63 @@ mod tests {
         publisher.held.lock().unwrap().activity_at = before;
         assert!(publisher.activity(Some(1)).is_err());
         assert_eq!(publisher.held.lock().unwrap().activity_at, before);
+    }
+    fn sample_activity(marker: u64) -> Activity {
+        let snapshot: crate::operator_model::Snapshot = serde_json::from_str(include_str!("../../../../manager-ui/examples/library-preview.json")).unwrap();
+        Activity { schema: crate::operator_model::OPERATOR_SCHEMA,
+            live: crate::operator_model::LiveActivity::unavailable("fixture"), recent: Observation::Observed(vec![]),
+            incidents: Observation::Observed(vec![]), system: snapshot.system,
+            capture: serde_json::json!(marker), operation: None }
+    }
+    #[test]
+    fn explicit_read_waits_for_matching_sample_and_follows_changed_records() {
+        use std::sync::{atomic::AtomicU64, mpsc};
+        let publisher = fixture();
+        let revision = AtomicU64::new(1);
+        let (entered, entering) = mpsc::channel();
+        let (result, received) = mpsc::channel();
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                result.send(publisher.activity_within(|| {
+                    let _ = entered.send(());
+                    Some(revision.load(Ordering::Acquire))
+                }, Duration::from_secs(2)).map(|activity| activity.capture).map_err(|error| error.to_string())).unwrap();
+            });
+            entering.recv_timeout(Duration::from_secs(1)).unwrap();
+            revision.store(2, Ordering::Release);
+            publisher.replace(Some(Some(2)), Some((Some(1), Observation::Observed(sample_activity(1)))));
+            assert!(received.recv_timeout(Duration::from_millis(20)).is_err(), "an old sample cannot satisfy the read");
+            publisher.replace(None, Some((Some(2), Observation::Observed(sample_activity(2)))));
+            assert_eq!(received.recv_timeout(Duration::from_secs(1)).unwrap().unwrap(), serde_json::json!(2));
+        });
+    }
+    #[test]
+    fn explicit_read_timeout_preserves_reason_and_does_not_renew_freshness() {
+        let publisher = fixture();
+        let before = publisher.held.lock().unwrap().activity_at;
+        let started = Instant::now();
+        let error = publisher.activity_within(|| Some(1), Duration::from_millis(10)).unwrap_err();
+        assert_eq!(error.to_string(), "fixture");
+        assert!(started.elapsed() < Duration::from_secs(1));
+        assert_eq!(publisher.held.lock().unwrap().activity_at, before);
+        publisher.replace(None, Some((Some(1), Observation::Observed(sample_activity(1)))));
+        let stale = Instant::now() - wire::STALE_AFTER;
+        publisher.held.lock().unwrap().activity_at = stale;
+        assert!(publisher.activity_within(|| Some(1), Duration::from_millis(10)).is_err());
+        assert_eq!(publisher.held.lock().unwrap().activity_at, stale);
+    }
+    #[test]
+    fn identical_sample_restores_freshness_without_changing_cursor() {
+        let publisher = fixture();
+        publisher.replace(None, Some((Some(1), Observation::Observed(sample_activity(1)))));
+        let cursor = publisher.held.lock().unwrap().state.cursor.clone();
+        publisher.held.lock().unwrap().activity_at = Instant::now() - wire::STALE_AFTER;
+        std::thread::scope(|scope| {
+            let reader = scope.spawn(|| publisher.activity_within(|| Some(1), Duration::from_secs(1)).unwrap());
+            publisher.replace(None, Some((Some(1), Observation::Observed(sample_activity(1)))));
+            assert_eq!(reader.join().unwrap().capture, serde_json::json!(1));
+        });
+        assert_eq!(publisher.held.lock().unwrap().state.cursor, cursor);
     }
     #[test]
     fn record_changes_retire_activity_until_a_matching_sample_arrives() {

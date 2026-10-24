@@ -33,6 +33,8 @@ mod process_results;
 mod queue;
 mod queued;
 mod recovery;
+mod proxy_recovery;
+mod control_socket;
 mod scheduling;
 mod state;
 #[cfg(feature = "rpi0")]

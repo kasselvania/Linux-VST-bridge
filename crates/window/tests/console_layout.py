@@ -18,46 +18,83 @@ class ProductApp(ui.App):
 
 
 class ConsoleLayout(unittest.TestCase):
-    def test_display_trials_and_repairs_remain_usable_at_desktop_and_deck_widths(self):
+    def test_display_and_repair_are_focused_subpages_at_desktop_and_deck_widths(self):
         reason = "Close this exact plug-in window before preparing its accessibility trial."
         for width in (1280, 640):
             with self.subTest(width=width), ProductApp("console-display", "--display-fixture",
                     "--state=plugin_ready", "--page=plugins", f"--size={width}x800") as app:
                 def reveal(label):
-                    viewport = app.required(prefix="page_scroll")
-                    x, y = app.center(viewport)
+                    x, y = app.center(app.required(prefix="page_scroll"))
                     app.request("/m", k="scroll", x=x, y=y, dy=-10000, dx=0, wait=1)
                     return app.scroll_to(label)
 
-                # Each window retains its own controls; opening a separate
-                # window must not be described as an audio-device check.
-                for label in ("Open on its own", "Show the plug-in window", "Close this plug-in window"):
+                def usable(label):
                     control = reveal(label)
                     x, _, w, h = control["r"]
                     self.assertGreaterEqual(h, 44)
                     self.assertGreaterEqual(x, 0)
                     self.assertLessEqual(x + w, width)
-                app.capture(f"separate-window-{width}")
-                record = reveal("Record a test result or problem")
-                app.capture(f"display-result-{width}")
+                    return control
+
+                self.assertIsNone(app.find("Prepare Wine D3D11 · default accessibility"))
+                initial_fix = usable("Fix it step by step")["i"]
+                app.capture(f"product-detail-{width}")
                 mark = app.mark()
+                app.mouse("click", usable("Display mode"))
+                app.required("Back to plug-in", kind="ActionButton")
+                app.capture(f"display-page-{width}")
+                record = usable("Record a test result or problem")
                 app.mouse("click", record)
                 app.scroll_to("Record this test result", viewport="form_scroll")
                 app.key("Escape", wait=True)
-                app.no_capture(mark)
-                # Walk the two mode panels and the ordered repair steps. A
-                # narrow screen must reflow them without hiding exact controls.
-                for label in ("Prepare Wine D3D11 · default accessibility", "Use this prepared setup",
-                              "Prepare runtime defaults · Windows accessibility off"):
-                    control = reveal(label)
-                    x, _, w, h = control["r"]
-                    self.assertGreaterEqual(h, 44)
-                    self.assertGreaterEqual(x, 0)
-                    self.assertLessEqual(x + w, width)
-                app.capture(f"repair-steps-{width}")
-                mark = app.mark()
-                app.mouse("click", control)
+                usable("Prepare Wine D3D11 · default accessibility")
+                usable("Use this prepared setup")
+                self.assertIsNone(app.find("This step is unavailable right now."))
+                app.capture(f"prepared-setting-{width}")
+                app.mouse("click", usable("Back to plug-in"))
+                self.assertIsNone(app.find("Use this prepared setup"))
+                app.mouse("click", usable("Fix it step by step"))
+                app.capture(f"repair-page-{width}")
+                usable("Open on its own")
+                usable("Prepare Wine D3D11 · default accessibility")
+                blocked = usable("Prepare runtime defaults · default accessibility")
+                self.assertNotIn("shown above", repr(app.snapshot()))
+                app.capture(f"repair-refusal-{width}")
+                app.mouse("click", blocked)
                 self.assertTrue(any(reason in line for line in app.logs(mark)))
+                app.mouse("click", usable("Back to plug-in"))
+                self.assertEqual(usable("Fix it step by step")["i"], initial_fix,
+                                 "Back must retain the exact product identity")
+                app.no_capture(mark)
+
+    def test_restart_confirmation_names_possible_lost_changes_and_cancels(self):
+        for width in (1280, 640):
+            with self.subTest(width=width), ProductApp("console-restart", "--recovery-fixture",
+                    "--state=plugin_ready", "--page=plugins", f"--size={width}x800") as app:
+                button = app.scroll_to("Restart this instance")
+                x, _, w, h = button["r"]
+                self.assertGreaterEqual(h, 44)
+                self.assertGreaterEqual(x, 0)
+                self.assertLessEqual(x + w, width)
+                app.capture(f"restart-detail-{width}")
+                mark = app.mark()
+                app.mouse("click", button)
+                # Blocks draws prose directly; the pure test checks exact warning text.
+                # The retained capture is inspected for wrapping and visibility.
+                confirm = app.scroll_to("Restart from confirmed state", viewport="form_scroll")
+                x, _, w, h = confirm["r"]
+                self.assertGreaterEqual(h, 44)
+                self.assertGreaterEqual(x, 0)
+                self.assertLessEqual(x + w, width)
+                app.capture(f"restart-confirmation-{width}")
+                app.mouse("click", app.scroll_to("Not now", viewport="form_scroll"))
+                self.assertIsNone(app.find("Restart from confirmed state"))
+                app.mouse("click", app.required("Activity", kind="ActionButton"))
+                app.mouse("click", app.scroll_to("Restart this instance"))
+                # Blocks draws prose directly; the pure test checks exact warning text.
+                # The retained capture is inspected for wrapping and visibility.
+                app.key("Escape", wait=True)
+                self.assertIsNone(app.find("Restart from confirmed state"))
                 app.no_capture(mark)
 
     def test_retained_health_fits_during_refresh(self):

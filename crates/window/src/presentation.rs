@@ -203,6 +203,7 @@ pub enum ListStep {
     Status(plugins::StatusFilter),
     /// Open one exact plug-in from the list shown while controls load.
     Open(vm::ProductKey),
+    ProductPage { key: vm::ProductKey, page: vm::state::ProductPage },
 }
 
 /// The preview's own sample switcher.

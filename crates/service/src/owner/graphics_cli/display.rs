@@ -19,7 +19,7 @@ fn same_inputs(a: &prep::Candidate, b: &prep::Candidate) -> bool {
 fn editor_result(row: Option<&prep::CandidateView>)
     -> (ui::Observation<Option<ui::DisplayResult>>, ui::DisplayEvidenceState) {
     let Some(row) = row else {
-        return (ui::Observation::Unavailable("This configuration's observations could not be read".into()),
+        return (ui::Observation::Unavailable("The check results for these settings could not be read.".into()),
             ui::DisplayEvidenceState::NotEstablished);
     };
     let evidence: Vec<_> = row.evidence.iter()
@@ -77,7 +77,7 @@ pub(super) fn compose(c: &prep::Candidate, view: &prep::View,
         }
         trials.sort_by(|a,b| a.candidate.cmp(&b.candidate));
         let last_result = if trials.iter().any(|trial| matches!(trial.last_result, ui::Observation::Unavailable(_))) {
-            ui::Observation::Unavailable("Some exact configuration observations could not be read".into())
+            ui::Observation::Unavailable("Some check results for these settings could not be read.".into())
         } else {
             ui::Observation::Observed(trials.iter().filter_map(|trial| match &trial.last_result {
                 ui::Observation::Observed(Some(result)) => Some(result), _ => None,
@@ -95,9 +95,9 @@ pub(super) fn compose(c: &prep::Candidate, view: &prep::View,
     if let Some(step) = steps.iter_mut().find(|s| s.kind == ui::RepairStepKind::ProfileAccessibility) {
         step.detail.push_str(match c.profile.capabilities.accessibility {
             profiles::Accessibility::DisabledForVendorProcess =>
-                " This configuration's resolved profile disables Windows accessibility for the plug-in process; Linux input settings stay unchanged.",
+                " The current settings disable Windows accessibility for this plug-in. Linux input settings are unchanged.",
             profiles::Accessibility::WindowsDefault =>
-                " This configuration's resolved profile retains Windows accessibility defaults.",
+                " The current settings use the Windows accessibility defaults.",
         });
     }
     Ok(ui::DisplayConfiguration { observed_candidate: c.id()?, selected_candidate: selected, modes,
@@ -166,13 +166,13 @@ pub(super) fn bind(product: &mut ui::Product) {
         step.action = offer.map(|offer| offer.action.clone());
         step.unavailable_reason = offer.and_then(|offer| offer.disabled_reason.clone()).or_else(|| {
             offer.is_none().then(|| match step.kind {
-                K::OpenStandalone => "Opening this exact plug-in on its own is not currently offered",
-                K::AssessDisplay => "An assessment of this exact configuration is not currently offered",
-                K::TryDisplayMode => "No different display-mode preparation is currently offered",
-                K::ProfileAccessibility => "No change to profile accessibility defaults is currently offered",
-                K::RepairInstallation => "No installation repair or continuation is offered for this plug-in",
-                K::RestorePrevious => "No exact predecessor restoration is currently offered",
-                K::ReportProblem => "A test-problem report or recovery is not currently offered for this configuration",
+                K::OpenStandalone => "This plug-in cannot be opened on its own right now.",
+                K::AssessDisplay => "A display check is not available right now.",
+                K::TryDisplayMode => "No other display mode is available to prepare.",
+                K::ProfileAccessibility => "The default accessibility settings cannot be prepared right now.",
+                K::RepairInstallation => "Installation repair is not available for this plug-in right now.",
+                K::RestorePrevious => "No previous settings are available to restore.",
+                K::ReportProblem => "Recording a problem for these settings is not available right now.",
             }.into())
         });
     }

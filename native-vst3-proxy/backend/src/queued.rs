@@ -277,6 +277,7 @@ impl DirectProgress {
     }
 }
 struct Shared {
+    session: [u8;16],
     #[cfg(target_os="linux")]
     direct: std::sync::OnceLock<crate::direct_audio::Endpoint>,
     #[cfg(target_os="linux")]
@@ -385,6 +386,7 @@ impl Shared {
     }
     fn try_new() -> io::Result<Self> {
         Ok(Self {
+            session:[0;16],
             #[cfg(target_os="linux")]
             direct: std::sync::OnceLock::new(),
             #[cfg(target_os="linux")]
@@ -1510,6 +1512,7 @@ struct Live {
     report: Option<std::path::PathBuf>,
     max: usize,
     recovery_blocked: bool,
+    proxy: Option<Arc<crate::proxy_recovery::Control>>,
     installed_delay: Option<u32>,
     delivery_mode: crate::performance::DeliveryMode,
     minor: u64,
@@ -1519,6 +1522,32 @@ struct Live {
 // guard. The worker owns Shared/Session; removal excludes every live lease.
 unsafe impl Sync for Live {}
 static INSTANCES: crate::instances::Registry<Live> = crate::instances::Registry::new();
+pub(crate) fn proxy_control(id:u64)->Option<Arc<crate::proxy_recovery::Control>> {
+    INSTANCES.lease(id).and_then(|live|live.proxy.clone()).or_else(||crate::proxy_recovery::lookup(id))
+}
+pub(crate) fn recovery_status(id:u64)->Option<ap1_native_client::recovery::Status> {
+    use ap1_native_client::recovery as wire;
+    let live=INSTANCES.lease(id)?;let shared=&live.shared;
+    let mut status=wire::Status{session:shared.session,generation:shared.generation,..wire::Status::default()};
+    if shared.fault.load(Ordering::Acquire)!=0{status.flags|=wire::FAILED;}
+    if shared.retired.load(Ordering::Acquire){status.flags|=wire::RETIRED;}
+    if let Ok(store)=shared.snapshots.try_lock(){if let Some(snapshot)=store.latest(){
+        status.revision=snapshot.revision;status.digest=snapshot.digest;status.flags|=wire::SNAPSHOT;
+        if snapshot.generation!=shared.generation || shared.startup_edits_pending.load(Ordering::Acquire)!=0
+            || shared.last_edit.load(Ordering::Acquire)>snapshot.through{status.flags|=wire::LATER_EDITS;}
+    }}Some(status)
+}
+pub(crate) unsafe fn recover_exact(id:u64,command:&ap1_native_client::recovery::Command,original:[u8;16])
+    ->Result<(Vec<u8>,u64),i32> {
+    let bytes=recover_state_bound(id,command.revision,state::HEADER_SIZE+state::LIMIT,Some((command,original)))?;
+    let generation=INSTANCES.lease(id).ok_or(1)?.shared.generation;
+    Ok((bytes,generation))
+}
+pub(crate) unsafe fn abandon_recovery(id:u64) {
+    if let Some(live)=INSTANCES.lease(id){live.shared.fail(WORKER,u64::MAX);
+        live.shared.quit.store(true,Ordering::Release);live.shared.work.notify();live.shared.completion.notify();}
+}
+pub(crate) unsafe fn close_abandoned_recovery(id:u64){let _=close_instance(id,true);}
 #[cfg(target_os = "linux")]
 pub(crate) fn process_call_report(id: u64) -> Option<std::path::PathBuf> {
     INSTANCES.lease(id)?.report.clone()
@@ -1611,6 +1640,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
         status.generation = s.generation;
     }
     let run = (|| -> io::Result<()> {
+        #[cfg(target_os="linux")]
+        if s.direct.get().is_some(){death_watch=Some(DeathWatch::start(session.socket.try_clone()?,s.clone())?);}
         'work: loop {
             let work_observed = s.work.snapshot();
             s.work.check()?;
@@ -2382,10 +2413,14 @@ unsafe fn open_with(
                     crate::preview::report_path(binding.session)
                 }
             }));
+            let proxy=(cfg!(feature="registered") && opening.execution.is_some()).then(||
+                crate::proxy_recovery::Control::new(binding.session,crate::preview::performance_root(true)));
+            let original_session=binding.session;
             let installed_delay = binding.installed_delay;
             let delivery_mode = binding.delivery_mode;
             let preparation = crate::scheduling::Preparation::from_binding(&binding);
             let mut shared = Shared::try_new()?;
+            shared.session=original_session;
             let mut session = Session::open(binding, max as usize, minor)?;
             session.identity = identity;
             shared.phase_diagnostics = crate::observer::phase_delivery_enabled();
@@ -2415,7 +2450,7 @@ unsafe fn open_with(
                 worker: Some(t),
                 report,
                 max: max as usize,
-                recovery_blocked: false,
+                recovery_blocked: false, proxy,
                 installed_delay,
                 delivery_mode,
                 minor,
@@ -2423,6 +2458,7 @@ unsafe fn open_with(
             })
         }) {
             Ok(Ok(id)) => {
+                if let Some(control)=proxy_control(id){control.start(id);}
                 *handle = id;
                 0
             }
@@ -2491,6 +2527,10 @@ pub unsafe extern "C" fn ap6_snapshot(id: u64, out: *mut RecoveryInfo) -> u32 {
     }) as u32
 }
 unsafe fn recover_state(id: u64, revision: u64, capacity: usize) -> Result<Vec<u8>, i32> {
+    recover_state_bound(id,revision,capacity,None)
+}
+unsafe fn recover_state_bound(id:u64,revision:u64,capacity:usize,
+    exact:Option<(&ap1_native_client::recovery::Command,[u8;16])>)->Result<Vec<u8>,i32> {
         match INSTANCES.update(id, |l| -> io::Result<Vec<u8>> {
             if l.recovery_blocked || l.shared.fault.load(Ordering::Acquire) == 0 {
                 return Err(invalid("recovery requires a failed, contained instance"));
@@ -2501,6 +2541,10 @@ unsafe fn recover_state(id: u64, revision: u64, capacity: usize) -> Result<Vec<u
                 .lock()
                 .map_err(|_| invalid("snapshot store poisoned"))?
                 .select(revision)?;
+            if let Some((command,_))=exact {
+                need(command.generation==l.shared.generation && command.digest==snapshot.digest,
+                    "confirmed recovery snapshot changed")?;
+            }
             need(snapshot.bytes.len() <= capacity, "recovery output capacity")?;
             let payload = state::bound_payload(l.shared.identity, &snapshot.bytes)?;
             let end = Instant::now() + Duration::from_secs(80);
@@ -2527,7 +2571,9 @@ unsafe fn recover_state(id: u64, revision: u64, capacity: usize) -> Result<Vec<u
             // A failed new startup/restore cannot silently authorize another
             // replacement. The owner still contains any newly owned endpoint.
             l.recovery_blocked = true;
-            let binding = if l.minor >= 6 {
+            let binding = if let Some((command,original))=exact {
+                crate::preview::discover_recovery(l.shared.identity,l.shared.execution,original,command.operation)?
+            } else if l.minor >= 6 {
                 crate::preview::discover_performance(l.shared.identity, l.shared.execution)?
             } else {
                 binding(true)?
@@ -2555,9 +2601,12 @@ unsafe fn recover_state(id: u64, revision: u64, capacity: usize) -> Result<Vec<u
             }
             let preparation = crate::scheduling::Preparation::from_binding(&binding);
             let mut shared = Shared::try_new()?;
+            shared.session=binding.session;
             let mut session = Session::open(binding, l.max.min(if crate::performance::whole_block(l.minor) { CAP } else { LEGACY_CAP }), l.minor)?;
             session.identity = l.shared.identity;
-            if let Err(error) = session.component_state(Some(payload)).and_then(|_| {
+            let mut restored=Vec::new();
+            if let Err(error) = session.component_state(Some(payload)).and_then(|readback| {
+                restored=readback;
                 if let Some(setup) = &l.setup {
                     let reply = session.configure(setup.clone())?;
                     let vendor = ap1_native_client::get(&reply[..4]);
@@ -2566,6 +2615,8 @@ unsafe fn recover_state(id: u64, revision: u64, capacity: usize) -> Result<Vec<u
                             "recovered start-up dry latency exceeds retained sample capacity")?;
                     }
                     shared.startup_vendor_latency.store(vendor, Ordering::Release);
+                    shared.notice_traits.store(vendor|(ap1_native_client::get(&reply[4..8])<<32),Ordering::Release);
+                    shared.notices.store(8,Ordering::Release); // actual restored latency/tail reach the SDK owner
                 }
                 Ok(())
             }) {
@@ -2575,6 +2626,16 @@ unsafe fn recover_state(id: u64, revision: u64, capacity: usize) -> Result<Vec<u
                     let _ = owner.finish();
                 }
                 return Err(error);
+            }
+            let mut replacement=l.callback.get_mut().replacement();
+            if let Some(setup)=&l.setup {
+                replacement.startup_dry=crate::startup::Dry::prepare(replacement.startup_effect,setup,
+                    shared.startup_vendor_latency.load(Ordering::Acquire) as u32,replacement.delay as usize)?;
+            }
+            #[cfg(target_os="linux")]
+            if let Some(audio)=session.prepare_direct_audio()? {
+                shared.direct.set(audio.channel.clone()).map_err(|_|invalid("direct audio recovery already prepared"))?;
+                replacement.direct_audio=Some(Box::new(audio));
             }
             if l.minor>=13 {if let Some(bytes)=&l.setup {shared.prepare_outputs(bytes)?;}}
             shared.phase_diagnostics = l.shared.phase_diagnostics;
@@ -2589,6 +2650,9 @@ unsafe fn recover_state(id: u64, revision: u64, capacity: usize) -> Result<Vec<u
                 .checked_add(1)
                 .ok_or_else(|| invalid("transport generation exhausted"))?;
             shared.snapshots = l.shared.snapshots.clone();
+            let restored=state::bound_envelope(l.shared.identity,&restored)?;
+            shared.snapshots.lock().map_err(|_|invalid("snapshot store poisoned"))?
+                .confirm(restored.clone(),18,shared.generation,0)?;
             shared.identity = l.shared.identity;
             shared.execution = l.shared.execution;
             shared.host_name = l.shared.host_name.clone();
@@ -2604,9 +2668,9 @@ unsafe fn recover_state(id: u64, revision: u64, capacity: usize) -> Result<Vec<u
             l.shared = shared;
             l.worker = Some(t);
             l.report = report;
-            l.callback = UnsafeCell::new(l.callback.get_mut().replacement());
+            l.callback = UnsafeCell::new(replacement);
             l.recovery_blocked = false;
-            Ok(snapshot.bytes)
+            Ok(restored)
         }) {
             Ok(Ok(bytes)) => Ok(bytes),
             Ok(Err(error)) => Err(retain(&error)),
@@ -2967,7 +3031,6 @@ pub unsafe extern "C" fn ap4_state_owned_v1(
         }
     }) as u32
 }
-#[cfg(feature = "rpi0")]
 pub(crate) fn wait_started(id: u64) -> io::Result<()> {
     let shared = INSTANCES.lease(id).ok_or_else(|| invalid("start acknowledgement handle"))?.shared.clone();
     let epoch = shared.wanted.load(Ordering::Acquire);
@@ -3508,6 +3571,7 @@ pub extern "C" fn ap23_finish_callback(id: u64) -> u32 {
     0
 }
 unsafe fn close_instance(id: u64, contain_terminal: bool) -> u32 {
+    if proxy_control(id).is_some_and(|control|control.request_close()){return 0;}
     let cancellation = ap23_cancel(id);
     if cancellation != 0 { return cancellation; }
     crate::ffi(|| {
@@ -4281,7 +4345,7 @@ mod tests {
     fn control_live(shared: Arc<Shared>) -> u64 {
         INSTANCES.insert(|| Ok::<_, ()>(Live {
             shared, callback: UnsafeCell::new(Callback::new()), busy: AtomicBool::new(false),
-            worker: None, report: None, max: 256, recovery_blocked: false,
+            worker: None, report: None, max: 256, recovery_blocked: false, proxy: None,
             installed_delay: Some(256),
             delivery_mode: crate::performance::DeliveryMode::Buffered,
             minor: 15, setup: None,
@@ -4306,7 +4370,7 @@ mod tests {
         shared.processing_ready_epoch.store(callback.epoch, Ordering::Release);
         INSTANCES.insert(|| Ok::<_, ()>(Live {
             shared, callback: UnsafeCell::new(callback), busy: AtomicBool::new(false),
-            worker: None, report: None, max: maximum as usize, recovery_blocked: false,
+            worker: None, report: None, max: maximum as usize, recovery_blocked: false, proxy: None,
             installed_delay: Some(256), delivery_mode: delivery, minor: 15,
             setup: Some(crate::performance::wire_version(maximum, mode, 48000., true).unwrap()),
         })).unwrap().unwrap()
@@ -4434,7 +4498,7 @@ mod tests {
         let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
             shared: shared.clone(), callback: UnsafeCell::new(callback),
             busy: AtomicBool::new(false), worker: None, report: None, max: 256,
-            recovery_blocked: false, installed_delay: Some(256),
+            recovery_blocked: false, proxy: None, installed_delay: Some(256),
             delivery_mode: crate::performance::DeliveryMode::SameCallback, minor: 15,
             setup: Some(crate::performance::wire_version(256, 1, 48000., true).unwrap()),
         })).unwrap().unwrap();
@@ -4685,7 +4749,7 @@ mod tests {
             let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
                 shared: shared.clone(), callback: UnsafeCell::new(callback),
                 busy: AtomicBool::new(false), worker: None, report: None,
-                max: delay, recovery_blocked: false, installed_delay: Some(delay as u32),
+                max: delay, recovery_blocked: false, proxy: None, installed_delay: Some(delay as u32),
                 delivery_mode: crate::performance::DeliveryMode::Buffered, minor: 15,
                 setup: Some(crate::performance::wire_version(delay as u32, 2, 48000., true).unwrap()),
             })).unwrap().unwrap();
@@ -4808,7 +4872,7 @@ mod tests {
             let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
                 shared: shared.clone(), callback: UnsafeCell::new(callback),
                 busy: AtomicBool::new(false), worker: None, report: None,
-                max: maximum, recovery_blocked: false, installed_delay: Some(maximum as u32),
+                max: maximum, recovery_blocked: false, proxy: None, installed_delay: Some(maximum as u32),
                 delivery_mode: crate::performance::DeliveryMode::Buffered, minor: 15,
                 setup: Some(crate::performance::wire_version(maximum as u32, 2, 48000., true).unwrap()),
             })).unwrap().unwrap();
@@ -4873,7 +4937,7 @@ mod tests {
         let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
             shared: shared.clone(), callback: UnsafeCell::new(Callback::new()),
             busy: AtomicBool::new(false), worker: None, report: None,
-            max: 64, recovery_blocked: false, installed_delay: Some(1024),
+            max: 64, recovery_blocked: false, proxy: None, installed_delay: Some(1024),
             delivery_mode: crate::performance::DeliveryMode::Buffered, minor: 15, setup: None,
         })).unwrap().unwrap();
         let mut contract = 2u32.to_le_bytes().to_vec();
@@ -4997,7 +5061,7 @@ mod tests {
         let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
             shared: shared.clone(), callback: UnsafeCell::new(callback),
             busy: AtomicBool::new(false), worker: None, report: None,
-            max: 64, recovery_blocked: false, installed_delay: Some(256),
+            max: 64, recovery_blocked: false, proxy: None, installed_delay: Some(256),
             delivery_mode: crate::performance::DeliveryMode::Buffered,
             minor: 14, setup: Some(crate::performance::wire_version(64, 2, 48000., true).unwrap()),
         })).unwrap().unwrap();
@@ -5037,7 +5101,7 @@ mod tests {
         shared.terminal_latched.store(true, Ordering::Release);
         let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
             shared, callback: UnsafeCell::new(Callback::new()), busy: AtomicBool::new(false),
-            worker: None, report: None, max: 64, recovery_blocked: false,
+            worker: None, report: None, max: 64, recovery_blocked: false, proxy: None,
             installed_delay: Some(256), delivery_mode: crate::performance::DeliveryMode::Buffered, minor: 14,
             setup: Some(crate::performance::wire_version(64, 2, 48000., true).unwrap()),
         })).unwrap().unwrap();
@@ -5086,7 +5150,7 @@ mod tests {
         let shared = Arc::new(shared);
         let id = INSTANCES.insert(|| Ok::<_, ()>(Live { shared: shared.clone(),
             callback: UnsafeCell::new(Callback::new()), busy: AtomicBool::new(false),
-            worker: None, report: None, max: 1024, recovery_blocked: false,
+            worker: None, report: None, max: 1024, recovery_blocked: false, proxy: None,
             installed_delay: Some(1024), delivery_mode: crate::performance::DeliveryMode::Buffered, minor: 14, setup: None })).unwrap().unwrap();
         assert_eq!(unsafe { ap3_transition(id, START) }, 0);
         shared.requests.pop().unwrap();
@@ -5169,7 +5233,7 @@ mod tests {
             let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
                 shared: shared.clone(), callback: UnsafeCell::new(Callback::new()),
                 busy: AtomicBool::new(false), worker: None, report: None,
-                max: maximum as usize, recovery_blocked: false, installed_delay: Some(maximum),
+                max: maximum as usize, recovery_blocked: false, proxy: None, installed_delay: Some(maximum),
                 delivery_mode: crate::performance::DeliveryMode::Buffered,
                 minor: 12, setup: None,
             })).unwrap().unwrap();
@@ -6191,7 +6255,7 @@ mod tests {
         let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
             shared: shared.clone(), callback: UnsafeCell::new(callback),
             busy: AtomicBool::new(false), worker: None, report: None,
-            max: 512, recovery_blocked: false, installed_delay: Some(512),
+            max: 512, recovery_blocked: false, proxy: None, installed_delay: Some(512),
             delivery_mode: crate::performance::DeliveryMode::Buffered,
             minor: 15, setup: Some(crate::performance::wire_version(512, 0, 48000., true).unwrap()),
         })).unwrap().unwrap();
@@ -6303,7 +6367,7 @@ mod tests {
         let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
             shared: shared.clone(), callback: UnsafeCell::new(callback),
             busy: AtomicBool::new(false), worker: None, report: None,
-            max: 512, recovery_blocked: false, installed_delay: Some(512),
+            max: 512, recovery_blocked: false, proxy: None, installed_delay: Some(512),
             delivery_mode: crate::performance::DeliveryMode::Buffered,
             minor: 14, setup: Some(crate::performance::wire_version(512, 0, 48000., true).unwrap()),
         })).unwrap().unwrap();
@@ -6364,7 +6428,7 @@ mod tests {
                 ids.push(INSTANCES.insert(|| Ok::<_, ()>(Live {
                     shared: shared.clone(), callback: UnsafeCell::new(callback),
                     busy: AtomicBool::new(false), worker: None, report: None,
-                    max: maximum, recovery_blocked: false, installed_delay: Some(delay as u32),
+                    max: maximum, recovery_blocked: false, proxy: None, installed_delay: Some(delay as u32),
                     delivery_mode: crate::performance::DeliveryMode::Buffered,
                     minor: 11, setup: None,
                 })).unwrap().unwrap());
@@ -6423,7 +6487,7 @@ mod tests {
         let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
             shared: shared.clone(), callback: UnsafeCell::new(Callback::new()),
             busy: AtomicBool::new(false), worker: None, report: None,
-            max: 512, recovery_blocked: false, installed_delay: None,
+            max: 512, recovery_blocked: false, proxy: None, installed_delay: None,
             delivery_mode: crate::performance::DeliveryMode::Buffered,
             minor: 11, setup: None,
         })).unwrap().unwrap();
@@ -6486,7 +6550,7 @@ mod tests {
                     worker: None,
                     report: None,
                     max: 256,
-                    recovery_blocked: false,
+                    recovery_blocked: false, proxy: None,
                 installed_delay: None,
                     delivery_mode: crate::performance::DeliveryMode::Buffered,
                     minor: 6,
@@ -6537,6 +6601,50 @@ mod tests {
             .unwrap();
     }
     #[test]
+    fn restart_start_completion_waits_for_actual_worker_acknowledgement(){
+        let _registry_owner=crate::registry_test();let shared=Arc::new(Shared::new());
+        let id=INSTANCES.insert(||Ok::<_,()>(Live{shared:shared.clone(),callback:UnsafeCell::new(Callback::new()),
+            busy:AtomicBool::new(false),worker:None,report:None,max:256,recovery_blocked:false,proxy:None,
+            installed_delay:None,delivery_mode:crate::performance::DeliveryMode::Buffered,minor:6,setup:None})).unwrap().unwrap();
+        assert_eq!(unsafe{ap3_transition(id,START)},0);
+        let queued=shared.requests.pop().unwrap();assert_eq!(queued.kind,START);
+        let (entered,ready)=std::sync::mpsc::sync_channel(1);let (result,answer)=std::sync::mpsc::sync_channel(1);
+        let worker=thread::spawn(move||{entered.send(()).unwrap();result.send(wait_started(id)).unwrap();});
+        ready.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert!(matches!(answer.recv_timeout(Duration::from_millis(30)),Err(std::sync::mpsc::RecvTimeoutError::Timeout)),
+            "queued START must not complete recovery");
+        shared.ack.store((shared.wanted.load(Ordering::Acquire)<<8)|u64::from(START+1),Ordering::Release);
+        answer.recv_timeout(Duration::from_secs(2)).unwrap().unwrap();worker.join().unwrap();
+        INSTANCES.remove(id,|_|()).unwrap();
+    }
+    #[test]
+    fn removing_sdk_instance_while_replacement_is_exclusive_retires_eventual_transport(){
+        let _registry_owner=crate::registry_test();
+        let control=crate::proxy_recovery::Control::new([1;16],std::path::PathBuf::new());
+        let id=INSTANCES.insert(||Ok::<_,()>(Live {shared:Arc::new(Shared::new()),
+            callback:UnsafeCell::new(Callback::new()),busy:AtomicBool::new(false),worker:None,
+            report:None,max:256,recovery_blocked:false,proxy:Some(control.clone()),installed_delay:None,
+            delivery_mode:crate::performance::DeliveryMode::Buffered,minor:6,setup:None})).unwrap().unwrap();
+        control.fixture_running(id);
+        let (entered,ready)=std::sync::mpsc::sync_channel(1);
+        let (release,wait)=std::sync::mpsc::sync_channel(1);
+        let worker_control=control.clone();
+        let worker=thread::spawn(move||{
+            INSTANCES.update(id,|live|{
+                entered.send(()).unwrap();wait.recv_timeout(Duration::from_secs(2)).unwrap();
+                assert!(worker_control.quit.load(Ordering::Acquire));
+                live.shared=Arc::new(Shared::new()); // replacement arrives after SDK removal
+            }).unwrap();
+            worker_control.fixture_finish(id);
+        });
+        ready.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert!(INSTANCES.lease(id).is_none(),"actual replacement excludes normal handle lookup");
+        assert_eq!(unsafe{close_instance(id,true)},0,"SDK close returns while discovery remains gated");
+        assert!(control.quit.load(Ordering::Acquire));
+        release.send(()).unwrap();worker.join().unwrap();
+        assert!(INSTANCES.lease(id).is_none(),"replacement cannot outlive its removed SDK instance");
+    }
+    #[test]
     fn recovery_keeps_exact_parameter_census_but_discards_failed_peer_values() {
         use crate::parameter_curves::Carry;
         let point = |id, offset, value| Event { id, offset, value, kind: 2, ..Event::default() };
@@ -6580,7 +6688,7 @@ mod tests {
         let callback = Callback::new();
         let id = INSTANCES.insert(|| Ok::<_, ()>(Live { shared: shared.clone(),
             callback: UnsafeCell::new(callback), busy: AtomicBool::new(false), worker: None,
-            report: None, max: 1024, recovery_blocked: false, installed_delay: None,
+            report: None, max: 1024, recovery_blocked: false, proxy: None, installed_delay: None,
             delivery_mode: crate::performance::DeliveryMode::Buffered,
             minor: 7, setup: None })).unwrap().unwrap();
         assert_eq!(unsafe { ap22_curve_parameters(id,[7].as_ptr(),1) },0);
@@ -6673,7 +6781,7 @@ mod tests {
                     worker: None,
                     report: None,
                     max: 1024,
-                    recovery_blocked: false,
+                    recovery_blocked: false, proxy: None,
                 installed_delay: None,
                     delivery_mode: crate::performance::DeliveryMode::Buffered,
                     minor: 7,
@@ -7040,7 +7148,7 @@ mod tests {
         assert_eq!(shared.fault.load(Ordering::Acquire),WORKER);
         assert!(shared.terminal_latched.load(Ordering::Acquire));
         shared.state_capable.store(true,Ordering::Release);
-        let id=INSTANCES.insert(||Ok::<_,()>(Live{shared,callback:UnsafeCell::new(Callback::new()),busy:AtomicBool::new(false),worker:None,report:None,max:CAP,recovery_blocked:false,installed_delay:None,delivery_mode:crate::performance::DeliveryMode::Buffered,minor:11,setup:None})).unwrap().unwrap();
+        let id=INSTANCES.insert(||Ok::<_,()>(Live{shared,callback:UnsafeCell::new(Callback::new()),busy:AtomicBool::new(false),worker:None,report:None,max:CAP,recovery_blocked:false,proxy:None,installed_delay:None,delivery_mode:crate::performance::DeliveryMode::Buffered,minor:11,setup:None})).unwrap().unwrap();
         std::fs::remove_dir_all(&dir).unwrap(); // the UI query outlives physical transport cleanup
         let mut r=crate::terminal::Record::default();
         let input=[0f32;256];let mut left=[0f32;256];let mut right=[0f32;256];let mut flags=0;let mut delivery=Delivery::default();
@@ -7068,7 +7176,7 @@ mod tests {
             shared.state_capable.store(true,Ordering::Release);
             let shared=Arc::new(shared);
             let mut callback=Callback::new();callback.running=true;callback.epoch=2;callback.position=512;
-            let id=INSTANCES.insert(||Ok::<_,()>(Live{shared:shared.clone(),callback:UnsafeCell::new(callback),busy:AtomicBool::new(false),worker:None,report:None,max:512,recovery_blocked:false,installed_delay:None,delivery_mode:crate::performance::DeliveryMode::Buffered,minor:11,setup:None})).unwrap().unwrap();
+            let id=INSTANCES.insert(||Ok::<_,()>(Live{shared:shared.clone(),callback:UnsafeCell::new(callback),busy:AtomicBool::new(false),worker:None,report:None,max:512,recovery_blocked:false,proxy:None,installed_delay:None,delivery_mode:crate::performance::DeliveryMode::Buffered,minor:11,setup:None})).unwrap().unwrap();
             let input=[0f32;512];let mut left=[9f32;512];let mut right=[9f32;512];
             let context=crate::context::Context::default();let mut flags=99;let mut delivery=Delivery::default();
             // No complete custody: a local fault is not relabeled contained.
@@ -7252,7 +7360,7 @@ mod tests {
                         worker: Some(worker),
                         report: None,
                         max: CAP,
-                        recovery_blocked: false,
+                        recovery_blocked: false, proxy: None,
                 installed_delay: None,
                         delivery_mode: crate::performance::DeliveryMode::Buffered,
                         minor: 11,
@@ -7536,7 +7644,7 @@ mod tests {
                     worker: None,
                     report: None,
                     max: 256,
-                    recovery_blocked: false,
+                    recovery_blocked: false, proxy: None,
                 installed_delay: None,
                     delivery_mode: crate::performance::DeliveryMode::Buffered,
                     minor: 10,
@@ -7649,7 +7757,7 @@ mod tests {
         let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
             shared: shared.clone(), callback: UnsafeCell::new(callback),
             busy: AtomicBool::new(false), worker: None, report: Some(path.clone()),
-            max: 512, recovery_blocked: false, installed_delay: Some(512),
+            max: 512, recovery_blocked: false, proxy: None, installed_delay: Some(512),
             delivery_mode: crate::performance::DeliveryMode::Buffered,
             minor: 14, setup: None,
         })).unwrap().unwrap();

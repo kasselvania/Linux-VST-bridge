@@ -150,7 +150,7 @@ pub fn route(action: Action, daw: Option<DawChoice>) -> Route {
 /// Removing from the DAW or deleting a setup always asks first.
 pub fn needs_confirmation(action: &Action) -> bool {
     matches!(action, Action::PluginRemoveFromDaw { .. } | Action::SetupRemoveFromDaw { .. }
-        | Action::SetupDelete { .. } | Action::ProductUninstall { .. } | Action::EnvironmentRuntimeSelect { .. })
+        | Action::SetupDelete { .. } | Action::ProductUninstall { .. } | Action::EnvironmentRuntimeSelect { .. } | Action::PluginRestart { .. })
 }
 /// Setup-level removal offers live in their own section of the setup card.
 pub fn removal_offer(action: &Action) -> bool {
@@ -213,6 +213,14 @@ fn confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirmation {
             forget: None };
     };
     match action {
+        Action::PluginRestart { snapshot:state, .. } => Confirmation {
+            title:"Restart this plug-in instance?",
+            body:vec![crate::recovery::LOSS_WARNING.into(),
+                format!("The confirmed state to restore is revision {}.", state.revision),
+                "Only this instance restarts. Other plug-in instances keep their own state.".into()],
+            confirm:"Restart from confirmed state", cancel:"Not now",
+            offer:current(snapshot.products.iter().flat_map(|product| &product.actions).collect()), forget:None,
+        },
         Action::EnvironmentRuntimeSelect { .. } => {
             let preview = snapshot.presentation.observed().and_then(|p|
                 p.change_previews.iter().find(|p| p.action == offered));

@@ -119,6 +119,7 @@ pub struct SessionRow {
     pub name: String,
     pub state: String,
     pub cleanup: Option<&'static str>,
+    pub recovery: Option<crate::recovery::Recovery>,
     /// Opens the plug-in, when exactly one installed build has this class.
     pub open: Option<Control>,
     pub record: Disclosure,
@@ -161,7 +162,7 @@ impl Sessions {
                 else { "No current session list is available." }),
             rows: rows.into_iter().enumerate().map(|(index, row)| {
                 let class_id = row["class_id"].as_str().unwrap_or("");
-                SessionRow {
+                SessionRow { recovery:None,
                     recent,
                     index,
                     session: row["session"].as_str().map(str::to_owned),
@@ -207,7 +208,7 @@ impl Activity {
     /// Ordinary Activity uses bounded owner summaries, independently of the
     /// optional deep technical snapshot. These records never supply offers.
     pub fn from_current(current: &Snapshot, read: crate::diagnostics::Section<'_, &crate::model::Activity>,
-        in_flight: bool, superseded: bool) -> Self {
+        in_flight: bool, superseded: bool, actions: Option<&Snapshot>, pending: bool) -> Self {
         use crate::{diagnostics::Section, model::Observation as O};
         let mut view = Self { heading: "Activity", intro: "Observed bridge processing and retained incident summaries.",
             notice: None, retry: None,
@@ -243,6 +244,9 @@ impl Activity {
                             O::Unavailable(reason) => format!("Native consumer identity unavailable: {reason}"),
                         }).into());
                         row.record = Disclosure::new("Instance observations", details);
+                        let product = actions.and_then(|snapshot|instance.product.observed().and_then(|key|
+                            snapshot.products.iter().find(|product|key.matches(product))));
+                        row.recovery = crate::recovery::for_instance(instance,product,None,pending || superseded);
                         row
                     }).collect();
                 }
@@ -325,7 +329,7 @@ fn exact_row(current: &Snapshot, identity: &crate::model::Observation<crate::mod
     session: &str, index: usize, recent: bool) -> SessionRow {
     let key = identity.observed();
     let product = key.and_then(|key| current.products.iter().find(|product| key.matches(product)));
-    SessionRow { recent, index, session: Some(session.into()),
+    SessionRow { recovery:None, recent, index, session: Some(session.into()),
         name: product.map_or_else(|| if key.is_some() { "Exact admitted build is absent from current products".into() }
             else { "Exact admitted build is unavailable".into() }, |product| product.name.clone()),
         state: String::new(), cleanup: None,
@@ -421,7 +425,7 @@ mod tests {
         let original = snapshot.products[0].clone();
         let mut sibling = original.clone(); sibling.module_sha256 = "other-digest".into(); sibling.name = "Sibling build".into();
         snapshot.products.push(sibling.clone());
-        let instance = model::LiveInstance { kind: model::InstanceKind::Daw, session: "exact-session".into(), product: O::Observed(model::ProductIdentity::from(&sibling)),
+        let instance = model::LiveInstance { recovery:None, kind: model::InstanceKind::Daw, session: "exact-session".into(), product: O::Observed(model::ProductIdentity::from(&sibling)),
             consumer: O::Unavailable("No current process observation".into()), daw: O::Unavailable("Unrecognized".into()),
             transport: O::Unavailable("Not mapped".into()), lifecycle: O::Unavailable("Not read".into()),
             processing: model::ProcessingObservation::Advancing { epoch: 1, completed_end: 512, observed_age_ms: 2 },
@@ -429,21 +433,21 @@ mod tests {
         let mut activity = model::Activity { schema: model::OPERATOR_SCHEMA, live: model::LiveActivity { instances: O::Observed(vec![instance]) },
             recent: O::Observed(vec![]), incidents: O::Observed(vec![]), system: snapshot.system.clone(), capture: serde_json::Value::Null,
             operation: None };
-        let view = Activity::from_current(&snapshot, Section::Loaded(&activity), false, false);
+        let view = Activity::from_current(&snapshot, Section::Loaded(&activity), false, false, Some(&snapshot), false);
         assert_eq!(view.live.rows[0].name, "Sibling build");
         assert_eq!(view.live.rows[0].open.as_ref().unwrap().does, crate::Local::Go(Destination::Product(ProductKey::from(&sibling))));
         assert!(view.live.rows[0].state.contains("advancing") && view.live.rows[0].state.contains("audible output is not measured"));
         snapshot.products.pop();
-        let view = Activity::from_current(&snapshot, Section::Loaded(&activity), false, false);
+        let view = Activity::from_current(&snapshot, Section::Loaded(&activity), false, false, Some(&snapshot), false);
         assert!(view.live.rows[0].open.is_none(), "same class and environment cannot substitute a digest");
         activity.live.instances = O::Unavailable("Registry is busy".into());
-        let view = Activity::from_current(&snapshot, Section::Loaded(&activity), false, false);
+        let view = Activity::from_current(&snapshot, Section::Loaded(&activity), false, false, Some(&snapshot), false);
         assert!(view.live.empty.is_none() && view.notice.is_some() && view.retry.is_some());
         activity.live.instances = O::Observed(vec![]);
-        let view = Activity::from_current(&snapshot, Section::Loaded(&activity), false, false);
+        let view = Activity::from_current(&snapshot, Section::Loaded(&activity), false, false, Some(&snapshot), false);
         assert!(view.live.empty.is_some() && view.notice.is_none());
         for pending in [true, false] {
-            let view = Activity::from_current(&snapshot, Section::Failed("Disconnected"), pending, false);
+            let view = Activity::from_current(&snapshot, Section::Failed("Disconnected"), pending, false, Some(&snapshot), pending);
             assert!(view.live.rows.is_empty() && view.live.empty.is_none());
             assert_eq!(view.retry.unwrap().enabled, !pending);
         }

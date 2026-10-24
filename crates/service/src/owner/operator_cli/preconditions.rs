@@ -129,6 +129,7 @@ fn subjects(m: &Manager, action: &ui::Action) -> Result<Option<Vec<(Fact, String
         Ok([vec![(Application, selector.to_owned())], setup(&app.environment.id)].concat())
     };
     let mut facts = match action {
+        A::PluginRestart { .. } => vec![], // exact live proxy/snapshot is rechecked by its owner
         A::PluginOpen { product, .. } => plugin(&product.class_id)?,
         A::BufferingSet { class_id, .. } | A::DeliverySet { class_id, .. }
         | A::PluginRemoveFromDaw { class_id, .. } | A::PluginAddBackToDaw { class_id, .. }

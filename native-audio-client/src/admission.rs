@@ -6,6 +6,7 @@ use std::io;
 pub const GREETING: &[u8; 5] = b"LVB3\n";
 pub const GREETING_V4: &[u8; 5] = b"LVB4\n";
 pub const GREETING_V5: &[u8; 5] = b"LVB5\n";
+pub const GREETING_V6: &[u8; 5] = b"LVB6\n";
 pub const MAX_REPLY: usize = 1024;
 pub const HEADER: usize = 24;
 
@@ -93,8 +94,14 @@ pub fn accepted_v5(request: [u8; 16], binding: &Binding) -> io::Result<Vec<u8>> 
 pub fn refused_v5(request: [u8; 16], reason: Refusal) -> Vec<u8> {
     let mut bytes = refused(request, reason); bytes[3] = b'5'; bytes
 }
+pub fn accepted_v6(request: [u8;16], binding: &Binding) -> io::Result<Vec<u8>> { encode(request,binding,b'6') }
+pub fn refused_v6(request: [u8;16], reason: Refusal) -> Vec<u8> { let mut bytes=refused(request,reason);bytes[3]=b'6';bytes }
+pub fn decode_v6(bytes:&[u8],request:[u8;16])->io::Result<Result<Binding,Refusal>> {
+    if bytes==refused([0;16],Refusal::ServiceBusy){return decode(bytes,request);}
+    decode_version(bytes,request,b'6')
+}
 fn encode(request: [u8; 16], binding: &Binding, version: u8) -> io::Result<Vec<u8>> {
-    let explicit_delivery = matches!(version, b'4' | b'5');
+    let explicit_delivery = matches!(version, b'4' | b'5' | b'6');
     need(binding.delivery_mode <= 1, "admission delivery mode")?;
     need(request != [0; 16], "admission request identity")?;
     need(binding.session != [0; 16], "admission session identity")?;
@@ -126,7 +133,7 @@ pub fn decode_v5(bytes: &[u8], request: [u8; 16]) -> io::Result<Result<Binding, 
     decode_version(bytes, request, b'5')
 }
 fn decode_version(bytes: &[u8], request: [u8; 16], version: u8) -> io::Result<Result<Binding, Refusal>> {
-    let explicit_delivery = matches!(version, b'4' | b'5');
+    let explicit_delivery = matches!(version, b'4' | b'5' | b'6');
     need(request != [0; 16], "admission request identity")?;
     need(
         (HEADER..=MAX_REPLY).contains(&bytes.len()),

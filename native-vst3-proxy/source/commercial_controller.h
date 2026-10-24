@@ -251,7 +251,35 @@ public:
       if (pending_close_.native_view) {pending_close_={};release();}
       finishGestures();return kResultOk;
     }
-    if (terminal_failed_) return kResultFalse;
+    if (!std::strncmp(id,"LVB.recovery_",13)) {
+      int64 generation=0;
+      if(m->getAttributes()->getInt("generation",generation)!=kResultOk || generation<1)return kResultFalse;
+      if(!std::strcmp(id,"LVB.recovery_state")) {
+        const void* data=nullptr;uint32 length=0;
+        if(!terminal_failed_ || uint64_t(generation)!=generation_+1 ||
+            m->getAttributes()->getBinary("state",data,length)!=kResultOk || !data ||
+            length>LVBState::payloadLimit+LVBState::overhead)return kResultFalse;
+        try {
+          const auto* bytes=static_cast<const uint8_t*>(data);
+          if(!apply({bytes,bytes+length}))return kResultFalse;
+        }catch(...){return kResultFalse;}
+        recovery_sync_=true;recovery_refresh_done_=false;recovery_generation_=uint64_t(generation);
+        status_="Restoring the confirmed state and reconnecting to the DAW";return kResultOk;
+      }
+      if(!std::strcmp(id,"LVB.recovery_failed")) {
+        recovery_sync_=false;terminal_failed_=true;status_="Restart did not finish; this track remains silent";return kResultOk;
+      }
+      if(!recovery_sync_ || uint64_t(generation)!=recovery_generation_)return kResultFalse;
+      const bool ready=generation_==recovery_generation_ && recovery_refresh_done_ &&
+        !refreshing_ && midi_installed_.load(std::memory_order_acquire) && !failure_;
+      if(!std::strcmp(id,"LVB.recovery_check"))return ready?kResultOk:kResultFalse;
+      if(!std::strcmp(id,"LVB.recovery_complete") && ready){
+        recovery_sync_=false;terminal_failed_=false;terminal_={};status_="Confirmed state restored; later edits were not restored";
+        return kResultOk;
+      }
+      return kResultFalse;
+    }
+    if (terminal_failed_ && !recovery_sync_) return kResultFalse;
     if (!std::strcmp(id,"AP12.persistence")){
       int64 available=0;if(m->getAttributes()->getInt("available",available)!=kResultOk||(available!=0&&available!=1))return kResultFalse;
       save_unavailable_=available==0;return kResultOk;
@@ -494,6 +522,8 @@ private:
   // kReloadComponent requests full processor/controller unload; never issue it
   // automatically from terminal notification or later handler installation.
   bool terminal_failed_=false;
+  bool recovery_sync_=false,recovery_refresh_done_=false;
+  uint64_t recovery_generation_=0;
   bool session_refused_=false; // Owner thread; set once by bind().
   int64_t refusal_kind_=LVBAdmission::Unknown; // From AP10.refused.
   // From AP10.state_held: held size, 0 nothing received, -1 not kept (the
@@ -742,6 +772,7 @@ private:
                       [](const auto &s) { return !s.refreshed; }))
         return kResultFalse;
       refreshing_ = false;
+      recovery_refresh_done_=true;
       return !refresh_flags_ ? kResultOk : componentHandler
                  ? componentHandler->restartComponent(refresh_flags_)
                  : kResultFalse;
@@ -783,11 +814,13 @@ private:
     }
   }
   void tick() {
-    if (!onOwner() || !connected_ || ticking_ || terminal_failed_)
+    if (!onOwner() || !connected_ || ticking_)
       return;
     ticking_ = true;
     retryClose();
     request("AP10.poll");
+    if(recovery_sync_)request("AP11.poll");
+    request("LVB.recovery_poll");
     if (terminal_failed_) {ticking_=false;return;}
     if (session_refused_) {
       // Refused for good; asking again would reach the service each tick.
@@ -806,7 +839,7 @@ private:
     ticking_ = false;
   }
   void capabilities(bool attached = true) {
-    if (!connected_ || terminal_failed_)
+    if (!connected_ || (terminal_failed_ && !recovery_sync_))
       return;
     auto *m = allocateMessage();
     if (m) {
@@ -832,7 +865,7 @@ private:
   }
   Result command(const ap11_gui_message_t &event) {
     // No session exists to carry it; refusing is not an editor failure.
-    if (terminal_failed_ || session_refused_) return Steinberg::kResultFalse;
+    if ((terminal_failed_ && !recovery_sync_) || session_refused_) return Steinberg::kResultFalse;
     if (!connected_)
       return Steinberg::kResultOk; // before connection, component state is
                                    // authoritative

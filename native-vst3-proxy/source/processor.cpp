@@ -668,6 +668,7 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
   if (!id) return kResultFalse;
 #ifdef AP8_PREVIEW
   if(!std::strcmp(id,"AP10.capabilities")){int64 enabled=0;if(message->getAttributes()->getInt("notifications",enabled)!=kResultOk)return kResultFalse;notifications_=enabled==1;return kResultOk;}
+  if(!std::strcmp(id,"LVB.recovery_poll"))return recoveryPoll();
   if(!std::strcmp(id,"AP10.poll")){
     if (unkept_pending_.exchange(false, std::memory_order_acq_rel)) dropUnkeptState();
     if (announce_pending_.load(std::memory_order_acquire)) announceHeldState();
@@ -711,7 +712,7 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
     pending_restart_flags_=0;
     auto r=sendMessage(m);m->release();if(r!=kResultOk)pending_restart_flags_|=flags;return r;
   }
-  if(terminal()){
+  if(terminal() && !(recovery_sync_ || (recovery_waiting_controller_ && !std::strncmp(id,"AP11.",5)))){
     // A terminal instance's view still says what saving does, also when the
     // restore preceded the connection.
     if(!std::strcmp(id,"AP11.bind"))announceHeldState();
@@ -781,6 +782,82 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
   }
   return AudioEffect::notify(message);
 }
+#ifdef AP8_PREVIEW
+tresult Processor::recoveryPoll() {
+  if (!handle_ || owner_!=std::this_thread::get_id()) return kResultFalse;
+  Guard guard(busy_); if(!guard.held)return kResultFalse;
+  auto send=[&](const char* id,uint64_t generation,const std::vector<uint8_t>* bytes=nullptr)->tresult{
+    auto* message=allocateMessage();if(!message)return kResultFalse;
+    message->setMessageID(id);message->getAttributes()->setInt("generation",int64(generation));
+    if(bytes)message->getAttributes()->setBinary("state",bytes->data(),uint32(bytes->size()));
+    const auto result=sendMessage(message);message->release();return result;
+  };
+  if(recovery_waiting_controller_) {
+    if(want_active_!=recovery_active_ || want_processing_!=recovery_processing_) {
+      recovery_waiting_controller_=false;phase_=Failed;
+      lvb_recovery_ack_v1(handle_,recovery_operation_,2,0);
+      send("LVB.recovery_failed",recovery_generation_);return kResultFalse;
+    }
+    recovery_sync_=true;
+    const auto result=send("LVB.recovery_check",recovery_generation_);
+    recovery_sync_=false;
+    if(result==kResultOk){
+      recovery_waiting_controller_=false;
+      if(lvb_recovery_ack_v1(handle_,recovery_operation_,2,1))return kResultFalse;
+    }
+  }
+  OwnedState restored;lvb_recovery_event_v1 event{};
+  if(lvb_recovery_poll_v1(handle_,1,&event,&restored.bytes))return kResultFalse;
+  if(event.stage==0)return kResultOk;
+  if(event.stage==1){
+    phase_=Failed; // silence survives until both restore and controller confirmation
+    recovery_active_=want_active_;recovery_processing_=want_processing_;
+    return lvb_recovery_begin_v1(handle_,event.operation,transportMaximum(maximum_),
+      uint32_t(process_mode_),want_active_,want_processing_) ? kResultFalse:kResultOk;
+  }
+  if(event.stage==2){
+    if(want_active_!=recovery_active_ || want_processing_!=recovery_processing_) {
+      lvb_recovery_ack_v1(handle_,event.operation,2,0);return kResultFalse;
+    }
+    try {
+      auto bytes=restored.copy();
+      if(ap8_validate(AP8::identity,bytes.data(),uint32(bytes.size()))) {
+        lvb_recovery_ack_v1(handle_,event.operation,2,0);return kResultFalse;
+      }
+      if(ap5_report_path(handle_,reinterpret_cast<uint8_t*>(report_path_),sizeof(report_path_))) {
+        lvb_recovery_ack_v1(handle_,event.operation,2,0);return kResultFalse;
+      }
+      state_readback_=std::move(bytes);
+      recovery_sync_=true;
+      auto accepted=send("LVB.recovery_state",event.generation,&state_readback_);
+      if(accepted==kResultOk)accepted=send("AP11.identity",event.generation);
+      recovery_sync_=false;
+      if(accepted!=kResultOk){lvb_recovery_ack_v1(handle_,event.operation,2,0);return kResultFalse;}
+      std::memcpy(recovery_operation_,event.operation,16);recovery_generation_=event.generation;
+      recovery_waiting_controller_=true;return kResultOk;
+    }catch(...){recovery_sync_=false;lvb_recovery_ack_v1(handle_,event.operation,2,0);return kResultFalse;}
+  }
+  if(event.stage==3){
+    if(want_active_!=(event.active!=0) || want_processing_!=(event.processing!=0)) {
+      phase_=Failed;lvb_recovery_ack_v1(handle_,event.operation,3,0);
+      send("LVB.recovery_failed",event.generation);return kResultFalse;
+    }
+    if(send("LVB.recovery_complete",event.generation)!=kResultOk)return kResultFalse;
+    if(lvb_recovery_ack_v1(handle_,event.operation,3,1)) {
+      phase_=Failed;send("LVB.recovery_failed",event.generation);return kResultFalse;
+    }
+    terminal_latched_.store(false,std::memory_order_release);terminal_notified_generation_=0;
+    phase_=event.processing?Running:event.active?Active:Deactivated;
+    state_error_reported_=false;
+    std::vector<uint8_t>().swap(held_state_);state_held_=state_unkept_=false;session_state_seen_=true;
+    stateReport(report_path_,"opaque_recover",state_readback_,0.);
+    return kResultOk;
+  }
+  // Failure never clears the terminal latch or resumes audio.
+  recovery_waiting_controller_=false;phase_=Failed;
+  send("LVB.recovery_failed",event.generation);return kResultFalse;
+}
+#endif
 tresult Processor::recover(uint64_t revision) {
   Guard guard(busy_);
   if (!guard.held || !handle_) return kResultFalse;

@@ -174,7 +174,7 @@ impl Screen {
                         Diagnostics::from_current(current, records.support.unwrap(), actions_pending,
                             reading.in_flight, reading.superseded, reading.distribution))),
                     Page::Activity if records.activity.is_some() || !reading.preview => return Self::Activity(Box::new(
-                        Activity::from_current(current, activity, reading.in_flight, reading.superseded))),
+                        Activity::from_current(current, activity, reading.in_flight, reading.superseded, records.actions, actions_pending))),
                     _ => {}
                 }
             } else if matches!(state.page, Page::Home | Page::Setup) {
@@ -354,7 +354,7 @@ mod tests {
         use crate::model::{self, Observation as O};
         model::Activity { schema: model::OPERATOR_SCHEMA, system: snapshot.system.clone(),
             capture: serde_json::Value::Null, operation: None, incidents: O::Observed(vec![]),
-            recent: O::Observed(vec![]), live: model::LiveActivity { instances: O::Observed(vec![model::LiveInstance {
+            recent: O::Observed(vec![]), live: model::LiveActivity { instances: O::Observed(vec![model::LiveInstance { recovery:None,
                 kind: model::InstanceKind::Daw,
                 session: "exact-session".into(), product: O::Observed(model::ProductIdentity::from(&snapshot.products[0])),
                 consumer: O::Unavailable("Fixture has no process".into()),

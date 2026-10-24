@@ -9,6 +9,7 @@ pub(crate) mod plugin_services;
 pub(crate) mod vendor_product_cli;
 pub(crate) mod operator_cli;
 pub(crate) mod detached_instance;
+pub(crate) mod instance_recovery;
 pub(crate) mod readiness;
 pub(crate) mod graphics_cli;
 pub(crate) mod installer_import;
@@ -377,11 +378,16 @@ struct SessionSpec {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     native_execution: Option<NativeExecution>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    restart_origin: Option<NativeRestartOrigin>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     keeper_startup_seconds: Option<u64>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct NativeExecution { engine: [u8; 32], descriptor: [u8; 32] }
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NativeRestartOrigin { instance: String, operation: String }
 impl NativeExecution {
     fn identity(&self) -> ap1_native_client::admission::ExecutionIdentity {
         ap1_native_client::admission::ExecutionIdentity {engine:self.engine,descriptor:self.descriptor}
@@ -695,6 +701,7 @@ fn spec_with_package_refresh(
         transport: None,
         graphical_session: None,
         native_execution: None,
+        restart_origin: None,
         keeper_startup_seconds: keeper.then_some(KEEPER_OWNER_STARTUP_SECONDS),
     };
     let path = directory.join("owner.json");
@@ -1438,7 +1445,9 @@ fn answer_view(m: &Manager, peer: &mut UnixStream, views: &service::view::Views,
         let read = service::contract::read_view_request(peer)?;
         package_authority::require_current_frontend_peer(m, peer)?;
         if read == service::contract::Read::Activity {
-            return service::contract::Reply::Activity(observations.activity(views.records_revision())?)
+            let activity = observations.activity_when_current(|| views.records_revision())?;
+            package_authority::require_current_frontend_peer(m, peer)?;
+            return service::contract::Reply::Activity(activity)
                 .written().map(Arc::new).map_err(Into::into);
         }
         if read == service::contract::Read::Overview {
@@ -1589,6 +1598,8 @@ pub fn serve(m: Manager) -> Result<()> {
     // Status reads are composed until the change watch covers them; its walk
     // never delays admission, capacity or pulse.
     let views = Arc::new(service::view::Views::new());
+    let recovery_views = views.clone();
+    instance_recovery::initialize(manager.clone(), Arc::new(move || recovery_views.invalidate()))?;
     let watch_manager = manager.clone();
     let watch_views = views.clone();
     if let Err(error) = std::thread::Builder::new().spawn(move ||
@@ -1608,7 +1619,10 @@ pub fn serve(m: Manager) -> Result<()> {
         move || observed_views.records_revision(),
         move || {
             let revision = activity_views.records_revision();
-            let live = instance_observer.sample(&observed_manager);
+            let mut live = instance_observer.sample(&observed_manager);
+            if instance_recovery::augment_activity(&observed_manager, &mut live).is_err() {
+                live = operator_model::LiveActivity::unavailable("Current instance recovery could not be read");
+            }
             let capacity = capacity::status_observed(&observed_manager, observed_limits.clone(),
                 observed_workers.load(Ordering::Acquire), observed_blocked.blocked()).ok()
                 .and_then(|status| serde_json::to_value(status).ok())
@@ -1681,8 +1695,12 @@ pub fn serve(m: Manager) -> Result<()> {
             }
             let outcome = (|| -> Result<()> {
                 peer.set_read_timeout(Some(Duration::from_secs(5)))?;
-                let mut greeting = [0; 117];
+                let mut greeting = [0; 149];
                 peer.read_exact(&mut greeting[..5])?;
+                if &greeting[..5] == instance_recovery::GREETING {
+                    instance_recovery::attach(peer.try_clone()?)?;
+                    return Ok(());
+                }
                 if &greeting[..5] == ap1_native_client::host_identity::GREETING {
                     host_names.receive(&m, &mut peer)?;
                     return Ok(());
@@ -1834,8 +1852,9 @@ pub fn serve(m: Manager) -> Result<()> {
                     peer.write_all(&(reply.len() as u32).to_le_bytes())?;peer.write_all(&reply)?;
                     return Ok(());
                 }
-                let version5 = &greeting[..5] == ap1_native_client::admission::GREETING_V5;
-                let extent = if version5 { 117 } else { 53 };
+                let version6 = &greeting[..5] == ap1_native_client::admission::GREETING_V6;
+                let version5 = version6 || &greeting[..5] == ap1_native_client::admission::GREETING_V5;
+                let extent = if version6 { 149 } else if version5 { 117 } else { 53 };
                 peer.read_exact(&mut greeting[5..extent])?;
                 let version4 = &greeting[..5] == ap1_native_client::admission::GREETING_V4;
                 let version3 = version5 || version4 || &greeting[..5] == ap1_native_client::admission::GREETING;
@@ -1849,6 +1868,10 @@ pub fn serve(m: Manager) -> Result<()> {
                     engine:greeting[53..85].try_into().unwrap(),
                     descriptor:greeting[85..117].try_into().unwrap(),
                 });
+                let recovery_registration = if version6 {
+                    Some(instance_recovery::authorize_launch(&m, &peer,
+                        greeting[117..133].try_into().unwrap(), greeting[133..149].try_into().unwrap())?)
+                } else { None };
                 let mut startup=NativeStartup::new(&m,request,class.clone());
                 // The registration this admission resolved (and verified), kept
                 // so a refusal record never resolves or hashes anything again.
@@ -1868,6 +1891,8 @@ pub fn serve(m: Manager) -> Result<()> {
                     };
                     let ((registration, execution), verified)=launch_verification.prepare(keeper_deadline, || {
                         let registration = m.resolve(&greeting[5..53])?;
+                        require(recovery_registration.as_ref().is_none_or(|expected| expected == &registration),
+                            "proxy_restart_registration_changed")?;
                         resolved = Some(registration.clone());
                         let prepare_execution=|| -> Result<_> {
                             experimental_runner::verify_selected_bg1_history(&m, &registration.environment)?;
@@ -1980,6 +2005,16 @@ pub fn serve(m: Manager) -> Result<()> {
                     job.graphical_session=Some(graphical_session.clone());
                     let caller = loaded.as_ref().ok_or("loaded_execution_binding_absent")?;
                     job.native_execution=Some(NativeExecution{engine:caller.engine,descriptor:caller.descriptor});
+                    // This is the already-authorized LVB6 request, bound into
+                    // the immutable owner before its replacement lease exists.
+                    // Reconnection cannot substitute another instance from the
+                    // same DAW process and publication.
+                    if version6 {
+                        job.restart_origin = Some(NativeRestartOrigin {
+                            instance: hex(&greeting[117..133]),
+                            operation: hex(&greeting[133..149]),
+                        });
+                    }
                     job.crash_capture = crash_capture::claim(&m,&full_registration,&job.session)
                         .unwrap_or_else(|e| { eprintln!("CA1 capture unavailable: {e}"); None });
                     atomic_json(&path, &job)?;
@@ -3515,6 +3550,22 @@ mod tests {
         assert!(record_lease_generation(&job).is_err());
         assert_eq!(fs::read(&path).unwrap(), original);
         assert!(!job.lease.exists());
+    }
+    #[test]
+    fn retained_restart_origin_cannot_be_rebound_to_another_instance() {
+        let f = test_fixture::Fixture::new();
+        let (mut job, path) = spec(&f.m, f.r.clone().into(), true, false, false).unwrap();
+        assert!(serde_json::to_value(&job).unwrap().get("restart_origin").is_none());
+        job.restart_origin = Some(NativeRestartOrigin { instance: "ab".repeat(16), operation: "cd".repeat(16) });
+        atomic_json(&path, &job).unwrap();
+        f.m.retain_lease_owner(&path).unwrap();
+        let retained = f.m.retained_lease_owner(&job.session, &job.report).unwrap();
+        assert_eq!(retained["restart_origin"]["instance"], "ab".repeat(16));
+        assert_eq!(retained["restart_origin"]["operation"], "cd".repeat(16));
+        job.restart_origin.as_mut().unwrap().instance = "ef".repeat(16);
+        atomic_json(&path, &job).unwrap();
+        assert!(f.m.retain_lease_owner(&path).is_err());
+        assert_eq!(f.m.retained_lease_owner(&job.session, &job.report).unwrap(), retained);
     }
     #[test]
     fn stopped_legacy_keeper_needs_a_subsequent_restart_without_inferred_launch() {

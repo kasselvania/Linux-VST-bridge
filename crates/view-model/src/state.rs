@@ -21,10 +21,15 @@ use crate::setup::{self, InstallerReplacement};
 use crate::window::Page;
 use crate::{forms, AttemptKey, Destination, Local, ProductKey};
 
+/// Local views of the same exact plug-in; never a service action or new identity.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ProductPage { #[default] Overview, Display, Repair }
+
 /// The Plug-ins page: the search, the filters and the plug-ins opened from
 /// elsewhere.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct PluginsView {
+    pub page: ProductPage,
     pub search: String,
     pub role: RoleFilter,
     pub status: StatusFilter,
@@ -50,8 +55,14 @@ impl PluginsView {
         self.focus_products(vec![key]);
     }
 
+    pub fn show_page(&mut self, key: ProductKey, page: ProductPage) {
+        self.focus_product(key);
+        self.page = page;
+    }
+
     /// Open exactly these plug-ins, clearing the search and filters.
     pub fn focus_products(&mut self, keys: Vec<ProductKey>) {
+        self.page = ProductPage::Overview;
         self.search.clear();
         self.role = RoleFilter::All;
         self.status = StatusFilter::All;

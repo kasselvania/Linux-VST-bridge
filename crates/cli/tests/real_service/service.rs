@@ -336,8 +336,8 @@ impl RealService {
     pub fn product_detail(&self) -> Value {
         self.read(contract::Read::Product(self.plugin().key()))
     }
-    /// The window's activity read until the operation is final, then the end
-    /// of its worker unit (including ExecStopPost).
+    /// The window's bounded Activity summary until the operation is final,
+    /// then its exact retained receipt and the service worker's retirement.
     pub fn finished_operation(&self, operation: &str) -> Value {
         let deadline = Instant::now() + OPERATION;
         let result = loop {
@@ -345,7 +345,10 @@ impl RealService {
             let current = &activity["operation"];
             if current["operation"] == operation
                 && matches!(current["state"].as_str(), Some("completed" | "refused")) {
-                break current.clone();
+                let readback = self.read(contract::Read::Operation(operation.into()));
+                assert_eq!(readback["record"]["operation"], operation, "{readback:#}");
+                assert_eq!(readback["record"]["state"], current["state"], "{readback:#}");
+                break readback["record"].clone();
             }
             assert!(Instant::now() < deadline, "operation {operation} unfinished: {activity:#}");
             std::thread::sleep(Duration::from_millis(100));

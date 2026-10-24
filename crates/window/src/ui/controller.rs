@@ -36,6 +36,7 @@ impl Controller {
             if args.iter().any(|arg| arg == "--long-row-fixture") { model.long_row_fixture(); }
             if args.iter().any(|arg| arg == "--support-report-fixture") { model.report_fixture(); }
             if args.iter().any(|arg| arg == "--display-fixture") { model.display_fixture(); }
+            if args.iter().any(|arg| arg == "--recovery-fixture") { model.recovery_fixture(); }
             Self::Sample(Box::new(model))
         }
         #[cfg(not(feature = "samples"))]

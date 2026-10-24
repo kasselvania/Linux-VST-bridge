@@ -1090,6 +1090,7 @@ fn compose_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->Result<boo
     // A plug-in whose setup window is open takes over its setup's card.
     plugin_setup::project(m,&mut products,&mut installer_setups,busy)?;
     detached_instance::project(m, &mut products)?;
+    instance_recovery::project(m, &mut products)?;
     let environment_installers = environment_install::projection(m,&products,busy,|operation| {
         if let Some(live) = installer_live.get(operation) { return Ok(*live); }
         let live = installer_is_live(operation)?;

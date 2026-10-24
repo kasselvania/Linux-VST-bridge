@@ -1652,8 +1652,11 @@ class DetachedInstanceTests(SupervisorFixture,unittest.TestCase):
     def test_actual_owned_window_close_preserves_shared_sibling_and_has_no_audio_transport(self):
         import fcntl,threading
         for scoped in (False,True):
-            with self.subTest(process_scoped=scoped),tempfile.TemporaryDirectory() as tmp:
+            with self.subTest(process_scoped=scoped),tempfile.TemporaryDirectory() as tmp, \
+                 tempfile.TemporaryDirectory(dir='/dev/shm') as memory:
                 root=pathlib.Path(tmp);spec,durable=self.fixture(root)
+                runtime=pathlib.Path(memory)
+                marker=runtime/'storage-v1';marker.write_bytes(session.STORAGE_MARKER);marker.chmod(0o600)
                 spec.update(detached=True,shared_runtime=True)
                 if scoped:spec['registration']['compatibility'].update(
                     vendor_retirement='process_scoped_vendor_retirement',
@@ -1698,6 +1701,7 @@ else:event('scanner_completed')
                         if scoped:env['LVB_VENDOR_RETIREMENT']='process_scoped_vendor_retirement'
                         with patch.object(session,'command',return_value=([sys.executable,'-c',program,str(durable),spec['session'],'1' if scoped else '0'],binding)), \
                              patch.object(session,'environment',return_value=env), \
+                             patch.object(session,'transport_root',return_value=runtime), \
                              patch.object(session.NativeProtonSession,'selected',return_value=None), \
                              contextlib.redirect_stdout(io.StringIO()):
                             result=session.run(spec)

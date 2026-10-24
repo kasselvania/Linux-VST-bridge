@@ -704,6 +704,7 @@ impl Live {
         let Some(reason) = self.drawn.get(id) else { return Outcome::Refused };
         if let Some(reason) = reason { self.note(reason.clone()); return Outcome::Refused; }
         let before = (self.state.page, self.state.plugins.focus.clone());
+        let before_product_page = self.state.plugins.page;
         match target {
             Target::Offer { offer, after } => {
                 if self.foreground_busy() || self.support_waiting() || !self.fresh
@@ -744,6 +745,7 @@ impl Live {
                 ListStep::Role(role) => self.state.plugins.role = role,
                 ListStep::Status(status) => self.state.plugins.status = status,
                 ListStep::Open(key) => self.state.go(&Destination::Product(key)),
+                ListStep::ProductPage { key, page } => self.state.plugins.show_page(key, page),
             },
             Target::Choose { group, key } => { self.ui.choices.insert(group, key); }
             _ => { self.note(LIMITATION.into()); return Outcome::Refused; }
@@ -766,7 +768,7 @@ impl Live {
             }) { self.queued = None; }
         }
         self.drive(); self.rebuild();
-        if navigated { Outcome::Navigated } else { Outcome::Changed }
+        if navigated || before_product_page != self.state.plugins.page { Outcome::Navigated } else { Outcome::Changed }
     }
     fn wants_details(&self) -> bool {
         self.state.page == Page::Diagnostics && self.inspection_requested
@@ -2228,7 +2230,7 @@ mod tests {
                 consumer:Observation::Unavailable("fixture consumer".into()), daw:Observation::Unavailable("unrecognized".into()),
                 transport:Observation::Unavailable("fixture transport".into()), lifecycle:Observation::Unavailable("fixture lifecycle".into()),
                 processing:ProcessingObservation::Advancing { epoch:1, completed_end, observed_age_ms:0 },
-                signal:SignalObservation::NotMeasured, terminal:Observation::Observed(None), cleanup:CleanupState::NotReported,
+                signal:SignalObservation::NotMeasured, terminal:Observation::Observed(None), cleanup:CleanupState::NotReported, recovery:None,
             }]);
             let mut cursor = live.observation_cursor.clone().unwrap(); cursor.revision += 1;
             live.observe(lvb_client::observation::Event::State(lvb_client::observation::State {

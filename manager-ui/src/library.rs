@@ -86,11 +86,13 @@ pub fn show(
         state.scroll_to_focus = false;
     }
     let before = state.clone();
-    let single_product = built.as_ref().map_or_else(|| state.focused_product().is_some(), |(_, single)| *single);
+    let mut single_product = built.as_ref().map_or_else(|| state.focused_product().is_some(), |(_, single)| *single);
     ui.horizontal_wrapped(|ui| {
         ui.heading(plugins::HEADING);
         if state.focus.is_some() && ui.add_sized([180.0, 44.0],
-            egui::Button::new(plugins::SHOW_ALL)).clicked() {state.focus = None;}
+            egui::Button::new(plugins::SHOW_ALL)).clicked() {
+                state.focus = None; state.page = crate::screen_model::state::ProductPage::Overview; single_product = false;
+            }
     });
     if !single_product {
         ui.add(egui::TextEdit::singleline(&mut state.search)
@@ -130,33 +132,54 @@ pub fn show(
             ui.strong(heading);
         }
         for card in &group.cards {
-            plugin_card(ui, card, chosen, |ui| {
+            if single_product && state.page != crate::screen_model::state::ProductPage::Overview {
+                product_page(ui, card, state, chosen);
+                continue;
+            }
+            plugin_card(ui, card, state, chosen, |ui| {
                 if let Some(record) = card.record { details(ui, &snapshot.products[record]); }
             });
         }
     }
 }
 
-fn display_configuration(ui: &mut egui::Ui, display: &plugins::display::DisplayView, chosen: &mut Option<Action>) {
-    if let Some(notice) = &display.notice { widgets::text(ui, notice); }
-    if !display.modes.is_empty() { ui.heading("Display choices"); }
-    for mode in &display.modes {
-        egui::Frame::group(ui.style()).show(ui, |ui| {
-            ui.strong(&mode.label); ui.small(&mode.posture); widgets::text(ui, &mode.result);
-            if let Some(record) = &mode.result_record { widgets::disclosure(ui, record, chosen); }
-            display_actions(ui, &mode.prepare, chosen);
-            for trial in &mode.trials {
-                ui.strong(&trial.posture); widgets::text(ui, &trial.evidence); widgets::text(ui, &trial.result);
-                display_actions(ui, &trial.actions, chosen); widgets::disclosure(ui, &trial.identity, chosen);
-            }
-        });
+fn product_page(ui: &mut egui::Ui, card: &PluginCard, state: &mut PluginsView, chosen: &mut Option<Action>) {
+    use crate::screen_model::state::ProductPage;
+    ui.heading(&card.name);
+    ui.heading(if state.page == ProductPage::Display {"Display mode"} else {"Fix it step by step"});
+    if ui.add_sized([150.0,44.0], egui::Button::new("Back to plug-in")).clicked() {
+        state.show_page(card.key.clone(), ProductPage::Overview);
+        ui.ctx().request_repaint();
+        return;
     }
-    if !display.repairs.is_empty() { ui.heading("Repair steps"); }
-    for (index, step) in display.repairs.iter().enumerate() {
-        ui.strong(format!("{}. {}", index + 1, step.label)); ui.label(&step.detail);
-        display_actions(ui, &step.actions, chosen);
+    if let Some(notice) = &card.display.notice {widgets::text(ui,notice);}
+    if state.page == ProductPage::Display {
+        for mode in &card.display.modes {
+            egui::Frame::group(ui.style()).show(ui, |ui| {
+                ui.strong(&mode.label); ui.small(&mode.posture); widgets::text(ui, &mode.result);
+                display_actions(ui, &mode.prepare, chosen);
+                for trial in mode.trials.iter().filter(|trial|trial.current) {
+                    ui.strong(&trial.posture); widgets::text(ui, &trial.evidence);
+                    display_actions(ui, &trial.actions, chosen); widgets::disclosure(ui, &trial.identity, chosen);
+                }
+                egui::CollapsingHeader::new("Earlier checks and details").id_salt(&mode.label).show(ui,|ui| {
+                    if let Some(record) = &mode.result_record {widgets::disclosure(ui,record,chosen);}
+                    for trial in mode.trials.iter().filter(|trial|!trial.current) {
+                        ui.strong(&trial.posture); widgets::text(ui,&trial.evidence);
+                        display_actions(ui,&trial.actions,chosen); widgets::disclosure(ui,&trial.identity,chosen);
+                    }
+                });
+            });
+        }
+    } else {
+        for (index,step) in card.display.repairs.iter().enumerate() {
+            egui::Frame::group(ui.style()).show(ui,|ui| {
+                ui.strong(format!("{:02}  {}",index+1,step.label)); ui.label(&step.detail);
+                display_actions(ui,&step.actions,chosen);
+            });
+        }
     }
-    if let Some(provenance) = &display.provenance { widgets::disclosure(ui, provenance, chosen); }
+    if let Some(provenance) = &card.display.provenance {widgets::disclosure(ui,provenance,chosen);}
 }
 
 fn display_actions(ui: &mut egui::Ui, row: &crate::screen_model::offers::OfferRow, chosen: &mut Option<Action>) {
@@ -165,7 +188,7 @@ fn display_actions(ui: &mut egui::Ui, row: &crate::screen_model::offers::OfferRo
 }
 
 /// One plug-in's card. Same class can have several installed builds or environments.
-fn plugin_card(ui: &mut egui::Ui, card: &PluginCard, chosen: &mut Option<Action>,
+fn plugin_card(ui: &mut egui::Ui, card: &PluginCard, state: &mut PluginsView, chosen: &mut Option<Action>,
     records: impl FnOnce(&mut egui::Ui)) {
     ui.push_id((&card.key.environment, &card.key.class_id, &card.key.module_sha256), |ui| {
         egui::Frame::group(ui.style())
@@ -183,6 +206,7 @@ fn plugin_card(ui: &mut egui::Ui, card: &PluginCard, chosen: &mut Option<Action>
                 });
                 ui.small(fact_line(&card.facts));
                 for note in &card.notes { widgets::text(ui, note); }
+                for recovery in &card.recovery { widgets::instance_recovery(ui, recovery, chosen); }
                 if let Some(lead) = &card.lead {
                     if let Some(preface) = &lead.preface { ui.label(preface); }
                     widgets::lead_offer(ui, &lead.offer, chosen);
@@ -197,7 +221,12 @@ fn plugin_card(ui: &mut egui::Ui, card: &PluginCard, chosen: &mut Option<Action>
                     widgets::offer_row(ui, &uninstall.row, chosen);
                     ui.small(&uninstall.explanation);
                 }
-                display_configuration(ui, &card.display, chosen);
+                ui.horizontal_wrapped(|ui| {
+                    for (label,page) in [("Fix it step by step", crate::screen_model::state::ProductPage::Repair),
+                        ("Display mode", crate::screen_model::state::ProductPage::Display)] {
+                        if ui.add_sized([180.0,44.0], egui::Button::new(label)).clicked() {state.show_page(card.key.clone(), page);}
+                    }
+                });
                 for section in [&card.settings, &card.help, &card.availability,
                     &card.other_setups, &card.previous_setups].into_iter().flatten() {
                     widgets::disclosure(ui, section, chosen);

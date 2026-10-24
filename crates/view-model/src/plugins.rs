@@ -206,6 +206,7 @@ pub struct PluginCard {
     pub offers: OfferRow,
     /// Exact owner offers, grouped by detached window identity.
     pub standalone: Vec<OfferRow>,
+    pub recovery: Vec<crate::recovery::Recovery>,
     pub display: display::DisplayView,
     pub uninstallers: Vec<Uninstall>,
     pub settings: Option<Disclosure>,
@@ -289,7 +290,7 @@ impl PluginCard {
         let primary = p.compatibility.as_ref().and_then(|workflow| workflow.primary.clone())
             .or_else(|| p.compatibility.is_none().then(||
                 emphasized_action(p, &related, busy)).flatten())
-            .filter(|offer| !display_actions.contains(&offer.action) && !standalone_action(&offer.action))
+            .filter(|offer| !display_actions.contains(&offer.action) && !standalone_action(&offer.action) && !matches!(offer.action, Action::PluginRestart {..}))
             .map(|mut offer| {
                 if recovery_pending(p) && matches!(offer.action, Action::CompatibilityFinishResult { .. }) {
                     offer.label = "Finish plug-in recovery".into();
@@ -302,7 +303,7 @@ impl PluginCard {
         let everyday_primary = primary.clone().filter(|_| optional_result.is_none()
             && optional_preparation.is_none());
         let management: Vec<_> = ordinary_actions(p, &related, primary.as_ref()).into_iter()
-            .filter(|offer| !display_actions.contains(&offer.action)).collect();
+            .filter(|offer| !display_actions.contains(&offer.action) && !matches!(offer.action,Action::PluginRestart {..})).collect();
 
         let mut notes = Vec::new();
         if recovery_pending(p) {
@@ -439,7 +440,7 @@ impl PluginCard {
                     | Action::CandidateGraphicsAssess { .. }
                     | Action::CandidateGraphicsPrepare { .. }
                     | Action::CandidateSettingsPrepare { .. })
-                    && !standalone_action(&action.action) && !display_actions.contains(&action.action)
+                    && !standalone_action(&action.action) && !matches!(action.action,Action::PluginRestart {..}) && !display_actions.contains(&action.action)
                     && !management.iter().any(|shown| shown.action == action.action)
                     && !guided_action_shown(p, primary.as_ref(), &action.action)
             })
@@ -455,8 +456,7 @@ impl PluginCard {
         }
 
         let standalone = standalone_controls(p, everyday_primary.as_ref(), busy, pending);
-        let already_shown: Vec<_> = standalone.iter().flat_map(|row| &row.offers).map(|offer| offer.intent.clone()).collect();
-        let display = display::build(p, busy, pending, &already_shown);
+        let display = display::build(p, busy, pending);
         Self {
             key: ProductKey::from(p),
             record: snapshot.products.iter().position(|candidate| std::ptr::eq(candidate, p)),
@@ -470,6 +470,7 @@ impl PluginCard {
             ],
             readiness: readiness(p),
             notes,
+            recovery: crate::recovery::for_product(activity, p, busy, pending),
             standalone,
             display,
             lead,

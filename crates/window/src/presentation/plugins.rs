@@ -17,7 +17,10 @@ impl Builder<'_> {
         for VendorGroup { heading, cards } in groups {
             if !single { if let Some(heading) = heading { out.push(Node::Label(heading.clone())); } }
             for card in cards {
-                if single { out.push(self.card(card, snapshot)); }
+                if single { out.push(match state.plugins.page {
+                    vm::state::ProductPage::Overview => self.card(card, snapshot),
+                    page => self.product_page(card, page),
+                }); }
                 else {
                     let action = self.local(&card.name, Importance::Secondary,
                         Target::List(ListStep::Open(card.key.clone())), None);
@@ -26,7 +29,7 @@ impl Builder<'_> {
                 }
             }
         }
-        if single {
+        if single && state.plugins.page == vm::state::ProductPage::Overview {
             let view = self.local(plugins::SHOW_ALL, Importance::Quiet, Target::List(ListStep::ShowAll), None);
             out.push(self.one(view));
         }
@@ -55,7 +58,7 @@ impl Builder<'_> {
     }
 
     pub(super) fn card(&mut self, card: &PluginCard, snapshot: &Snapshot) -> Node {
-        let PluginCard { key: _, record, name, status: owner, facts, readiness: stages, notes, lead, offers, standalone, display, uninstallers, settings,
+        let PluginCard { key, record, name, status: owner, facts, readiness: stages, notes, lead, offers, standalone, recovery, display: _, uninstallers, settings,
             help, availability, other_setups, previous_setups, shared_setup, technical } = card;
         let chip = self.id("chip", &format!("card {name}"));
         let mut children = vec![Node::Header(vec![
@@ -76,12 +79,18 @@ impl Builder<'_> {
         }
         for note in notes { readiness.push(text(note)); }
         let mut actions = vec![Node::Label("What you can do".into())];
+        for instance in recovery { actions.push(self.instance_recovery(instance)); }
         if let Some(LeadOffer { preface, offer }) = lead {
             if let Some(preface) = preface {
                 actions.push(words(Role::Body, preface.clone()));
             }
             actions.push(self.main_offer(offer, After::Nothing));
         }
+        let repair = self.local("Fix it step by step", Importance::Primary,
+            Target::List(ListStep::ProductPage {key:key.clone(), page:vm::state::ProductPage::Repair}), None);
+        let modes = self.local("Display mode", Importance::Secondary,
+            Target::List(ListStep::ProductPage {key:key.clone(), page:vm::state::ProductPage::Display}), None);
+        actions.push(self.actions("product-pages", vec![repair, modes]));
         if !standalone.is_empty() {
             actions.push(Node::Label("Outside your DAW".into()));
             actions.push(words(Role::Detail, "These plug-in windows do not open an audio device."));
@@ -96,7 +105,6 @@ impl Builder<'_> {
             Node::Panel { kind: PanelKind::Card, children: readiness },
             Node::Panel { kind: PanelKind::Card, children: actions },
         ]));
-        children.extend(self.display_configuration(display));
         for section in [settings, help, availability, other_setups, previous_setups].into_iter().flatten() {
             children.push(self.fold(section));
         }
@@ -112,38 +120,46 @@ impl Builder<'_> {
         Node::Stack(children)
     }
 
-    fn display_configuration(&mut self, display: &plugins::display::DisplayView) -> Vec<Node> {
-        let mut out = vec![];
-        if let Some(notice) = &display.notice { out.push(text(notice)); }
-        if !display.modes.is_empty() {
-            out.push(Node::Heading("Display choices".into()));
-            out.push(words(Role::Detail, "Choose which settings to prepare and try. Your current settings stay selected until you choose to change them."));
+    fn product_page(&mut self, card: &PluginCard, page: vm::state::ProductPage) -> Node {
+        use vm::state::ProductPage;
+        let title = match page { ProductPage::Display => "Display mode", ProductPage::Repair => "Fix it step by step", ProductPage::Overview => unreachable!() };
+        let back = self.local("Back to plug-in", Importance::Quiet,
+            Target::List(ListStep::ProductPage {key:card.key.clone(), page:ProductPage::Overview}), None);
+        let mut out = vec![Node::Header(vec![Node::PluginIdentity {name:card.name.clone(), detail:title.into()}, self.one(back)])];
+        if let Some(notice) = &card.display.notice { out.push(text(notice)); }
+        if page == ProductPage::Display {
+            out.push(words(Role::Body, "Prepare a setting, then choose whether to use it. Your current setup stays selected until you change it."));
             let mut modes = vec![];
-            for mode in &display.modes {
+            for mode in &card.display.modes {
                 let mut children = vec![Node::Label(mode.label.clone()), words(Role::Detail, mode.posture.clone()), text(&mode.result)];
-                if let Some(record) = &mode.result_record { children.push(self.fold(record)); }
                 children.extend(self.display_actions(&mode.prepare));
+                let mut history = vec![];
                 for trial in &mode.trials {
-                    children.push(Node::Label(trial.posture.clone()));
-                    children.push(text(&trial.evidence)); children.push(text(&trial.result));
-                    children.extend(self.display_actions(&trial.actions));
-                    children.push(self.fold(&trial.identity));
+                    let mut trial_nodes = vec![Node::Label(trial.posture.clone()), text(&trial.evidence)];
+                    trial_nodes.extend(self.display_actions(&trial.actions));
+                    trial_nodes.push(self.fold(&trial.identity));
+                    if trial.current { children.extend(trial_nodes); } else { history.extend(trial_nodes); }
+                }
+                if let Some(record) = &mode.result_record { history.push(self.fold(record)); }
+                if !history.is_empty() {
+                    let id = self.id("fold", &format!("{} display history", mode.label));
+                    children.push(Node::Fold {id, title:"Earlier checks and details".into(), start_open:false, children:history});
                 }
                 modes.push(Node::Panel {kind:PanelKind::Card, children});
             }
             out.push(Node::Columns(modes));
-        }
-        if !display.repairs.is_empty() {
-            let mut children = vec![Node::Heading("Repair steps".into())];
-            for (index, step) in display.repairs.iter().enumerate() {
-                children.push(Node::Label(format!("{}. {}", index + 1, step.label)));
-                children.push(words(Role::Body, step.detail.clone()));
-                children.extend(self.display_actions(&step.actions));
+        } else {
+            out.push(words(Role::Body, "Try one change at a time. Review what each step changes before continuing."));
+            let mut rows = vec![];
+            for (index, step) in card.display.repairs.iter().enumerate() {
+                let title = Node::Stack(vec![Node::Label(format!("{:02}  {}", index + 1, step.label)), words(Role::Detail, step.detail.clone())]);
+                let actions = self.display_actions(&step.actions);
+                rows.push(Node::Columns(vec![title, Node::Stack(actions)]));
             }
-            out.push(Node::Panel {kind:PanelKind::Card, children});
+            out.push(Node::Panel {kind:PanelKind::Card, children:rows});
         }
-        if let Some(provenance) = &display.provenance { out.push(self.fold(provenance)); }
-        out
+        if let Some(provenance) = &card.display.provenance { out.push(self.fold(provenance)); }
+        Node::Stack(out)
     }
     fn display_actions(&mut self, row: &OfferRow) -> Vec<Node> {
         if row.offers.is_empty() { row.notes.iter().map(|note| words(Role::Detail, note.clone())).collect() }

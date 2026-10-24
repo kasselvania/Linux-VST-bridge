@@ -130,11 +130,11 @@ class ManagedVendorTests(unittest.TestCase):
     def test_actual_dispatch_accepts_new_launcher_from_typed_replacement_receipt(self):
         for seed,policy in (('a',None),('b',None),('c','inherited'),('d','intentionally_unavailable')):
             operation,directory=self.replacement_operation(seed)
+            request=json.loads((directory/'request.json').read_bytes())
+            request['schema']=30
             if policy:
-                request=json.loads((directory/'request.json').read_bytes())
-                request['schema']=29
                 request['action'].update(kind='environment_installer_start_with_policy',powershell=policy)
-                self.write(directory/'request.json',request)
+            self.write(directory/'request.json',request)
             original=self.managed/'onboarding'/operation['application']['environment']['id']/'record.json'
             history=original.read_bytes()
             self.assertEqual(s.selected_installer_origin(self.managed,operation['application']),directory.name)
@@ -146,11 +146,11 @@ class ManagedVendorTests(unittest.TestCase):
     def test_dependency_installer_continuation_accepts_retained_and_current_wire_generations(self):
         operation,directory=self.replacement_operation('a')
         request=json.loads((directory/'request.json').read_bytes())
-        for schema in (26,27,28,29):
+        for schema in (26,27,28,29,30):
             request['schema']=schema
             self.write(directory/'request.json',request)
             self.assertEqual(s.selected_installer_origin(self.managed,operation['application']),directory.name)
-        request['schema']=30
+        request['schema']=31
         self.write(directory/'request.json',request)
         with self.assertRaisesRegex(ValueError,'managed_application_installation_binding'):
             s.selected_installer_origin(self.managed,operation['application'])

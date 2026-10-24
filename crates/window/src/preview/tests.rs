@@ -641,38 +641,91 @@ fn a_closed_forms_confirm_cannot_confirm_a_new_form() {
 }
 
 #[test]
-fn display_and_standalone_journey_keeps_exact_visible_controls_and_result_form() {
+fn display_and_repair_are_local_pages_of_the_same_exact_product() {
+    use lvb_view_model::state::ProductPage;
     let mut preview = Preview::new(Selection {state:state_index("plugin_ready"),page:Page::Plugins,..Selection::default()});
     preview.display_fixture();
-    let visible: Vec<_> = outside_folds(&preview.built.page).into_iter().flat_map(|node| match node {
-        Node::Actions {actions, ..} => actions.iter().map(|action| action.id.0.clone()).collect::<Vec<_>>(),
-        _ => vec![],
-    }).collect();
-    let owner = preview.sample.snapshot.products[0].actions.clone();
-    for available in &owner {
-        let ids: Vec<_> = visible.iter().filter(|id| matches!(preview.built.targets.get(*id),
-            Some(Target::Offer {offer, ..}) if offer.intent == available.action)).collect();
-        assert_eq!(ids.len(), 1, "each exact current action appears once outside folds: {:?}", available.action);
+    let key = preview.state.plugins.focused_product().unwrap().clone();
+    fn navigate(preview:&mut Preview, page:ProductPage) {
+        let id = preview.built.targets.iter().find_map(|(id,target)| matches!(target,
+            Target::List(ListStep::ProductPage {page:shown,..}) if *shown==page).then(||id.clone())).unwrap();
+        assert_eq!(preview.press(&id,InputPath::Pointer),Outcome::Navigated);
     }
-    let blocked = visible.iter().find(|id| matches!(preview.built.targets.get(*id),
-        Some(Target::Offer {offer, ..}) if offer.availability.reason() == Some("Close this exact plug-in window before preparing its accessibility trial.")))
-        .unwrap().to_string();
-    assert_eq!(preview.press(&blocked, InputPath::Pointer), Outcome::Refused);
-    assert!(preview.captured.is_empty());
-    let choose = visible.iter().find(|id| matches!(preview.built.targets.get(*id),
-        Some(Target::Offer {offer, ..}) if matches!(offer.intent, Action::CompatibilityPublishTest {..}))).unwrap().to_string();
-    let Some(Target::Offer {offer, ..}) = preview.built.targets.get(&choose).cloned() else { panic!() };
-    preview.press(&choose, InputPath::Keyboard);
-    assert_eq!(preview.captured.last().unwrap().0, offer.intent);
-    // A separately reconstructed exact fixture still routes results through
-    // the existing form. Opening/cancelling the form sends no guessed outcome.
-    preview.display_fixture();
-    let id = preview.built.targets.iter().find_map(|(id, target)| matches!(target,
-        Target::Offer {offer, ..} if matches!(offer.intent, Action::CompatibilityResult {..})).then(|| id.clone())).unwrap();
-    let before = preview.captured.len();
-    preview.press(&id, InputPath::Pointer);
-    assert!(matches!(preview.state.forms.record, Some(Action::CompatibilityResult {..})));
-    assert_eq!(preview.captured.len(), before);
+    fn offered(preview:&Preview, predicate:impl Fn(&Action)->bool)->Option<String> {
+        preview.built.targets.iter().find_map(|(id,target)| matches!(target,
+            Target::Offer {offer,..} if predicate(&offer.intent)).then(||id.clone()))
+    }
+    assert!(offered(&preview,|a|matches!(a,Action::PluginOpen {..})).is_some());
+    assert!(offered(&preview,|a|matches!(a,Action::CandidateSettingsPrepare {..})).is_none(),
+        "ordinary detail must not append the display/repair pages");
+    navigate(&mut preview,ProductPage::Display);
+    assert_eq!(preview.state.plugins.focused_product(),Some(&key));
+    assert!(offered(&preview,|a|matches!(a,Action::PluginOpen {..})).is_none());
+    let record = offered(&preview,|a|matches!(a,Action::CompatibilityResult {..})).unwrap();
+    preview.press(&record,InputPath::Pointer);
+    assert!(preview.state.forms.record.is_some() && preview.captured.is_empty());
     preview.dismiss_form("fixture Escape");
-    assert_eq!(preview.captured.len(), before);
+    let choose = offered(&preview,|a|matches!(a,Action::CompatibilityPublishTest {..})).unwrap();
+    let Some(Target::Offer {offer,..}) = preview.built.targets.get(&choose).cloned() else {panic!()};
+    let mut chosen = preview.clone(); chosen.press(&choose,InputPath::Keyboard);
+    assert_eq!(chosen.captured.last().unwrap().0,offer.intent);
+    navigate(&mut preview,ProductPage::Overview);
+    assert_eq!(preview.press(&choose,InputPath::Keyboard),Outcome::Refused,
+        "a control from the departed subpage cannot still run");
+    navigate(&mut preview,ProductPage::Repair);
+    assert_eq!(preview.state.plugins.focused_product(),Some(&key));
+    assert!(offered(&preview,|a|matches!(a,Action::PluginOpen {..})).is_some(),
+        "repair keeps its exact action, not a reference to another page");
+    let blocked = preview.built.targets.iter().find_map(|(id,target)| matches!(target,
+        Target::Offer {offer,..} if offer.availability.reason()==Some("Close this exact plug-in window before preparing its accessibility trial."))
+        .then(||id.clone())).unwrap();
+    assert_eq!(preview.press(&blocked,InputPath::Touch),Outcome::Refused);
+    assert!(preview.captured.is_empty());
+    navigate(&mut preview,ProductPage::Overview);
+    assert_eq!(preview.state.plugins.focused_product(),Some(&key));
+    assert!(preview.captured.is_empty());
+}
+
+#[test]
+fn exact_instance_restart_confirms_loss_and_never_replays_a_cancelled_or_stale_choice() {
+    let mut base=Preview::new(Selection {state:state_index("plugin_ready"),page:Page::Plugins,..Selection::default()});
+    base.recovery_fixture();
+    fn restart(preview:&Preview)->String {
+        preview.built.targets.iter().find_map(|(id,target)|matches!(target,
+            Target::Offer {offer,..} if matches!(offer.intent,Action::PluginRestart {..})).then(||id.clone())).unwrap()
+    }
+    for page in [Page::Plugins,Page::Activity] {
+        let mut preview=base.clone();
+        preview.state.page=page;
+        preview.rebuild();
+        let id=restart(&preview);
+        preview.press(&id,InputPath::Touch);
+        let action=preview.state.forms.confirm.clone().unwrap();
+        assert!(preview.captured.is_empty());
+        let rendered=format!("{:?}",preview.built.form);
+        assert!(rendered.contains(lvb_view_model::recovery::LOSS_WARNING));
+        let confirm=form_control(&preview,FormStep::Confirm).unwrap();
+        let cancel=form_control(&preview,FormStep::CancelConfirm).unwrap();
+        assert_eq!(preview.built.form_focus.as_deref(),Some(cancel.id.0.as_str()));
+        let mut cancelled=preview.clone();
+        cancelled.press(&cancel.id.0,InputPath::Pointer);
+        assert!(cancelled.captured.is_empty() && cancelled.built.form.is_none());
+        assert_eq!(cancelled.press(&confirm.id.0,InputPath::Keyboard),Outcome::Refused);
+        let mut escaped=preview.clone();
+        escaped.dismiss_form("Escape");
+        assert!(escaped.captured.is_empty() && escaped.built.form.is_none());
+        let mut stale=preview.clone();
+        let offer=stale.sample.snapshot.products[0].actions.iter_mut().find(|offer|offer.action==action).unwrap();
+        let Action::PluginRestart {snapshot,..}=&mut offer.action else {panic!()};
+        snapshot.revision+=1;
+        stale.rebuild();
+        let held=form_control(&stale,FormStep::Confirm).unwrap();
+        assert!(held.reason().is_some());
+        assert_eq!(stale.press(&held.id.0,InputPath::Touch),Outcome::Refused);
+        assert!(stale.captured.is_empty());
+        preview.press(&confirm.id.0,InputPath::Keyboard);
+        assert_eq!(preview.captured,vec![(action,true)]);
+        assert_eq!(preview.press(&confirm.id.0,InputPath::Keyboard),Outcome::Refused);
+        assert_eq!(preview.captured.len(),1);
+    }
 }
