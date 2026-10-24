@@ -738,6 +738,18 @@ class PackageAssembly(unittest.TestCase):
         package = package_archive(output, self.root / "composite.pkg.tar.zst")
         self.assertEqual(verify_package.verify(package, release, True)["files"], len(self.files) + 2)
 
+    def test_native_build_validation_keeps_executable_role_explicit(self):
+        record, _ = self.composite_frontend()
+        args = self.spec['source_head'], self.spec['source_tree'], record['artifact_sha256']
+        installer = {**record, 'binary':'linux-vst-bridge-install'}
+        assemble.validate_frontend_build(record, *args)
+        assemble.validate_frontend_build(installer, *args, expected_binary='linux-vst-bridge-install')
+        with self.assertRaisesRegex(ValueError, 'artifact/build identity'):
+            assemble.validate_frontend_build(installer, *args)
+        with self.assertRaisesRegex(ValueError, 'artifact/build identity'):
+            assemble.validate_frontend_build(record, *args, expected_binary='linux-vst-bridge-install')
+        with self.assertRaisesRegex(ValueError, 'executable role'):
+            assemble.validate_frontend_build(record, *args, expected_binary='other-app')
     def test_composite_frontend_cannot_drift_or_omit_signed_provenance(self):
         record, compliance = self.composite_frontend()
         for key, value in (("bridge_source", {"head": "f" * 40, "tree": "b" * 40}),

@@ -81,6 +81,7 @@ class CandidateInputs(unittest.TestCase):
             build.mkdir()
 
             frontend_record = None
+            installer_record = None
             frontend_output = root / 'frontend-build'
             if composite:
                 frontend_output.mkdir()
@@ -93,10 +94,14 @@ class CandidateInputs(unittest.TestCase):
                     portable_public_key='e'*64,portable_key_class='internal_test',
                     artifact_sha256=sha((frontend_output/frontend_build.BINARY).read_bytes()))
                 (frontend_output/'frontend-build.json').write_text(json.dumps(frontend_record))
+                (frontend_output/frontend_build.INSTALLER).write_bytes(b'\x7fELFqualified-native-installer')
+                installer_record = {**frontend_record, 'binary':frontend_build.INSTALLER,
+                    'artifact_sha256':sha((frontend_output/frontend_build.INSTALLER).read_bytes())}
 
             def notices(_source, output, **kwargs):
                 if composite:
-                    self.assertEqual(kwargs,dict(frontend_source=root/'private',frontend_build=frontend_record))
+                    self.assertEqual(kwargs,dict(frontend_source=root/'private',frontend_build=frontend_record,
+                                                 installer_build=installer_record))
                 else:
                     self.assertEqual(kwargs,{})
                 for name in ('Rust-Dependency-Notices.txt', 'Rust-Dependency-Inventory.json'):
@@ -111,7 +116,7 @@ class CandidateInputs(unittest.TestCase):
                 argv += ['--frontend-build',str(frontend_output/'frontend-build.json'),
                          '--frontend-source',str(root/'private')]
             with patch.object(sys, 'argv', argv), patch.object(rust_notices, 'capture', notices), \
-                    patch.object(frontend_build,'verify_record',return_value=frontend_record) as verified, \
+                    patch.object(frontend_build,'verify_pair',return_value=(frontend_record,installer_record)) as verified, \
                     contextlib.redirect_stdout(io.StringIO()):
                 runpy.run_path(argv[0], run_name='__main__')
             spec = json.loads((build / 'package-spec-0.12.0fixture.json').read_text())
@@ -124,6 +129,11 @@ class CandidateInputs(unittest.TestCase):
                 self.assertEqual(pathlib.Path(frontend_row['source']).read_bytes(),b'\x7fELFqualified-live-frontend')
                 compliance=json.loads((build/'inputs-0.12.0fixture/COMPLIANCE_MANIFEST.json').read_text())
                 self.assertEqual(compliance['frontend_build'],frontend_record)
+                self.assertEqual(compliance['installer_build'],installer_record)
+                self.assertEqual((build/'inputs-0.12.0fixture'/frontend_build.INSTALLER).read_bytes(),
+                                 b'\x7fELFqualified-native-installer')
+                self.assertEqual(json.loads((build/'inputs-0.12.0fixture/installer-build.json').read_bytes()),
+                                 installer_record)
             else:
                 verified.assert_not_called()
                 self.assertEqual(frontend_row['build_head'],git('rev-parse','HEAD'))

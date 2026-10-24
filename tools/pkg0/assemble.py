@@ -722,12 +722,15 @@ def verify_kit_backend(data, source_root):
                         raise ValueError("prebuilt native rebuild differs")
 
 
-def validate_frontend_build(record, source_head, source_tree, artifact_sha256):
+def validate_frontend_build(record, source_head, source_tree, artifact_sha256, *,
+                            expected_binary="linux-audio-compatibility-manager"):
     """The package's Bridge source and the additional UI source stay distinct.
 
     This is build provenance, not a second runtime selection mechanism. The
     signed adoption record continues to bind the actual manager/frontend pair.
     """
+    if expected_binary not in ("linux-audio-compatibility-manager", "linux-vst-bridge-install"):
+        raise ValueError("native build executable role")
     expected = {"schema", "bridge_source", "frontend_source", "target", "binary", "features",
                 "portable_public_key", "portable_key_class", "artifact_sha256"}
     if not isinstance(record, dict) or set(record) != expected or record["schema"] != 1:
@@ -748,7 +751,7 @@ def validate_frontend_build(record, source_head, source_tree, artifact_sha256):
             or PurePosixPath(name).as_posix() != name or PurePosixPath(name).name != "Cargo.toml"):
         raise ValueError("composite frontend manifest name")
     if (record["target"] != "x86_64-unknown-linux-gnu"
-            or record["binary"] != "linux-audio-compatibility-manager"
+            or record["binary"] != expected_binary
             or record["features"] != ["live"] or record["portable_key_class"] != "internal_test"
             or not isinstance(record["portable_public_key"], str)
             or not re.fullmatch(r"[0-9a-f]{64}", record["portable_public_key"])
