@@ -173,19 +173,119 @@ pub(super) fn unresolved_operation(
     };
     !settled
 }
+#[cfg(test)]
 pub(super) fn require_settled_custody(
     m: &Manager,
     instance: &str,
     status: &wire::Status,
 ) -> Result<()> {
-    let retained = retained_restart(m, instance).map_err(|_| -> Box<dyn std::error::Error + Send + Sync> {
-        "Restart is unavailable because this instance's durable restart custody is missing or unreadable. Keep the project open and choose Send a problem report in the bridge to report this problem. The latest live snapshot cannot safely be restored through this control; reopening uses DAW-saved state and may lose later changes.".into()
-    })?;
+    require_settled_custody_for(m, instance, status, None)
+}
+fn require_settled_custody_for(
+    m: &Manager,
+    instance: &str,
+    status: &wire::Status,
+    executing: Option<&wire::Command>,
+) -> Result<()> {
+    let retained = match retained_restart(m, instance) {
+        Ok(retained) => retained,
+        Err(_) => {
+            // Only an absent index is a legacy input. Never erase or replace a
+            // malformed record, including a dangling symlink, through migration.
+            require(matches!(fs::symlink_metadata(binding_path(m, instance)?),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound),
+                "Restart is unavailable because this instance's durable restart custody is missing or unreadable. Keep the project open and choose Send a problem report in the bridge.")?;
+            return require_legacy_history(m, instance, status, executing);
+        }
+    };
     require(
         !retained.is_some_and(|command| unresolved_operation(m, instance, command.operation, Some(&command)))
             && !unresolved_operation(m, instance, status.operation, None),
         "The previous restart outcome is unconfirmed; it will not be replayed. Keep the project open and choose Send a problem report in the bridge to report this problem.",
     )
+}
+/// Caller holds the authenticated original instance's state mutex. Journals
+/// predate the direct index and are retained, not pruned. Read the entire bounded
+/// inventory, never just the proxy's last reported operation. New requests can
+/// be recorded concurrently, but cannot deliver until they take this same mutex
+/// and retain their nonempty binding. No migration/empty sentinel is written.
+fn require_legacy_history(
+    m: &Manager,
+    instance: &str,
+    status: &wire::Status,
+    executing: Option<&wire::Command>,
+) -> Result<()> {
+    status.validate()?;
+    require_restart_status(status, &wire::Command {
+        operation: [1; 16], generation: status.generation,
+        revision: status.revision, digest: status.digest,
+    })?;
+    // A proxy flag or absent lease alone cannot authorize a replacement.
+    retired(m, &hex(&status.session))?;
+    let directory = m.root.join("operator");
+    require(fs::symlink_metadata(&directory).is_ok_and(|meta| meta.is_dir()),
+        "The retained restart journal is unavailable. Keep the project open so its latest live snapshot is preserved, and choose Send a problem report in the bridge.")?;
+    for (index, entry) in fs::read_dir(directory)?.enumerate() {
+        require(index < 2048, "The retained restart journal exceeds the readable inventory limit")?;
+        let entry = entry?;
+        let name = entry.file_name();
+        let Some(id) = name.to_str().filter(|id| valid_hex(id, 32)) else { continue };
+        require(entry.file_type()?.is_dir(), "A retained operation directory is unreadable")?;
+        let request: serde_json::Value = read_json(&entry.path().join("request.json"))?;
+        let kind = request["action"]["kind"].as_str().ok_or("A retained operation's action is unreadable")?;
+        if kind != "plugin_restart" { continue; }
+        let original = request["action"]["instance"].as_str()
+            .filter(|id| valid_hex(id, 32)).ok_or("A retained restart's instance identity is unreadable")?;
+        if original != instance { continue; }
+        let action: ui::Action = serde_json::from_value(request["action"].clone())?;
+        let requested = command(&action, wire::decode_id(id)?)?;
+        let record: serde_json::Value = read_json(&entry.path().join("result.json"))?;
+        // These are positive pre-delivery stages, not an unconfirmed mutation.
+        // An interrupted running executor remains completed/unconfirmed and
+        // cannot enter here. Only this exact new execute call may name running.
+        let undelivered = record["schema"] == 1 && record["operation"] == id
+            && record["action"] == request["action"]
+            && record.get("outcome").is_none() && record.get("result").is_none()
+            && match record["state"].as_str() {
+                Some("unconfirmed") => record["stage"] == "operator_request_admission"
+                    && record["worker_started"] == false,
+                Some("queued") => true,
+                Some("waiting") => record["stage"] == "operator_validation_readback",
+                Some("running") => executing == Some(&requested),
+                _ => false,
+            };
+        require(undelivered || !unresolved_operation(m, instance, requested.operation, Some(&requested)),
+            "A previous restart outcome is unconfirmed; it will not be replayed. Keep the project open so its latest live snapshot is preserved, and choose Send a problem report in the bridge.")?;
+    }
+    require(!unresolved_operation(m, instance, status.operation, None),
+        "The proxy's previous restart outcome is unconfirmed; it will not be replayed")
+}
+
+pub(super) fn require_restart(
+    m: &Manager, instance: &str, state: &State, command: &wire::Command,
+    executing: Option<&wire::Command>,
+) -> Result<()> {
+    require_restart_status(&state.status, command)?;
+    require(state.pending.as_ref().is_none_or(|pending| {
+        !pending.uncertain && state.status.operation == pending.command.operation
+            && matches!(state.status.phase, wire::COMPLETE | wire::REFUSED)
+    }), "This instance has an unfinished or unconfirmed restart request")?;
+    require_settled_custody_for(m, instance, &state.status, executing)?;
+    retired(m, &hex(&state.status.session))
+}
+/// The owner has checked the live consumer and holds its state mutex. Retain
+/// the new request before exposing delivery; a crash keeps this exact fence.
+pub(super) fn begin_restart(
+    m: &Manager, instance: &str, state: &mut State, command: wire::Command,
+) -> Result<()> {
+    require_restart(m, instance, state, &command, Some(&command))?;
+    retain_restart(m, instance, &command)?;
+    state.pending = Some(Pending {
+        command, sent: false, launch_claimed: false, uncertain: false,
+        accepted: Instant::now(),
+    });
+    changed();
+    Ok(())
 }
 #[cfg(test)]
 pub(super) fn unresolved_journal(m: &Manager, instance: &str, status: &wire::Status) -> bool {
@@ -431,6 +531,190 @@ mod tests {
             pending: None,
         }
     }
+    fn legacy_retirement(f: &Fixture, status: &wire::Status) {
+        let session = hex(&status.session);
+        let path = report(&f.m, &session).with_extension("ownership.json");
+        private_dir(path.parent().unwrap()).unwrap();
+        private_dir(&f.m.root.join("operator")).unwrap();
+        atomic_json(&path, &serde_json::json!({"session":session,
+            "cleanup_confirmed":true,"transport_retired":true})).unwrap();
+    }
+    #[test]
+    fn legacy_retired_snapshot_with_settled_history_can_restart_without_empty_custody() {
+        let f = Fixture::new();
+        let instance = hex(&status().session);
+        let state = observation(status());
+        legacy_retirement(&f, &state.status);
+        // No restart ever requested. The live proxy retains a newer snapshot
+        // than the one saved in the DAW; migration must not touch either.
+        require_settled_custody(&f.m, &instance, &state.status).unwrap();
+        assert!(!binding_path(&f.m, &instance).unwrap().exists());
+        // Nor does an old, positively settled request prevent a fresh restart.
+        let prior = pending(&state.status).command;
+        running(&f, &instance, &prior);
+        finish(&f, &prior, "refused");
+        let path = f.m.root.join("operator").join(hex(&prior.operation));
+        let request = fs::read(path.join("request.json")).unwrap();
+        let result = fs::read(path.join("result.json")).unwrap();
+        require_settled_custody(&f.m, &instance, &state.status).unwrap();
+        assert!(state.pending.is_none());
+        assert_eq!(state.status, status());
+        assert_eq!(fs::read(path.join("request.json")).unwrap(), request);
+        assert_eq!(fs::read(path.join("result.json")).unwrap(), result);
+        assert!(!binding_path(&f.m, &instance).unwrap().exists());
+    }
+    #[test]
+    fn legacy_ordinary_restart_preserves_latest_snapshot_and_original_identity() {
+        for history in ["never", "refused", "confirmed"] {
+            let f = Fixture::new();
+            let instance = hex(&status().session);
+            let prior = pending(&status()).command;
+            let mut live = status();
+            if history != "never" {
+                running(&f, &instance, &prior);
+                finish(&f, &prior, history);
+                live.operation = prior.operation;
+                live.phase = wire::REFUSED;
+                if history == "confirmed" {
+                    live.session = [5; 16];
+                    live.generation = 2;
+                    live.phase = wire::COMPLETE;
+                }
+            }
+            // The current snapshot is newer than both DAW-saved state and the
+            // prior restart's receipt. Neither can substitute for this binding.
+            live.revision = 9;
+            live.digest = [8; 32];
+            live.flags = wire::SNAPSHOT | wire::OWNER_TIMER;
+            let mut state = observation(live);
+            let next = wire::Command { operation: [7; 16], generation: live.generation,
+                revision: live.revision, digest: live.digest };
+            assert!(matches!(recovery_phase(&state), ui::RecoveryPhase::Connected
+                | ui::RecoveryPhase::Refused | ui::RecoveryPhase::Restored));
+            assert!(require_restart(&f.m, &instance, &state, &next, None).unwrap_err()
+                .to_string().contains("has not reported a failure"));
+            assert!(state.pending.is_none());
+            assert!(!binding_path(&f.m, &instance).unwrap().exists());
+            state.status.flags |= wire::FAILED | wire::RETIRED;
+            legacy_retirement(&f, &state.status);
+            require_restart(&f.m, &instance, &state, &next, None).unwrap();
+            let retained_status = state.status;
+            // Ordinary request creation/validation must not block itself.
+            running(&f, &instance, &next);
+            let path = f.m.root.join("operator").join(hex(&next.operation)).join("result.json");
+            let running: serde_json::Value = read_json(&path).unwrap();
+            for (phase, stage) in [("unconfirmed", "operator_request_admission"),
+                ("queued", ""), ("waiting", "operator_validation_readback")] {
+                let mut record = running.clone();
+                record["state"] = phase.into();
+                record["stage"] = stage.into();
+                record["worker_started"] = false.into();
+                atomic_json(&path, &record).unwrap();
+                require_restart(&f.m, &instance, &state, &next, None).unwrap();
+                assert_eq!(outgoing(&f.m, &mut state), wire::Command::default());
+                assert!(!binding_path(&f.m, &instance).unwrap().exists());
+            }
+            atomic_json(&path, &running).unwrap();
+            // A merely observed running request is still unconfirmed. Only
+            // its own new execute call can retain it and expose delivery.
+            assert!(require_restart(&f.m, &instance, &state, &next, None).is_err());
+            begin_restart(&f.m, &instance, &mut state, next).unwrap();
+            assert_eq!(state.status, retained_status);
+            assert_eq!(retained_restart(&f.m, &instance).unwrap(), Some(next));
+            assert_eq!(outgoing(&f.m, &mut state), next);
+            assert_eq!(outgoing(&f.m, &mut state), wire::Command::default());
+            // The real completion shape settles the migration's new request.
+            atomic_json(&path, &serde_json::json!({"schema":1,"operation":hex(&next.operation),
+                "state":"completed","outcome":"confirmed","result":{
+                    "restart":"completed","instance":instance,"operation":hex(&next.operation),
+                    "generation":next.generation + 1,"session":hex(&[6;16]),
+                    "snapshot_revision":next.revision,"snapshot_sha256":hex(&next.digest),
+                    "controller_confirmed":true}})).unwrap();
+            state.status.operation = next.operation;
+            state.status.phase = wire::COMPLETE;
+            state.status.generation += 1;
+            state.status.session = [6; 16];
+            state.status.flags &= !wire::FAILED;
+            assert_eq!(recovery_phase(&state), ui::RecoveryPhase::Restored);
+            require_settled_custody(&f.m, &instance, &state.status).unwrap();
+            assert_eq!(state.status.revision, live.revision);
+            assert_eq!(state.status.digest, live.digest);
+        }
+    }
+    #[test]
+    fn legacy_unreported_uncertainty_and_missing_evidence_still_fence_restart() {
+        let f = Fixture::new();
+        let instance = hex(&status().session);
+        let prior = pending(&status()).command;
+        let next = wire::Command { operation: [7; 16], ..prior };
+        let mut state = observation(status());
+        legacy_retirement(&f, &state.status);
+        for outcome in ["running", "unconfirmed", "interrupted", "malformed"] {
+            running(&f, &instance, &prior);
+            if outcome != "running" { finish(&f, &prior, "unconfirmed"); }
+            let path = f.m.root.join("operator").join(hex(&prior.operation)).join("result.json");
+            if outcome == "malformed" {
+                atomic_json(&path, &serde_json::json!({"schema":1,"operation":hex(&prior.operation),
+                    "state":"completed"})).unwrap();
+            }
+            if outcome == "interrupted" {
+                atomic_json(&path, &serde_json::json!({"schema":1,"operation":hex(&prior.operation),
+                    "state":"completed","outcome":"unconfirmed","result":{"restart":"unconfirmed"}})).unwrap();
+            }
+            let before = fs::read(&path).unwrap();
+            running(&f, &instance, &next);
+            for report_prior in [false, true] {
+                state.status.operation = if report_prior { [3; 16] } else { [0; 16] };
+                state.status.phase = if report_prior { wire::REFUSED } else { wire::IDLE };
+                if report_prior {
+                    let older = wire::Command { operation: [3; 16], ..prior };
+                    running(&f, &instance, &older);
+                    finish(&f, &older, "refused");
+                }
+                assert!(begin_restart(&f.m, &instance, &mut state, next).is_err(), "{outcome}");
+                assert_eq!(outgoing(&f.m, &mut state), wire::Command::default());
+                assert!(state.pending.is_none());
+                assert!(!binding_path(&f.m, &instance).unwrap().exists());
+            }
+            assert_eq!(fs::read(&path).unwrap(), before);
+        }
+        // Retirement and a settled selected operation do not repair an
+        // unavailable census, a malformed request, or an existing broken index.
+        finish(&f, &prior, "refused");
+        for missing in ["request", "result", "index", "inventory"] {
+            let request = f.m.root.join("operator").join(hex(&prior.operation)).join("request.json");
+            let result = request.with_file_name("result.json");
+            let request_bytes = fs::read(&request).unwrap();
+            let result_bytes = fs::read(&result).unwrap();
+            let index = binding_path(&f.m, &instance).unwrap();
+            match missing {
+                "request" => fs::write(&request, b"{}").unwrap(),
+                "result" => fs::remove_file(&result).unwrap(),
+                "index" => { private_dir(index.parent().unwrap()).unwrap(); fs::write(&index, b"{}").unwrap(); }
+                _ => fs::rename(f.m.root.join("operator"), f.m.root.join("saved-operator")).unwrap(),
+            }
+            assert!(begin_restart(&f.m, &instance, &mut state, next).is_err(), "{missing}");
+            assert!(state.pending.is_none());
+            if missing == "inventory" {
+                fs::rename(f.m.root.join("saved-operator"), f.m.root.join("operator")).unwrap();
+            }
+            if missing == "index" {
+                assert_eq!(fs::read(&index).unwrap(), b"{}");
+                fs::remove_file(index).unwrap();
+            }
+            fs::write(request, &request_bytes).unwrap();
+            fs::write(result, &result_bytes).unwrap();
+        }
+        begin_restart(&f.m, &instance, &mut state, next).unwrap();
+        // Delivery lost after this transition keeps the a6c27/fe83de fence.
+        disconnected(&mut state);
+        finish(&f, &next, "unconfirmed");
+        let returning = state.status;
+        reconnect(&mut state, returning).unwrap();
+        assert_eq!(outgoing(&f.m, &mut state), wire::Command::default());
+        let fresh = Manager::new(f.m.root.clone(), f.outer.join("vst3"));
+        assert!(unresolved_journal(&fresh, &instance, &returning));
+    }
     fn running(f: &Fixture, instance: &str, command: &wire::Command) {
         receipt(f, command.operation, instance, "confirmed");
         let path = f.m.root.join("operator").join(hex(&command.operation));
@@ -445,7 +729,11 @@ mod tests {
         atomic_json(
             &path.join("result.json"),
             &serde_json::json!({
-                "schema":1, "operation":hex(&command.operation), "state":"running"
+                "schema":1, "operation":hex(&command.operation), "state":"running",
+                "action": {
+                    "kind":"plugin_restart", "instance":instance, "generation":command.generation,
+                    "snapshot":{"revision":command.revision, "sha256":hex(&command.digest)}
+                }
             }),
         )
         .unwrap();
@@ -578,7 +866,7 @@ mod tests {
         assert!(unresolved_journal(&fresh, &instance, &status()));
     }
     #[test]
-    fn authority_legacy_history_without_index_always_refuses_and_preserves_journals() {
+    fn authority_legacy_history_without_retirement_refuses_and_preserves_journals() {
         let f = Fixture::new();
         let instance = hex(&status().session);
         let command = pending(&status()).command;
@@ -690,10 +978,7 @@ mod tests {
             });
             assert!(state.pending.is_none());
             assert_eq!(recovery_phase(&state), ui::RecoveryPhase::Connected);
-            assert!(require_settled_custody(&f.m, &instance, &state.status)
-                .unwrap_err()
-                .to_string()
-                .contains("durable restart custody is missing or unreadable"));
+            assert!(require_settled_custody(&f.m, &instance, &state.status).is_err());
             state.status.flags = status().flags;
             assert_eq!(recovery_phase(&state), ui::RecoveryPhase::Failed);
             disconnected(&mut state);
