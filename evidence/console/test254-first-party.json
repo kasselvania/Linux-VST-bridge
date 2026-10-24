@@ -22,12 +22,36 @@
     "rms_s16": 1448.168845,
     "normal_observer_and_daw_retirement": true
   },
-  "standalone_level_percent": [25, 75, 80],
+  "standalone_level_percent": [
+    25,
+    75,
+    80
+  ],
   "repair": {
     "available_classes": 2,
     "prefix_inode_before": 10093984,
     "prefix_inode_after": 10093984,
     "revision_before": 2,
     "revision_after": 3
+  },
+  "cachyos": {
+    "platform": "CachyOS VM",
+    "daw": "REAPER 7.82",
+    "recalled_parameter": 0.46999999880791,
+    "same_fx_guid": true,
+    "original_project_preserved": true,
+    "normal_observer_and_daw_retirement": true,
+    "after_update": {
+      "observed_seconds": 20.0,
+      "blocks_100ms": 200,
+      "silent_blocks": 0,
+      "peak_s16": 293
+    },
+    "fresh_reopen": {
+      "observed_seconds": 20.0,
+      "blocks_100ms": 200,
+      "silent_blocks": 0,
+      "peak_s16": 295
+    }
   }
 }

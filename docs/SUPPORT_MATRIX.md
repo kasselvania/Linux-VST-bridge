@@ -29,8 +29,21 @@ Editor classes to available, retained the prefix inode and advanced setup revisi
 2 → 3. Observed refresh states no longer presented normal renewal as read failure.
 [Measurements](../evidence/console/test254-first-party.json).
 This is a supplementary SteamOS/REAPER result; the agreed SteamOS/Bitwig,
-CachyOS/REAPER, commercial, presets/sample-location and physical-touch journeys
+commercial, presets/sample-location and physical-touch journeys
 remain required for Console acceptance.
+
+Test254 / CachyOS VM / REAPER 7.82 / retained first-party setup,
+**Console update and save/full-exit/reopen passed** (2026-10-24):
+the signed installer → Open Setup → Update Bridge route started the exact new
+service and settled Console with both Reference classes available. The saved
+Reference Instrument project retained its FX identity and parameter .47 after
+update, then after a normal save, full DAW exit and fresh-process reopen.
+Each 20 s capture contained 200 non-silent 100 ms blocks. Both observers and DAW
+processes retired normally; the original project remained byte-identical.
+This covers first-party update and saved-state playback on the retained VM;
+commercial plug-ins, recovery, touch and the remaining Console journeys still
+require their own installed checks.
+[Measurements](../evidence/console/test254-first-party.json).
 
 Test225 / CachyOS / REAPER 7.82 / runtime r7 / host CPython 3.14.8,
 **source-generation update and exact restore passed**
