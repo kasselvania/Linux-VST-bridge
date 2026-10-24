@@ -17,180 +17,6 @@ pub(super) fn compose(m: &Manager, sw: &Software, snapshot: &mut ui::Snapshot) -
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    fn fixture() -> ui::Snapshot {
-        let mut snapshot: ui::Snapshot = serde_json::from_str(include_str!("../../../../../manager-ui/examples/library-preview.json")).unwrap();
-        snapshot.products.truncate(1);
-        let product = &mut snapshot.products[0];
-        product.availability = Some(ui::NativeAvailability { available: true, reason: None });
-        product.compatibility = None;
-        let setup: ui::InstallerSetup = serde_json::from_value(json!({
-            "installer":"ab".repeat(32),"name":"Earlier setup","label_source":"operator_named",
-            "byte_size":1,"format":"pe_executable","imported_at":1,"phase":"setup_needs_attention",
-            "journey":null,"status":"Review retained history","environment":product.environment,
-            "compatibility":null,"discovered":[{"environment":product.environment,"module_sha256":product.module_sha256,
-                "class_id":product.class_id,"name":product.name}],"primary":null,"secondary":[],
-            "rename":{"label":"Rename","action":{"kind":"installer_rename","installer":"ab".repeat(32),"label":""},"disabled_reason":null},"history":[]
-        })).unwrap();
-        snapshot.onboarding = vec![ui::Onboarding { installer: setup.installer.clone(), name: setup.name.clone(),
-            byte_size: 1, format: setup.format.clone(), environment: setup.environment.clone(), state: "needs_attention".into(),
-            failure: None, required_human_action: "Review retained history".into(), actions: vec![],
-            details: json!({"managed_product":true,"scan":{},"installation":{"state":"completed","cleanup_confirmed":true,
-                "owned_live":0,"error":null,"failure":null,"transaction":{"outcome":"partial_installation","first_failure":null}}}) }];
-        snapshot.installer_setups = vec![setup];
-        snapshot.system.service = "active".into(); snapshot.system.cleanup_unconfirmed = false; snapshot.system.pending_transactions = 0;
-        snapshot
-    }
-    #[test]
-    fn exact_current_products_settle_history_without_rewriting_it() {
-        let snapshot = fixture();
-        let before = serde_json::to_value(&snapshot.onboarding).unwrap();
-        assert_eq!(project(&snapshot, &Default::default()).setups[0].disposition, Disposition::SettledHistory);
-        for case in 0..12 {
-            let mut changed = snapshot.clone();
-            match case {
-                0 => changed.installer_setups[0].environment = Some("different-environment".into()),
-                1 => changed.products[0].module_sha256 = "changed-module".into(),
-                2 => changed.products[0].environment = "different-environment".into(),
-                3 => changed.products.clear(),
-                4 => changed.products[0].availability = Some(ui::NativeAvailability { available: false, reason: Some("Current connection failed".into()) }),
-                5 => changed.products[0].availability = None,
-                6 => { let mut missing = changed.installer_setups[0].discovered[0].clone();
-                    missing.module_sha256 = "missing-module".into(); changed.installer_setups[0].discovered.push(missing); },
-                7 | 8 => changed.installer_setups[0].journey = Some(ui::InstallationJourney { daw: ui::DawChoice::Bitwig,
-                    phase: if case == 7 { Phase::VendorRunning } else { Phase::NeedsAttention }, plugins: vec![], failure: None }),
-                9 => changed.installer_setups[0].primary = Some(action("Continue", ui::Action::SoftwareInstallResume { onboarding: "exact-owner".into() }, None)),
-                10 => changed.onboarding[0].actions.push(action("Repair", ui::Action::SoftwareInstallResume { onboarding: "exact-owner".into() }, None)),
-                _ => changed.onboarding[0].details["installation"]["transaction"]["first_failure"] = json!("retained failure"),
-            }
-            assert_ne!(project(&changed, &Default::default()).setups[0].disposition, Disposition::SettledHistory, "case {case}");
-        }
-        assert_eq!(serde_json::to_value(&snapshot.onboarding).unwrap(), before);
-    }
-    #[test]
-    fn untouched_import_remains_in_setup_without_a_problem_banner() {
-        let mut snapshot = fixture();
-        snapshot.onboarding.clear();
-        let setup = &mut snapshot.installer_setups[0];
-        setup.phase = ui::SetupPhase::Imported;
-        setup.environment = None;
-        setup.discovered.clear();
-        setup.primary = Some(action("Install", ui::Action::SoftwareInstall {
-            installer: setup.installer.clone(), daw: ui::DawChoice::Other,
-        }, None));
-        let view = project(&snapshot, &Default::default());
-        assert_eq!(view.setups.len(), 1);
-        assert_eq!(view.setups[0].disposition, Disposition::InProgress);
-        assert!(view.attention.is_empty());
-        snapshot.installer_setups[0].primary = None;
-        let unavailable = project(&snapshot, &Default::default());
-        assert_eq!(unavailable.setups[0].disposition, Disposition::NeedsAttention);
-        assert_eq!(unavailable.attention.len(), 1, "an import that cannot proceed still needs attention");
-        snapshot.installer_setups[0].phase = ui::SetupPhase::CleanupUnconfirmed;
-        assert_eq!(project(&snapshot, &Default::default()).attention.len(), 1,
-            "a real installation cleanup failure cannot disappear");
-    }
-    #[test]
-    fn one_failed_connection_names_and_routes_only_its_exact_build() {
-        let mut snapshot = fixture();
-        let mut healthy = snapshot.products[0].clone(); healthy.name = "Healthy sibling".into();
-        healthy.module_sha256 = "cd".repeat(32);
-        let failed = &mut snapshot.products[0]; failed.name = "Affected instrument".into();
-        failed.availability = Some(ui::NativeAvailability { available: false, reason: Some("Publication failed".into()) });
-        let key = ProductIdentity::from(&*failed);
-        let class = failed.class_id.clone();
-        snapshot.products.push(healthy);
-        snapshot.installer_setups[0].label_source = "generated".into();
-        snapshot.installer_setups[0].journey = Some(ui::InstallationJourney { daw: ui::DawChoice::Reaper,
-            phase: Phase::NeedsAttention, failure: None, plugins: vec![ui::InstallationPlugin {
-                selection: "exact-selection".into(), class_id: class, name: "Affected instrument".into(), stage: Stage::NeedsAttention,
-                failure: Some(ui::InstallationFailure { stage: ui::InstallationFailureStage::Publication,
-                    reason: "Publication failed".into(), code: "fixture".into(), retryable: true }) }] });
-        let bindings = [("exact-selection".into(), key.clone())].into_iter().collect();
-        let view = project(&snapshot, &bindings);
-        assert_eq!(view.attention.len(), 1);
-        assert_eq!(view.attention[0].target, AttentionTarget::Product { product: key.clone() });
-        assert!(view.attention[0].title.starts_with("Affected instrument"));
-        assert!(!view.attention[0].title.contains("other"));
-        assert_eq!(view.setups[0].connections[0].product, Observation::Observed(key));
-        assert_eq!(view.setups[0].connections[0].disposition, Observation::Observed(Connection::NeedsAttention));
-        // A same-class sibling is not evidence when the original selection is gone.
-        let unknown = project(&snapshot, &Default::default());
-        assert!(matches!(unknown.setups[0].connections[0].product, Observation::Unavailable(_)));
-        assert!(matches!(unknown.attention[0].target, AttentionTarget::Setup { .. }));
-    }
-    #[test]
-    fn current_progress_requires_exact_selection_and_never_masks_failure() {
-        let mut snapshot = fixture();
-        let product = &mut snapshot.products[0];
-        product.availability = Some(ui::NativeAvailability { available: false, reason: Some("Not connected".into()) });
-        product.disposition = "installed_unqualified".into(); product.details = json!({});
-        let key = ProductIdentity::from(&*product);
-        let journey = ui::InstallationJourney { daw: ui::DawChoice::Reaper, phase: Phase::PreparingPlugins,
-            failure: None, plugins: vec![ui::InstallationPlugin { selection: "exact-selection".into(), class_id: key.class_id.clone(),
-                name: product.name.clone(), stage: Stage::Inspecting, failure: None }] };
-        snapshot.installer_setups[0].journey = Some(journey.clone());
-        snapshot.operation = Some(json!({"operation":"exact-operation","onboarding":key.environment,
-            "state":"running","journey":journey}));
-        let bindings: std::collections::BTreeMap<_,_> = [("exact-selection".into(), key.clone())].into_iter().collect();
-        assert_eq!(progress(&snapshot, &bindings), vec![ui::ProductProgress { product: key.clone(), stage: ui::ConnectionProgress::Inspecting }]);
-        for case in 0..14 {
-            let mut changed = snapshot.clone(); let mut selected = bindings.clone();
-            match case {
-                0 => changed.products[0].availability.as_mut().unwrap().available = true,
-                1 => changed.products[0].disposition = "quarantined".into(),
-                2 => changed.products[0].details["current"] = json!(false),
-                3 => changed.products[0].details["refusal"] = json!("Actual refusal"),
-                4 => changed.products[0].environment = "different".into(),
-                5 => changed.installer_setups[0].discovered.clear(),
-                6 => selected.get_mut("exact-selection").unwrap().module_sha256 = "another-build".into(),
-                7 => changed.operation.as_mut().unwrap()["journey"]["plugins"][0]["selection"] = json!("another-selection"),
-                8 => { let plugin = changed.operation.as_ref().unwrap()["journey"]["plugins"][0].clone();
-                    changed.operation.as_mut().unwrap()["journey"]["plugins"].as_array_mut().unwrap().push(plugin); },
-                9 => changed.operation.as_mut().unwrap()["state"] = json!("completed"),
-                10 => changed.operation.as_mut().unwrap()["journey"]["phase"] = json!("needs_attention"),
-                11 => changed.operation.as_mut().unwrap()["journey"]["plugins"][0]["stage"] = json!("needs_attention"),
-                12 => changed.operation.as_mut().unwrap()["journey"]["plugins"][0]["class_id"] = json!("other-class"),
-                _ => { changed.products[0].disposition = "experimental".into();
-                    changed.products[0].details = json!({"refusal":"Old authority", "automatic_revalidation": {
-                        "operation":"other-operation", "predecessor":{"id":"retained", "sha256":"ab".repeat(32)}}}); },
-            }
-            assert!(progress(&changed, &selected).is_empty(), "case {case}");
-        }
-        snapshot.products[0].disposition = "experimental".into();
-        snapshot.products[0].details = json!({"refusal":"Old authority", "automatic_revalidation": {
-            "operation":"exact-operation", "predecessor":{"id":"retained", "sha256":"ab".repeat(32)}}});
-        assert_eq!(progress(&snapshot, &bindings).len(), 1, "exact revalidation still has visible progress");
-        snapshot.operation.as_mut().unwrap()["journey"]["plugins"][0]["stage"] = json!("needs_attention");
-        assert!(progress(&snapshot, &bindings).is_empty(), "actual failed recheck must stay visible");
-    }
-
-    #[test]
-    fn owned_pause_is_not_service_failure_and_cannot_hide_independent_problems() {
-        let mut snapshot = fixture();
-        snapshot.system.service = "capacity unavailable".into(); snapshot.system.cleanup_unconfirmed = true;
-        snapshot.operation = Some(json!({"operation":"exact", "state":"running", "journey":{"phase":"preparing_plugins","failure":null},
-            "owned_service_pause":{"schema":1,"owner_operation":"child","automatic_operation":"exact"}}));
-        assert!(service_problem(&snapshot).is_none());
-        for case in 0..7 {
-            let mut changed = snapshot.clone();
-            match case {
-                0 => changed.operation.as_mut().unwrap().as_object_mut().unwrap().remove("owned_service_pause").map(|_| ()).unwrap(),
-                1 => changed.operation.as_mut().unwrap()["owned_service_pause"]["automatic_operation"] = json!("other"),
-                2 => changed.operation.as_mut().unwrap()["state"] = json!("refused"),
-                3 => changed.operation.as_mut().unwrap()["journey"]["phase"] = json!("needs_attention"),
-                4 => changed.system.pending_transactions = 1,
-                5 => changed.system.stale_transports = 1,
-                _ => changed.system.service = "active".into(), // observed cleanup failure
-            }
-            assert!(service_problem(&changed).is_some(), "case {case}");
-        }
-    }
-
-}
-
 fn priority(setup: &ui::InstallerSetup) -> u8 {
     use ui::SetupPhase as S;
     match setup.journey.as_ref().map(|journey| journey.phase) {
@@ -438,4 +264,178 @@ fn service_problem(snapshot: &ui::Snapshot) -> Option<&'static str> {
     else if system.pending_transactions > 0 { Some("A retained publication transaction needs review.") }
     else if system.cleanup_unconfirmed || system.stale_transports > 0 { Some("Previous session cleanup is unconfirmed.") }
     else { None }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn fixture() -> ui::Snapshot {
+        let mut snapshot: ui::Snapshot = serde_json::from_str(include_str!("../../../../../manager-ui/examples/library-preview.json")).unwrap();
+        snapshot.products.truncate(1);
+        let product = &mut snapshot.products[0];
+        product.availability = Some(ui::NativeAvailability { available: true, reason: None });
+        product.compatibility = None;
+        let setup: ui::InstallerSetup = serde_json::from_value(json!({
+            "installer":"ab".repeat(32),"name":"Earlier setup","label_source":"operator_named",
+            "byte_size":1,"format":"pe_executable","imported_at":1,"phase":"setup_needs_attention",
+            "journey":null,"status":"Review retained history","environment":product.environment,
+            "compatibility":null,"discovered":[{"environment":product.environment,"module_sha256":product.module_sha256,
+                "class_id":product.class_id,"name":product.name}],"primary":null,"secondary":[],
+            "rename":{"label":"Rename","action":{"kind":"installer_rename","installer":"ab".repeat(32),"label":""},"disabled_reason":null},"history":[]
+        })).unwrap();
+        snapshot.onboarding = vec![ui::Onboarding { installer: setup.installer.clone(), name: setup.name.clone(),
+            byte_size: 1, format: setup.format.clone(), environment: setup.environment.clone(), state: "needs_attention".into(),
+            failure: None, required_human_action: "Review retained history".into(), actions: vec![],
+            details: json!({"managed_product":true,"scan":{},"installation":{"state":"completed","cleanup_confirmed":true,
+                "owned_live":0,"error":null,"failure":null,"transaction":{"outcome":"partial_installation","first_failure":null}}}) }];
+        snapshot.installer_setups = vec![setup];
+        snapshot.system.service = "active".into(); snapshot.system.cleanup_unconfirmed = false; snapshot.system.pending_transactions = 0;
+        snapshot
+    }
+    #[test]
+    fn exact_current_products_settle_history_without_rewriting_it() {
+        let snapshot = fixture();
+        let before = serde_json::to_value(&snapshot.onboarding).unwrap();
+        assert_eq!(project(&snapshot, &Default::default()).setups[0].disposition, Disposition::SettledHistory);
+        for case in 0..12 {
+            let mut changed = snapshot.clone();
+            match case {
+                0 => changed.installer_setups[0].environment = Some("different-environment".into()),
+                1 => changed.products[0].module_sha256 = "changed-module".into(),
+                2 => changed.products[0].environment = "different-environment".into(),
+                3 => changed.products.clear(),
+                4 => changed.products[0].availability = Some(ui::NativeAvailability { available: false, reason: Some("Current connection failed".into()) }),
+                5 => changed.products[0].availability = None,
+                6 => { let mut missing = changed.installer_setups[0].discovered[0].clone();
+                    missing.module_sha256 = "missing-module".into(); changed.installer_setups[0].discovered.push(missing); },
+                7 | 8 => changed.installer_setups[0].journey = Some(ui::InstallationJourney { daw: ui::DawChoice::Bitwig,
+                    phase: if case == 7 { Phase::VendorRunning } else { Phase::NeedsAttention }, plugins: vec![], failure: None }),
+                9 => changed.installer_setups[0].primary = Some(action("Continue", ui::Action::SoftwareInstallResume { onboarding: "exact-owner".into() }, None)),
+                10 => changed.onboarding[0].actions.push(action("Repair", ui::Action::SoftwareInstallResume { onboarding: "exact-owner".into() }, None)),
+                _ => changed.onboarding[0].details["installation"]["transaction"]["first_failure"] = json!("retained failure"),
+            }
+            assert_ne!(project(&changed, &Default::default()).setups[0].disposition, Disposition::SettledHistory, "case {case}");
+        }
+        assert_eq!(serde_json::to_value(&snapshot.onboarding).unwrap(), before);
+    }
+    #[test]
+    fn untouched_import_remains_in_setup_without_a_problem_banner() {
+        let mut snapshot = fixture();
+        snapshot.onboarding.clear();
+        let setup = &mut snapshot.installer_setups[0];
+        setup.phase = ui::SetupPhase::Imported;
+        setup.environment = None;
+        setup.discovered.clear();
+        setup.primary = Some(action("Install", ui::Action::SoftwareInstall {
+            installer: setup.installer.clone(), daw: ui::DawChoice::Other,
+        }, None));
+        let view = project(&snapshot, &Default::default());
+        assert_eq!(view.setups.len(), 1);
+        assert_eq!(view.setups[0].disposition, Disposition::InProgress);
+        assert!(view.attention.is_empty());
+        snapshot.installer_setups[0].primary = None;
+        let unavailable = project(&snapshot, &Default::default());
+        assert_eq!(unavailable.setups[0].disposition, Disposition::NeedsAttention);
+        assert_eq!(unavailable.attention.len(), 1, "an import that cannot proceed still needs attention");
+        snapshot.installer_setups[0].phase = ui::SetupPhase::CleanupUnconfirmed;
+        assert_eq!(project(&snapshot, &Default::default()).attention.len(), 1,
+            "a real installation cleanup failure cannot disappear");
+    }
+    #[test]
+    fn one_failed_connection_names_and_routes_only_its_exact_build() {
+        let mut snapshot = fixture();
+        let mut healthy = snapshot.products[0].clone(); healthy.name = "Healthy sibling".into();
+        healthy.module_sha256 = "cd".repeat(32);
+        let failed = &mut snapshot.products[0]; failed.name = "Affected instrument".into();
+        failed.availability = Some(ui::NativeAvailability { available: false, reason: Some("Publication failed".into()) });
+        let key = ProductIdentity::from(&*failed);
+        let class = failed.class_id.clone();
+        snapshot.products.push(healthy);
+        snapshot.installer_setups[0].label_source = "generated".into();
+        snapshot.installer_setups[0].journey = Some(ui::InstallationJourney { daw: ui::DawChoice::Reaper,
+            phase: Phase::NeedsAttention, failure: None, plugins: vec![ui::InstallationPlugin {
+                selection: "exact-selection".into(), class_id: class, name: "Affected instrument".into(), stage: Stage::NeedsAttention,
+                failure: Some(ui::InstallationFailure { stage: ui::InstallationFailureStage::Publication,
+                    reason: "Publication failed".into(), code: "fixture".into(), retryable: true }) }] });
+        let bindings = [("exact-selection".into(), key.clone())].into_iter().collect();
+        let view = project(&snapshot, &bindings);
+        assert_eq!(view.attention.len(), 1);
+        assert_eq!(view.attention[0].target, AttentionTarget::Product { product: key.clone() });
+        assert!(view.attention[0].title.starts_with("Affected instrument"));
+        assert!(!view.attention[0].title.contains("other"));
+        assert_eq!(view.setups[0].connections[0].product, Observation::Observed(key));
+        assert_eq!(view.setups[0].connections[0].disposition, Observation::Observed(Connection::NeedsAttention));
+        // A same-class sibling is not evidence when the original selection is gone.
+        let unknown = project(&snapshot, &Default::default());
+        assert!(matches!(unknown.setups[0].connections[0].product, Observation::Unavailable(_)));
+        assert!(matches!(unknown.attention[0].target, AttentionTarget::Setup { .. }));
+    }
+    #[test]
+    fn current_progress_requires_exact_selection_and_never_masks_failure() {
+        let mut snapshot = fixture();
+        let product = &mut snapshot.products[0];
+        product.availability = Some(ui::NativeAvailability { available: false, reason: Some("Not connected".into()) });
+        product.disposition = "installed_unqualified".into(); product.details = json!({});
+        let key = ProductIdentity::from(&*product);
+        let journey = ui::InstallationJourney { daw: ui::DawChoice::Reaper, phase: Phase::PreparingPlugins,
+            failure: None, plugins: vec![ui::InstallationPlugin { selection: "exact-selection".into(), class_id: key.class_id.clone(),
+                name: product.name.clone(), stage: Stage::Inspecting, failure: None }] };
+        snapshot.installer_setups[0].journey = Some(journey.clone());
+        snapshot.operation = Some(json!({"operation":"exact-operation","onboarding":key.environment,
+            "state":"running","journey":journey}));
+        let bindings: std::collections::BTreeMap<_,_> = [("exact-selection".into(), key.clone())].into_iter().collect();
+        assert_eq!(progress(&snapshot, &bindings), vec![ui::ProductProgress { product: key.clone(), stage: ui::ConnectionProgress::Inspecting }]);
+        for case in 0..14 {
+            let mut changed = snapshot.clone(); let mut selected = bindings.clone();
+            match case {
+                0 => changed.products[0].availability.as_mut().unwrap().available = true,
+                1 => changed.products[0].disposition = "quarantined".into(),
+                2 => changed.products[0].details["current"] = json!(false),
+                3 => changed.products[0].details["refusal"] = json!("Actual refusal"),
+                4 => changed.products[0].environment = "different".into(),
+                5 => changed.installer_setups[0].discovered.clear(),
+                6 => selected.get_mut("exact-selection").unwrap().module_sha256 = "another-build".into(),
+                7 => changed.operation.as_mut().unwrap()["journey"]["plugins"][0]["selection"] = json!("another-selection"),
+                8 => { let plugin = changed.operation.as_ref().unwrap()["journey"]["plugins"][0].clone();
+                    changed.operation.as_mut().unwrap()["journey"]["plugins"].as_array_mut().unwrap().push(plugin); },
+                9 => changed.operation.as_mut().unwrap()["state"] = json!("completed"),
+                10 => changed.operation.as_mut().unwrap()["journey"]["phase"] = json!("needs_attention"),
+                11 => changed.operation.as_mut().unwrap()["journey"]["plugins"][0]["stage"] = json!("needs_attention"),
+                12 => changed.operation.as_mut().unwrap()["journey"]["plugins"][0]["class_id"] = json!("other-class"),
+                _ => { changed.products[0].disposition = "experimental".into();
+                    changed.products[0].details = json!({"refusal":"Old authority", "automatic_revalidation": {
+                        "operation":"other-operation", "predecessor":{"id":"retained", "sha256":"ab".repeat(32)}}}); },
+            }
+            assert!(progress(&changed, &selected).is_empty(), "case {case}");
+        }
+        snapshot.products[0].disposition = "experimental".into();
+        snapshot.products[0].details = json!({"refusal":"Old authority", "automatic_revalidation": {
+            "operation":"exact-operation", "predecessor":{"id":"retained", "sha256":"ab".repeat(32)}}});
+        assert_eq!(progress(&snapshot, &bindings).len(), 1, "exact revalidation still has visible progress");
+        snapshot.operation.as_mut().unwrap()["journey"]["plugins"][0]["stage"] = json!("needs_attention");
+        assert!(progress(&snapshot, &bindings).is_empty(), "actual failed recheck must stay visible");
+    }
+
+    #[test]
+    fn owned_pause_is_not_service_failure_and_cannot_hide_independent_problems() {
+        let mut snapshot = fixture();
+        snapshot.system.service = "capacity unavailable".into(); snapshot.system.cleanup_unconfirmed = true;
+        snapshot.operation = Some(json!({"operation":"exact", "state":"running", "journey":{"phase":"preparing_plugins","failure":null},
+            "owned_service_pause":{"schema":1,"owner_operation":"child","automatic_operation":"exact"}}));
+        assert!(service_problem(&snapshot).is_none());
+        for case in 0..7 {
+            let mut changed = snapshot.clone();
+            match case {
+                0 => changed.operation.as_mut().unwrap().as_object_mut().unwrap().remove("owned_service_pause").map(|_| ()).unwrap(),
+                1 => changed.operation.as_mut().unwrap()["owned_service_pause"]["automatic_operation"] = json!("other"),
+                2 => changed.operation.as_mut().unwrap()["state"] = json!("refused"),
+                3 => changed.operation.as_mut().unwrap()["journey"]["phase"] = json!("needs_attention"),
+                4 => changed.system.pending_transactions = 1,
+                5 => changed.system.stale_transports = 1,
+                _ => changed.system.service = "active".into(), // observed cleanup failure
+            }
+            assert!(service_problem(&changed).is_some(), "case {case}");
+        }
+    }
+
 }
