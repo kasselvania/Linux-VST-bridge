@@ -316,7 +316,7 @@ fn sdk_group(reason: &str) -> Option<&'static str> {
     else if LIST.contains(&reason) { Some("list") }
     else if reason == "multiple audio classes require explicit selection" { Some("multiple") }
     else if reason == "detached instance mode binding" { Some("standalone_binding") }
-    else if matches!(reason,"detached editor open failed"|"openDetachedEditor") { Some("standalone_open") }
+    else if matches!(reason,"detached editor open failed"|"openDetachedEditor"|"setDetachedComponentHandler") { Some("standalone_open") }
     else if reason == "closeDetachedEditor" { Some("standalone_close") }
     else { None }
 }
@@ -579,6 +579,7 @@ mod tests {
             ("detached instance mode binding", "standalone_launch_binding"),
             ("detached editor open failed", "standalone_editor_open"),
             ("openDetachedEditor", "standalone_editor_open"),
+            ("setDetachedComponentHandler", "standalone_editor_open"),
             ("closeDetachedEditor", "standalone_editor_close"),
             ("std::bad_alloc", "sdk_unrecognised_step"),
         ] {
