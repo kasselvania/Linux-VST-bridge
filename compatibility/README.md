@@ -4,6 +4,42 @@ Compatibility profiles are portable, closed-schema policy. They bind exact obser
 
 Profiles must not contain arbitrary commands, scripts, hooks, executable expressions, credentials, proprietary binaries or state, DRM workarounds, unreviewed downloads, destructive repair actions, or an untyped capability escape hatch. Schema versions, identities, hashes, strings, collections and nesting are bounded. Unknown fields, unsupported capabilities, malformed identities, duplicate profile revisions and zero/ambiguous exact matches fail closed.
 
+## User preset locations
+
+`user-presets.json` is a separate, closed schema-1 catalogue for the Presets
+page. It is empty until exact build/class, user-only root and opaque file
+extensions are qualified through native save/load, import, backup, supported
+update and rollback. Metadata or a historical vendor path alone does not
+qualify a profile. Unknown builds keep their normal plug-in controls.
+
+Each profile declares an `id`, exact `module_sha256` and `class_id`, `root`,
+`extensions`, and an explicit byte-compatible `compatibility` group. Root kinds
+are `setup` (`relative`), `known_folder` (`link`, `suffix`), or `configured_json`
+(`file`, `key`, `drive_c`, `suffix`). All paths in profiles are setup-relative.
+The JSON resolver reads only the named top-level string value from a bounded,
+stable file, maps an absolute C: path through the declared drive root and adds
+the user-only suffix. It retains that selected value and revalidates it before
+file actions. Known-folder roots also retain and revalidate the declared link
+resolution. Other drives, UNC paths, traversal and undeclared links remain
+unavailable. Unrelated preference values are discarded, never backed up.
+
+The service binds backups to the original product, profile, observed root and
+file identities. A recorded supported maintenance transition may offer only
+currently missing files to an independently qualified successor of the same
+setup/class, root and compatibility group. Confirmation and revalidation are
+required; existing differing files remain conflicts. This catalogue does not
+authorize preset conversion, DAW class-ID rewriting, factory/library copying,
+or sample-drive mappings.
+
+Package preparation keeps a bounded immutable sidecar under
+`software/<successor-generation>/preset-protection/<transition-id>.json`,
+with the actual transition and directed before/after software identities.
+It creates no operator job and leaves the sole package journal and predecessor
+decoders unchanged. Forward mutation requires exact sidecar and current-source
+readback. Recovery rejects a present invalid/replaced sidecar; absence means
+protection is unknown and still allows bounded package recovery. Package-only
+records never authorize cross-build preset recovery.
+
 The campaign commands named in the revision history below (`managed`,
 `accept-*` and `qualify-*`) were removed from the manager under #489. The profile
 revisions and publication records they produced remain readable; new selection

@@ -58,7 +58,7 @@ impl Builder<'_> {
     }
 
     pub(super) fn card(&mut self, card: &PluginCard, snapshot: &Snapshot) -> Node {
-        let PluginCard { key, record, name, status: owner, facts, readiness: stages, notes, lead, offers, standalone, recovery, display: _, uninstallers, settings,
+        let PluginCard { key, record, name, status: owner, facts, readiness: stages, notes, lead, offers, standalone, recovery, display: _, presets: _, uninstallers, settings,
             help, availability, other_setups, previous_setups, shared_setup, technical } = card;
         let chip = self.id("chip", &format!("card {name}"));
         let mut children = vec![Node::Header(vec![
@@ -90,7 +90,9 @@ impl Builder<'_> {
             Target::List(ListStep::ProductPage {key:key.clone(), page:vm::state::ProductPage::Repair}), None);
         let modes = self.local("Display mode", Importance::Secondary,
             Target::List(ListStep::ProductPage {key:key.clone(), page:vm::state::ProductPage::Display}), None);
-        actions.push(self.actions("product-pages", vec![repair, modes]));
+        let presets = self.local("Presets", Importance::Secondary,
+            Target::List(ListStep::ProductPage {key:key.clone(),page:vm::state::ProductPage::Presets}),None);
+        actions.push(self.actions("product-pages", vec![repair, modes, presets]));
         if !standalone.is_empty() {
             actions.push(Node::Label("Outside your DAW".into()));
             actions.push(words(Role::Detail, "These plug-in windows do not open an audio device."));
@@ -122,10 +124,24 @@ impl Builder<'_> {
 
     fn product_page(&mut self, card: &PluginCard, page: vm::state::ProductPage, snapshot: &Snapshot, state: &State) -> Node {
         use vm::state::ProductPage;
-        let title = match page { ProductPage::Display => "Display mode", ProductPage::Repair => "Fix it step by step", ProductPage::Overview => unreachable!() };
+        let title = match page { ProductPage::Presets => "Presets", ProductPage::Display => "Display mode", ProductPage::Repair => "Fix it step by step", ProductPage::Overview => unreachable!() };
         let back = self.local("Back to plug-in", Importance::Quiet,
             Target::List(ListStep::ProductPage {key:card.key.clone(), page:ProductPage::Overview}), None);
         let mut out = vec![Node::Header(vec![Node::PluginIdentity {name:card.name.clone(), detail:title.into()}, self.one(back)])];
+        if page == ProductPage::Presets {
+            let mut facts=vec![Node::Label("Your presets".into())];
+            for fact in &card.presets.facts {
+                facts.push(Node::Label(fact.label.into()));
+                facts.push(words(Role::Body,fact.value.clone().unwrap_or_else(||fact.missing.into())));
+            }
+            facts.extend(self.row(&card.presets.actions));
+            if let Some(recovery)=&card.presets.recovery {facts.push(words(Role::Caution,recovery.clone()));}
+            out.push(Node::Columns(vec![Node::Panel {kind:PanelKind::Card,children:facts},
+                Node::Panel {kind:PanelKind::Card,children:vec![Node::Label("In your DAW".into()),
+                    words(Role::Body,"DAW preset browser integration is unavailable: exact preset class and load compatibility have not been qualified."),
+                    words(Role::Detail,card.presets.explanation.clone())]}]));
+            return Node::Stack(out);
+        }
         if let Some(notice) = &card.display.notice { out.push(text(notice)); }
         if page == ProductPage::Display {
             out.push(words(Role::Body, "Choose the display mode and Windows accessibility setting, then use them for a test."));

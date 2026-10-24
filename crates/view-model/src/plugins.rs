@@ -2,6 +2,7 @@
 //! read-only list shown while a plug-in's controls load. No discovery,
 //! publication or launch authority: every control is a manager offer.
 pub mod display;
+pub mod presets;
 pub mod repair;
 use super::offers::{self, Importance, Offer, OfferRow};
 use super::product::{self, daw_guidance, installation_progress, last_load_text, product_activity,
@@ -209,6 +210,7 @@ pub struct PluginCard {
     pub standalone: Vec<OfferRow>,
     pub recovery: Vec<crate::recovery::Recovery>,
     pub display: display::DisplayView,
+    pub presets: presets::Presets,
     pub uninstallers: Vec<Uninstall>,
     pub settings: Option<Disclosure>,
     pub help: Option<Disclosure>,
@@ -291,7 +293,7 @@ impl PluginCard {
         let primary = p.compatibility.as_ref().and_then(|workflow| workflow.primary.clone())
             .or_else(|| p.compatibility.is_none().then(||
                 emphasized_action(p, &related, busy)).flatten())
-            .filter(|offer| !display_actions.contains(&offer.action) && !standalone_action(&offer.action) && !matches!(offer.action, Action::PluginRestart {..}))
+            .filter(|offer| !display_actions.contains(&offer.action) && !standalone_action(&offer.action) && !matches!(offer.action, Action::PluginRestart {..} | Action::PresetFiles {..}))
             .map(|mut offer| {
                 if recovery_pending(p) && matches!(offer.action, Action::CompatibilityFinishResult { .. }) {
                     offer.label = "Finish plug-in recovery".into();
@@ -304,7 +306,7 @@ impl PluginCard {
         let everyday_primary = primary.clone().filter(|_| optional_result.is_none()
             && optional_preparation.is_none());
         let management: Vec<_> = ordinary_actions(p, &related, primary.as_ref()).into_iter()
-            .filter(|offer| !display_actions.contains(&offer.action) && !matches!(offer.action,Action::PluginRestart {..})).collect();
+            .filter(|offer| !display_actions.contains(&offer.action) && !matches!(offer.action,Action::PluginRestart {..} | Action::PresetFiles {..})).collect();
 
         let mut notes = Vec::new();
         if recovery_pending(p) {
@@ -474,6 +476,7 @@ impl PluginCard {
             recovery: crate::recovery::for_product(activity, p, busy, pending),
             standalone,
             display,
+            presets: presets::build(p,busy,pending),
             lead,
             offers: everyday,
             uninstallers,

@@ -2,6 +2,7 @@
 //! Package-manager ownership authenticates /usr inputs; the release signature
 //! is checked by the package/release tooling before these files are installed.
 use super::*;
+mod preset_protection;
 use linux_vst_bridge::publication::{Revision, RevisionRef};
 use std::os::fd::AsRawFd;
 use std::os::unix::fs::MetadataExt;
@@ -1363,9 +1364,20 @@ pub(super) fn restore_publication(m: &Manager, key: &str, id: &str,
     require(!m.root.join("package-transition.json").try_exists()?,
         "package_transition_needs_recovery")?;
     let (current, target) = retained_publication_ancestor(m, key, id)?;
+    let current_environment=m.registry()?.classes.get(key).map(|entry|entry.registration.environment.clone());
+    if let Some(environment)=&current_environment {
+        operator_cli::presets::protect_environment(m,environment,operation)?;
+    }
+    let _target_setup=if !current_environment.as_ref().is_some_and(|environment|environment.id==target.registration.environment.id) {
+        let guard=m.lock(&format!("operator-environment-{}.lock",target.registration.environment.id))?;
+        operator_cli::presets::protect_environment(m,&target.registration.environment,operation)?;
+        Some(guard)
+    } else {None};
     if preparation::build::revision_supports_loaded_engine_admission(m, &target)
         .unwrap_or(false) {
-        return m.rollback_managed_expected(key, id, &current);
+        let restored=m.rollback_managed_expected(key, id, &current)?;
+        operator_cli::presets::after_publication(m,&target.registration,operation)?;
+        return Ok(restored);
     }
     capacity::require_environment_inactive(m, &target.registration.environment)?;
     let selected = software(m)?;
@@ -1380,7 +1392,9 @@ pub(super) fn restore_publication(m: &Manager, key: &str, id: &str,
     let cleanup = preparation::build::cleanup_work(m, operation);
     let candidate = prepared?;
     cleanup?;
-    preparation::replace_refreshed(m, &candidate, &target, &current)
+    let restored=preparation::replace_refreshed(m, &candidate, &target, &current)?;
+    operator_cli::presets::after_publication(m,&target.registration,operation)?;
+    Ok(restored)
 }
 
 /// Whether adding back a removed publication needs a fresh check first: it was
@@ -1651,6 +1665,7 @@ fn require_service_transition_coherent_with_registry(m: &Manager, selected: &Sof
         "package_transition_needs_recovery")?;
     let transition: CoordinatedTransition = serde_json::from_value(value)?;
     validate_coordinated(m, home, &transition)?;
+    preset_protection::verify(m, &transition)?;
     let publications = m.package_publication_snapshot_locked(&acquire_registry()?)?;
     let coherent = match transition.kind {
         TransitionKind::Update => (transition.setup.is_before()?
@@ -1685,6 +1700,7 @@ fn complete_coordinated(m: &Manager, home: &Path, service: &impl ServiceControl,
     transition: &CoordinatedTransition,
     acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<()> {
     let journal = m.root.join("package-transition.json");
+    preset_protection::verify_required(m, transition)?;
     apply_coordinated_with_registry(m, transition, acquire_registry)?;
     let selected = coordinated_final_software(transition);
     start_and_health(service, m, home, selected)?;
@@ -1724,6 +1740,7 @@ fn settle_resume_handoff_with_registry(m: &Manager, service: &impl ServiceContro
     transition: &CoordinatedTransition,
     acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<()> {
     let Some(handoff) = &transition.resume_handoff else {return Ok(())};
+    let protection=preset_protection::readback(m,transition)?;
     let owners = service.clean_idle(m)?;
     {
         let registry = acquire_registry()?;
@@ -1745,6 +1762,7 @@ fn settle_resume_handoff_with_registry(m: &Manager, service: &impl ServiceContro
         // Persist ownership of the compare-and-consume crash window first.
         let mut settling = transition.clone();
         settling.resume_handoff.as_mut().ok_or("package_resume_missing")?.settling = true;
+        protection.recheck()?;
         atomic_json(&m.root.join("package-transition.json"),&settling)?;
         operator_cli::consume_package_resume(m,&handoff.captured)?;
     }
@@ -1773,6 +1791,7 @@ fn restore_origin_service(m: &Manager, home: &Path, service: &impl ServiceContro
     if handoff.origin_active {
         // Old strict decoders see only their original journal/receipt contract.
         // A paused origin keeps its handoff journal until verified retirement.
+        preset_protection::verify(m, transition)?;
         atomic_json(&m.root.join("package-transition.json"),&predecessor_readable_transition(transition))?;
         start_and_health(service,m,home,&transition.recovery_before)
     } else {
@@ -1794,6 +1813,7 @@ fn recover_coordinated_error(m: &Manager, home: &Path,
         }
         require(serde_json::to_value(&expected)? == serde_json::to_value(&observed)?,
             "package_transition_changed")?;
+        preset_protection::verify(m, &observed)?;
         validate_resume_handoff(m,service,&observed)?;
         stop_transition_service_with_registry(m, home, service,
             &[&transition.recovery_before, coordinated_final_software(transition)],
@@ -1825,6 +1845,8 @@ fn run_coordinated_with_registry(m: &Manager, home: &Path, service: &impl Servic
     acquire_recovery_registry: &mut impl FnMut() -> Result<Lock>) -> Result<()> {
     let journal = m.root.join("package-transition.json");
     let prepared = (|| -> Result<()> {
+        require(!journal.try_exists()?, "package_transition_needs_recovery")?;
+        preset_protection::prepare_transition(m, &transition)?;
         if transition.resume_handoff.is_none() {
             if transition.kind == TransitionKind::Restore {
                 operator_cli::require_no_package_resume(m)?;
@@ -1839,6 +1861,7 @@ fn run_coordinated_with_registry(m: &Manager, home: &Path, service: &impl Servic
         validate_coordinated(m, home, &transition)?;
         validate_resume_handoff(m,service,&transition)?;
         require(!journal.try_exists()?, "package_transition_needs_recovery")?;
+        preset_protection::verify_required(m, &transition)?;
         Ok(())
     })();
     if let Err(original) = prepared {
@@ -2023,6 +2046,9 @@ fn update_settled(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
                 .ok_or("package_restore_predecessor_unavailable")?
         } else { current.clone() };
         verify_software_identity(m, &predecessor)?;
+        let transition_id = random_id()?;
+        preset_protection::prepare(m, &target, &transition_id, TransitionKind::Update,
+            &current, &target)?;
         let receipt = prepare_refresh_receipt(m, &target, predecessor,
             &mut acquire_registry)?;
         for state in &receipt.before_publications {
@@ -2032,7 +2058,7 @@ fn update_settled(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
             }
         }
         let setup = setup_install::plan(m, home, &target, Some(&current))?;
-        Ok(CoordinatedTransition { schema:if captured.is_some(){3}else{2}, id:random_id()?,
+        Ok(CoordinatedTransition { schema:if captured.is_some(){3}else{2}, id:transition_id,
             kind:TransitionKind::Update, recovery_before:current.clone(),
             setup, receipt, resume_handoff:captured.clone().map(|captured|ResumeHandoff {
                 captured,origin_active:restart_prior,settling:false}) })
@@ -2143,6 +2169,7 @@ fn recover_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Resu
     }
     let transition: CoordinatedTransition = serde_json::from_value(value)?;
     validate_coordinated(m, home, &transition)?;
+    preset_protection::verify(m, &transition)?;
     validate_resume_handoff(m,service,&transition)?;
     stop_transition_service(m, home, service,
         &[&transition.recovery_before, coordinated_final_software(&transition)],
@@ -5110,6 +5137,115 @@ report.write_text(json.dumps(dict(identity,cleanup_confirmed=True,owned_live=0,s
         assert!(recover_from(&f.base.m, &f.home, &f.service).unwrap());
         assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), before);
         assert!(!f.base.m.root.join("package-transition.json").exists());
+    }
+
+    #[test]
+    fn package_preset_preparation_is_not_an_operator_job_and_retries_exactly() {
+        let f = Fixture::new(); f.adopt().unwrap();
+        let (first, _, receipt, setup) = staged_transition(&f);
+        let t = CoordinatedTransition {schema:2,id:random_id().unwrap(),kind:TransitionKind::Update,
+            recovery_before:first,setup,receipt,resume_handoff:None};
+        let m=&f.base.m;
+        preset_protection::prepare_transition(m,&t).unwrap();
+        let path=receipt_directory(m,&t.receipt.successor).unwrap().parent().unwrap()
+            .join("preset-protection").join(format!("{}.json",t.id));
+        let before=fs::read(&path).unwrap();
+        let inode=fs::metadata(&path).unwrap().ino();
+        assert!(!m.root.join("operator").join(&t.id).exists());
+        assert!(operator_cli::all_operations_finished(m).unwrap());
+        assert!(!m.root.join("package-transition.json").exists());
+        preset_protection::prepare_transition(m,&t).unwrap();
+        assert_eq!(fs::read(&path).unwrap(),before);
+        assert_eq!(fs::metadata(&path).unwrap().ino(),inode);
+        let mut wrong=t.clone(); wrong.kind=TransitionKind::Restore;
+        assert!(preset_protection::prepare_transition(m,&wrong).is_err());
+        wrong=t.clone(); wrong.recovery_before=t.receipt.successor.clone();
+        assert!(preset_protection::prepare_transition(m,&wrong).is_err());
+        assert!(!m.root.join("package-transition.json").exists());
+        run_coordinated(m,&f.home,&f.service,t,false).unwrap();
+    }
+    #[test]
+    fn package_preset_tampering_and_replacement_refuse_before_journal_mutation() {
+        for replace in [false,true] {
+            let f=Fixture::new(); f.adopt().unwrap();
+            let (first,_,receipt,setup)=staged_transition(&f);
+            let t=CoordinatedTransition {schema:2,id:random_id().unwrap(),kind:TransitionKind::Update,
+                recovery_before:first.clone(),setup,receipt,resume_handoff:None};
+            let m=&f.base.m;
+            preset_protection::prepare_transition(m,&t).unwrap();
+            let path=receipt_directory(m,&t.receipt.successor).unwrap().parent().unwrap()
+                .join("preset-protection").join(format!("{}.json",t.id));
+            let bytes=fs::read(&path).unwrap();
+            if replace {
+                // Keep original inode alive so the replacement cannot reuse it.
+                fs::rename(&path,path.with_extension("retained")).unwrap();
+                fs::write(&path,&bytes).unwrap();
+            } else {
+                fs::set_permissions(&path,fs::Permissions::from_mode(0o600)).unwrap();
+                let mut value:serde_json::Value=serde_json::from_slice(&bytes).unwrap();
+                value["protection"]["direction"]="restore".into();
+                fs::write(&path,serde_json::to_vec(&value).unwrap()).unwrap();
+            }
+            fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();
+            assert!(run_coordinated(m,&f.home,&f.service,t.clone(),false).is_err());
+            assert!(!m.root.join("package-transition.json").exists());
+            assert!(f.current()==first);
+            atomic_json(&m.root.join("package-transition.json"),&t).unwrap();
+            let before=fs::read(m.root.join("package-transition.json")).unwrap();
+            assert!(recover_from(m,&f.home,&f.service).is_err());
+            assert_eq!(fs::read(m.root.join("package-transition.json")).unwrap(),before);
+            assert!(f.current()==first);
+        }
+    }
+    #[test]
+    fn package_preset_missing_sidecar_is_unknown_for_both_legacy_and_lost_metadata() {
+        for prepared in [false,true] {
+            let f=Fixture::new(); f.adopt().unwrap();
+            let (first,_,receipt,setup)=staged_transition(&f);
+            let t=CoordinatedTransition {schema:2,id:random_id().unwrap(),kind:TransitionKind::Update,
+                recovery_before:first.clone(),setup,receipt,resume_handoff:None};
+            let m=&f.base.m;
+            if prepared {preset_protection::prepare_transition(m,&t).unwrap();}
+            let journal=m.root.join("package-transition.json");
+            atomic_json(&journal,&t).unwrap();
+            if prepared {
+                let path=receipt_directory(m,&t.receipt.successor).unwrap().parent().unwrap()
+                    .join("preset-protection").join(format!("{}.json",t.id));
+                fs::remove_file(path).unwrap();
+            }
+            assert!(preset_protection::verify_required(m,&t).is_err());
+            // Forward execution cannot silently reconstruct lost protection.
+            assert!(complete_coordinated(m,&f.home,&f.service,&t,&mut || m.lock("registry.lock")).is_err());
+            assert!(f.current()==first);
+            assert!(recover_from(m,&f.home,&f.service).unwrap());
+            assert!(f.current()==first);
+            assert!(!journal.exists());
+            assert!(preset_protection::verify_required(m,&t).is_err());
+        }
+    }
+    #[test]
+    fn package_preset_restore_direction_is_explicit_and_journal_remains_predecessor_readable() {
+        let f=Fixture::new(); f.adopt().unwrap();
+        let (first,next,receipt,setup)=staged_transition(&f);
+        let update=CoordinatedTransition {schema:2,id:random_id().unwrap(),kind:TransitionKind::Update,
+            recovery_before:first.clone(),setup,receipt:receipt.clone(),resume_handoff:None};
+        run_coordinated(&f.base.m,&f.home,&f.service,update,false).unwrap();
+        let restore=CoordinatedTransition {schema:2,id:random_id().unwrap(),kind:TransitionKind::Restore,
+            recovery_before:next.clone(),setup:setup_install::plan(&f.base.m,&f.home,&first,Some(&next)).unwrap(),
+            receipt,resume_handoff:None};
+        preset_protection::prepare_transition(&f.base.m,&restore).unwrap();
+        let path=receipt_directory(&f.base.m,&next).unwrap().parent().unwrap()
+            .join("preset-protection").join(format!("{}.json",restore.id));
+        let value:serde_json::Value=read_json(&path).unwrap();
+        assert_eq!(value["protection"]["direction"],"restore");
+        assert_eq!(value["protection"]["before"],serde_json::to_value(&next).unwrap());
+        assert_eq!(value["protection"]["after"],serde_json::to_value(&first).unwrap());
+        let old=predecessor_readable_transition(&restore);
+        assert_eq!(serde_json::to_value(&old).unwrap(),serde_json::to_value(&restore).unwrap());
+        assert_eq!(old.schema,2); assert_eq!(old.receipt.schema,1);
+        validate_coordinated(&f.base.m,&f.home,&old).unwrap();
+        run_coordinated(&f.base.m,&f.home,&f.service,restore,false).unwrap();
+        assert!(f.current()==first);
     }
 
     fn staged_transition(f: &Fixture) -> (Software, Software, RefreshReceipt,

@@ -149,7 +149,7 @@ pub fn route(action: Action, daw: Option<DawChoice>) -> Route {
 
 /// Removing from the DAW or deleting a setup always asks first.
 pub fn needs_confirmation(action: &Action) -> bool {
-    matches!(action, Action::PluginRemoveFromDaw { .. } | Action::SetupRemoveFromDaw { .. }
+    matches!(action, Action::PresetFiles {command:crate::model::PresetCommand::Restore {..},..} | Action::PluginRemoveFromDaw { .. } | Action::SetupRemoveFromDaw { .. }
         | Action::SetupDelete { .. } | Action::ProductUninstall { .. } | Action::EnvironmentRuntimeSelect { .. } | Action::PluginRestart { .. } | Action::CandidateSettingsTest { .. }
         | Action::EnvironmentInstallerStart { .. } | Action::EnvironmentInstallerStartWithPolicy { .. })
 }
@@ -160,6 +160,8 @@ pub fn removal_offer(action: &Action) -> bool {
 /// The musician's answer to the confirmation. Delete and Uninstall carry it.
 pub fn confirmed(action: Action) -> Action {
     match action {
+        Action::PresetFiles {product,expected_root,command:crate::model::PresetCommand::Restore {backup,missing_digest,..}} =>
+            Action::PresetFiles {product,expected_root,command:crate::model::PresetCommand::Restore {backup,missing_digest,confirmed:true}},
         Action::SetupDelete { installer, environment, forget_installer, .. } =>
             Action::SetupDelete { installer, environment, confirmed: true, forget_installer },
         Action::ProductUninstall { environment, registration, command_sha256, .. } =>
@@ -170,6 +172,8 @@ pub fn confirmed(action: Action) -> Action {
 /// The offer a confirmed request answers: without the musician's own choices.
 pub fn offer_identity(action: &Action) -> Action {
     match action.clone() {
+        Action::PresetFiles {product,expected_root,command:crate::model::PresetCommand::Restore {backup,missing_digest,..}} =>
+            Action::PresetFiles {product,expected_root,command:crate::model::PresetCommand::Restore {backup,missing_digest,confirmed:false}},
         Action::SetupDelete { installer, environment, .. } =>
             Action::SetupDelete { installer, environment, confirmed: false, forget_installer: false },
         Action::ProductUninstall { environment, registration, command_sha256, .. } =>
@@ -233,6 +237,13 @@ fn confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirmation {
             forget: None };
     };
     match action {
+        Action::PresetFiles {command:crate::model::PresetCommand::Restore {..},..} => Confirmation {
+            title:"Restore the missing preset files?",
+            body:vec!["Copy only the exact missing files offered from the verified backup.".into(),
+                "Existing files stay unchanged. Files with different bytes remain visible conflicts.".into()],
+            confirm:"Restore missing files",cancel:"Not now",forget:None,
+            offer:current(snapshot.products.iter().flat_map(|p|p.actions.iter()).collect()),
+        },
         action if action.environment_installer_start().is_some() => {
             let (environment, installer, _) = action.environment_installer_start().unwrap();
             let target = snapshot.environment_installers.iter().find(|row|row.environment == environment);

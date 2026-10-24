@@ -11,6 +11,25 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Test258 / SteamOS Deck / Serum 2 instrument 2.1.5,
+**user preset backup, automatic refresh, missing-file restore and native reload supported**
+(2026-10-24): Console backed up the one operator-approved 2,466-byte User preset.
+With the same Console process kept on Presets, moving that file out, back, then
+out again changed the displayed count 1 → 0 → 1 → 0. Restore appeared on removal
+and retired on return without navigation, refresh or restart. The confirmed
+restore completed and returned the count to 1 with the original bytes; the
+pre-existing User-folder file remained unchanged. A fresh standalone Serum instance
+loaded the restored preset with its saved name and settings, then closed normally.
+This removes Test257's restart workaround ([#539](https://github.com/kasselvania/Linux-VST-bridge/issues/539)).
+Service notifications cover the directories actually read, including empty,
+nested and missing preset folders; late product replies cannot reintroduce stale
+counts after a notification. The 28 preset, 18 service-observation, one read-recorder
+and 94 native-window regressions pass. The replaced-root case still refuses restore.
+This qualifies file backup/restore and vendor loading for the exact instrument build;
+DAW preset-browser integration, audio and cross-build recovery retain their
+separate qualification.
+[Measurements](../evidence/console/test258-presets.json).
+
 Test254 / SteamOS Deck / REAPER 7.82 / retained first-party setups,
 **Console update, instance recovery and explicit repair passed** (2026-10-24):
 the signed installer → Open Setup → Update Bridge route recovered the retained

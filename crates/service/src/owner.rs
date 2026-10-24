@@ -1574,7 +1574,10 @@ fn answer_command(m: &Manager, peer: &mut UnixStream) -> Result<()> {
         let reply = match request {
             Request::Action(request) if matches!(request.action, operator_model::Action::PluginOpen { .. }) =>
                 detached_instance::with_frontend(m, peer, || Ok(operator_cli::answer_action(m, request)))?,
+            Request::Action(request) if matches!(request.action, operator_model::Action::PresetFiles { .. }) =>
+                Reply::Receipt(operator_cli::presets::answer(m,request,None,None)?.receipt),
             Request::Action(request) => operator_cli::answer_action(m, request),
+            Request::Preset {request,name} => Reply::Preset(operator_cli::presets::answer(m,request,name,input)?),
             Request::ImportInstaller { name } => Reply::Imported(installer_import::import_named(
                 m, input.ok_or("installer_descriptor_missing")?, &name)?),
             Request::BrowserReturn(uri) => {

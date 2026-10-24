@@ -166,9 +166,15 @@ fn reserve_with(m: &Manager, environment: &str, installer: &str,
     }
     environment_runtime::require_settled(m,environment)?;
     let preserve_existing_prefix = require_preserved_prefix(m,&before,None)?;
+    drop(_registry);
+    let presets=presets::protect_environment(m,&before,operation)?;
     let automatic_request = environment_refresh::capture_request(m,&before)?;
     before.runner.verify()?;
     installer_import::load(m,installer)?;
+    let _registry=m.lock("registry.lock")?;
+    presets.recheck(m)?;
+    capacity::require_environment_inactive(m,&before)?;
+    require(target_record(m,environment)?==before,"installer_environment_binding_changed")?;
     let mut after = before.clone();
     after.revision = after.revision.checked_add(1).ok_or("environment_revision_exhausted")?;
     let r = Binding {schema:1,operation:operation.into(),installer:installer.into(),

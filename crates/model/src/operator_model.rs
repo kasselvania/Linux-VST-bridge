@@ -8,6 +8,8 @@ mod recovery;
 pub use recovery::*;
 mod display;
 pub use display::*;
+mod presets;
+pub use presets::*;
 mod update_preview;
 pub use update_preview::*;
 /// Manager/frontend wire generation. Durable installer and operation records
@@ -88,6 +90,7 @@ pub struct ProgramExecutable {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    PresetFiles { product: PresetProduct, expected_root: String, command: PresetCommand },
     /// Complete the exact retained legacy history, without replacing publication.
     CandidateHistoryComplete { candidate: String, expected_history: String },
     CandidateGraphicsAssess { candidate: String },

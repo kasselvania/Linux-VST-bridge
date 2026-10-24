@@ -23,7 +23,7 @@ use crate::{forms, AttemptKey, Destination, Local, ProductKey};
 
 /// Local views of the same exact plug-in; never a service action or new identity.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum ProductPage { #[default] Overview, Display, Repair }
+pub enum ProductPage { #[default] Overview, Display, Repair, Presets }
 
 /// The Plug-ins page: the search, the filters and the plug-ins opened from
 /// elsewhere.

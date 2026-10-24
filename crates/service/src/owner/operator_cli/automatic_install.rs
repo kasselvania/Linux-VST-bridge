@@ -1155,10 +1155,25 @@ fn restart_vendor_intent(m:&Manager,prior:&Intent,operation:&str,daw:ui::DawChoi
 }
 fn reserve_vendor_revision(m:&Manager,record:&dyn InstallationTarget,intent:&Intent)->Result<Environment> {
     let _ownership=m.lock("onboarding.lock")?;
+    let _environment=m.lock(&format!("operator-environment-{}.lock",record.id()))?;
     let directory=job_dir(m,&intent.owner)?;
     let existing=directory.join("vendor-maintenance.json").try_exists()?;
     let retirement=if existing {None} else {Some(vendor_maintenance::observe_retired(m,record.environment())?)};
+    let before=if existing {
+        // The retained maintenance edge owns interrupted revision recovery.
+        // Validate it before generic preset observation resolves the current setup;
+        // repeat under commit custody after the backup work below.
+        let _registry=m.lock("registry.lock")?;
+        let binding=environment_revision::vendor_record(m,&intent.owner)?;
+        require(binding.application==intent.vendor.as_ref().unwrap().application
+            && binding.vendor_operation==intent.vendor.as_ref().unwrap().operation,"automatic_vendor_revision_changed")?;
+        let current:Environment=read_json(&binding.environment.root.join("environment.json"))?;
+        require(current==binding.before || current==binding.environment,"automatic_vendor_revision_changed")?;
+        binding.before
+    } else {environment_install::target(m,record.id())?};
+    let presets=presets::protect_environment(m,&before,&intent.owner)?;
     let _registry=m.lock("registry.lock")?;
+    presets.recheck(m)?;
     require(directory.join("vendor-maintenance.json").try_exists()?==existing,"vendor_maintenance_generation_changed")?;
     if let Some(retirement)=retirement {retirement.verify(m)?;}
     if directory.join("vendor-maintenance.json").exists(){
@@ -1610,6 +1625,7 @@ fn follow_current_scan(m: &Manager, record: &dyn InstallationTarget, intent: &mu
     require(current.id == scan && current.environment == *record.environment()
         && current.host == sw.host && current.host_source_sha256 == sw.source_sha256,
         "automatic_scan_binding_changed")?;
+    presets::after_maintenance(m,record.environment(),&intent.owner)?;
     let history = journey_scan(m, intent);
     let selected = prep::selections(m, &sw.host, &sw.source_sha256)?.into_iter()
         .filter(|selection| selection.environment.id == record.id()).collect::<Vec<_>>();

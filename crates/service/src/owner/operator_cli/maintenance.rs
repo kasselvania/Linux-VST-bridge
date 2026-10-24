@@ -57,6 +57,7 @@ pub(crate) fn owned(m: &Manager, operation: &str) -> Result<Option<Environment>>
 pub(super) fn environment(m: &Manager, action: &ui::Action) -> Result<Option<Environment>> {
     use ui::Action as A;
     let resolved = match action {
+        A::PresetFiles { product, .. } => Some(environment_install::target_record(m, &product.environment)?),
         A::InstallerStart { onboarding } | A::InstallerStartWithPolicy { onboarding, .. }
         | A::InstallerScan { onboarding } => Some(m.derive_once(&format!("maintenance_onboarding:{onboarding}"),
             || Ok(onboarding::control_record(m, onboarding)?.environment))?),

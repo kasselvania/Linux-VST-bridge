@@ -135,6 +135,36 @@ impl Client {
                 return Ok(Reply::FrontendSuperseded);
             }
         }
+        if let Query::Action(ref action) = query {
+            if let lvb_model::operator_model::Action::PresetFiles {command,..} = &action.action {
+                let (name,input) = if matches!(command,lvb_model::operator_model::PresetCommand::Import) {
+                    let Some(path)=selection.pick_preset() else {return Ok(Reply::Cancelled)};
+                    let name=path.file_name().and_then(|name|name.to_str()).ok_or("Selected preset name is unavailable")?.to_owned();
+                    let source=open_selected(&path)?;
+                    if let Some(frontend)=identity {
+                        if !frontend_selected(home,frontend)? {return Ok(Reply::FrontendSuperseded)}
+                    }
+                    (Some(name),Some(source))
+                } else {(None,None)};
+                let request=contract::Request::Preset {request:action.clone(),name};
+                let reply=match contract::Client::new(transport).call(&request,input) {
+                    Ok(reply)=>reply,
+                    Err(contract::Failure::Error(text))=>return Err(text),
+                    Err(contract::Failure::Unavailable)=>return Err("Bridge service is unavailable".into()),
+                    Err(contract::Failure::FrontendSuperseded)=>return Ok(Reply::FrontendSuperseded),
+                };
+                let contract::Reply::Preset(result)=reply else {return Err("Unexpected preset response".into())};
+                if let Some(folder)=result.folder {
+                    if let Some(frontend)=identity {
+                        if !frontend_selected(home,frontend)? {return Ok(Reply::FrontendSuperseded)}
+                    }
+                    if !folder.is_absolute() {return Err("Preset folder response is invalid".into())}
+                    std::process::Command::new("xdg-open").arg(&folder).spawn()
+                        .map_err(|_|"The file manager could not open the preset folder")?;
+                }
+                return Ok(Reply::Receipt(result.receipt));
+            }
+        }
         if let Query::SaveSupportReport(report) = &query {
             let value = support_report(home, report)?;
             let Some(path) = selection.save_report(report) else {
@@ -296,12 +326,12 @@ fn open_selected(path: &std::path::Path) -> Result<std::fs::File, String> {
         .read(true)
         .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
         .open(path)
-        .map_err(|_| "Choose a regular local installer file; links are not accepted")?;
+        .map_err(|_| "Choose a regular local file; links are not accepted")?;
     let md = f.metadata().map_err(|_| "Cannot read selected file")?;
     if !md.is_file()
         || !installer_source::accepted_owner(md.uid(), md.mode(), unsafe { libc::getuid() })
     {
-        return Err("Choose a regular installer owned by you or protected by the system".into());
+        return Err("Choose a regular file owned by you or protected by the system".into());
     }
     Ok(f)
 }
@@ -321,6 +351,7 @@ mod tests {
     }
     struct Choose<'a>(&'a dyn Fn() -> Option<PathBuf>);
     impl FileSelection for Choose<'_> {
+        fn pick_preset(&self)->Option<PathBuf> {self.0()}
         fn pick_installer(&self) -> Option<PathBuf> {
             self.0()
         }
@@ -330,6 +361,17 @@ mod tests {
         fn save_report(&self, _: &SupportReport) -> Option<PathBuf> {
             self.0()
         }
+    }
+    fn preset_query()->Query {
+        use lvb_model::operator_model::*;
+        Query::Action(Request {schema:OPERATOR_SCHEMA,state_token:"exact-state".into(),action:Action::PresetFiles {
+            product:PresetProduct {environment:"ab".repeat(16),module_sha256:"cd".repeat(32),class_id:"ef".repeat(16)},
+            expected_root:"11".repeat(32),command:PresetCommand::Import}})
+    }
+    #[test]
+    fn preset_selection_cancel_never_dispatches() {
+        let client=Client::new(PathBuf::from("/tmp"),PathBuf::from("/development/frontend")).unwrap();
+        assert!(matches!(client.call_with(preset_query(),&Choose(&||None),NeverTransport),Ok(Reply::Cancelled)));
     }
     fn program_query() -> Query {
         Query::Action(lvb_model::operator_model::Request {
@@ -484,6 +526,10 @@ mod tests {
         assert!(matches!(client.call_with(Query::SaveSupportReport(report), &Choose(&picker), NeverTransport),
             Ok(Reply::FrontendSuperseded)));
         assert!(!destination.exists(), "supersession during Save cannot create a file");
+        linux_vst_bridge::atomic_json(&selection,&current).unwrap();
+        assert!(matches!(client.call_with(preset_query(),&Choose(&|| {
+            linux_vst_bridge::atomic_json(&selection,&selected).unwrap();Some(chosen.clone())
+        }),NeverTransport),Ok(Reply::FrontendSuperseded)));
         selected.operator_frontend = Some(identity.clone());
         selected.manager = identity.clone();
         linux_vst_bridge::atomic_json(&selection, &selected).unwrap();

@@ -83,6 +83,7 @@ pub enum Request {
     Read(Read),
     /// An offered action; its receipt says whether it was accepted.
     Action(ui::Request),
+    Preset { request: ui::Request, name: Option<String> },
     /// Import the installer given as this exchange's input, under its file name.
     ImportInstaller { name: String },
     /// A Native Access browser return, for the live sign-in that awaits it.
@@ -93,6 +94,7 @@ impl std::fmt::Debug for Request {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Read(read) => f.debug_tuple("Read").field(read).finish(),
+            Self::Preset { .. } => f.write_str("Preset(..)"),
             Self::Action(request) => f.debug_tuple("Action").field(request).finish(),
             Self::ImportInstaller { name } => f.debug_struct("ImportInstaller").field("name", name).finish(),
             Self::BrowserReturn(_) => f.write_str("BrowserReturn(..)"),
@@ -109,6 +111,7 @@ pub enum Reply {
     Pulse(ui::Pulse),
     Operation(ui::OperationReadback),
     Receipt(ui::Receipt),
+    Preset(ui::PresetResult),
     Imported(ui::InstallerImportResult),
     /// The browser return reached its sign-in.
     Delivered,
@@ -139,6 +142,7 @@ impl Request {
             ["operator", "pulse"] => Self::Read(Read::Pulse),
             ["operator", "operation", operation] => Self::Read(Read::Operation(operation.into())),
             ["operator", "request"] => return Some(read_action(input).map(Self::Action)),
+            ["operator", "preset-request"] => return Some(read_action(input).map(|request| Self::Preset {request,name:None})),
             ["import-installer", name] => Self::ImportInstaller { name: name.into() },
             ["native-access-callback", url] => Self::BrowserReturn(url.into()),
             _ => return None,
@@ -159,6 +163,7 @@ impl Request {
             Self::Read(Read::Pulse) => operator(&["pulse"]),
             Self::Read(Read::Operation(operation)) => operator(&["operation", operation]),
             Self::Action(_) => operator(&["request"]),
+            Self::Preset { .. } => operator(&["preset-request"]),
             Self::ImportInstaller { name } => vec!["import-installer".into(), name.clone()],
             Self::BrowserReturn(url) => vec!["native-access-callback".into(), url.clone()],
         }
@@ -166,14 +171,14 @@ impl Request {
     /// What the command reads on its input, besides an imported installer.
     pub fn body(&self) -> serde_json::Result<Option<Vec<u8>>> {
         match self {
-            Self::Action(request) => serde_json::to_vec(request).map(Some),
+            Self::Action(request) | Self::Preset {request,..} => serde_json::to_vec(request).map(Some),
             _ => Ok(None),
         }
     }
     /// How long the exchange may take.
     pub fn deadline(&self) -> Duration {
         match self {
-            Self::ImportInstaller { .. } => IMPORT_DEADLINE,
+            Self::ImportInstaller { .. } | Self::Preset {..} => IMPORT_DEADLINE,
             Self::BrowserReturn(_) => BROWSER_RETURN_DEADLINE,
             _ => DEADLINE,
         }
@@ -199,6 +204,7 @@ impl Reply {
             Self::Pulse(value) => serde_json::to_string(value),
             Self::Operation(value) => serde_json::to_string(value),
             Self::Receipt(value) => serde_json::to_string(value),
+            Self::Preset(value) => serde_json::to_string(value),
             Self::Imported(value) => serde_json::to_string(value),
             Self::Delivered => return Ok(None),
         }.map(Some)
@@ -217,6 +223,17 @@ fn paired_model_required() -> String {
 pub fn decode(request: &Request, data: &[u8]) -> Result<Reply, String> {
     let read = match request {
         Request::Read(read) => read,
+        Request::Preset { request, .. } => {
+            let result: ui::PresetResult = serde_json::from_slice(data).map_err(|_| incompatible())?;
+            if result.schema != ui::OPERATOR_SCHEMA || result.receipt.schema != ui::OPERATOR_SCHEMA {
+                return Err(paired_model_required());
+            }
+            if result.folder.is_some() && (!result.receipt.accepted || !matches!(request.action,
+                ui::Action::PresetFiles {command:ui::PresetCommand::Open,..})) {
+                return Err("Unexpected preset folder response".into());
+            }
+            return Ok(Reply::Preset(result));
+        }
         Request::ImportInstaller { .. } => return decode_import(data),
         Request::BrowserReturn(_) => return Ok(Reply::Delivered),
         Request::Action(_) => {
@@ -349,6 +366,7 @@ pub const COMMAND_GREETING: &[u8; 5] = b"LVA1\n";
 #[serde(tag = "kind", deny_unknown_fields)]
 enum CommandRequest {
     Action { request: ui::Request },
+    Preset { request: ui::Request, name: Option<String> },
     ImportInstaller { name: String },
     BrowserReturn { uri: String },
 }
@@ -371,6 +389,10 @@ pub fn read_command_request(peer: &mut UnixStream) -> crate::Result<(Request, Op
     crate::require(envelope.operator_schema == ui::OPERATOR_SCHEMA, &paired_model_required())?;
     Ok(match envelope.command {
         CommandRequest::Action { request } => (Request::Action(request), None),
+        CommandRequest::Preset {request,name} => {
+            let input = if name.is_some() {Some(receive_file(peer)?)} else {None};
+            (Request::Preset {request,name},input)
+        },
         CommandRequest::ImportInstaller { name } =>
             (Request::ImportInstaller { name }, Some(receive_file(peer)?)),
         CommandRequest::BrowserReturn { uri } => (Request::BrowserReturn(uri), None),
@@ -547,6 +569,8 @@ impl Service {
         let error = |text: &str| Failure::Error(text.into());
         let command = match request {
             Request::Action(request) if input.is_none() => CommandRequest::Action { request: request.clone() },
+            Request::Preset {request,name} if name.is_some()==input.is_some() =>
+                CommandRequest::Preset {request:request.clone(),name:name.clone()},
             Request::ImportInstaller { name } if input.is_some() => CommandRequest::ImportInstaller { name: name.clone() },
             Request::BrowserReturn(uri) if input.is_none() => CommandRequest::BrowserReturn { uri: uri.clone() },
             _ => return Err(error("Manager command input does not match its request")),
@@ -679,6 +703,9 @@ impl Subprocess {
 impl Transport for Subprocess {
     fn exchange(&self, request: &Request, input: Option<File>) -> Result<Vec<u8>, Failure> {
         let error = |text: &str| Failure::Error(text.into());
+        if matches!(request, Request::Preset {name:Some(_),..}) {
+            return Err(error("Preset import requires the service selected-file descriptor transport"));
+        }
         let body = request.body().map_err(|_| error("Request encoding failed"))?;
         let mut command = Command::new(&self.program);
         command.args(request.command());
@@ -770,7 +797,8 @@ mod tests {
         let requests = [Request::Read(Read::Overview), Request::Read(Read::CurrentOverview), product(&key),
             Request::Read(Read::Snapshot), Request::Read(Read::Activity), Request::Read(Read::Pulse),
             Request::Read(Read::Operation("ab".repeat(16))),
-            action(), Request::ImportInstaller { name: "Setup.exe".into() },
+            action(), Request::Preset {request:match action() {Request::Action(r)=>r,_=>unreachable!()},name:None},
+            Request::ImportInstaller { name: "Setup.exe".into() },
             Request::BrowserReturn("native-access://auth?code=secret".into())];
         for request in requests {
             let body = request.body().unwrap().unwrap_or_default();
@@ -1084,6 +1112,27 @@ mod tests {
         listener.set_nonblocking(true).unwrap();
         assert_eq!(listener.accept().unwrap_err().kind(), io::ErrorKind::WouldBlock);
         std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn preset_import_keeps_selected_fd_and_exact_offer() {
+        use std::os::unix::net::UnixListener;
+        let root=PathBuf::from("/tmp").join(format!("lvb-preset-wire-{}",crate::random_id().unwrap()));
+        std::fs::create_dir(&root).unwrap();
+        let path=root.join("selected.lvbpreset");std::fs::write(&path,b"selected").unwrap();
+        let selected=File::open(&path).unwrap();std::fs::rename(&path,root.join("original.lvbpreset")).unwrap();
+        std::fs::write(&path,b"replacement").unwrap();
+        let Request::Action(mut request)=action() else {unreachable!()};
+        request.action=ui::Action::PresetFiles {product:ui::PresetProduct {environment:"ab".repeat(16),module_sha256:"cd".repeat(32),class_id:"ef".repeat(16)},expected_root:"11".repeat(32),command:ui::PresetCommand::Import};
+        let request=Request::Preset {request,name:Some("selected.lvbpreset".into())};let expected=request.clone();
+        let socket=root.join("owner.sock");let listener=UnixListener::bind(&socket).unwrap();
+        let server=std::thread::spawn(move|| {
+            let (mut peer,_)=listener.accept().unwrap();let mut greeting=[0;5];peer.read_exact(&mut greeting).unwrap();
+            let (request,input)=read_command_request(&mut peer).unwrap();assert_eq!(request,expected);
+            let mut bytes=vec![];input.unwrap().read_to_end(&mut bytes).unwrap();assert_eq!(bytes,b"selected");
+            write_view_reply(&mut peer,Ok(b"received")).unwrap();
+        });
+        assert_eq!(Service::new(&socket).exchange(&request,Some(selected)).unwrap(),b"received");
+        server.join().unwrap();std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn installer_command_transfers_the_selected_open_file_not_its_replaced_path() {
