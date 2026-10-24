@@ -947,9 +947,7 @@ fn reconcile_lease_in_kernel(m: &Manager, path: &Path, boot: Option<&str>) -> Re
                 // Preserve the supervisor's failed acknowledgement and all
                 // original ownership. This separate fact records containment,
                 // never a successful session or permission to replay a restart.
-                let reconciled = report.with_extension("reconciled.json");
-                atomic_json(&reconciled, &proof)?;
-                fs::remove_file(path)?;
+                retire_ended_consumer(path, &report, &proof)?;
                 return Ok(false);
             }
             let generation_path = m.root.join("runtime/lease-generations")
@@ -973,6 +971,14 @@ fn reconcile_lease_in_kernel(m: &Manager, path: &Path, boot: Option<&str>) -> Re
             Ok(true)
         },
     }
+}
+
+// Caller holds registry custody and has just revalidated the exact proof.
+fn retire_ended_consumer(lease: &Path, report: &Path, proof: &serde_json::Value) -> Result<()> {
+    require(read_json::<PathBuf>(lease)? == report, "lease_retirement_binding_changed")?;
+    atomic_json(&report.with_extension("reconciled.json"), proof)?;
+    fs::remove_file(lease)?;
+    Ok(())
 }
 
 fn exact_absence(path: &Path) -> Result<bool> {
