@@ -99,7 +99,9 @@ fn require_location_capability(manifest: &PackageManifest, needed: bool) -> Resu
     if !needed { return Ok(()); }
     let capability = manifest.library_locations.as_ref()
         .ok_or("package_library_locations_capability_unavailable")?;
-    require(capability.schema == 1 && manifest.schema == 3
+    // Schema 2 includes retained directory custody through the completed
+    // pressure-vessel mount, before any Wine or vendor execution is released.
+    require(capability.schema == 2 && manifest.schema == 3
         && manifest.files.iter().any(|file| file.name == "session.py"
             && file.sha256 == capability.supervisor_sha256),
         "package_library_locations_capability_unavailable")
@@ -4242,13 +4244,16 @@ assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
         assert!(require_location_capability(&manifest, false).is_ok());
         assert!(require_location_capability(&manifest, true).is_err());
         manifest.library_locations = Some(LibraryLocationsCapability {
-            schema: 1, supervisor_sha256: "aa".repeat(32),
+            schema: 2, supervisor_sha256: "aa".repeat(32),
         });
         assert!(require_location_capability(&manifest, true).is_err());
         manifest.schema = 3;
         manifest.files.push(PackageFile {name:"session.py".into(),
             sha256:"aa".repeat(32),size:1});
         assert!(require_location_capability(&manifest, true).is_ok());
+        manifest.library_locations.as_mut().unwrap().schema = 1;
+        assert!(require_location_capability(&manifest, true).is_err());
+        manifest.library_locations.as_mut().unwrap().schema = 2;
         manifest.files.last_mut().unwrap().sha256 = "bb".repeat(32);
         assert!(require_location_capability(&manifest, true).is_err());
     }
@@ -4268,7 +4273,7 @@ assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
             fs::set_permissions(&path, fs::Permissions::from_mode(0o444)).unwrap();
         }
         let mut manifest = f.manifest();
-        manifest.library_locations = Some(LibraryLocationsCapability {schema:1,
+        manifest.library_locations = Some(LibraryLocationsCapability {schema:2,
             supervisor_sha256:digest(&f.inputs.path("session.py").unwrap()).unwrap()});
         atomic_json(&f.inputs.manifest(), &manifest).unwrap();
         fs::set_permissions(f.inputs.manifest(), fs::Permissions::from_mode(0o444)).unwrap();
@@ -4303,6 +4308,36 @@ assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
         let error = update_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service)
             .unwrap_err().to_string();
         assert_eq!(error, "package_library_locations_capability_unavailable");
+        assert_eq!(f.service.stops.get(), stops);
+        assert_eq!(f.service.loaded.borrow().active, "active");
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), before);
+    }
+
+    #[test]
+    fn location_bearing_update_refuses_pre_mount_guard_helper_before_service_stop() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        f.add_kit(b"pre-mount-guard package fixture");
+        for name in ["session.py", "ownership.py"] {
+            let path = f.inputs.path(name).unwrap();
+            fs::write(&path, b"# historical source fixture\n").unwrap();
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o444)).unwrap();
+        }
+        let mut manifest = f.manifest();
+        assert_eq!(manifest.schema, 3);
+        manifest.library_locations = Some(LibraryLocationsCapability {schema:1,
+            supervisor_sha256:digest(&f.inputs.path("session.py").unwrap()).unwrap()});
+        atomic_json(&f.inputs.manifest(), &manifest).unwrap();
+        fs::set_permissions(f.inputs.manifest(), fs::Permissions::from_mode(0o444)).unwrap();
+        let mut environment = f.base.r.environment.clone();
+        environment.library_locations = Some(linux_vst_bridge::library_locations::retain(
+            &f.base.m, &linux_vst_bridge::library_locations::LocationSet::default()).unwrap());
+        atomic_json(&environment.root.join("environment.json"), &environment).unwrap();
+        let before = fs::read(f.base.m.root.join("software.json")).unwrap();
+        f.service.loaded.borrow_mut().active = "active".into();
+        let stops = f.service.stops.get();
+        assert_eq!(update_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service)
+            .unwrap_err().to_string(), "package_library_locations_capability_unavailable");
         assert_eq!(f.service.stops.get(), stops);
         assert_eq!(f.service.loaded.borrow().active, "active");
         assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), before);
@@ -5107,7 +5142,7 @@ report.write_text(json.dumps(dict(identity,cleanup_confirmed=True,owned_live=0,s
             fs::set_permissions(&path, fs::Permissions::from_mode(0o444)).unwrap();
         }
         let mut manifest = f.manifest();
-        manifest.library_locations = Some(LibraryLocationsCapability {schema:1,
+        manifest.library_locations = Some(LibraryLocationsCapability {schema:2,
             supervisor_sha256:digest(&f.inputs.path("session.py").unwrap()).unwrap()});
         atomic_json(&f.inputs.manifest(), &manifest).unwrap();
         fs::set_permissions(f.inputs.manifest(), fs::Permissions::from_mode(0o444)).unwrap();

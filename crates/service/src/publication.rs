@@ -1752,3 +1752,42 @@ pub(crate) fn retained_candidate_fixture(
         .unwrap();
     reference
 }
+
+#[cfg(test)]
+mod location_interruption_tests {
+    use super::*;
+    #[test]
+    fn library_location_interrupted_publication_preserves_exact_selected_state_and_inode() {
+        for removed in [false,true] {
+            for selected in [false,true] {
+                for phase in 0..3 {
+                    let (f,c)=crate::test_fixture::projection_candidate_in(crate::test_fixture::Fixture::new(),false);
+                    crate::preparation::record_candidate(&f.m,&c).unwrap();
+                    let reference=crate::preparation::enable(&f.m,&c,false).unwrap();
+                    let prior=f.m.load_revision(&c.selection.class.id,&reference).unwrap();
+                    if removed {f.m.unpublish(&prior.class_id).unwrap();}
+                    let candidate=crate::preparation::configuration::library_location_fixture(&f,&prior,&"ab".repeat(16));
+                    let transition=f.m.prepare_library_location_revision(&candidate,&reference,&"ab".repeat(16)).unwrap();
+                    let original=fs::metadata(&prior.registration.native.path).unwrap();
+                    if selected {atomic_json(&prior.registration.environment.root.join("environment.json"),
+                        &candidate.selection.environment).unwrap();}
+                    f.m.write_intent(&transition.intent,None).unwrap();
+                    if phase>=1 {f.m.activate(&transition.intent,None).unwrap();}
+                    if phase>=2 {
+                        let mut db=f.m.registry().unwrap();
+                        assert!(f.m.finish(&mut db,&transition.intent,Outcome::Committed,Some(Boundary::RegistryCommitted)).is_err());
+                    }
+                    if selected {f.m.commit_package_publication(&transition).unwrap();}
+                    else {f.m.restore_package_publication(&transition).unwrap();}
+                    let expected=if selected{&transition.after}else{&transition.before};
+                    let db=f.m.registry().unwrap();let actual=&db.classes[&prior.class_id];
+                    assert_eq!(actual,&expected.entry,"removed={removed} selected={selected} phase={phase}");
+                    assert_eq!(physical(&f.m.link(&prior.class_id)).unwrap(),expected.target);
+                    let native=fs::metadata(&actual.registration.native.path).unwrap();
+                    assert_eq!((native.dev(),native.ino()),(original.dev(),original.ino()));
+                    assert!(!f.m.publication_pending(&prior.class_id).unwrap());
+                }
+            }
+        }
+    }
+}

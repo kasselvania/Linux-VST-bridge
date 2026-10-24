@@ -163,15 +163,24 @@ def library_locations_capability(source):
     """The signed adoption record binds the declared plan to exact helper bytes."""
     import ast
     module = ast.parse(source)
-    values = [node.value.value for node in module.body
-              if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant)
-              and any(isinstance(target, ast.Name) and target.id == "LIBRARY_LOCATIONS_PLAN_SCHEMA"
-                      for target in node.targets)]
-    if not values:
+    def declared(name):
+        return [node.value.value for node in module.body
+                if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant)
+                and any(isinstance(target, ast.Name) and target.id == name
+                        for target in node.targets)]
+    plan = declared("LIBRARY_LOCATIONS_PLAN_SCHEMA")
+    guard = declared("LIBRARY_LOCATIONS_MOUNT_GUARD_SCHEMA")
+    if not plan and not guard:
         return None
-    if values != [1] or type(values[0]) is not int:
+    if plan != [1] or type(plan[0]) is not int:
         raise ValueError("library location supervisor capability")
-    return {"schema": 1, "supervisor_sha256": sha(source)}
+    # Earlier helpers only checked a host pathname before pressure-vessel bound
+    # it. They cannot advertise custody at the actual container mount boundary.
+    if not guard:
+        return None
+    if guard != [1] or type(guard[0]) is not int:
+        raise ValueError("library location supervisor capability")
+    return {"schema": 2, "supervisor_sha256": sha(source)}
 
 
 def parse_operator_schema(source):

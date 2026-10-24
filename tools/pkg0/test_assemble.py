@@ -138,7 +138,8 @@ class PackageAssembly(unittest.TestCase):
     def test_location_capability_is_bound_to_exact_signed_helper(self):
         self.source_pair()
         helper = next(row for row in self.files if row["kind"] == "supervisor")
-        data = pathlib.Path(helper["source"]).read_bytes() + b"LIBRARY_LOCATIONS_PLAN_SCHEMA = 1\n"
+        data = pathlib.Path(helper["source"]).read_bytes() + (
+            b"LIBRARY_LOCATIONS_PLAN_SCHEMA = 1\nLIBRARY_LOCATIONS_MOUNT_GUARD_SCHEMA = 1\n")
         pathlib.Path(helper["source"]).write_bytes(data)
         helper["sha256"] = hashlib.sha256(data).hexdigest()
         output = self.root / "locations-staged"
@@ -146,19 +147,29 @@ class PackageAssembly(unittest.TestCase):
         with tarfile.open(output / "payload.tar") as archive:
             adopted = json.load(archive.extractfile(assemble.ADOPTION_MANIFEST))
         self.assertEqual(adopted["library_locations"],
-                         {"schema": 1, "supervisor_sha256": helper["sha256"]})
+                         {"schema": 2, "supervisor_sha256": helper["sha256"]})
         package = package_archive(output, self.root / "locations.pkg.tar.zst")
         verify_package.verify(package, manifest, structure_only=True)
         expected = {row["destination"]: row for row in manifest["files"]}
+        adopted["library_locations"]["schema"] = 1
+        with self.assertRaisesRegex(ValueError, "library location capability"):
+            verify_package.verify_adoption(adopted, manifest, expected)
+        adopted["library_locations"]["schema"] = 2
         adopted["library_locations"]["supervisor_sha256"] = "0" * 64
         with self.assertRaisesRegex(ValueError, "library location capability"):
             verify_package.verify_adoption(adopted, manifest, expected)
 
     def test_old_or_unknown_location_helpers_do_not_get_current_capability(self):
         self.assertIsNone(assemble.library_locations_capability(b"VALUE = 1\n"))
+        self.assertIsNone(assemble.library_locations_capability(b"LIBRARY_LOCATIONS_PLAN_SCHEMA = 1\n"))
         for value in ("True", "2", "'1'"):
             with self.assertRaisesRegex(ValueError, "supervisor capability"):
                 assemble.library_locations_capability(("LIBRARY_LOCATIONS_PLAN_SCHEMA = " + value).encode())
+            with self.assertRaisesRegex(ValueError, "supervisor capability"):
+                assemble.library_locations_capability(("LIBRARY_LOCATIONS_PLAN_SCHEMA = 1\n"
+                    "LIBRARY_LOCATIONS_MOUNT_GUARD_SCHEMA = " + value).encode())
+        with self.assertRaisesRegex(ValueError, "supervisor capability"):
+            assemble.library_locations_capability(b"LIBRARY_LOCATIONS_MOUNT_GUARD_SCHEMA = 1\n")
 
     def test_source_range_is_the_bootstrap_range_everywhere(self):
         root = pathlib.Path(__file__).resolve().parents[2]

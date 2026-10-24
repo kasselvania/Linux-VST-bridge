@@ -411,8 +411,13 @@ impl CurrentOverviewContext {
     pub(super) fn reuse(&self) -> Reuse {
         let operation_live = self.snapshot.operation.as_ref().and_then(|operation| operation["state"].as_str())
             .is_some_and(|state| WORKER_OWNED_STATES.contains(&state));
-        let quiescent = !self.bindings.iter().any(|b| b.environment.library_locations.is_some())
-            && self.all_vendor_retired && self.vendor_progress.is_none()
+        // An observed empty set keeps capability provenance, but has no drive
+        // whose availability can change without a setup record write.
+        let locations_live = self.bindings.iter().any(|binding| binding.environment.library_locations.is_some()
+            && !self.snapshot.environments.iter().any(|environment| environment.id == binding.environment.id
+                && environment.revision == binding.environment.revision
+                && matches!(&environment.library_locations, ui::Observation::Observed(locations) if locations.is_empty())));
+        let quiescent = !locations_live && self.all_vendor_retired && self.vendor_progress.is_none()
             && !self.installer_live.values().any(|live| *live) && !operation_live
             && !self.renderer_live.values().any(|live| *live)
             && self.snapshot.system.capacity_available() && !self.snapshot.system.cleanup_unconfirmed;
@@ -1615,6 +1620,19 @@ pub(super) mod tests {
         finished.snapshot.operation = Some(json!({"state":"completed"}));
         finished.installer_live.insert("cd".repeat(16), false);
         assert!(finished.reuse().quiescent, "finished work changes only by writing");
+        let mut location_view = quiet();
+        let mut environment = fixture.r.environment.clone();
+        environment.library_locations = Some("ef".repeat(32));
+        location_view.bindings.push(catalogue::EnvironmentBinding {
+            family:profiles::Family::ManagedInstallerV1, environment:environment.clone() });
+        assert!(!location_view.reuse().quiescent, "unobserved configured locations need fresh observation");
+        location_view.snapshot.environments.push(ui::Environment {
+            id:environment.id, family:"fixture".into(), runner:"fixture".into(), revision:environment.revision,
+            authorization:"Not observed".into(), last_scan:Value::Null, actions:vec![],
+            library_locations:ui::Observation::Observed(vec![]) });
+        assert!(location_view.reuse().quiescent, "Some(empty) preserves capability without idle polling");
+        location_view.snapshot.environments[0].library_locations=ui::Observation::Unavailable("drive unavailable".into());
+        assert!(!location_view.reuse().quiescent, "failed observation cannot freeze folder availability");
     }
     fn context_for_watched(m:&Manager, watched:BTreeMap<PathBuf,Option<FileStamp>>)
         -> CurrentOverviewContext {

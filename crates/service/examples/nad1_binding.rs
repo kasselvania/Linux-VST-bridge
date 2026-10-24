@@ -95,9 +95,11 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
     let app: Application = serde_json::from_slice(&fs::read(&args[1])?)?;
     let sw: Software = serde_json::from_slice(&fs::read(&args[2])?)?;
+    let root=app.environment.root.parent().and_then(Path::parent).ok_or("fixture environment layout")?;
+    let m=linux_vst_bridge::Manager::new(root.to_path_buf(),root.join("unused-publications"));
     let policy: RendererPolicy =
         serde_json::from_value(serde_json::Value::String(args[4].clone()))?;
-    let mut spec = bind(&app, &sw, &args[3], policy, Path::new(&args[5]))?;
+    let mut spec = bind(&m,&app, &sw, &args[3], policy, Path::new(&args[5]))?;
     if args.len()==7 { spec["kind"] = serde_json::json!("native_access_dependency"); spec["schema"]=serde_json::json!(2); spec["dependency_mode"]=serde_json::json!("prepare"); } else if args[7]!="application" { return Err("fixture kind".into()); }
     let mut f = fs::OpenOptions::new()
         .write(true)

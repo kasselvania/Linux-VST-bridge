@@ -68,7 +68,7 @@ def verify_adoption(adopted, manifest, expected, source_root=None):
         helper = expected.get("usr/lib/linux-vst-bridge/supervisor/session.py", {})
         if (not source or not isinstance(capability, dict)
                 or set(capability) != {"schema", "supervisor_sha256"}
-                or type(capability["schema"]) is not int or capability["schema"] != 1
+                or type(capability["schema"]) is not int or capability["schema"] != 2
                 or capability["supervisor_sha256"] != helper.get("sha256")):
             raise ValueError("package library location capability differs")
     if (set(adopted) != fields

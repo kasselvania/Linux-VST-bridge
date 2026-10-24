@@ -320,7 +320,7 @@ pub fn view(m: &Manager, c: &Candidate) -> Result<Value> {
 }
 
 #[cfg(test)]
-pub(super) fn library_location_fixture(f: &crate::test_fixture::Fixture,
+pub(crate) fn library_location_fixture(f: &crate::test_fixture::Fixture,
     prior: &Revision, operation: &str) -> Candidate {
     use crate::library_locations as locations;
     let before = &prior.registration.environment;
