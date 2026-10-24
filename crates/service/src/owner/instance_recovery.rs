@@ -429,7 +429,7 @@ fn require_restart_status(status: &wire::Status, command: &wire::Command) -> Res
     require(status.flags & wire::RETIRED != 0,
         "The previous Windows host and transport have not confirmed retirement")?;
     require(status.flags & wire::OWNER_TIMER != 0,
-        "The DAW's plug-in control callback is unavailable; restart cannot run on its owner thread")?;
+        "The DAW is not servicing this plug-in's controls. Open its controls in your DAW, then try restarting here.")?;
     require(command.matches(status),
         "The confirmed snapshot or instance changed; refresh before restarting")
 }
@@ -727,7 +727,7 @@ mod tests {
             (wire::FAILED, "has not reported a failure"),
             (wire::SNAPSHOT, "No complete confirmed state"),
             (wire::RETIRED, "have not confirmed retirement"),
-            (wire::OWNER_TIMER, "control callback is unavailable"),
+            (wire::OWNER_TIMER, "Open its controls in your DAW"),
         ] {
             let missing = wire::Status {flags: ready.flags & !flag, ..ready};
             assert!(command.matches(&missing), "capability absence does not change the exact binding");
