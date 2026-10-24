@@ -191,7 +191,7 @@ impl Live {
                 self.details_notice = None;
                 self.queue(Query::Snapshot, Flight::Details { generation: binding.generation });
             }
-        } else if self.state.page == Page::Plugins && self.product.is_none() && !self.product_attempted {
+        } else if self.fresh && self.state.page == Page::Plugins && self.product.is_none() && !self.product_attempted {
             if let (Some(key), Some(binding)) = (self.state.plugins.focused_product().cloned(), self.binding()) {
                 self.product_attempted = true;
                 self.queue(Query::Product(key.clone()), Flight::Product { key, binding });
@@ -2030,6 +2030,63 @@ mod tests {
             assert!(!contains(&live.built.page, "Loading this plug-in's setup and settings"));
             assert!(live.take_query().is_none());
         }
+    }
+    #[test]
+    fn repair_progress_renews_product_without_false_failure_and_failed_current_read_can_retry() {
+        fn contains(nodes: &[Node], words: &str) -> bool {
+            nodes.iter().any(|node| match node {
+                Node::Text(_, text) => text.contains(words),
+                Node::Panel { children, .. } | Node::Fold { children, .. } | Node::Row(children)
+                | Node::Stack(children) | Node::Columns(children) | Node::Header(children) => contains(children, words),
+                _ => false,
+            })
+        }
+        let mut live = ready_case(Page::Plugins, "plugin_ready");
+        let current = live.overview.as_ref().unwrap().current.clone();
+        let key = ProductKey::from(&current.products[0]);
+        let old = live.built.targets.iter().find(|(_, target)| matches!(target, Target::Offer {..}))
+            .map(|(id, _)| id.clone()).unwrap();
+        let mut support = Support::captured(Action::EnvironmentInstallerStart {
+            environment: key.environment.clone(), installer: "ab".repeat(32) });
+        support.operation = Some("repair-owned".into()); support.blocking = false;
+        live.support = Some(support);
+        record_change(&mut live);
+        assert!(!live.fresh && live.product.is_none());
+        assert_eq!(press(&mut live, &old), Outcome::Refused, "retained details cannot authorize stale actions");
+        assert!(contains(&live.built.page, "Refreshing this plug-in"));
+        assert!(!contains(&live.built.page, "could not be loaded"));
+        assert!(matches!(live.take_query(), Some(Query::Operation(id)) if id == "repair-owned"));
+        live.receive(readback("repair-owned", serde_json::json!({
+            "operation":"repair-owned", "state":"vendor_running" })));
+        assert!(live.support.as_ref().unwrap().text.contains("running"));
+        assert!(contains(&live.built.page, "Refreshing this plug-in"));
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        // The operation banner can progress while the current view becomes
+        // obsolete. Neither the old product nor the old overview grants offers.
+        record_change(&mut live);
+        live.receive(overview(current.clone(), "generation-a"));
+        assert!(!live.fresh);
+        assert!(matches!(live.take_query(), Some(Query::Operation(_))));
+        live.receive(readback("repair-owned", serde_json::json!({
+            "operation":"repair-owned", "state":"running" })));
+        assert!(!contains(&live.built.page, "could not be loaded"));
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        live.receive(Reply::Error("current records unreadable".into()));
+        assert!(contains(&live.built.page, "Current plug-in status could not be loaded"));
+        let retry = target(&live, |target| matches!(target,
+            Target::Control(control) if control.does == Local::Refresh));
+        assert_eq!(press(&mut live, &retry), Outcome::Changed);
+        assert!(matches!(live.take_query(), Some(Query::Overview)), "retry renews current authority, not only product details");
+        live.receive(interactive(current.clone(), "generation-a"));
+        assert!(live.fresh);
+        assert!(matches!(live.take_query(), Some(Query::Product(asked)) if asked == key));
+        live.receive(Reply::Product(Box::new(CurrentProductDetail { schema: 1,
+            operator_schema: vm::model::OPERATOR_SCHEMA, state_token: current.state_token.clone(),
+            current_generation: "generation-a".into(), system: current.system.clone(),
+            product: current.products[0].clone(), environments: current.environments.clone(),
+            vendor_applications: current.vendor_applications.clone() })));
+        assert!(live.product.is_some() && !contains(&live.built.page, "could not be loaded"));
+        assert!(live.take_query().is_none(), "reads never repeat the installer action");
     }
     #[test]
     fn disabled_owner_reason_survives_the_frontend_limitation() {

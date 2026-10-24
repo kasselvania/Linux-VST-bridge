@@ -53,6 +53,7 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
     const bool setup=!setup_directory.empty();
     using namespace Steinberg;using namespace Steinberg::Vst;
     HostApplication host;VendorHandler handler;handler.external=external;
+    VendorHandler* detached_handler=nullptr;
     IComponent* component=nullptr;IAudioProcessor* audio=nullptr;IEditController* controller=nullptr;
     IConnectionPoint *cp=nullptr,*cc=nullptr;
     bool initialized=false,controller_initialized=false,connected_pc=false,connected_cp=false,handler_set=false;
@@ -153,6 +154,8 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             // device, inspection, state capture, or setup maintenance is implied.
             if(class_id.empty()||external||setup||!access_directory.empty()||bus_probe||stereo_probe||graphics_probe)
                 throw std::runtime_error("detached instance mode binding");
+            detached_handler=new VendorHandler(*controller);
+            ok(controller->setComponentHandler(detached_handler),"setDetachedComponentHandler");
             VendorView view;
             step("openDetachedEditor");
             if(!view.open(*controller))throw std::runtime_error("detached editor open failed");
@@ -329,10 +332,12 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
     // No view/frame may outlive its controller or connection points. Refusing
     // removal retains containment rather than releasing still-attached SDK objects.
     if(external)try{external->bind_controller(nullptr,false);}catch(...){ExitProcess(92);}
+    if(detached_handler)detached_handler->retire();
     if(connected_cp)cleanup("disconnectController",[&]{return cc->disconnect(cp);});
     if(connected_pc)cleanup("disconnectComponent",[&]{return cp->disconnect(cc);});
     if(cc)cc->release();if(cp)cp->release();
     if(handler_set)cleanup("clearComponentHandler",[&]{return controller->setComponentHandler(nullptr);});
+    if(detached_handler)detached_handler->release();
     if(controller_initialized)cleanup("terminateController",[&]{return controller->terminate();});
     if(controller)controller->release();if(audio)audio->release();
     if(initialized)cleanup("terminateComponent",[&]{return component->terminate();});
