@@ -5,6 +5,7 @@ pub(super) struct State {
     pub(super) status: wire::Status,
     pub(super) seen: Instant,
     pub(super) connected: bool,
+    // Delivery owned by this service executor, never reconstructed from disk.
     pub(super) pending: Option<Pending>,
 }
 pub(super) struct Pending {
@@ -120,41 +121,110 @@ pub(super) fn unresolved_operation(
         return false;
     }
     let directory = m.root.join("operator").join(hex(&operation));
-    let request = read_json::<serde_json::Value>(&directory.join("request.json"));
-    if !request.is_ok_and(|request| {
-        request["action"]["kind"] == "plugin_restart"
-            && request["action"]["instance"] == instance
-            && exact.is_none_or(|expected| {
-                request["action"]["generation"] == expected.generation
-                    && request["action"]["snapshot"]["revision"] == expected.revision
-                    && request["action"]["snapshot"]["sha256"] == hex(&expected.digest)
-            })
-    }) {
+    let Ok(request) = read_json::<serde_json::Value>(&directory.join("request.json")) else {
+        return true;
+    };
+    let Ok(action) = serde_json::from_value::<ui::Action>(request["action"].clone()) else {
+        return true;
+    };
+    let Ok(requested) = command(&action, operation) else {
+        return true;
+    };
+    if request["action"]["instance"] != instance
+        || exact.is_some_and(|expected| *expected != requested)
+    {
         return true;
     }
-    match read_json::<serde_json::Value>(&directory.join("result.json")) {
-        Ok(record) => {
-            record["schema"] != 1
-                || record["operation"] != hex(&operation)
-                || record["outcome"] == "unconfirmed"
-                || record["result"]["restart"] == "unconfirmed"
-                || !matches!(record["state"].as_str(), Some("completed" | "refused"))
-        }
-        Err(_) => true,
+    let Ok(record) = read_json::<serde_json::Value>(&directory.join("result.json")) else {
+        return true;
+    };
+    if record["schema"] != 1 || record["operation"] != hex(&operation) {
+        return true;
     }
+    // Positive shapes emitted by operator_cli and execute. A terminal executor
+    // alone does not establish its mutation outcome. Refusals have no outcome
+    // or result; interrupted running restarts are completed/unconfirmed.
+    let settled = match record["state"].as_str() {
+        Some("refused") => {
+            record["reason"]
+                .as_str()
+                .is_some_and(|s| !s.trim().is_empty())
+                && record.get("outcome").is_none()
+                && record.get("result").is_none()
+        }
+        Some("completed") => {
+            let result = &record["result"];
+            record["outcome"] == "confirmed"
+                && result["restart"] == "completed"
+                && result["instance"] == instance
+                && result["operation"] == hex(&operation)
+                && requested
+                    .generation
+                    .checked_add(1)
+                    .is_some_and(|g| result["generation"] == g)
+                && result["snapshot_revision"] == requested.revision
+                && result["snapshot_sha256"] == hex(&requested.digest)
+                && result["controller_confirmed"] == true
+                && result["session"]
+                    .as_str()
+                    .is_some_and(|s| valid_hex(s, 32) && s != hex(&[0; 16]))
+        }
+        _ => false,
+    };
+    !settled
 }
+pub(super) fn require_settled_custody(
+    m: &Manager,
+    instance: &str,
+    status: &wire::Status,
+) -> Result<()> {
+    let retained = retained_restart(m, instance).map_err(|_| -> Box<dyn std::error::Error + Send + Sync> {
+        "Restart is unavailable because this instance's durable restart custody is missing or unreadable. Keep the project open and choose Send a problem report in the bridge to report this problem. The latest live snapshot cannot safely be restored through this control; reopening uses DAW-saved state and may lose later changes.".into()
+    })?;
+    require(
+        !retained.is_some_and(|command| unresolved_operation(m, instance, command.operation, Some(&command)))
+            && !unresolved_operation(m, instance, status.operation, None),
+        "The previous restart outcome is unconfirmed; it will not be replayed. Keep the project open and choose Send a problem report in the bridge to report this problem.",
+    )
+}
+#[cfg(test)]
 pub(super) fn unresolved_journal(m: &Manager, instance: &str, status: &wire::Status) -> bool {
-    match retained_restart(m, instance) {
-        Err(_) => return true,
-        Ok(Some(command))
-            if unresolved_operation(m, instance, command.operation, Some(&command)) =>
-        {
-            return true
-        }
-        _ => {}
-    }
-    unresolved_operation(m, instance, status.operation, None)
+    require_settled_custody(m, instance, status).is_err()
 }
+/// Attach observes a proxy; only execute may install a live delivery request.
+pub(super) fn observation(status: wire::Status) -> State {
+    State {
+        status,
+        seen: Instant::now(),
+        connected: true,
+        pending: None,
+    }
+}
+pub(super) fn recovery_phase(state: &State) -> ui::RecoveryPhase {
+    use ui::RecoveryPhase as P;
+    if !state.connected || state.seen.elapsed() >= Duration::from_secs(2) {
+        return P::Unknown;
+    }
+    match state.status.phase {
+        wire::COMPLETE if state.status.flags & wire::FAILED != 0 => P::Failed,
+        wire::COMPLETE => P::Restored,
+        wire::REFUSED => P::Refused,
+        wire::UNCERTAIN => P::Uncertain,
+        wire::ACCEPTED | wire::RESTORING | wire::CONTROLLER => {
+            if state.pending.as_ref().is_some_and(|p| !p.uncertain) {
+                P::Restarting
+            } else {
+                P::Uncertain
+            }
+        }
+        wire::IDLE if state.pending.as_ref().is_some_and(|p| p.uncertain) => P::Uncertain,
+        wire::IDLE if state.pending.is_some() => P::Restarting,
+        wire::IDLE if state.status.flags & wire::FAILED != 0 => P::Failed,
+        wire::IDLE => P::Connected,
+        _ => P::Unknown,
+    }
+}
+
 pub(super) fn disconnected(state: &mut State) {
     state.connected = false;
     if let Some(pending) = state.pending.as_mut() {
@@ -362,7 +432,7 @@ mod tests {
         }
     }
     fn running(f: &Fixture, instance: &str, command: &wire::Command) {
-        receipt(f, command.operation, instance, "completed");
+        receipt(f, command.operation, instance, "confirmed");
         let path = f.m.root.join("operator").join(hex(&command.operation));
         atomic_json(
             &path.join("request.json"),
@@ -381,13 +451,20 @@ mod tests {
         .unwrap();
     }
     fn finish(f: &Fixture, command: &wire::Command, outcome: &str) {
+        let value = if outcome == "refused" {
+            serde_json::json!({"schema":1,"operation":hex(&command.operation),
+                "state":"refused","reason":"Operator action: snapshot changed"})
+        } else {
+            serde_json::json!({"schema":1,"operation":hex(&command.operation),
+                "state":"completed","outcome":outcome,
+                "result":fixture_result(command.operation, &hex(&status().session), outcome)})
+        };
         atomic_json(
             &f.m.root
                 .join("operator")
                 .join(hex(&command.operation))
                 .join("result.json"),
-            &serde_json::json!({"schema":1,"operation":hex(&command.operation),
-                "state":"completed","outcome":outcome,"result":{"restart":outcome}}),
+            &value,
         )
         .unwrap();
     }
@@ -451,7 +528,7 @@ mod tests {
         let instance = hex(&status().session);
         let command = pending(&status()).command;
         let prior = [3; 16];
-        receipt(&f, prior, &instance, "completed");
+        receipt(&f, prior, &instance, "confirmed");
         running(&f, &instance, &command);
         retain_restart(&f.m, &instance, &command).unwrap();
         let fresh = Manager::new(f.m.root.clone(), f.outer.join("vst3"));
@@ -477,7 +554,7 @@ mod tests {
         drop(state);
         assert!(unresolved_journal(&fresh, &instance, &status()));
         // Exact confirmed terminal receipt settles; another identity cannot.
-        finish(&f, &command, "completed");
+        finish(&f, &command, "confirmed");
         assert!(!unresolved_journal(&fresh, &instance, &status()));
         let request =
             f.m.root
@@ -506,12 +583,12 @@ mod tests {
         let instance = hex(&status().session);
         let command = pending(&status()).command;
         let prior = [3; 16];
-        receipt(&f, prior, &instance, "completed");
+        receipt(&f, prior, &instance, "confirmed");
         for outcome in [
             "running",
             "interrupted",
             "unconfirmed",
-            "completed",
+            "confirmed",
             "refused",
         ] {
             running(&f, &instance, &command);
@@ -576,7 +653,7 @@ mod tests {
         retain_restart(&f.m, &instance, &command).unwrap();
         assert!(retain_fresh_instance(&f.m, &instance).is_err());
         assert!(unresolved_journal(&f.m, &instance, &status()));
-        finish(&f, &command, "completed");
+        finish(&f, &command, "confirmed");
         assert!(!unresolved_journal(&f.m, &instance, &status()));
         let path = binding_path(&f.m, &instance).unwrap();
         for malformed in [
@@ -598,6 +675,176 @@ mod tests {
         assert!(unresolved_journal(&f.m, &instance, &status()));
         assert!(retain_fresh_instance(&f.m, &instance).is_err());
     }
+    #[test]
+    fn authority_legacy_observations_release_capacity_without_erasing_custody() {
+        let f = Fixture::new();
+        let mut entries = std::collections::BTreeMap::new();
+        for i in 1..=80u8 {
+            entries.retain(|_, state| !can_forget(&f.m, state));
+            assert!(entries.len() < 64);
+            let instance = hex(&[i; 16]);
+            let mut state = observation(wire::Status {
+                session: [i; 16],
+                flags: 0,
+                ..status()
+            });
+            assert!(state.pending.is_none());
+            assert_eq!(recovery_phase(&state), ui::RecoveryPhase::Connected);
+            assert!(require_settled_custody(&f.m, &instance, &state.status)
+                .unwrap_err()
+                .to_string()
+                .contains("durable restart custody is missing or unreadable"));
+            state.status.flags = status().flags;
+            assert_eq!(recovery_phase(&state), ui::RecoveryPhase::Failed);
+            disconnected(&mut state);
+            assert!(can_forget(&f.m, &state));
+            assert!(unresolved_journal(&f.m, &instance, &state.status));
+            assert!(!binding_path(&f.m, &instance).unwrap().exists());
+            entries.insert(instance, state);
+        }
+        entries.retain(|_, state| !can_forget(&f.m, state));
+        assert!(entries.is_empty());
+        let instance = hex(&[90; 16]);
+        retain_fresh_instance(&f.m, &instance).unwrap();
+        let mut state = observation(status());
+        require_settled_custody(&f.m, &instance, &state.status).unwrap();
+        require_restart_status(&state.status, &pending(&state.status).command).unwrap();
+        let command = pending(&state.status).command;
+        running(&f, &instance, &command);
+        retain_restart(&f.m, &instance, &command).unwrap();
+        state.pending = Some(Pending {
+            uncertain: false,
+            ..pending(&state.status)
+        });
+        disconnected(&mut state);
+        assert!(!can_forget(&f.m, &state), "real executor retains its entry");
+        // A new owner's observation is not that executor; its durable fence suffices.
+        let mut replacement = observation(status());
+        disconnected(&mut replacement);
+        assert!(can_forget(&f.m, &replacement));
+        assert!(unresolved_journal(&f.m, &instance, &replacement.status));
+    }
+    #[test]
+    fn authority_only_positive_production_receipts_settle_exact_requests() {
+        let f = Fixture::new();
+        let instance = hex(&status().session);
+        let command = pending(&status()).command;
+        running(&f, &instance, &command);
+        retain_restart(&f.m, &instance, &command).unwrap();
+        finish(&f, &command, "confirmed");
+        let path =
+            f.m.root
+                .join("operator")
+                .join(hex(&command.operation))
+                .join("result.json");
+        let confirmed: serde_json::Value = read_json(&path).unwrap();
+        assert!(!unresolved_journal(&f.m, &instance, &status()));
+        for field in ["schema", "operation", "state", "outcome", "result"] {
+            for invalid in [
+                None,
+                Some(serde_json::json!(false)),
+                Some(serde_json::json!("unknown")),
+            ] {
+                let mut record = confirmed.clone();
+                if let Some(value) = invalid {
+                    record[field] = value;
+                } else {
+                    record.as_object_mut().unwrap().remove(field);
+                }
+                atomic_json(&path, &record).unwrap();
+                assert!(unresolved_journal(&f.m, &instance, &status()), "{field}");
+            }
+        }
+        for field in [
+            "restart",
+            "instance",
+            "operation",
+            "generation",
+            "session",
+            "snapshot_revision",
+            "snapshot_sha256",
+            "controller_confirmed",
+        ] {
+            for invalid in [
+                None,
+                Some(serde_json::json!(false)),
+                Some(serde_json::json!("unknown")),
+            ] {
+                let mut record = confirmed.clone();
+                if let Some(value) = invalid {
+                    record["result"][field] = value;
+                } else {
+                    record["result"].as_object_mut().unwrap().remove(field);
+                }
+                atomic_json(&path, &record).unwrap();
+                assert!(unresolved_journal(&f.m, &instance, &status()), "{field}");
+            }
+        }
+        let refused = serde_json::json!({"schema":1,"operation":hex(&command.operation),
+            "state":"refused","reason":"Operator action: snapshot changed"});
+        atomic_json(&path, &refused).unwrap();
+        assert!(!unresolved_journal(&f.m, &instance, &status()));
+        for invalid in [
+            serde_json::Value::Null,
+            serde_json::json!(false),
+            serde_json::json!(""),
+        ] {
+            let mut record = refused.clone();
+            record["reason"] = invalid;
+            atomic_json(&path, &record).unwrap();
+            assert!(unresolved_journal(&f.m, &instance, &status()));
+        }
+        for outcome in ["unconfirmed", "completed", "unknown"] {
+            finish(&f, &command, outcome);
+            assert!(unresolved_journal(&f.m, &instance, &status()));
+            let mut record = refused.clone();
+            record["outcome"] = outcome.into();
+            atomic_json(&path, &record).unwrap();
+            assert!(unresolved_journal(&f.m, &instance, &status()));
+        }
+    }
+    #[test]
+    fn recovery_phase_requires_a_current_proxy_observation() {
+        use ui::RecoveryPhase as P;
+        let mut state = State {
+            status: status(),
+            seen: Instant::now(),
+            connected: true,
+            pending: None,
+        };
+        assert_eq!(recovery_phase(&state), P::Failed);
+        for phase in [wire::ACCEPTED, wire::RESTORING, wire::CONTROLLER] {
+            state.status.phase = phase;
+            state.pending = None;
+            assert_eq!(recovery_phase(&state), P::Uncertain);
+            state.pending = Some(Pending {
+                uncertain: false,
+                ..pending(&state.status)
+            });
+            assert_eq!(recovery_phase(&state), P::Restarting);
+        }
+        state.status.phase = wire::COMPLETE;
+        assert_eq!(
+            recovery_phase(&state),
+            P::Failed,
+            "a later failure supersedes a completed restart"
+        );
+        state.status.flags &= !wire::FAILED;
+        assert_eq!(recovery_phase(&state), P::Restored);
+        state.connected = false;
+        assert_eq!(recovery_phase(&state), P::Unknown);
+        state.connected = true;
+        state.seen = Instant::now() - Duration::from_secs(3);
+        assert_eq!(recovery_phase(&state), P::Unknown);
+        state.seen = Instant::now();
+        state.status.phase = wire::UNCERTAIN;
+        assert_eq!(recovery_phase(&state), P::Uncertain);
+        state.status.phase = wire::REFUSED;
+        assert_eq!(recovery_phase(&state), P::Refused);
+        state.status.phase = 999;
+        assert_eq!(recovery_phase(&state), P::Unknown);
+    }
+
     fn status() -> wire::Status {
         wire::Status {
             session: [1; 16],
@@ -608,6 +855,16 @@ mod tests {
             ..Default::default()
         }
     }
+    fn fixture_result(operation: [u8; 16], instance: &str, outcome: &str) -> serde_json::Value {
+        if outcome == "unconfirmed" {
+            return serde_json::json!({"instance":instance,"operation":hex(&operation),
+                "restart":"unconfirmed","detail":"The restart outcome is unconfirmed; the bridge will not replay it"});
+        }
+        serde_json::json!({"restart":if outcome == "confirmed" {"completed"} else {outcome},
+            "instance":instance,"operation":hex(&operation),"generation":2,
+            "session":hex(&[5;16]),"snapshot_revision":3,"snapshot_sha256":hex(&[4;32]),
+            "controller_confirmed":true})
+    }
     fn receipt(f: &Fixture, operation: [u8; 16], instance: &str, outcome: &str) {
         let path =
             f.m.root
@@ -617,14 +874,14 @@ mod tests {
         private_dir(path.parent().unwrap()).unwrap();
         atomic_json(
             &path.with_file_name("request.json"),
-            &serde_json::json!({"action":{"kind":"plugin_restart","instance":instance}}),
+            &serde_json::json!({"action":{"kind":"plugin_restart","instance":instance,"generation":1,"snapshot":{"revision":3,"sha256":hex(&[4;32])}}}),
         )
         .unwrap();
         atomic_json(
             &path,
             &serde_json::json!({"schema":1,"operation":hex(&operation),"state":"completed",
             "outcome":outcome,
-            "result":{"restart":outcome}}),
+            "result":fixture_result(operation, instance, outcome)}),
         )
         .unwrap();
     }
