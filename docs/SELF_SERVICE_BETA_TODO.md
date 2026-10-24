@@ -3,10 +3,10 @@
 Selected by the operator on 2026-09-29. Source basis: main
 `13ed1d85e830d581ec297760e04e9f9433bfd671`.
 
-The operator selected the [audio recovery roadmap](AUDIO_RECOVERY_ROADMAP.md) on
-2026-10-02. It now orders this work. Tasks 1–2 retain their bounded delivery
-results; tasks 3–5 remain open under the current
-[beta acceptance contract](INTEGRATED_BETA_DELIVERY.md#acceptance-method).
+Historical task record: these dates and results retain their original scope.
+The 2026-10-24 [beta release contract](INTEGRATED_BETA_DELIVERY.md#acceptance-method)
+now governs acceptance; CURRENT_SLICE.md orders the active outcome. Tasks 1–2
+below retain bounded predecessor results, not qualification of a current RC.
 
 - [x] **1. Deliver an application-owned runtime.** Supply a versioned, verified
   Wine/Proton-derived runtime with its required support components through

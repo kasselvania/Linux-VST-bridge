@@ -1,5 +1,25 @@
 # Shared failure classes
 
+Current release treatment (2026-10-24):
+
+- Sample-folder mount custody (#411 / #537): **P0**. Validating then handing off
+  a mutable pathname does not establish stable mount identity or read-only access.
+  Fix the general mount mechanism and execute substitution/write controls.
+- Bitwig playback/recall and physical Deck input: **P1 qualification blockers**.
+  Resolve the legitimate activation prerequisite before attributing the silent
+  reopen to the Bridge. Input needs physical target acceptance.
+- JUCE 6 legal controller/bus answers (#358/#359): **fixed in mechanism; current
+  candidate qualification required**. Retain host regressions and qualify the
+  Valhalla/CHOW canaries before closing the issues.
+- Freq Echo 256-frame silence (#399): **P1 if offered**. Repair and qualify it or
+  withhold that exact configuration through owner/profile facts with a reason.
+- Musio definition parsing (#412): **needs triage; unqualified**. Establish the
+  helper/file/path/locale owner before a profile. A general mechanism defect may
+  block release; Musio-only support is outside the named core beta promise.
+
+The [release contract](INTEGRATED_BETA_DELIVERY.md) defines severity and the
+compatibility intake. Entries below retain their exact observations and scope.
+
 Deck/Test216 follow-ups under #469: an older KontaktStereo Bitwig project opens
 with a missing-device placeholder although the factory/saved class identity
 matches; fresh insertion and a newly saved mixed-project recall work. Its old

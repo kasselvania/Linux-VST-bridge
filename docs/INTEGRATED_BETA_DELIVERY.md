@@ -1,4 +1,153 @@
-# Integrated self-service beta delivery
+# Integrated beta delivery
+
+The operator's 2026-10-24 release decision governs this document under
+[ARCHITECTURE.md](ARCHITECTURE.md). Current state: **Beta Feature Candidate in
+integration, not Beta RC**. Freeze the approved product surface now; compatibility
+expansion continues through the intake below. Older plans and observations are
+retained in the historical section and do not add to or replace this contract.
+
+## Product scope and landing order
+
+Complete the approved Console journeys and service/setup/runtime boundaries:
+install, readiness, repair, update, recovery, presets, sample locations and support.
+Ship one native Console. Required states must have a useful next action; physical
+touch, pointer, keyboard, scrolling, dialogs, cancellation and failure recovery
+must work. Quiet status renewal must not reset controls or invent failures.
+The service owns every action; the frontend is never a fallback owner.
+
+Finish and land #536, then rebase #538 on main, review its final head and land it.
+Repair #537's mount custody, rebase on the resulting main, review and land it.
+Reconcile the final operator schema. No new feature stack goes above either
+sibling. Final-head reviews cover wire/model, service authority, host/runtime,
+native UI, package/update and installed acceptance; each states its exclusions.
+Green checks and review are required, but do not replace installed acceptance.
+
+Sample access must bind an opened stable directory object to product-owned private
+mount ancestry, with kernel-enforced access verified inside the runtime before
+vendor execution. Namespace regressions attempt substitution and writes. Missing,
+remounted or changed identities refuse new launches without killing existing DAW
+instances. Removal touches only product-owned links/mounts; setup deletion never
+follows external content. #537's current pathname handoff is a P0 blocker.
+
+## Candidate identity and promotion
+
+A Beta RC is one immutable signed package installed through the intended customer
+route. Record Bridge source and toolkit revisions, runtime revisions/archive
+digests, profile/catalog revision, operator schema, package digest, signing-key
+identity, update manifest and exact product/platform claims. Build from a clean
+recorded checkout with reproducible construction. Development binaries do not
+qualify the package. All final acceptance uses that exact artifact.
+
+A source, profile or packaging change creates a new candidate. Retain prior
+results with their original identity and rerun affected gates as below; never
+silently carry a claim across changed inputs. Promote the accepted artifact
+without rebuilding. Continue simple TestNNN numbering during integration.
+
+## Acceptance method
+
+1. **Feature completion:** finish and land only the approved work above, including
+   target input and failure paths, preset protection through maintenance and
+   truthful sample access. Never offer a configuration known to produce silence
+   or corrupt behavior.
+2. **Immutable candidate:** cut the signed package with the complete identity
+   above and its intended customer installation route.
+3. **Core target acceptance:** CachyOS/native REAPER and SteamOS/Bitwig, each with
+   Reference, Tyrell, Native Access through Kontakt, and Serum 2. Exercise clean
+   product installation, runtime acquisition, ordinary vendor installation and
+   legitimate authorization, discovery, publication, MIDI/audio, editor and
+   parameter changes, save/full exit/fresh reopen, reboot and audible recall.
+   Include update, repair, exact rollback, crash recovery, presets, sample paths,
+   removal and maintenance while unrelated playback and new admission continue.
+   No terminal repair. Bitwig's activation-limit state must be resolved lawfully
+   before repeating the silent-reopen case; no licensing bypass or attribution
+   from that inconclusive environment.
+4. **Compatibility canaries:** Supermassive and CHOW Tape Model on both target
+   DAWs; Freq Echo and ChowCentaur on at least one target unless a distinct
+   mechanism needs wider coverage. Check ordinary intake/discovery/check/
+   publication, editor/audio/parameter changes, save/full exit/reopen/recall,
+   update and re-check/retry without reinstalling, and clean teardown. Retain
+   general automated host regressions. #358/#359 close only against current
+   candidate proof. #399's 256-frame option must be repaired and qualified or
+   withheld by the owner for the exact affected identity with a visible reason.
+5. **Musio classification:** bounded investigation, not a speculative workaround.
+   Establish helper identity/lifetime/owner, content/temp/definition paths, free
+   space, allocation and file completeness, locale/code page and failure timing.
+   Change one variable per comparison: internal writable location, secure external
+   mapping, helper lifetime, first-party allocation fixture, fixed locale or fresh
+   download. Keep proprietary bytes and raw traces outside Git/reports. Classify
+   the failing owner. General unsafe/broken mechanisms may block; Musio-only
+   failure may remain unqualified. Full Musio support is not a core-beta promise.
+6. **Release system:** real beta signing key with documented custody, one intended
+   installation route for both distributions, publicly reachable signed update
+   metadata, controlled runtime hosting, version ordering and unsafe downgrade
+   refusal. Prove clean install, beta-to-beta update, interruption recovery and
+   exact rollback on both targets. Include notices, SBOM, recorded distribution
+   obligations, independent tester support, opt-in allow-listed local reports,
+   exact compatibility/known-issue release notes and a rollback response for a
+   damaged working route. Reports exclude presets, credentials, accounts and
+   proprietary content. No separate hot-profile service is needed.
+7. **Closed beta:** promote the accepted artifact without rebuilding. Independent
+   musicians can install and use it without maintainer operation of their machine.
+
+## Compatibility intake and repair
+
+Use existing GitHub defects, profiles, tests and support/failure documents; do not
+create another campaign ledger. Intake records exact Bridge/runtime/catalog,
+OS/DAW, module hash/class/version, installer hash/version, setup identity,
+reproduction, failing stage and a sanitized report. Distinguish install,
+authorization, content, editor, audio and state failures.
+
+Assign the failing owner: VST3 host, proxy/transport, runtime, setup/install,
+vendor helper, profile, DAW integration, storage, vendor account or product UI.
+Repair that mechanism, with a first-party automated regression where possible,
+then demonstrate the actual product on the affected target and signed candidate.
+Legal SDK behavior belongs in the general host; path/helper facts can be bounded
+declarative profiles. Unknown causes remain unqualified, never a guessed profile.
+
+Update SUPPORT_MATRIX only from installed evidence: supported, supported with
+workaround, unqualified or blocked. A profile describes facts, not support.
+Ship compatibility fixes through signed normal package updates initially. Any
+later profile channel remains data-only, validated, signed, versioned, rollbackable
+and bound to exact or safely declared identities; unknown builds stay unknown.
+Valhalla/CHOW are permanent canaries. Musio is a candidate for beta expansion,
+without redesigning the product around it.
+
+## Release severity and evidence invalidation
+
+- **P0:** data/project/state/preset loss, licensing/account damage, unsafe filesystem
+  exposure or substitution, executable profiles, stranding update/rollback, or
+  sensitive/proprietary report contents. Blocks any beta artifact.
+- **P1:** failed named journey, silence after claimed load, failed recall, terminal
+  recovery, required UI dead end/input failure, failed maintenance/restart,
+  known-bad offered configuration or unusable independent delivery. Blocks RC
+  promotion, including missing target qualification.
+- **P2:** explicitly unqualified non-core vendor, safe documented workaround,
+  optional DAW preset browsing, or visibly unavailable nondefault mode.
+- **P3:** cosmetic polish, nonessential speed, compatibility breadth or convenience
+  beyond the frozen contract.
+
+| Changed owner | Required affected acceptance |
+|---|---|
+| Windows host/SDK | Core audio/state plus Valhalla/CHOW |
+| Native proxy/transport | Full audio/state on both DAWs |
+| Runtime | Full target compatibility matrix |
+| Vendor profile | Affected vendor and generic profile safety |
+| Service actions/journal | Manager, maintenance, recovery and update |
+| Native Console | Interaction and UI journeys |
+| Package/signing/updater | Clean install, update and exact rollback |
+| Samples/presets | Preservation, substitution, deletion and maintenance |
+
+Before a public/full RC, require no P0/P1 defects, both final target routes,
+preserving beta update/rollback, actionable sanitized reports, a safely delivered
+profile-only fix and a mechanism fix without core regressions. Claims must match
+current evidence and promotion must use the accepted bytes.
+
+## Historical plans and observations
+
+Everything below retains its original dates, scope and failed/partial results.
+It is historical evidence, not the current release contract above.
+
+### Integrated self-service beta delivery
 
 Originally selected by the operator on 2026-09-30 from source
 `ca95d1541a41a1aa7497a58752e26fc1f893b237`, tree
@@ -10,7 +159,7 @@ earlier ten-minute, 512/1024-frame release criteria, not the historical results
 retained later in this document. PR #200 remains a frozen draft. Implementation
 ordering is controlled by CURRENT_SLICE.md and the roadmap.
 
-## Outcome and basis
+#### Outcome and basis
 
 A declared candidate completes install, vendor authorization, discovery,
 publication, musical use, save/reopen, reboot/reopen, recovery, populated update
@@ -28,7 +177,7 @@ SUPPORT_MATRIX.md for exact predecessor observations. Current operator scope
 supersedes the earlier tasks-1/2-only selection. Historical evidence remains as
 recorded.
 
-## Implementation scope
+#### Implementation scope
 
 The operator selected managed installations for the first beta on 2026-10-11.
 This includes new and existing installations owned by this product. External
@@ -71,7 +220,7 @@ within the implemented format/ABI boundary. No invented empty vendor state,
 licensing bypass, arbitrary process termination, root filesystem unlock, or
 unrelated visual rewrite.
 
-## Platforms and catalogue
+#### Platforms and catalogue
 
 Ubuntu 26.04.1 x86-64 and CachyOS 260809 x86-64 have clean and populated disposable
 baselines. Use the same candidate source and component manifest with target
@@ -92,14 +241,14 @@ The earlier rule accepting a catalogue explanation for unmatched module bytes
 is withdrawn by the operator's 2026-10-02 correction. General publication uses a
 reusable precompiled engine and locally prepared data, without a customer build.
 
-## Acceptance method
+#### Acceptance method
 
 These are prospective requirements. No source review, previous short run or
 passing component suite closes them. Every released claim identifies its exact
 platform, DAW, plug-in/module/class, license channel, runtime/profile, native and
 Windows components, format, workload and observation duration.
 
-### Candidate and fixtures
+##### Candidate and fixtures
 
 The final qualification uses one frozen release source and complete component
 manifest with declared platform builds. Keep the exact predecessor, original
@@ -116,7 +265,7 @@ Deck, then the declared commercial catalogue. Use working project copies and
 lawful save-capable configurations. Save-disabled demos cannot establish recall;
 normal vendor login, EULA and device selection remain user actions.
 
-### Unfamiliar plug-ins and advanced compatibility
+##### Unfamiliar plug-ins and advanced compatibility
 
 Use the workflow in [architecture section 18.6](ARCHITECTURE.md#186-general-preparation-and-compatibility-experimentation).
 These are required acceptance cases, not results:
@@ -153,7 +302,7 @@ separate from local results. A machine capability refresh must preserve licensed
 environment identity. No new physical audio/GPU claim follows from these source
 or reference tests; commercial and platform acceptance below still applies.
 
-### Audio and reconfiguration
+##### Audio and reconfiguration
 
 Restore continuity at the declared 48 kHz / 512-frame Deck setting first. The
 recovery targets then include actual host blocks of 256, 128 and 64 frames. A
@@ -181,7 +330,7 @@ Report bridge and vendor delay separately and notify the DAW when latency change
 Compare yabridge only with matched supported host installations and the same
 hardware, plug-in, preset and workload; disclose unmatched sandbox/runtime factors.
 
-### Interaction and sustained operation
+##### Interaction and sustained operation
 
 For each platform's declared release instrument/effect chain, the minimum
 sustained gate is a 30-minute interaction run followed by a two-hour soak on the
@@ -202,7 +351,7 @@ must be distinguishable from bridge failure. A clean subsection of a failed
 lifetime is not a pass. A broken no-plug-in recorder invalidates the affected
 comparison rather than proving a bridge regression.
 
-### Customer workflow and failure recovery
+##### Customer workflow and failure recovery
 
 Retain three cold loads including reboot, five warm loads, three editor
 close/reopen cycles per product and two repetitions of each supported recovery
@@ -228,7 +377,7 @@ recovery, retain the predecessor, and confirm retirement before reuse. Fix and
 rerun the two known runtime cleanup failures and required manager/native checks;
 do not waive them because the audio comparison passes.
 
-### Release completion
+##### Release completion
 
 Review the actual production changes and required checks; rebuild and verify the
 declared release artifacts, signatures/trust configuration, exact third-party
@@ -243,7 +392,7 @@ component results with their provenance, rerun affected checks and complete the
 final musician workflow on the candidate actually proposed for release. Preserve
 historical failures below without relabeling them under this contract.
 
-## Audio phase measurement
+#### Audio phase measurement
 
 The source successor keeps whole-session counters and separately counts startup
 and processing delivery. A callback is processing only when the worker has
@@ -263,7 +412,7 @@ and confirmed retirement determine acceptance. All 19 queued-backend tests pass.
 This is source instrumentation, absent from internal32. Earlier unphased runs
 are not retroactively described as clean processing.
 
-## Delivery and reporting
+#### Delivery and reporting
 
 Internal56's physical Deck update/save/reopen completed ordinary controls,
 but audio remains failed. First traced recall lost 2,048 Pure LoFi frames before

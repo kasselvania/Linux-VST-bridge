@@ -11,6 +11,38 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+## Current release qualification
+
+**No Beta RC is cut or accepted.** Current state is Beta Feature Candidate in
+integration. Candidate product versions and runtime identity are not yet pinned;
+“—” below means no acceptance on a frozen RC, not a new failure or a ban on use.
+The scoped installed observations below remain valid only for their stated builds
+and behaviors. They do not combine into a current-release pass.
+
+| Product/version | OS | DAW | Runtime | Install | Audio | Editor | Recall | Maintenance | Status |
+|---|---|---|---|---|---|---|---|---|---|
+| Reference / pending RC | CachyOS | REAPER | Unpinned | — | — | — | — | — | Unqualified |
+| Reference / pending RC | SteamOS | Bitwig | Unpinned | — | — | — | — | — | Unqualified |
+| Tyrell / pending RC | CachyOS | REAPER | Unpinned | — | — | — | — | — | Unqualified |
+| Tyrell / pending RC | SteamOS | Bitwig | Unpinned | — | — | — | — | — | Unqualified |
+| Native Access → Kontakt / pending RC | CachyOS | REAPER | Unpinned | — | — | — | — | — | Unqualified |
+| Native Access → Kontakt / pending RC | SteamOS | Bitwig | Unpinned | — | — | — | — | — | Unqualified |
+| Serum 2 / pending RC | CachyOS | REAPER | Unpinned | — | — | — | — | — | Unqualified |
+| Serum 2 / pending RC | SteamOS | Bitwig | Unpinned | — | — | — | — | — | Unqualified |
+| Supermassive / pending RC | CachyOS | REAPER | Unpinned | — | — | — | — | — | Unqualified |
+| Supermassive / pending RC | SteamOS | Bitwig | Unpinned | — | — | — | — | — | Unqualified |
+| CHOW Tape Model / pending RC | CachyOS | REAPER | Unpinned | — | — | — | — | — | Unqualified |
+| CHOW Tape Model / pending RC | SteamOS | Bitwig | Unpinned | — | — | — | — | — | Unqualified |
+
+Freq Echo and ChowCentaur require extended checks on at least one target; exact
+versions/target remain to be selected. Musio remains unqualified and requires
+classification, not full support, for RC promotion. The
+[release contract](INTEGRATED_BETA_DELIVERY.md#acceptance-method) defines the
+required workflows and evidence invalidation. Populate this table only with
+measurements tied to the candidate being proposed, including known limitations.
+
+## Scoped installed results and historical observations
+
 Test254 / SteamOS Deck / REAPER 7.82 / retained first-party setups,
 **Console update, instance recovery and explicit repair passed** (2026-10-24):
 the signed installer → Open Setup → Update Bridge route recovered the retained
