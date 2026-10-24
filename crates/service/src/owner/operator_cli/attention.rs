@@ -70,6 +70,29 @@ mod tests {
         assert_eq!(serde_json::to_value(&snapshot.onboarding).unwrap(), before);
     }
     #[test]
+    fn untouched_import_remains_in_setup_without_a_problem_banner() {
+        let mut snapshot = fixture();
+        snapshot.onboarding.clear();
+        let setup = &mut snapshot.installer_setups[0];
+        setup.phase = ui::SetupPhase::Imported;
+        setup.environment = None;
+        setup.discovered.clear();
+        setup.primary = Some(action("Install", ui::Action::SoftwareInstall {
+            installer: setup.installer.clone(), daw: ui::DawChoice::Other,
+        }, None));
+        let view = project(&snapshot, &Default::default());
+        assert_eq!(view.setups.len(), 1);
+        assert_eq!(view.setups[0].disposition, Disposition::InProgress);
+        assert!(view.attention.is_empty());
+        snapshot.installer_setups[0].primary = None;
+        let unavailable = project(&snapshot, &Default::default());
+        assert_eq!(unavailable.setups[0].disposition, Disposition::NeedsAttention);
+        assert_eq!(unavailable.attention.len(), 1, "an import that cannot proceed still needs attention");
+        snapshot.installer_setups[0].phase = ui::SetupPhase::CleanupUnconfirmed;
+        assert_eq!(project(&snapshot, &Default::default()).attention.len(), 1,
+            "a real installation cleanup failure cannot disappear");
+    }
+    #[test]
     fn one_failed_connection_names_and_routes_only_its_exact_build() {
         let mut snapshot = fixture();
         let mut healthy = snapshot.products[0].clone(); healthy.name = "Healthy sibling".into();
@@ -307,7 +330,12 @@ fn project(snapshot: &ui::Snapshot, bindings: &std::collections::BTreeMap<String
     let mut covered = std::collections::HashSet::new();
     let states = setups.into_iter().map(|setup| {
         let state = setup_state(setup, snapshot, bindings);
-        if !matches!(state.disposition, Disposition::Complete | Disposition::SettledHistory) {
+        // Importing a usable installer is not an interrupted installation.
+        // Keep it in Setup, without presenting untouched work as a problem.
+        let untouched = setup.phase == ui::SetupPhase::Imported && setup.journey.is_none()
+            && setup.environment.is_none() && setup.discovered.is_empty()
+            && state.disposition == Disposition::InProgress;
+        if !untouched && !matches!(state.disposition, Disposition::Complete | Disposition::SettledHistory) {
             let failed: Vec<_> = setup.journey.iter().flat_map(|journey| &journey.plugins)
                 .filter(|p| p.failure.is_some() || matches!(p.stage, Stage::NeedsAttention | Stage::ReplacementRequired)).collect();
             let exact = if failed.len() == 1 { state.connections.iter().find(|c| c.selection == failed[0].selection)
