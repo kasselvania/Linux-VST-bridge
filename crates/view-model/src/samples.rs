@@ -1157,15 +1157,15 @@ pub fn display_fixture(snapshot: &mut model::Snapshot) {
     let assess = Action::CandidateGraphicsAssess {candidate:original.clone()};
     let record = Action::CompatibilityResult {candidate:original.clone(), expected_current:current,
         result:TestResultKind::Worked, passed:vec![], failed_area:None, note:String::new()};
-    let accessibility = Action::CandidateSettingsPrepare {candidate:original.clone(),
-        settings:LocalSettings {graphics:None,accessibility:AccessibilityChoice::ProfileDefault},
-        expected_current:None};
+    let accessibility = Action::CandidateSettingsTest {candidate:original.clone(),
+        settings:LocalSettings {graphics:None,accessibility:AccessibilityChoice::WindowsDefault},
+        expected_current:Some(PublicationIdentity {id:"ab".repeat(16),sha256:"cd".repeat(32)})};
     for (label, action, reason) in [
         ("Open on its own", open.clone(), None), ("Show the plug-in window", focus, None), ("Close this plug-in window", close, None),
         ("Prepare display trial", prepare.clone(), None), ("Try this prepared display mode", choose.clone(), None),
         ("Record this editor result", record.clone(), None),
         ("Check the current display setting", assess.clone(), None),
-        ("Prepare accessibility trial", accessibility.clone(), Some("Close this exact plug-in window before preparing its accessibility trial.")),
+        ("Use Windows accessibility defaults", accessibility.clone(), Some("Close this exact plug-in window before changing its accessibility settings.")),
     ] { p.actions.push(AvailableAction {label:label.into(),action,disabled_reason:reason.map(str::to_owned)}); }
     let failed = DisplayResult {candidate:original.clone(), ordinal:2, recorded_at:1_700_000_000,
         status:DisplayTestStatus::Failed, witness:DisplayWitness::Operator, detail:"The editor remained blank after opening it in the DAW.".into()};
@@ -1191,7 +1191,26 @@ pub fn display_fixture(snapshot: &mut model::Snapshot) {
             _ => None,
         };
     }
+    let current_settings = LocalSettings {graphics:None, accessibility:AccessibilityChoice::DisabledForHost};
+    let mut settings_choices = vec![];
+    let baseline = PublicationIdentity {id:"ab".repeat(16),sha256:"cd".repeat(32)};
+    for graphics in [None,Some(GraphicsBackend::WineD3d11)] {
+        for accessibility in [AccessibilityChoice::WindowsDefault,AccessibilityChoice::DisabledForHost] {
+            let settings = LocalSettings {graphics,accessibility};
+            if settings == current_settings {continue;}
+            let action = Action::CandidateSettingsTest {candidate:original.clone(),settings:settings.clone(),expected_current:Some(baseline.clone())};
+            settings_choices.push(DisplaySettingsChoice {settings, effective_accessibility:match accessibility {
+                AccessibilityChoice::WindowsDefault => EffectiveAccessibility::WindowsDefault,
+                _ => EffectiveAccessibility::DisabledForHost,
+            },action:action.clone()});
+            if !p.actions.iter().any(|offer|offer.action == action) {
+                p.actions.push(AvailableAction {label:"Use this and test".into(),action,disabled_reason:None});
+            }
+        }
+    }
     p.display = Observation::Observed(DisplayConfiguration {observed_candidate:original.clone(), selected_candidate:Some(original.clone()),
+        settings:DisplaySettings {candidate:original.clone(),expected_current:Some(baseline),current:current_settings,
+            effective_accessibility:EffectiveAccessibility::DisabledForHost,choices:settings_choices},
         modes:vec![DisplayModeChoice {backend:None,label:"Runtime defaults".into(),selected:true,suggested:false,prepare:None,
             last_result:Observation::Observed(Some(failed.clone())), trials:vec![DisplayTrial {candidate:original.clone(),
                 settings:LocalSettings {graphics:None,accessibility:AccessibilityChoice::DisabledForHost},predecessor:None,previous_publication:None,current_inputs:true,selected:true,last_result:Observation::Observed(Some(failed)),

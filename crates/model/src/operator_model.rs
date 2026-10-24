@@ -97,6 +97,13 @@ pub enum Action {
         settings: LocalSettings,
         expected_current: Option<PublicationIdentity>,
     },
+    /// Prepare these exact local choices and select their reversible test publication.
+    /// This does not record a passing test or start a plug-in instance.
+    CandidateSettingsTest {
+        candidate: String,
+        settings: LocalSettings,
+        expected_current: Option<PublicationIdentity>,
+    },
     CandidateGraphicsPrepare {
         candidate: String,
         backend: Option<GraphicsBackend>,
@@ -960,6 +967,7 @@ impl Action {
                 | Self::CandidateHistoryComplete { .. }
                 | Self::CandidateGraphicsAssess { .. }
                 | Self::CandidateGraphicsPrepare { .. }
+                | Self::CandidateSettingsTest { .. }
                 | Self::DependencyPrepare {}
                 | Self::RendererDiscover {}
                 | Self::RendererOpen { .. }
@@ -1018,6 +1026,7 @@ mod tests {
         for action in [
             Action::CandidateHistoryComplete {candidate:candidate.clone(),expected_history:"history".into()},
             Action::CompatibilityPublishTest {candidate:candidate.clone(),expected_current:Some(current.clone())},
+            Action::CandidateSettingsTest {candidate:candidate.clone(),settings:LocalSettings::default(),expected_current:Some(current.clone())},
             Action::CompatibilityResult {candidate:candidate.clone(),expected_current:current.clone(),
                 result:TestResultKind::Worked,passed:vec![],failed_area:None,note:String::new()},
             Action::CompatibilityFinishResult {operation:"operation".into()},
@@ -1067,6 +1076,18 @@ mod tests {
             command_sha256:"c".into(),confirmed:false};
         assert_eq!(serde_json::to_value(&uninstall).unwrap(), serde_json::json!({"kind":"product_uninstall",
             "environment":"a","registration":"b","command_sha256":"c"}));
+    }
+    #[test]
+    fn settings_test_is_one_closed_action_with_exact_publication_and_affected_inactivity() {
+        let action = Action::CandidateSettingsTest {candidate:"ab".repeat(32),
+            settings:LocalSettings {graphics:Some(GraphicsBackend::WineD3d11),accessibility:AccessibilityChoice::DisabledForHost},
+            expected_current:Some(PublicationIdentity {id:"cd".repeat(16),sha256:"ef".repeat(32)})};
+        let mut wire = serde_json::to_value(&action).unwrap();
+        assert_eq!(wire["kind"],"candidate_settings_test");
+        assert_eq!(serde_json::from_value::<Action>(wire.clone()).unwrap(),action);
+        assert!(action.requires_inactive());
+        wire["automatically_play"] = serde_json::json!(true);
+        assert!(serde_json::from_value::<Action>(wire).is_err());
     }
     #[test]
     fn local_settings_trial_is_closed_typed_and_does_not_require_inactivity() {

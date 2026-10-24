@@ -128,11 +128,24 @@ impl Builder<'_> {
         let mut out = vec![Node::Header(vec![Node::PluginIdentity {name:card.name.clone(), detail:title.into()}, self.one(back)])];
         if let Some(notice) = &card.display.notice { out.push(text(notice)); }
         if page == ProductPage::Display {
-            out.push(words(Role::Body, "Choose a mode. Preparing it keeps your current setting until you select the prepared one."));
+            out.push(words(Role::Body, "Choose the display mode and Windows accessibility setting, then use them for a test."));
+            if let Some(settings) = &card.display.settings {
+                out.push(words(Role::Body, if settings.has_previous_settings {
+                    "Your previous settings are kept."
+                } else {"These settings make the plug-in available to test."}));
+            }
+            let selected = card.display.settings.as_ref().map(|settings| self.display_selection(settings));
             let mut modes = vec![];
             for mode in &card.display.modes {
                 let mut children = vec![Node::Label(mode.label.clone()), words(Role::Detail, mode.posture.clone()), text(&mode.result)];
-                children.extend(self.display_actions(&mode.prepare));
+                if let (Some(settings), Some((graphics, _))) = (&card.display.settings, &selected) {
+                    let chosen = *graphics == mode.backend;
+                    let choose = self.local(if chosen {"Chosen"} else {"Choose this mode"},
+                        if chosen {Importance::Primary} else {Importance::Secondary},
+                        Target::Choose {group:format!("display-mode:{}", settings.basis),
+                            key:serde_json::to_string(&mode.backend).unwrap()}, None);
+                    children.push(self.one(choose));
+                }
                 let mut prepared = vec![];
                 let mut history = vec![];
                 for trial in &mode.trials {
@@ -153,6 +166,32 @@ impl Builder<'_> {
                 modes.push(Node::Panel {kind:PanelKind::Card, children});
             }
             out.push(Node::Columns(modes));
+            if let (Some(settings), Some((graphics, accessibility))) = (&card.display.settings, selected) {
+                let mut controls = vec![Node::Label("Windows accessibility support".into()),
+                    words(Role::Detail, format!("Currently: {}{}.",
+                        plugins::display::accessibility_words(settings.effective_accessibility),
+                        if settings.current.accessibility == vm::model::AccessibilityChoice::ProfileDefault {
+                            " (automatic setting)"
+                        } else {""})),
+                    words(Role::Detail, "Turning it off can help some plug-in windows. This changes only the plug-in process; Linux input settings are unchanged.")];
+                let options = [
+                    (vm::model::AccessibilityChoice::WindowsDefault, "On · Windows defaults"),
+                    (vm::model::AccessibilityChoice::DisabledForHost, "Off for this plug-in"),
+                ].into_iter().map(|(choice, label)| self.local(label,
+                    if choice == accessibility {Importance::Primary} else {Importance::Secondary},
+                    Target::Choose {group:format!("display-accessibility:{}", settings.basis),
+                        key:serde_json::to_string(&choice).unwrap()}, None)).collect();
+                controls.push(self.actions("display-accessibility", options));
+                let wanted = vm::model::LocalSettings {graphics,accessibility};
+                if let Some(choice) = settings.choices.iter().find(|choice| choice.settings == wanted) {
+                    controls.extend(self.display_actions(&choice.action));
+                } else {
+                    controls.push(words(Role::Detail, if wanted == settings.current {
+                        "These are the current settings. Choose a change to test."
+                    } else {"This exact settings choice is not currently offered. Refresh the plug-in controls."}));
+                }
+                out.push(Node::Panel {kind:PanelKind::Card, children:controls});
+            }
         } else {
             out.push(words(Role::Body, "Try one change at a time. Review what each step changes before continuing."));
             let mut rows = vec![];
@@ -176,6 +215,19 @@ impl Builder<'_> {
         }
         if let Some(provenance) = &card.display.provenance { out.push(self.fold(provenance)); }
         Node::Stack(out)
+    }
+    fn display_selection(&self, settings: &plugins::display::DisplaySettings)
+        -> (Option<vm::model::GraphicsBackend>, vm::model::AccessibilityChoice) {
+        let graphics = self.ui.choices.get(&format!("display-mode:{}", settings.basis))
+            .and_then(|value| serde_json::from_str(value).ok()).unwrap_or(settings.current.graphics);
+        let effective = match settings.effective_accessibility {
+            vm::model::EffectiveAccessibility::WindowsDefault => vm::model::AccessibilityChoice::WindowsDefault,
+            vm::model::EffectiveAccessibility::DisabledForHost => vm::model::AccessibilityChoice::DisabledForHost,
+        };
+        let accessibility = self.ui.choices.get(&format!("display-accessibility:{}", settings.basis))
+            .and_then(|value| serde_json::from_str(value).ok())
+            .filter(|choice| *choice != vm::model::AccessibilityChoice::ProfileDefault).unwrap_or(effective);
+        (graphics, accessibility)
     }
     fn display_trial(&mut self, trial: &plugins::display::DisplayTrial) -> Vec<Node> {
         let mut out = vec![];

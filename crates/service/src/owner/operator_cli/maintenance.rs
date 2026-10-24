@@ -384,6 +384,29 @@ mod tests {
         lease
     }
     #[test]
+    fn settings_test_refuses_affected_live_users_and_preserves_unrelated_setup() {
+        let (f, base) = preparation_cli::tests::projection_fixture();
+        atomic_json(&f.m.root.join("software.json"), &preparation_cli::tests::projection_software(&base)).unwrap();
+        linux_vst_bridge::preparation::record_candidate(&f.m, &base).unwrap();
+        let baseline = linux_vst_bridge::preparation::enable(&f.m, &base, false).unwrap();
+        let action = ui::Action::CandidateSettingsTest {candidate:base.id().unwrap(),
+            settings:ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
+                accessibility:ui::AccessibilityChoice::DisabledForHost},
+            expected_current:Some(ui::PublicationIdentity {id:baseline.id,sha256:baseline.sha256})};
+        let other = second_setup(&f);
+        let sibling = retained_user(&f.m, &other);
+        let sibling_before = fs::read(&sibling).unwrap();
+        assert!(offer_refusal(&f.m, &action).unwrap().is_none());
+        require_operator_inactive_with(&f.m, &action, &idle_capacity_test, None, Duration::from_secs(1), &mut vec![]).unwrap();
+        let affected = retained_user(&f.m, &base.selection.environment);
+        let affected_before = fs::read(&affected).unwrap();
+        assert!(offer_refusal(&f.m, &action).unwrap().is_some());
+        assert!(require_operator_inactive_with(&f.m, &action, &idle_capacity_test, None, Duration::from_secs(1), &mut vec![]).is_err());
+        assert_eq!(fs::read(&affected).unwrap(), affected_before);
+        assert_eq!(fs::read(&sibling).unwrap(), sibling_before);
+    }
+
+    #[test]
     fn maintenance_reserves_only_its_setup_and_preserves_unrelated_user() {
         let (f, _) = preparation_cli::tests::projection_fixture();
         f.m.register(f.r.clone()).unwrap();

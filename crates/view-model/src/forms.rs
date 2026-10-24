@@ -150,7 +150,7 @@ pub fn route(action: Action, daw: Option<DawChoice>) -> Route {
 /// Removing from the DAW or deleting a setup always asks first.
 pub fn needs_confirmation(action: &Action) -> bool {
     matches!(action, Action::PluginRemoveFromDaw { .. } | Action::SetupRemoveFromDaw { .. }
-        | Action::SetupDelete { .. } | Action::ProductUninstall { .. } | Action::EnvironmentRuntimeSelect { .. } | Action::PluginRestart { .. })
+        | Action::SetupDelete { .. } | Action::ProductUninstall { .. } | Action::EnvironmentRuntimeSelect { .. } | Action::PluginRestart { .. } | Action::CandidateSettingsTest { .. })
 }
 /// Setup-level removal offers live in their own section of the setup card.
 pub fn removal_offer(action: &Action) -> bool {
@@ -213,6 +213,24 @@ fn confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirmation {
             forget: None };
     };
     match action {
+        Action::CandidateSettingsTest {settings, expected_current, ..} => Confirmation {
+            title:"Use these settings and test?",
+            body:vec![format!("Display mode: {}. Windows accessibility: {}.",
+                if settings.graphics.is_some() {"Wine Direct3D 11"} else {"Runtime defaults"},
+                match settings.accessibility {
+                    crate::model::AccessibilityChoice::WindowsDefault => "Windows defaults",
+                    crate::model::AccessibilityChoice::DisabledForHost => "off for this plug-in",
+                    crate::model::AccessibilityChoice::ProfileDefault => "the resolved profile default",
+                }),
+                if expected_current.is_some() {
+                    "Your previous settings are kept so you can restore them. Other setups and Windows installations are unchanged."
+                } else {
+                    "This makes the plug-in available for a test. You can remove the test from your DAW afterward; its Windows installation stays in place."
+                }.into(),
+                "After the change, reopen this plug-in in your DAW, check its editor, and report whether it works.".into()],
+            confirm:"Use this and test", cancel:"Keep choosing",
+            offer:current(snapshot.products.iter().flat_map(|product| &product.actions).collect()), forget:None,
+        },
         Action::PluginRestart { snapshot:state, .. } => Confirmation {
             title:"Restart this plug-in instance?",
             body:vec![crate::recovery::LOSS_WARNING.into(),
@@ -509,6 +527,27 @@ pub fn compatibility_result_refusal<'a>(offer: Option<&'a Result<ResultOffers, &
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn settings_test_confirmation_rechecks_exact_choices_baseline_and_owner_refusal() {
+        let mut snapshot = crate::samples::base();
+        crate::samples::display_fixture(&mut snapshot);
+        let action = snapshot.products[0].actions.iter().find(|offer|offer.disabled_reason.is_none()
+            && matches!(offer.action,Action::CandidateSettingsTest {..})).unwrap().action.clone();
+        assert!(matches!(route(action.clone(),None),Route::Confirm(_)));
+        let confirmation = removal_confirmation(Some(&snapshot),&action);
+        assert_eq!(confirmation.confirm,"Use this and test");
+        assert_eq!(confirmation.offer.unwrap().action,action);
+        assert!(confirmation.body.iter().any(|line|line.contains("reopen this plug-in in your DAW")));
+        let offer = snapshot.products[0].actions.iter_mut().find(|offer|offer.action == action).unwrap();
+        offer.disabled_reason = Some("The affected instance is active".into());
+        assert_eq!(removal_confirmation(Some(&snapshot),&action).offer.unwrap_err(),"The affected instance is active");
+        let offer = snapshot.products[0].actions.iter_mut().find(|offer|offer.action == action).unwrap();
+        offer.disabled_reason = None;
+        let Action::CandidateSettingsTest {expected_current:Some(current),..} = &mut offer.action else {panic!()};
+        current.sha256 = "ff".repeat(32);
+        assert!(removal_confirmation(Some(&snapshot),&action).offer.is_err());
+    }
 
     #[test]
     fn edited_result_rejoins_its_own_variant_and_exact_publication() {

@@ -4,6 +4,7 @@
 Runs hidden native sample windows. These check layout and navigation only;
 service behavior and physical touch are qualified on the installed Linux route.
 """
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -19,7 +20,7 @@ class ProductApp(ui.App):
 
 class ConsoleLayout(unittest.TestCase):
     def test_display_and_repair_are_focused_subpages_at_desktop_and_deck_widths(self):
-        reason = "Close this exact plug-in window before preparing its accessibility trial."
+        reason = "Close this exact plug-in window before changing its accessibility settings."
         for width in (1280, 640):
             with self.subTest(width=width), ProductApp("console-display", "--display-fixture",
                     "--state=plugin_ready", "--page=plugins", f"--size={width}x800") as app:
@@ -47,7 +48,7 @@ class ConsoleLayout(unittest.TestCase):
                 app.mouse("click", record)
                 app.scroll_to("Record this test result", viewport="form_scroll")
                 app.key("Escape", wait=True)
-                usable("Prepare Wine D3D11 · default accessibility")
+                usable("Choose this mode")
                 self.assertIsNone(app.find("Use this prepared setup"))
                 app.mouse("click", reveal("Choose a prepared setting…"))
                 usable("Use this prepared setup")
@@ -60,10 +61,10 @@ class ConsoleLayout(unittest.TestCase):
                 usable("Open on its own")
                 self.assertIsNone(app.find("Prepare Wine D3D11 · default accessibility"))
                 app.mouse("click", usable("Choose…"))
-                usable("Prepare Wine D3D11 · default accessibility")
+                usable("Choose this mode")
                 app.mouse("click", usable("Back to plug-in"))
                 app.mouse("click", usable("Fix it step by step"))
-                blocked = usable("Prepare runtime defaults · default accessibility")
+                blocked = usable("Use this and test")
                 self.assertNotIn("shown above", repr(app.snapshot()))
                 app.capture(f"repair-refusal-{width}")
                 app.mouse("click", blocked)
@@ -72,6 +73,32 @@ class ConsoleLayout(unittest.TestCase):
                 self.assertEqual(usable("Fix it step by step")["i"], initial_fix,
                                  "Back must retain the exact product identity")
                 app.no_capture(mark)
+                # Select both choices locally, then send one confirmed owner
+                # operation. Retained prepared-history controls above remain a
+                # separate, exact historical path.
+                app.mouse("click", usable("Display mode"))
+                app.mouse("click", usable("Choose this mode"))
+                app.mouse("click", usable("On · Windows defaults"))
+                app.no_capture(mark)
+                app.mouse("click", usable("Use this and test"))
+                app.no_capture(mark)
+                confirm = app.scroll_to("Use this and test", viewport="form_scroll", prefix="local.")
+                self.assertGreaterEqual(confirm["r"][3], 44)
+                self.assertLessEqual(confirm["r"][0] + confirm["r"][2], width)
+                app.capture(f"display-test-confirmation-{width}")
+                app.mouse("click", confirm)
+                self.assertEqual(usable("Fix it step by step")["i"], initial_fix,
+                                 "The confirmed test returns to the same exact plug-in readiness page")
+                self.assertIsNone(app.find("Back to plug-in"))
+                app.capture(f"display-test-readiness-{width}")
+                app.key("Enter", wait=True)
+                captured = [line for line in app.logs(mark) if "Captured, not sent" in line]
+                self.assertEqual(len(captured), 1, "One explicit choice must capture exactly one request")
+                action = json.loads(captured[0].split("): ", 1)[1])
+                self.assertEqual(action["kind"], "candidate_settings_test")
+                self.assertEqual(action["candidate"], "ab" * 32)
+                self.assertEqual(action["expected_current"], {"id": "ab" * 16, "sha256": "cd" * 32})
+                self.assertEqual(action["settings"], {"graphics": "wine_d3d11", "accessibility": "windows_default"})
 
     def test_restart_confirmation_names_possible_lost_changes_and_cancels(self):
         for width in (1280, 640):

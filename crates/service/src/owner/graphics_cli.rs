@@ -125,6 +125,23 @@ pub(super) fn project(m: &Manager, product: &mut ui::Product,
                     choices.push((label, settings));
                 }
             }
+            // The ordinary page chooses an exact, explicit process setting.
+            // Do not resolve current profile advice (or hash runtime DLLs) while
+            // projecting it. ProfileDefault preparation remains an expert step.
+            for graphics in [None, Some(ui::GraphicsBackend::WineD3d11)] {
+                for accessibility in [ui::AccessibilityChoice::WindowsDefault,
+                    ui::AccessibilityChoice::DisabledForHost] {
+                    let settings = ui::LocalSettings { graphics, accessibility };
+                    if settings == selected { continue; }
+                    product.actions.push(ui::AvailableAction {
+                        label: "Use this and test".into(),
+                        action: ui::Action::CandidateSettingsTest {candidate:base.id()?, settings,
+                            expected_current:current.map(|current| ui::PublicationIdentity {
+                                id:current.id.clone(), sha256:current.sha256.clone() })},
+                        disabled_reason: blocked.map(str::to_owned),
+                    });
+                }
+            }
             for (label, settings) in choices {
                 product.actions.push(ui::AvailableAction {
                     label: label.into(),

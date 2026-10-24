@@ -7,12 +7,14 @@ use crate::{model::{self, Action, AvailableAction, Observation, Product},
 pub struct DisplayView {
     pub notice: Option<Text>,
     pub modes: Vec<DisplayMode>,
+    pub settings: Option<DisplaySettings>,
     pub repairs: Vec<RepairStep>,
     pub provenance: Option<Disclosure>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DisplayMode {
+    pub backend: Option<model::GraphicsBackend>,
     pub label: String,
     pub posture: String,
     pub result: Text,
@@ -36,6 +38,27 @@ pub struct DisplayTrial {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct DisplaySettings {
+    /// Local drafts are tied to the exact candidate and expected publication.
+    pub basis: String,
+    pub has_previous_settings: bool,
+    pub current: model::LocalSettings,
+    pub effective_accessibility: model::EffectiveAccessibility,
+    pub choices: Vec<DisplaySettingsChoice>,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct DisplaySettingsChoice {
+    pub settings: model::LocalSettings,
+    pub action: OfferRow,
+}
+pub fn accessibility_words(value: model::EffectiveAccessibility) -> &'static str {
+    match value {
+        model::EffectiveAccessibility::WindowsDefault => "On · Windows defaults",
+        model::EffectiveAccessibility::DisabledForHost => "Off for this plug-in",
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct RepairStep {
     pub kind: model::RepairStepKind,
     pub label: String,
@@ -46,6 +69,7 @@ pub struct RepairStep {
 pub(super) fn references(product: &Product) -> Vec<Action> {
     let Some(display) = product.display.observed() else { return vec![]; };
     display.modes.iter().flat_map(|mode| mode.prepare.iter().chain(mode.trials.iter().flat_map(|trial| &trial.actions)))
+        .chain(display.settings.choices.iter().map(|choice| &choice.action))
         .chain(display.repair.steps.iter().filter_map(|step| step.action.as_ref())).cloned().collect()
 }
 
@@ -54,7 +78,7 @@ pub(super) fn references(product: &Product) -> Vec<Action> {
 pub(super) fn build(product: &Product, busy: Option<&str>, pending: bool) -> DisplayView {
     let Observation::Observed(display) = &product.display else {
         return DisplayView { notice: Some(Text::detail("Display choices and repair steps are unavailable. Refresh the plug-in controls to check again.")),
-            modes: vec![], repairs: vec![], provenance: None };
+            modes: vec![], settings: None, repairs: vec![], provenance: None };
     };
     let mut resolver = Resolver { product, busy, pending };
     let modes = display.modes.iter().map(|mode| {
@@ -66,6 +90,7 @@ pub(super) fn build(product: &Product, busy: Option<&str>, pending: bool) -> Dis
         let shown_result = selected.map(|trial| &trial.last_result)
             .unwrap_or(if mode.selected { &missing_selected } else { &mode.last_result });
         DisplayMode {
+        backend: mode.backend,
         label: mode.label.clone(),
         posture: if selected.is_some_and(|trial| !trial.current_inputs) {
             "Current display setting · needs checking after setup changes"
@@ -104,6 +129,16 @@ pub(super) fn build(product: &Product, busy: Option<&str>, pending: bool) -> Dis
             }),
         }).collect(),
     }}).collect();
+    let settings = DisplaySettings {
+        basis: serde_json::to_string(&(&display.settings.candidate, &display.settings.expected_current)).unwrap(),
+        has_previous_settings: display.settings.expected_current.is_some(),
+        current: display.settings.current.clone(),
+        effective_accessibility: display.settings.effective_accessibility,
+        choices: display.settings.choices.iter().map(|choice| DisplaySettingsChoice {
+            settings: choice.settings.clone(),
+            action: resolver.actions(std::iter::once(&choice.action), None),
+        }).collect(),
+    };
     let repairs = display.repair.steps.iter().map(|step| RepairStep {
         kind: step.kind,
         label: step.label.clone(), detail: step.detail.clone(),
@@ -113,7 +148,7 @@ pub(super) fn build(product: &Product, busy: Option<&str>, pending: bool) -> Dis
         display.repair.profile_id, display.repair.profile_revision)).into(),
         Text::detail(format!("Observed candidate: {}", display.observed_candidate)).into()];
     evidence.extend(display.repair.evidence.iter().map(|line| Text::detail(line).into()));
-    DisplayView { notice: None, modes, repairs, provenance: Some(Disclosure::new("About these repair steps", evidence)) }
+    DisplayView { notice: None, modes, settings: Some(settings), repairs, provenance: Some(Disclosure::new("About these repair steps", evidence)) }
 }
 
 fn technical(action: &Action) -> bool {
@@ -194,6 +229,31 @@ mod tests {
         snapshot
     }
     #[test]
+    fn display_settings_keep_resolved_accessibility_and_exact_offer_refusals() {
+        let mut snapshot = fixture();
+        let p = &mut snapshot.products[0];
+        let Observation::Observed(display) = &mut p.display else {panic!()};
+        display.settings.current.accessibility = model::AccessibilityChoice::ProfileDefault;
+        display.settings.effective_accessibility = model::EffectiveAccessibility::DisabledForHost;
+        let action = display.settings.choices[0].action.clone();
+        p.actions.iter_mut().find(|offer| offer.action == action).unwrap().disabled_reason = Some("Close the affected instance".into());
+        let view = build(p,None,true);
+        let settings = view.settings.unwrap();
+        assert!(settings.has_previous_settings);
+        assert_eq!(settings.current.accessibility,model::AccessibilityChoice::ProfileDefault);
+        assert_eq!(accessibility_words(settings.effective_accessibility),"Off for this plug-in");
+        let choice = settings.choices.iter().find(|choice| choice.action.offers.iter().any(|offer|offer.intent == action)).unwrap();
+        assert_eq!(choice.action.offers[0].availability, offers::Availability::Refused("Close the affected instance".into()));
+        assert!(settings.choices.iter().flat_map(|choice|&choice.action.offers).all(|offer|offer.pressed().is_none()));
+        p.actions.retain(|offer|offer.action != action);
+        let Observation::Observed(display) = &mut p.display else {panic!()};
+        display.settings.expected_current = None;
+        let view = build(p,None,false);
+        assert!(!view.settings.as_ref().unwrap().has_previous_settings);
+        assert!(!view.settings.as_ref().unwrap().choices.iter().flat_map(|choice|&choice.action.offers).any(|offer|offer.intent == action));
+    }
+
+    #[test]
     fn display_choices_keep_owner_order_results_and_exact_current_actions() {
         let mut snapshot = fixture();
         let p = &mut snapshot.products[0];
@@ -217,7 +277,7 @@ mod tests {
         assert_eq!(view.repairs.iter().map(|step| step.label.as_str()).collect::<Vec<_>>(),
             display.repair.steps.iter().map(|step| step.label.as_str()).collect::<Vec<_>>());
         assert_eq!(view.repairs[3].actions.offers[0].availability,
-            offers::Availability::Refused("Close this exact plug-in window before preparing its accessibility trial.".into()));
+            offers::Availability::Refused("Close this exact plug-in window before changing its accessibility settings.".into()));
         assert!(view.repairs[5].actions.offers.is_empty());
         assert!(view.repairs[5].actions.notes[0].contains("No previous settings"));
         assert_eq!(view.repairs[2].actions.offers[0].intent, view.modes[1].prepare.offers[0].intent,

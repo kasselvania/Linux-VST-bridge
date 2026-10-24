@@ -685,7 +685,7 @@ fn display_and_repair_are_local_pages_of_the_same_exact_product() {
     navigate(&mut preview,ProductPage::Overview);
     navigate(&mut preview,ProductPage::Repair);
     let blocked = preview.built.targets.iter().find_map(|(id,target)| matches!(target,
-        Target::Offer {offer,..} if offer.availability.reason()==Some("Close this exact plug-in window before preparing its accessibility trial."))
+        Target::Offer {offer,..} if offer.availability.reason()==Some("Close this exact plug-in window before changing its accessibility settings."))
         .then(||id.clone())).unwrap();
     assert_eq!(preview.press(&blocked,InputPath::Touch),Outcome::Refused);
     assert!(preview.captured.is_empty());
@@ -789,4 +789,56 @@ fn exact_instance_restart_confirms_loss_and_never_replays_a_cancelled_or_stale_c
         assert_eq!(preview.press(&confirm.id.0,InputPath::Keyboard),Outcome::Refused);
         assert_eq!(preview.captured.len(),1);
     }
+}
+
+#[test]
+fn display_chooses_one_exact_settings_test_confirms_and_returns_to_same_plugin() {
+    use lvb_view_model::{state::ProductPage,model::{AccessibilityChoice,GraphicsBackend,LocalSettings}};
+    let mut preview = Preview::new(Selection {state:state_index("plugin_ready"),page:Page::Plugins,..Selection::default()});
+    preview.display_fixture();
+    let key = preview.state.plugins.focused_product().unwrap().clone();
+    preview.state.plugins.page = ProductPage::Display;
+    preview.rebuild();
+    assert!(format!("{:?}",preview.built.page).contains("Your previous settings are kept."));
+    let mut first = preview.clone();
+    let lvb_view_model::model::Observation::Observed(display) = &mut first.sample.snapshot.products[0].display else {panic!()};
+    display.settings.expected_current = None;
+    first.rebuild();
+    let page = format!("{:?}",first.built.page);
+    assert!(page.contains("These settings make the plug-in available to test."));
+    assert!(!page.contains("Your previous settings are kept."));
+    assert!(preview.built.targets.values().all(|target| !matches!(target,
+        Target::Offer {offer,..} if matches!(offer.intent,Action::CandidateSettingsPrepare {..}))),
+        "the ordinary Display page does not split preparation from selection");
+    let choose = preview.built.targets.iter().find_map(|(id,target)| matches!(target,
+        Target::Choose {group,key} if group.starts_with("display-mode:")
+            && key == &serde_json::to_string(&Some(GraphicsBackend::WineD3d11)).unwrap()).then(||id.clone())).unwrap();
+    preview.press(&choose,InputPath::Touch);
+    assert!(preview.captured.is_empty());
+    let intended = LocalSettings {graphics:Some(GraphicsBackend::WineD3d11),accessibility:AccessibilityChoice::DisabledForHost};
+    let use_it = preview.built.targets.iter().find_map(|(id,target)| matches!(target,
+        Target::Offer {offer,..} if matches!(&offer.intent,Action::CandidateSettingsTest {settings,..}
+            if settings == &intended)).then(||id.clone())).unwrap();
+    preview.press(&use_it,InputPath::Keyboard);
+    assert!(preview.captured.is_empty());
+    let exact = preview.state.forms.confirm.clone().unwrap();
+    assert!(format!("{:?}",preview.built.form).contains("reopen this plug-in in your DAW"));
+    let confirm = form_control(&preview,FormStep::Confirm).unwrap();
+    let mut stale = preview.clone();
+    let offer = stale.sample.snapshot.products[0].actions.iter_mut().find(|offer|offer.action == exact).unwrap();
+    let Action::CandidateSettingsTest {expected_current:Some(baseline),..} = &mut offer.action else {panic!()};
+    baseline.sha256 = "ef".repeat(32);
+    stale.rebuild();
+    let held = form_control(&stale,FormStep::Confirm).unwrap();
+    assert!(held.reason().is_some());
+    assert_eq!(stale.press(&held.id.0,InputPath::Touch),Outcome::Refused);
+    assert!(stale.captured.is_empty());
+    preview.press(&confirm.id.0,InputPath::Keyboard);
+    assert_eq!(preview.captured,vec![(exact,true)]);
+    assert_eq!(preview.state.plugins.page,ProductPage::Overview);
+    assert_eq!(preview.state.plugins.focused_product(),Some(&key));
+    assert!(outside_folds(&preview.built.page).iter().any(|node|matches!(node,Node::Readiness {..})),
+        "the test returns to real readiness records, not a fabricated completion page");
+    assert_eq!(preview.press(&confirm.id.0,InputPath::Keyboard),Outcome::Refused);
+    assert_eq!(preview.captured.len(),1);
 }

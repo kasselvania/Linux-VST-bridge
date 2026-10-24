@@ -266,6 +266,9 @@ impl State {
     /// The window sent this request: every form that asked for it closes,
     /// including the confirmation it answers.
     pub fn sent(&mut self, action: &Action) {
+        if matches!(action, Action::CandidateSettingsTest { .. }) {
+            self.plugins.page = ProductPage::Overview;
+        }
         let forms = &mut self.forms;
         for form in [&mut forms.record, &mut forms.rename, &mut forms.install] {
             if form.as_ref() == Some(action) { *form = None; }

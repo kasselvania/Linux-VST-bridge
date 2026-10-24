@@ -228,6 +228,7 @@ pub fn action_label(offer: &AvailableAction) -> String {
         Action::CompatibilityResult { result: crate::model::TestResultKind::Problem {..}, .. } => "Report a problem…".into(),
         Action::CompatibilityFinishResult { .. } => offer.label.clone(),
         Action::CandidateGraphicsAssess { .. } => "Check the editor with these settings".into(),
+        Action::CandidateSettingsTest { .. } => "Use this and test".into(),
         Action::CandidateSettingsPrepare { settings, .. } => {
             let graphics = if settings.graphics.is_some() { "Wine D3D11" } else { "runtime defaults" };
             let accessibility = match settings.accessibility {
@@ -246,6 +247,7 @@ pub fn action_label(offer: &AvailableAction) -> String {
 
 pub fn action_consequence(action: &Action) -> Option<&'static str> {
     match action {
+        Action::CandidateSettingsTest { .. } => Some("Selects these display settings for this plug-in. Reopen it in your DAW, check its editor, and report whether it works."),
         Action::CompatibilityCheck { .. } => Some("Checks the installed plug-in and prepares a native bridge. Making it available is a separate step."),
         Action::PluginInspect { .. } | Action::PluginReinspect { .. } => Some("Checks the installed plug-in. Does not prepare or change the setup selected for your DAW."),
         Action::CandidateSettingsPrepare { settings, .. }

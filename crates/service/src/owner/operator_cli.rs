@@ -2689,6 +2689,7 @@ fn execute_with_receipt_policy_progress(
         | ui::Action::CandidateGraphicsAssess { .. }
         | ui::Action::CandidateGraphicsPrepare { .. }
         | ui::Action::CandidateSettingsPrepare { .. }
+        | ui::Action::CandidateSettingsTest { .. }
         | ui::Action::PluginReinspect { .. }
         | ui::Action::PluginInspect { .. }
         | ui::Action::PluginPrepare { .. }

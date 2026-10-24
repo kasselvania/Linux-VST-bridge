@@ -43,7 +43,7 @@ impl Builder<'_> {
             Ok(_) if pending => Some(offers::WAITING.to_string()),
             Ok(_) => None,
         };
-        let importance = if matches!(form, Action::EnvironmentRuntimeSelect { .. }) { Importance::Primary }
+        let importance = if matches!(form, Action::EnvironmentRuntimeSelect { .. } | Action::CandidateSettingsTest { .. }) { Importance::Primary }
             else { Importance::Destructive };
         let confirm = self.local(confirm, importance, Target::Form(FormStep::Confirm), reason);
         let cancel = self.local(cancel, Importance::Secondary, Target::Form(FormStep::CancelConfirm), None);
