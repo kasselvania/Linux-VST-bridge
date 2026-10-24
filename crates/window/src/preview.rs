@@ -369,6 +369,7 @@ impl Preview {
                 Outcome::Changed
             }
         };
+        self.state.retire_repair_if_left();
         let navigated = before != (self.state.page, self.state.plugins.focus.clone(), self.state.plugins.page, self.state.focus.clone());
         // The list brings the opened plug-in into view once.
         self.state.plugins.scroll_to_focus = false;
@@ -439,7 +440,8 @@ impl Preview {
             FormStep::ToggleForget => forms.forget_installer = !forms.forget_installer,
             FormStep::Confirm => {
                 let Some(form) = forms.confirm.clone() else { return };
-                let confirmation = forms::removal_confirmation(Some(&self.sample.snapshot), &form);
+                let confirmation = forms::confirmation_with_repair(Some(&self.sample.snapshot), &form, self.state.focus.repair.as_ref());
+                if confirmation.offer.is_err() {return;}
                 if let Some(action) = self.state.forms.confirmed(confirmation.forget.is_some()) {
                     self.capture(action, via, true);
                 }

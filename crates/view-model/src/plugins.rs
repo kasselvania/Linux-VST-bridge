@@ -2,6 +2,7 @@
 //! read-only list shown while a plug-in's controls load. No discovery,
 //! publication or launch authority: every control is a manager offer.
 pub mod display;
+pub mod repair;
 use super::offers::{self, Importance, Offer, OfferRow};
 use super::product::{self, daw_guidance, installation_progress, last_load_text, product_activity,
     product_daw, product_issue, recovery_pending, vendor_install_consequence};

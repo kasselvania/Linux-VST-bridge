@@ -610,6 +610,44 @@ mod tests {
         installer_import::import(&f.m,file(&path).unwrap()).unwrap()
     }
     #[test]
+    fn completed_setup_repair_reuses_exact_installer_and_refuses_changed_bytes_before_mutation() {
+        let (f, installer) = fixture();
+        let original = wrong_installer_setup(&f,&installer,Some("completed"));
+        let rows = projection(&f.m,&[],None,|_|Ok(false)).unwrap();
+        let row = rows.iter().find(|row|row.environment == original.id).unwrap();
+        let offered = row.choices.iter().find(|offer|offer.action.environment_installer_start()
+            .is_some_and(|(env,id,policy)|env == original.id && id == installer.id && policy.is_none())).unwrap();
+        assert!(offered.disabled_reason.is_none(),"the original file can run again after completion");
+        let environment_before = fs::read(original.environment.root.join("environment.json")).unwrap();
+        let unrelated = fs::read(f.r.environment.root.join("environment.json")).unwrap();
+        let history = fs::read(onboarding::directory(&f.m,&original.id).unwrap().join("record.json")).unwrap();
+        let registry = fs::read(f.m.root.join("registry.json")).unwrap();
+        let bytes = fs::read(&installer.artifact.path).unwrap();
+        for unknown in [true,false] {
+            let selected = if unknown {"ff".repeat(32)} else {installer.id.clone()};
+            if !unknown {fs::write(&installer.artifact.path,b"changed imported installer").unwrap();}
+            let op = job(&f.m,&original.id,&selected);
+            assert!(reserve_with(&f.m,&original.id,&selected,&op,||Ok(true),|_|Ok(false)).is_err());
+            assert!(!job_dir(&f.m,&op).unwrap().join("installation.json").exists());
+            assert_eq!(fs::read(original.environment.root.join("environment.json")).unwrap(),environment_before);
+            assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(),registry);
+        }
+        fs::write(&installer.artifact.path,bytes).unwrap();
+        let before = preconditions::observe(&f.m,&offered.action).unwrap().unwrap();
+        let op = job(&f.m,&original.id,&installer.id);
+        let bound = reserve_with(&f.m,&original.id,&installer.id,&op,||Ok(true),|_|Ok(false)).unwrap();
+        assert_eq!(bound.installer,installer.id);
+        assert_eq!(bound.environment.id,original.environment.id);
+        assert_eq!(bound.environment.root,original.environment.root);
+        assert_eq!(bound.before,original.environment);
+        assert_eq!(bound.preserve_existing_prefix,Some(true));
+        let after = preconditions::observe(&f.m,&offered.action).unwrap().unwrap();
+        assert!(preconditions::require_same(&before,&after).is_err(),"an earlier setup revision cannot authorize a later repair");
+        assert_eq!(fs::read(f.r.environment.root.join("environment.json")).unwrap(),unrelated);
+        assert_eq!(fs::read(onboarding::directory(&f.m,&original.id).unwrap().join("record.json")).unwrap(),history);
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(),registry);
+    }
+    #[test]
     fn wrong_installer_replacement_preserves_setup_before_launch_after_cancel_and_empty_discovery() {
         for state in [None,Some("cancelled"),Some("completed")] {
             let (f,wrong) = fixture();

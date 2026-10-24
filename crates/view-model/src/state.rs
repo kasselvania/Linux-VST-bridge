@@ -85,6 +85,8 @@ pub struct PageFocus {
     pub activity: Option<String>,
     /// A different installer being chosen for one setup.
     pub replacement: Option<InstallerReplacement>,
+    /// Explicit repair choice, bound to the exact plug-in and setup revision.
+    pub repair: Option<crate::plugins::repair::InstallerDraft>,
 }
 
 impl PageFocus {
@@ -196,6 +198,22 @@ impl State {
             Destination::Setup => self.page = Page::Setup,
             Destination::Diagnostics => self.page = Page::Diagnostics,
         }
+        self.retire_repair_if_left();
+    }
+
+    /// Leaving the exact Repair page retires its unsent installer choice.
+    /// A later Setup confirmation must use its own current installer offer.
+    pub fn retire_repair_if_left(&mut self) {
+        if self.focus.repair.as_ref().is_some_and(|draft|
+            self.page != Page::Plugins || self.plugins.page != ProductPage::Repair
+                || self.plugins.focused_product() != Some(&draft.product)) {
+            let draft = self.focus.repair.take().unwrap();
+            if self.forms.confirm.as_ref().and_then(Action::environment_installer_start)
+                .is_some_and(|(environment,installer,_)|environment == draft.product.environment
+                    && draft.selected.as_deref() == Some(installer)) {
+                self.forms.cancel_confirm();
+            }
+        }
     }
 
     /// A window-handled control, applied as soon as it is pressed: it changes
@@ -209,12 +227,23 @@ impl State {
             Local::CheckComputer | Local::Refresh => Effect::Refresh,
             Local::ChooseInstaller => {
                 self.focus.replacement = None;
+                self.focus.repair = None;
                 Effect::ChooseInstaller
             }
             Local::ChooseReplacement(context) => {
+                self.focus.repair = None;
                 self.focus.setup_installer = Some(context.original.clone());
                 self.focus.replacement = Some(context);
                 Effect::ChooseInstaller
+            }
+            Local::ChooseRepairInstaller(context) => {
+                self.focus.replacement = None;
+                self.focus.repair = Some(context);
+                Effect::ChooseInstaller
+            }
+            Local::SelectRepairInstaller(context) => {
+                self.focus.repair = Some(context);
+                return None;
             }
             Local::KeepCurrentInstaller => {
                 self.focus.replacement = None;
@@ -268,6 +297,12 @@ impl State {
     pub fn sent(&mut self, action: &Action) {
         if matches!(action, Action::CandidateSettingsTest { .. }) {
             self.plugins.page = ProductPage::Overview;
+        }
+        if action.environment_installer_start().is_some_and(|(environment,installer,_)|
+            self.focus.repair.as_ref().is_some_and(|draft| draft.product.environment == environment
+                && draft.selected.as_deref() == Some(installer))) {
+            self.plugins.page = ProductPage::Overview;
+            self.focus.repair = None;
         }
         let forms = &mut self.forms;
         for form in [&mut forms.record, &mut forms.rename, &mut forms.install] {

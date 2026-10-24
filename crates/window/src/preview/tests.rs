@@ -329,16 +329,18 @@ fn form_control(preview: &Preview, step: FormStep) -> Option<makepad_product_ui:
 }
 
 #[test]
-fn every_destructive_offer_opens_its_confirmation_first() {
+fn every_confirmed_offer_asks_before_sending() {
     let mut exercised = 0;
     let mut confirmed = 0;
     for base in every_selection().into_iter().flat_map(revealed_windows) {
         let selection = base.selection;
         for (view, offer) in drawn(&base) {
-            let destructive = forms::needs_confirmation(&offer.intent);
-            assert_eq!(view.importance == Importance::Destructive, destructive,
-                "{}: {} is drawn destructive exactly when it asks first", name(&selection), offer.label);
-            if !destructive || !view.invoke(InputPath::Pointer).is_invoke() {
+            let asks_first = forms::needs_confirmation(&offer.intent);
+            let setup_or_display = offer.intent.environment_installer_start().is_some()
+                || matches!(offer.intent, Action::CandidateSettingsTest { .. });
+            assert_eq!(view.importance == Importance::Destructive, asks_first && !setup_or_display,
+                "{}: {} distinguishes destructive actions from confirmed setup choices", name(&selection), offer.label);
+            if !asks_first || !view.invoke(InputPath::Pointer).is_invoke() {
                 continue;
             }
             for via in [InputPath::Pointer, InputPath::Keyboard, InputPath::Touch] {
@@ -348,7 +350,7 @@ fn every_destructive_offer_opens_its_confirmation_first() {
                 assert_eq!(preview.state.forms.confirm.as_ref(), Some(&offer.intent), "{}", name(&selection));
                 let confirm = form_control(&preview, FormStep::Confirm).expect("the confirmation's own button");
                 let cancel = form_control(&preview, FormStep::CancelConfirm).expect("a way back");
-                assert_eq!(confirm.importance, if matches!(offer.intent, Action::EnvironmentRuntimeSelect {..}) {
+                assert_eq!(confirm.importance, if setup_or_display || matches!(offer.intent, Action::EnvironmentRuntimeSelect {..}) {
                     Importance::Primary
                 } else { Importance::Destructive });
                 // The safe answer has focus when the confirmation opens.
@@ -840,5 +842,68 @@ fn display_chooses_one_exact_settings_test_confirms_and_returns_to_same_plugin()
     assert!(outside_folds(&preview.built.page).iter().any(|node|matches!(node,Node::Readiness {..})),
         "the test returns to real readiness records, not a fabricated completion page");
     assert_eq!(preview.press(&confirm.id.0,InputPath::Keyboard),Outcome::Refused);
+    assert_eq!(preview.captured.len(),1);
+}
+
+#[test]
+fn repair_chooses_an_exact_installer_confirms_once_and_preserves_product_navigation() {
+    use lvb_view_model::state::ProductPage;
+    let mut preview = Preview::new(Selection {state:state_index("plugin_ready"),page:Page::Plugins,..Selection::default()});
+    samples::repair_fixture(&mut preview.sample.snapshot);
+    let key = ProductKey::from(&preview.sample.snapshot.products[0]);
+    preview.state.plugins.focus_product(key.clone()); preview.state.plugins.page=ProductPage::Repair;
+    preview.rebuild();
+    assert!(preview.built.targets.values().all(|target| !matches!(target,Target::Offer {offer,..}
+        if offer.intent.environment_installer_start().is_some())),"no installer is guessed before a choice");
+    let choose = preview.built.targets.iter().find_map(|(id,target)|matches!(target,
+        Target::Control(control) if matches!(&control.does,Local::SelectRepairInstaller(draft)
+            if draft.selected == Some("11".repeat(32)))).then(||id.clone())).unwrap();
+    preview.press(&choose,InputPath::Touch);
+    assert!(preview.captured.is_empty());
+    // Leaving Repair retires A; Setup must be free to confirm its current B.
+    let mut setup = preview.clone();
+    let home = setup.built.targets.iter().find_map(|(id,target)|matches!(target,
+        Target::Tab(tab) if tab.label()=="Home").then(||id.clone())).unwrap();
+    setup.press(&home,InputPath::Touch);
+    assert!(setup.state.focus.repair.is_none());
+    let add = control_id(&setup,&Local::Go(Destination::Setup));
+    setup.press(&add,InputPath::Touch);
+    let existing = setup.built.targets.iter().find_map(|(id,target)|matches!(target,
+        Target::Choose {group,key:chosen} if group=="existing" && chosen==&key.environment).then(||id.clone())).unwrap();
+    setup.press(&existing,InputPath::Touch);
+    let choose_b = setup.built.targets.iter().find_map(|(id,target)|matches!(target,
+        Target::Choose {group,key:chosen} if group==&format!("installer.{}",key.environment)
+            && chosen==&"22".repeat(32)).then(||id.clone())).unwrap();
+    setup.press(&choose_b,InputPath::Touch);
+    let run_b = setup.built.targets.iter().find_map(|(id,target)|matches!(target,
+        Target::Offer {offer,..} if offer.intent.environment_installer_start()
+            .is_some_and(|(environment,installer,_)|environment==key.environment && installer=="22".repeat(32)))
+        .then(||id.clone())).unwrap();
+    setup.press(&run_b,InputPath::Touch);
+    assert!(setup.captured.is_empty());
+    let confirm_b = form_control(&setup,FormStep::Confirm).unwrap();
+    assert!(confirm_b.reason().is_none());
+    setup.press(&confirm_b.id.0,InputPath::Touch);
+    assert_eq!(setup.captured,vec![(Action::EnvironmentInstallerStart {
+        environment:key.environment.clone(),installer:"22".repeat(32)},true)]);
+    let run = preview.built.targets.iter().find_map(|(id,target)|matches!(target,
+        Target::Offer {offer,..} if offer.intent.environment_installer_start().is_some()).then(||id.clone())).unwrap();
+    preview.press(&run,InputPath::Keyboard);
+    assert!(preview.captured.is_empty());
+    assert!(format!("{:?}",preview.built.form).contains("Sibling plug-in"));
+    let confirm = form_control(&preview,FormStep::Confirm).unwrap();
+    let mut stale = preview.clone();
+    stale.sample.snapshot.environment_installers[0].runtime.as_mut().unwrap().revision+=1;
+    stale.rebuild();
+    let stale_confirm = form_control(&stale,FormStep::Confirm).unwrap();
+    assert!(stale_confirm.reason().unwrap().contains("setup changed"));
+    assert_eq!(stale.press(&stale_confirm.id.0,InputPath::Touch),Outcome::Refused);
+    assert!(stale.captured.is_empty());
+    preview.press(&confirm.id.0,InputPath::Touch);
+    assert_eq!(preview.captured,vec![(Action::EnvironmentInstallerStart {
+        environment:key.environment.clone(),installer:"11".repeat(32)},true)]);
+    assert_eq!(preview.state.plugins.focused_product(),Some(&key));
+    assert_eq!(preview.state.plugins.page,ProductPage::Overview);
+    assert_eq!(preview.press(&confirm.id.0,InputPath::Touch),Outcome::Refused);
     assert_eq!(preview.captured.len(),1);
 }

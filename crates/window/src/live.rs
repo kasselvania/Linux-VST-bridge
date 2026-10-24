@@ -40,7 +40,7 @@ enum PendingDetails {
 enum Flight {
     Current,
     Overview,
-    Import,
+    Import { repair: Option<(vm::plugins::repair::InstallerDraft, String)> },
     OpenCurrent,
     Product { key: ProductKey, binding: Binding },
     Details { generation: String },
@@ -135,7 +135,7 @@ impl Live {
     fn foreground_busy(&self) -> bool {
         self.report_preview.is_some() || self.report_reading.is_some() ||
             self.queued.as_ref().map(|(_, flight)| flight).into_iter().chain(self.in_flight.as_ref())
-            .any(|flight| matches!(flight, Flight::Action { .. } | Flight::Save(_) | Flight::Import | Flight::OpenCurrent))
+            .any(|flight| matches!(flight, Flight::Action { .. } | Flight::Save(_) | Flight::Import {..} | Flight::OpenCurrent))
     }
     /// Background transport work alone does not replace native nodes or focus.
     pub fn render_revision(&self) -> u64 { self.render_revision }
@@ -403,7 +403,21 @@ impl Live {
                 self.receive(Reply::CurrentOverview(Box::new((*overview).into())));
                 return;
             }
-            (Flight::Import, Reply::Imported(imported)) => {
+            (Flight::Import {repair:Some((mut draft,generation))}, Reply::Imported(imported)) => {
+                if self.binding().is_some_and(|binding| binding.generation == generation)
+                    && self.state.plugins.focused_product() == Some(&draft.product)
+                    && self.state.plugins.page == vm::state::ProductPage::Repair
+                    && self.state.focus.repair.as_ref() == Some(&draft) {
+                    draft.selected = Some(imported.installer_sha256);
+                    self.state.focus.repair = Some(draft);
+                    self.message = format!("Selected {}. Review this setup before running it.",imported.display_label);
+                } else {
+                    self.state.focus.repair = None;
+                    self.message = "Installer added. The selected plug-in or bridge changed; choose it again for the intended setup.".into();
+                }
+                self.fresh = false; self.need_current = true;
+            }
+            (Flight::Import {repair:None}, Reply::Imported(imported)) => {
                 if let Some(draft) = &mut self.state.focus.replacement {
                     draft.selected = Some(imported.installer_sha256);
                     self.message = format!("Selected {}. Review it in this setup before running it.", imported.display_label);
@@ -413,7 +427,7 @@ impl Live {
                 }
                 self.fresh = false; self.need_current = true;
             }
-            (Flight::Import, Reply::Cancelled) => { self.message = "No installer selected.".into(); self.state.focus.replacement = None; }
+            (Flight::Import {..}, Reply::Cancelled) => { self.message = "No installer selected.".into(); self.state.focus.replacement = None; self.state.focus.repair = None; }
             (Flight::OpenCurrent, Reply::CurrentManagerOpened) => { self.message = "The current manager was opened.".into(); }
             (Flight::Current, Reply::CurrentOverview(overview)) => {
                 if self.current_read_records != self.observation_records
@@ -588,7 +602,7 @@ impl Live {
                         self.current_read_error.as_ref().map(CurrentReadError::message).unwrap_or_default().chars().take(1024).collect::<String>()));
                 }
             },
-            Flight::Import | Flight::OpenCurrent | Flight::Status => {}
+            Flight::Import {..} | Flight::OpenCurrent | Flight::Status => {}
             Flight::Product { .. } => self.product = None,
             Flight::Details { .. } => { self.details = None; }
         }
@@ -750,6 +764,8 @@ impl Live {
             Target::Choose { group, key } => { self.ui.choices.insert(group, key); }
             _ => { self.note(LIMITATION.into()); return Outcome::Refused; }
         }
+        self.state.retire_repair_if_left();
+        self.retire_empty_form_origin();
         let navigated = before != (self.state.page, self.state.plugins.focus.clone());
         if navigated {
             self.product = None; self.product_attempted = false;
@@ -884,7 +900,11 @@ impl Live {
                 if let Some(report) = self.support.as_ref().and_then(|s| s.report.clone()) { self.save_report(report); }
             },
             Effect::ChooseInstaller => if !self.foreground_busy() && !self.support_waiting() && !self.superseded {
-                self.queue_foreground(Query::PickInstaller, Flight::Import);
+                let repair = if let Some(draft) = self.state.focus.repair.clone() {
+                    let Some(binding) = self.binding() else {return;};
+                    Some((draft,binding.generation))
+                } else {None};
+                self.queue_foreground(Query::PickInstaller, Flight::Import {repair});
             },
             Effect::OpenCurrentManager => if !self.foreground_busy() {
                 // This is the one explicit handoff allowed from a superseded window.
@@ -922,7 +942,8 @@ impl Live {
             FormStep::ToggleForget => forms.forget_installer = !forms.forget_installer,
             FormStep::Confirm => {
                 let Some(form) = forms.confirm.clone() else { return };
-                let confirmation = forms::removal_confirmation(self.product.as_ref().or_else(|| self.overview.as_ref().map(|o| &o.current)), &form);
+                let confirmation = forms::confirmation_with_repair(self.product.as_ref().or_else(|| self.overview.as_ref().map(|o| &o.current)), &form, self.state.focus.repair.as_ref());
+                if confirmation.offer.is_err() {return;}
                 if let Some(action) = self.state.forms.confirmed(confirmation.forget.is_some()) {
                     if let Some((binding, offer)) = origin { self.submit(action, binding, offer); }
                 }
@@ -970,6 +991,9 @@ impl Live {
             }
             FormStep::CancelRecord => forms.record = None,
         }
+        self.retire_empty_form_origin();
+    }
+    fn retire_empty_form_origin(&mut self) {
         let forms = &self.state.forms;
         if forms.install.is_none() && forms.rename.is_none() && forms.record.is_none() && forms.confirm.is_none() {
             self.form_origin = None;
@@ -2098,6 +2122,78 @@ mod tests {
         assert!(matches!(live.take_query(), Some(Query::OpenCurrentManager)));
         live.receive(Reply::CurrentManagerOpened);
         assert!(live.superseded && !live.fresh);
+    }
+
+    #[test]
+    fn leaving_repair_retires_confirmation_origin_before_current_status_changes() {
+        let mut live = ready();
+        let mut current = snapshot(); vm::samples::repair_fixture(&mut current);
+        let key = ProductKey::from(&current.products[0]);
+        live.overview.as_mut().unwrap().current=current.clone();
+        live.product=Some(current.clone()); live.product_attempted=true;
+        live.state.go(&Destination::Product(key.clone()));
+        live.state.plugins.page=vm::state::ProductPage::Repair;
+        let mut draft=vm::plugins::repair::draft(&current,&key).unwrap();
+        draft.selected=Some("11".repeat(32));
+        live.state.apply(Local::SelectRepairInstaller(draft)); live.rebuild();
+        let run=target(&live,|t|matches!(t,Target::Offer {offer,..}
+            if offer.intent.environment_installer_start().is_some()));
+        press(&mut live,&run);
+        assert!(live.form_origin.is_some() && live.state.forms.confirm.is_some());
+        let home=target(&live,|t|matches!(t,Target::Tab(Tab::Home)));
+        press(&mut live,&home);
+        assert!(live.form_origin.is_none() && live.state.forms.confirm.is_none()
+            && live.state.focus.repair.is_none());
+        record_change(&mut live);
+        assert!(matches!(live.take_query(),Some(Query::CurrentOverview)));
+        current.state_token="renewed-after-repair".into();
+        live.receive(overview(current.clone(),"generation-a"));
+        show_page(&mut live,Page::Diagnostics,&current);
+        let report=export(&live);
+        assert!(live.drawn[&report].is_none(),"retired confirmation cannot hold ordinary controls after renewal");
+        press(&mut live,&report);
+        assert!(matches!(live.take_query(),Some(Query::Action(Request {action:Action::SupportExport {},..}))));
+    }
+    #[test]
+    fn repair_import_stays_bound_to_product_generation_and_setup_revision() {
+        for change in ["none","cancel","product","generation","revision"] {
+            let mut live = ready();
+            let mut current = snapshot(); vm::samples::repair_fixture(&mut current);
+            let key = ProductKey::from(&current.products[0]);
+            live.overview.as_mut().unwrap().current=current.clone();
+            live.product=Some(current.clone()); live.product_attempted=true;
+            live.state.go(&Destination::Product(key.clone()));
+            live.state.plugins.page=vm::state::ProductPage::Repair;
+            let draft=vm::plugins::repair::draft(&current,&key).unwrap();
+            let effect=live.state.apply(Local::ChooseRepairInstaller(draft)).unwrap();
+            live.effect(effect);
+            assert!(matches!(live.take_query(),Some(Query::PickInstaller)));
+            if change == "product" {
+                let mut different=key.clone(); different.module_sha256="ff".repeat(32);
+                live.state.plugins.focus_product(different);
+            }
+            if change == "generation" {live.overview.as_mut().unwrap().current_generation="generation-b".into();}
+            if change == "cancel" {
+                live.receive(Reply::Cancelled);
+            } else {
+                live.receive(Reply::Imported(vm::model::InstallerImportResult {schema:2,
+                    installer_sha256:"11".repeat(32),byte_size:100,format:"exe".into(),
+                    newly_imported:false,display_label:"First-party repair installer".into(),created_at:1}));
+            }
+            if matches!(change,"cancel"|"product"|"generation") {
+                assert!(live.state.focus.repair.is_none(),"{change} cannot assign an imported file to another setup");
+                assert!(!matches!(live.take_query(),Some(Query::Action(_))));
+                continue;
+            }
+            assert!(matches!(live.take_query(),Some(Query::CurrentOverview)),"import must renew owner offers");
+            if change == "revision" {current.environment_installers[0].runtime.as_mut().unwrap().revision+=1;}
+            live.receive(overview(current.clone(),"generation-a"));
+            let choice=live.state.focus.repair.as_ref().unwrap();
+            assert_eq!(choice.product,key);
+            assert_eq!(choice.selected,Some("11".repeat(32)));
+            assert_eq!(vm::plugins::repair::offered(&current,choice).is_ok(),change == "none");
+            assert!(!matches!(live.take_query(),Some(Query::Action(_))),"file selection never starts the installer");
+        }
     }
     #[test]
     fn superseded_frontend_stops_all_queries_and_preserves_unknown_ack() {

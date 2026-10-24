@@ -180,7 +180,6 @@ pub(super) fn bind(product: &mut ui::Product) {
             (K::ProfileAccessibility, action) => display.settings.choices.iter().any(|choice|
                 &choice.action == action && choice.settings.graphics == display.settings.current.graphics
                     && choice.effective_accessibility != display.settings.effective_accessibility),
-            (K::RepairInstallation, ui::Action::SoftwareInstallResume {..}) => true,
             (K::RestorePrevious, ui::Action::ExperimentalDisable {candidate}) =>
                 display.selected_candidate.as_ref() == Some(candidate)
                     && display.modes.iter().flat_map(|m| &m.trials).any(|trial|
@@ -200,7 +199,7 @@ pub(super) fn bind(product: &mut ui::Product) {
                 K::AssessDisplay => "A display check is not available right now.",
                 K::TryDisplayMode => "No other display mode is available to prepare.",
                 K::ProfileAccessibility => "Changing Windows accessibility for this plug-in is not available right now.",
-                K::RepairInstallation => "Installation repair is not available for this plug-in right now.",
+                K::RepairInstallation => "Choose the maker's installer to run in this same setup.",
                 K::RestorePrevious => "No previous settings are available to restore.",
                 K::ReportProblem => "Recording a problem for these settings is not available right now.",
             }.into())
@@ -327,6 +326,14 @@ mod tests {
         assert!(matches!(accessibility, ui::Action::CandidateSettingsTest {settings,..}
             if settings.graphics == initial.settings.current.graphics),
             "accessibility repair keeps the selected graphics mode");
+        product.actions.push(ui::AvailableAction {label:"Resume installation".into(),
+            action:ui::Action::SoftwareInstallResume {onboarding:"retained-installation".into()},
+            disabled_reason:None});
+        bind(&mut product);
+        let repair = facts(&product).repair.steps.iter().find(|step|
+            step.kind == ui::RepairStepKind::RepairInstallation).unwrap();
+        assert!(repair.action.is_none(), "unfinished installation continuation is not installation repair");
+        assert_eq!(repair.unavailable_reason.as_deref(),Some("Choose the maker's installer to run in this same setup."));
         let trial = prep::configuration::prepare(&f.m, &base,
             Some(ui::GraphicsBackend::WineD3d11), Some(&original)).unwrap();
         let selected = prep::replace(&f.m, &trial, &original).unwrap();

@@ -19,7 +19,7 @@ impl Builder<'_> {
             for card in cards {
                 if single { out.push(match state.plugins.page {
                     vm::state::ProductPage::Overview => self.card(card, snapshot),
-                    page => self.product_page(card, page),
+                    page => self.product_page(card, page, snapshot, state),
                 }); }
                 else {
                     let action = self.local(&card.name, Importance::Secondary,
@@ -120,7 +120,7 @@ impl Builder<'_> {
         Node::Stack(children)
     }
 
-    fn product_page(&mut self, card: &PluginCard, page: vm::state::ProductPage) -> Node {
+    fn product_page(&mut self, card: &PluginCard, page: vm::state::ProductPage, snapshot: &Snapshot, state: &State) -> Node {
         use vm::state::ProductPage;
         let title = match page { ProductPage::Display => "Display mode", ProductPage::Repair => "Fix it step by step", ProductPage::Overview => unreachable!() };
         let back = self.local("Back to plug-in", Importance::Quiet,
@@ -202,10 +202,16 @@ impl Builder<'_> {
                             Target::List(ListStep::ProductPage {key:card.key.clone(), page:ProductPage::Display}), None);
                         ("Choose another display mode", "Compare the available modes and their last editor checks.", vec![self.one(choose)])
                     }
+                    vm::model::RepairStepKind::RepairInstallation =>
+                        (step.label.as_str(), step.detail.as_str(), self.installer_repair(snapshot, &card.key, state)),
                     _ => (step.label.as_str(), step.detail.as_str(), self.display_actions(&step.actions)),
                 };
                 let title = Node::Stack(vec![Node::Label(format!("{:02}  {}", index + 1, label)), words(Role::Detail, detail)]);
                 rows.push(Node::Columns(vec![title, Node::Stack(actions)]));
+            }
+            if !card.display.repairs.iter().any(|step|step.kind == vm::model::RepairStepKind::RepairInstallation) {
+                rows.push(Node::Stack(vec![Node::Label("Repair installation".into()),
+                    Node::Stack(self.installer_repair(snapshot, &card.key, state))]));
             }
             out.push(Node::Panel {kind:PanelKind::Card, children:rows});
             // A diagnostic report is separate from recording or finishing the
@@ -215,6 +221,34 @@ impl Builder<'_> {
         }
         if let Some(provenance) = &card.display.provenance { out.push(self.fold(provenance)); }
         Node::Stack(out)
+    }
+    fn installer_repair(&mut self, snapshot: &Snapshot, key: &vm::ProductKey, state: &State) -> Vec<Node> {
+        let repair = match plugins::repair::build(snapshot, key, state.focus.repair.as_ref(),
+            self.why.fresh && !self.why.superseded, self.why.pending) {
+            Ok(repair) => repair,
+            Err(reason) => return vec![words(Role::Detail, reason)],
+        };
+        let mut out = vec![words(Role::Body, "Choose the installer for this plug-in. The bridge will run it in this same setup."),
+            words(Role::Detail, "The maker's installer decides what changes, including presets and shared components.")];
+        let choose = self.control(&repair.choose);
+        out.push(self.one(choose));
+        if !repair.retained.is_empty() {
+            let mut retained = vec![];
+            for (name, control) in repair.retained {
+                let choose = self.control(&control);
+                retained.push(Node::Stack(vec![words(Role::Strong, name), self.one(choose)]));
+            }
+            let id = self.id("fold", &format!("repair-installers:{key:?}"));
+            out.push(Node::Fold {id,title:"Choose an installer already added…".into(),start_open:false,children:retained});
+        }
+        if let Some(name) = repair.selected_name {out.push(words(Role::Strong, format!("Selected: {name}")));}
+        if let Some(selected) = repair.selected {
+            match selected {
+                Ok(offer) => out.push(self.main_offer(&offer,After::Nothing)),
+                Err(reason) => out.push(words(Role::Caution, reason)),
+            }
+        }
+        out
     }
     fn display_selection(&self, settings: &plugins::display::DisplaySettings)
         -> (Option<vm::model::GraphicsBackend>, vm::model::AccessibilityChoice) {
