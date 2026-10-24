@@ -10,6 +10,13 @@ struct Recipe { schema: u32, steps: Vec<Step> }
 #[serde(deny_unknown_fields)]
 struct Step { kind: ui::RepairStepKind, label: String, detail: String }
 
+fn effective(c: &prep::Candidate) -> ui::EffectiveAccessibility {
+    match c.profile.capabilities.accessibility {
+        profiles::Accessibility::WindowsDefault => ui::EffectiveAccessibility::WindowsDefault,
+        profiles::Accessibility::DisabledForVendorProcess => ui::EffectiveAccessibility::DisabledForHost,
+    }
+}
+
 fn same_inputs(a: &prep::Candidate, b: &prep::Candidate) -> bool {
     a.selection == b.selection && a.host == b.host && a.source_manifest == b.source_manifest
         && a.native == b.native && a.recipe_sha256 == b.recipe_sha256
@@ -56,6 +63,15 @@ pub(super) fn compose(c: &prep::Candidate, view: &prep::View,
     let selected = view.candidates.iter().find(|row|
         matches!(row.publication.as_str(), "ordinary" | "experimental"))
         .map(|row| row.id.clone());
+    let settings_base = selected.as_ref().and_then(|id| candidates.iter()
+        .find(|candidate| candidate.id().is_ok_and(|value| &value == id))).unwrap_or(c);
+    let settings = ui::DisplaySettings {
+        candidate: settings_base.id()?,
+        expected_current: selected.as_ref().and(view.current_revision.as_ref())
+            .map(|current| ui::PublicationIdentity {id:current.id.clone(),sha256:current.sha256.clone()}),
+        current: prep::configuration::settings(settings_base),
+        effective_accessibility: effective(settings_base), choices: vec![],
+    };
     let suggested = configuration["assessment"]["recommendation"]["requirement"] == "wine_d3d11";
     let mut modes = Vec::new();
     for (backend, label) in [(None, "Runtime defaults"),
@@ -93,14 +109,18 @@ pub(super) fn compose(c: &prep::Candidate, view: &prep::View,
         action: None, unavailable_reason: None,
     }).collect();
     if let Some(step) = steps.iter_mut().find(|s| s.kind == ui::RepairStepKind::ProfileAccessibility) {
-        step.detail.push_str(match c.profile.capabilities.accessibility {
+        step.label = match settings.effective_accessibility {
+            ui::EffectiveAccessibility::WindowsDefault => "Turn off Windows accessibility support",
+            ui::EffectiveAccessibility::DisabledForHost => "Use Windows accessibility defaults",
+        }.into();
+        step.detail.push_str(match settings_base.profile.capabilities.accessibility {
             profiles::Accessibility::DisabledForVendorProcess =>
                 " The current settings disable Windows accessibility for this plug-in. Linux input settings are unchanged.",
             profiles::Accessibility::WindowsDefault =>
                 " The current settings use the Windows accessibility defaults.",
         });
     }
-    Ok(ui::DisplayConfiguration { observed_candidate: c.id()?, selected_candidate: selected, modes,
+    Ok(ui::DisplayConfiguration { observed_candidate: c.id()?, selected_candidate: selected, modes, settings,
         repair: ui::RepairLadder { profile_id: c.profile.id.clone(), profile_revision: c.profile.revision,
             evidence: c.profile.evidence.clone(), steps } })
 }
@@ -124,6 +144,17 @@ pub(super) fn bind(product: &mut ui::Product) {
     let offers: Vec<_> = product.actions.iter().chain(product.compatibility.iter()
         .flat_map(|w| w.primary.iter().chain(w.alternatives.iter()))).cloned().collect();
     let ui::Observation::Observed(display) = &mut product.display else { return };
+    display.settings.choices = offers.iter().filter_map(|offer| {
+        let ui::Action::CandidateSettingsTest {candidate,settings,expected_current} = &offer.action else { return None };
+        if candidate != &display.settings.candidate || expected_current != &display.settings.expected_current { return None; }
+        let effective_accessibility = match settings.accessibility {
+            ui::AccessibilityChoice::WindowsDefault => ui::EffectiveAccessibility::WindowsDefault,
+            ui::AccessibilityChoice::DisabledForHost => ui::EffectiveAccessibility::DisabledForHost,
+            // An unresolved default cannot stand in for an explicit choice.
+            ui::AccessibilityChoice::ProfileDefault => return None,
+        };
+        Some(ui::DisplaySettingsChoice {settings:settings.clone(), effective_accessibility, action:offer.action.clone()})
+    }).collect();
     let inputs: Vec<_> = display.modes.iter().flat_map(|mode| &mode.trials)
         .map(|trial| (trial.candidate.clone(), trial.settings.clone())).collect();
     for mode in &mut display.modes {
@@ -146,10 +177,9 @@ pub(super) fn bind(product: &mut ui::Product) {
             (K::AssessDisplay, ui::Action::CandidateGraphicsAssess {candidate}) =>
                 candidate == &display.observed_candidate,
             (K::TryDisplayMode, action) => display.modes.iter().any(|mode| mode.prepare.as_ref() == Some(action)),
-            (K::ProfileAccessibility, ui::Action::CandidateSettingsPrepare {candidate,settings,..}) =>
-                settings.accessibility == ui::AccessibilityChoice::ProfileDefault
-                    && inputs.iter().find(|(id,_)| id == candidate).is_some_and(|(_,before)|
-                        before.accessibility != settings.accessibility && before.graphics == settings.graphics),
+            (K::ProfileAccessibility, action) => display.settings.choices.iter().any(|choice|
+                &choice.action == action && choice.settings.graphics == display.settings.current.graphics
+                    && choice.effective_accessibility != display.settings.effective_accessibility),
             (K::RepairInstallation, ui::Action::SoftwareInstallResume {..}) => true,
             (K::RestorePrevious, ui::Action::ExperimentalDisable {candidate}) =>
                 display.selected_candidate.as_ref() == Some(candidate)
@@ -169,7 +199,7 @@ pub(super) fn bind(product: &mut ui::Product) {
                 K::OpenStandalone => "This plug-in cannot be opened on its own right now.",
                 K::AssessDisplay => "A display check is not available right now.",
                 K::TryDisplayMode => "No other display mode is available to prepare.",
-                K::ProfileAccessibility => "The default accessibility settings cannot be prepared right now.",
+                K::ProfileAccessibility => "Changing Windows accessibility for this plug-in is not available right now.",
                 K::RepairInstallation => "Installation repair is not available for this plug-in right now.",
                 K::RestorePrevious => "No previous settings are available to restore.",
                 K::ReportProblem => "Recording a problem for these settings is not available right now.",
@@ -254,6 +284,36 @@ mod tests {
     }
 
     #[test]
+    fn effective_accessibility_comes_from_retained_profile_not_default_choice_spelling() {
+        let (f, mut base) = projection_fixture();
+        base.profile.capabilities.accessibility = profiles::Accessibility::DisabledForVendorProcess;
+        base.profile.limitations.push(profiles::Limitation::WindowsAccessibilityUnavailable);
+        // Synthetic retained advice, as in the preparation owner regression.
+        // No support claim is made for this fixture.
+        base.profile.evidence.push("evidence/default-accessibility-advice.json".into());
+        // No explicit local override: this candidate resolved profile advice to Off.
+        assert_eq!(prep::configuration::settings(&base).accessibility, ui::AccessibilityChoice::ProfileDefault);
+        prep::record_candidate(&f.m, &base).unwrap();
+        let selected = prep::enable(&f.m, &base, false).unwrap();
+        let mut product = projected(&f.m, &base);
+        let value = facts(&product);
+        assert_eq!(value.settings.effective_accessibility, ui::EffectiveAccessibility::DisabledForHost);
+        assert_eq!(value.settings.expected_current.as_ref().unwrap().id, selected.id);
+        assert!(value.repair.steps.iter().find(|step| step.kind == ui::RepairStepKind::ProfileAccessibility)
+            .unwrap().label.contains("Windows accessibility defaults"));
+        assert_eq!(value.settings.choices.len(), 4);
+        assert!(value.settings.choices.iter().all(|choice| choice.settings.accessibility != ui::AccessibilityChoice::ProfileDefault));
+        let exact = value.settings.choices[0].action.clone();
+        let offer = product.actions.iter_mut().find(|offer| offer.action == exact).unwrap();
+        offer.disabled_reason = Some("Close the affected instance".into());
+        bind(&mut product);
+        assert!(facts(&product).settings.choices.iter().any(|choice| choice.action == exact));
+        product.actions.retain(|offer| offer.action != exact);
+        bind(&mut product);
+        assert!(!facts(&product).settings.choices.iter().any(|choice| choice.action == exact));
+    }
+
+    #[test]
     fn display_recipe_uses_real_offers_and_exact_previous_selection_only() {
         let (f, base) = projection_fixture();
         prep::record_candidate(&f.m, &base).unwrap();
@@ -262,8 +322,11 @@ mod tests {
         let initial = facts(&product);
         assert_eq!(initial.modes.iter().filter(|m| m.prepare.is_some()).count(), 1,
             "accessibility-only offers must not be labelled as a display-mode change");
-        assert!(initial.repair.steps.iter().find(|s| s.kind == ui::RepairStepKind::ProfileAccessibility)
-            .unwrap().action.is_none(), "graphics preparation is not a profile-accessibility change");
+        let accessibility = initial.repair.steps.iter().find(|s| s.kind == ui::RepairStepKind::ProfileAccessibility)
+            .unwrap().action.as_ref().unwrap();
+        assert!(matches!(accessibility, ui::Action::CandidateSettingsTest {settings,..}
+            if settings.graphics == initial.settings.current.graphics),
+            "accessibility repair keeps the selected graphics mode");
         let trial = prep::configuration::prepare(&f.m, &base,
             Some(ui::GraphicsBackend::WineD3d11), Some(&original)).unwrap();
         let selected = prep::replace(&f.m, &trial, &original).unwrap();

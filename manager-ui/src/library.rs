@@ -159,14 +159,19 @@ fn product_page(ui: &mut egui::Ui, card: &PluginCard, state: &mut PluginsView, c
                 ui.strong(&mode.label); ui.small(&mode.posture); widgets::text(ui, &mode.result);
                 display_actions(ui, &mode.prepare, chosen);
                 for trial in mode.trials.iter().filter(|trial|trial.current) {
-                    ui.strong(&trial.posture); widgets::text(ui, &trial.evidence);
-                    display_actions(ui, &trial.actions, chosen); widgets::disclosure(ui, &trial.identity, chosen);
+                    display_trial(ui,trial,chosen);
+                }
+                if mode.trials.iter().any(|trial|trial.prepared) {
+                    egui::CollapsingHeader::new("Choose a prepared setting…").id_salt((&mode.label,"prepared")).show(ui,|ui| {
+                        for (index,trial) in mode.trials.iter().enumerate().filter(|(_,trial)|trial.prepared) {
+                            ui.push_id(index,|ui|display_trial(ui,trial,chosen));
+                        }
+                    });
                 }
                 egui::CollapsingHeader::new("Earlier checks and details").id_salt(&mode.label).show(ui,|ui| {
                     if let Some(record) = &mode.result_record {widgets::disclosure(ui,record,chosen);}
-                    for trial in mode.trials.iter().filter(|trial|!trial.current) {
-                        ui.strong(&trial.posture); widgets::text(ui,&trial.evidence);
-                        display_actions(ui,&trial.actions,chosen); widgets::disclosure(ui,&trial.identity,chosen);
+                    for (index,trial) in mode.trials.iter().enumerate().filter(|(_,trial)|!trial.current && !trial.prepared) {
+                        ui.push_id(index,|ui|display_trial(ui,trial,chosen));
                     }
                 });
             });
@@ -174,12 +179,31 @@ fn product_page(ui: &mut egui::Ui, card: &PluginCard, state: &mut PluginsView, c
     } else {
         for (index,step) in card.display.repairs.iter().enumerate() {
             egui::Frame::group(ui.style()).show(ui,|ui| {
-                ui.strong(format!("{:02}  {}",index+1,step.label)); ui.label(&step.detail);
-                display_actions(ui,&step.actions,chosen);
+                if step.kind == crate::model::RepairStepKind::TryDisplayMode {
+                    ui.strong(format!("{:02}  Choose another display mode",index+1));
+                    ui.label("Compare the available modes and their last editor checks.");
+                    if ui.add_sized([100.0,44.0],egui::Button::new("Choose…")).clicked() {
+                        state.show_page(card.key.clone(),ProductPage::Display);
+                        ui.ctx().request_repaint();
+                    }
+                } else {
+                    ui.strong(format!("{:02}  {}",index+1,step.label)); ui.label(&step.detail);
+                    display_actions(ui,&step.actions,chosen);
+                }
             });
         }
     }
     if let Some(provenance) = &card.display.provenance {widgets::disclosure(ui,provenance,chosen);}
+}
+
+fn display_trial(ui: &mut egui::Ui, trial: &plugins::display::DisplayTrial, chosen: &mut Option<Action>) {
+    if !trial.current {ui.strong(&trial.posture);widgets::text(ui,&trial.result);}
+    if let Some(evidence) = &trial.evidence {widgets::text(ui,evidence);}
+    display_actions(ui,&trial.actions,chosen);
+    egui::CollapsingHeader::new(&trial.identity.title).show(ui,|ui| {
+        display_actions(ui,&trial.technical,chosen);
+        widgets::details(ui,&trial.identity.content,chosen);
+    });
 }
 
 fn display_actions(ui: &mut egui::Ui, row: &crate::screen_model::offers::OfferRow, chosen: &mut Option<Action>) {
@@ -937,14 +961,14 @@ mod tests {
                 let mut text = vec![]; for shape in &output.shapes { centers(&shape.shape, &mut text); }
                 output.textures_delta.clear();
                 if frame == 2 {
-                    assert!(!text.iter().any(|(label,_)| label == "Record a test result or problem" || label == "Observed: Audio passed"));
+                    assert!(!text.iter().any(|(label,_)| label == "Report a problem…" || label == "Observed: Audio passed"));
                     assert!(text.iter().any(|(label,_)| label.starts_with("In your native Linux DAW")));
                     point = text.iter().find(|(label,_)| label == "Help and testing").unwrap().1;
                 }
                 if frame == 6 {
                     assert!(text.iter().any(|(label,_)| label == "Observed: Audio passed"));
                     assert!(text.iter().any(|(label,_)| label == "Not yet checked: Saved-project recall"));
-                    point = text.iter().find(|(label,_)| label == "Record a test result or problem").unwrap().1;
+                    point = text.iter().find(|(label,_)| label == "Report a problem…").unwrap().1;
                 }
             }
             assert_eq!(chosen, (!pending).then_some(report));

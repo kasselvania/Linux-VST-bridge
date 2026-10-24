@@ -71,12 +71,35 @@ pub struct RepairLadder {
     pub evidence: Vec<String>,
     pub steps: Vec<RepairStep>,
 }
+/// The resolved process option, independent of whether local policy chose
+/// profile advice or an explicit override. Windows defaults do not prove that
+/// a vendor actually exposes an accessible editor.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all="snake_case")]
+pub enum EffectiveAccessibility { WindowsDefault, DisabledForHost }
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct DisplaySettingsChoice {
+    pub settings: LocalSettings,
+    pub effective_accessibility: EffectiveAccessibility,
+    pub action: Action,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct DisplaySettings {
+    pub candidate: String,
+    pub expected_current: Option<super::PublicationIdentity>,
+    pub current: LocalSettings,
+    pub effective_accessibility: EffectiveAccessibility,
+    pub choices: Vec<DisplaySettingsChoice>,
+}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct DisplayConfiguration {
     pub observed_candidate: String,
     pub selected_candidate: Option<String>,
     pub modes: Vec<DisplayModeChoice>,
+    pub settings: DisplaySettings,
     pub repair: RepairLadder,
 }
 impl DisplayConfiguration {

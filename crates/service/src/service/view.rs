@@ -70,8 +70,14 @@ impl Views {
     /// An owner changed a fact held only in service memory. This invalidates
     /// both current replies and the subscription's record coverage together.
     pub fn invalidate(&self) {
-        let _ = self.volatile_revision.fetch_update(Ordering::AcqRel, Ordering::Acquire,
-            |revision| Some(revision.saturating_add(1)));
+        let mut revision = self.volatile_revision.load(Ordering::Acquire);
+        loop {
+            match self.volatile_revision.compare_exchange_weak(revision, revision.saturating_add(1),
+                Ordering::AcqRel, Ordering::Acquire) {
+                Ok(_) => break,
+                Err(current) => revision = current,
+            }
+        }
     }
     fn held(&self) -> std::sync::MutexGuard<'_, Held> {
         self.held.lock().unwrap_or_else(|poisoned| poisoned.into_inner())

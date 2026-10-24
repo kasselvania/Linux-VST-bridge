@@ -24,7 +24,7 @@ pub struct State {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Event {
-    State(State),
+    State(Box<State>),
     Heartbeat { cursor: Cursor },
     FrontendSuperseded,
     Unavailable { reason: String },
@@ -71,7 +71,7 @@ impl Subscription {
     }
     /// Replacement states may skip revisions. A heartbeat cannot establish a
     /// first state, change service identity, or renew a newer unseen revision.
-    pub fn next(&mut self) -> io::Result<Event> {
+    pub fn receive(&mut self) -> io::Result<Event> {
         let event: Event = read_frame(&mut self.peer, FRAME_LIMIT)?;
         self.validate(&event)?;
         Ok(event)
@@ -99,8 +99,8 @@ impl Subscription {
 mod tests {
     use super::*;
     fn state(revision: u64) -> Event {
-        Event::State(State { cursor: Cursor { service_epoch: "ab".repeat(16), revision },
-            records_revision: Some(4), activity: ui::Observation::Unavailable("fixture".into()) })
+        Event::State(Box::new(State { cursor: Cursor { service_epoch: "ab".repeat(16), revision },
+            records_revision: Some(4), activity: ui::Observation::Unavailable("fixture".into()) }))
     }
     #[test]
     fn complete_replacements_allow_gaps_but_not_replay_or_foreign_heartbeats() {
@@ -122,6 +122,10 @@ mod tests {
         write_frame(&mut request, &Subscribe { operator_schema: ui::OPERATOR_SCHEMA - 1 }, REQUEST_LIMIT).unwrap();
         assert!(accept(&mut request.as_slice()).is_err());
         let mut bytes = vec![]; write(&mut bytes, &state(1)).unwrap();
+        assert_eq!(serde_json::from_slice::<serde_json::Value>(&bytes[4..]).unwrap(), serde_json::json!({
+            "kind": "state", "cursor": { "service_epoch": "ab".repeat(16), "revision": 1 },
+            "records_revision": 4, "activity": { "state": "unavailable", "value": "fixture" },
+        }));
         assert!(matches!(read_frame::<Event>(&mut bytes.as_slice(), FRAME_LIMIT).unwrap(), Event::State(_)));
     }
 }

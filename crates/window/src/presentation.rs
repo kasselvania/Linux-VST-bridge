@@ -401,7 +401,9 @@ impl<'a> Builder<'a> {
     /// destructive: those are exactly the offers `forms::route` confirms.
     pub fn offer(&mut self, offer: &Offer, after: After) -> ActionView {
         let id = self.target("offer", &offer.label, Target::Offer { offer: offer.clone(), after });
-        let weight = if forms::needs_confirmation(&offer.intent) {
+        let weight = if matches!(offer.intent, Action::CandidateSettingsTest { .. }) {
+            Importance::Primary
+        } else if forms::needs_confirmation(&offer.intent) {
             Importance::Destructive
         } else {
             importance(offer.importance)

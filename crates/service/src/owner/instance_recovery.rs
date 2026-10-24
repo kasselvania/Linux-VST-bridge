@@ -56,9 +56,13 @@ pub(super) fn revision(_m: &Manager) -> u64 {
 }
 fn changed() {
     if let Some(runtime) = RUNTIME.get() {
-        let _ = runtime
-            .revision
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |v| v.checked_add(1));
+        let mut revision = runtime.revision.load(Ordering::Acquire);
+        while let Some(next) = revision.checked_add(1) {
+            match runtime.revision.compare_exchange_weak(revision, next, Ordering::AcqRel, Ordering::Acquire) {
+                Ok(_) => break,
+                Err(current) => revision = current,
+            }
+        }
         (runtime.changed)();
     }
 }
@@ -198,8 +202,23 @@ fn retained(
             && transport_storage::consumer_current(&consumer)?,
         "proxy_original_consumer",
     )?;
-    let registration = serde_json::from_value(owner["registration"].clone())?;
-    Ok((registration, consumer))
+    // SessionSpec retains only the Windows host binding, not a Registration.
+    // Recover the native side from the current registration only when both the
+    // complete retained host binding and the admitted native hashes agree.
+    let binding: HostBinding = serde_json::from_value(owner["registration"].clone())?;
+    let execution: NativeExecution = serde_json::from_value(owner["native_execution"].clone())?;
+    let registry = m.registry()?;
+    let current = registry
+        .classes
+        .get(&binding.metadata.class_id.to_uppercase())
+        .ok_or("proxy_registration_absent")?;
+    require(
+        current.publication == Publication::Published
+            && HostBinding::from(current.registration.clone()) == binding,
+        "proxy_registration_changed",
+    )?;
+    current.registration.verify_loaded_execution(&execution.identity())?;
+    Ok((current.registration.clone(), consumer))
 }
 fn retired(m: &Manager, session: &str) -> Result<()> {
     require(valid_hex(session, 32), "proxy_retirement_session")?;
@@ -848,53 +867,116 @@ mod tests {
         .is_err());
         assert_eq!(fs::read(path).unwrap(), before);
     }
-    fn retain(f: &Fixture, session: [u8; 16], origin: Option<(&str, &str)>) {
+    fn registered_fixture() -> Fixture {
+        let mut f = Fixture::new();
+        let descriptor = lvb_plugin_descriptor::Descriptor {
+            schema: 1,
+            engine_sha256: f.r.native.sha256.clone(),
+            class_id: f.r.metadata.class_id.clone(),
+            module_sha256: f.r.module.sha256.clone(),
+            class_name: f.r.metadata.name.clone(),
+            vendor: f.r.metadata.vendor.clone(),
+            version: f.r.metadata.version.clone(),
+            subcategories: f.r.metadata.subcategories.clone(),
+            buses: vec![lvb_plugin_descriptor::Bus {
+                media: 0, direction: 1, index: 0, channels: 2,
+                r#type: 0, flags: 1, arrangement: 3, name: "Output".into(),
+            }],
+            parameters: vec![],
+        };
+        descriptor.validate().unwrap();
+        let path = f.r.native.path.with_file_name(lvb_plugin_descriptor::FILE_NAME);
+        atomic_json(&path, &descriptor).unwrap();
+        f.r.descriptor = Some(Artifact { sha256: digest(&path).unwrap(), path });
+        f.m.register(f.r.clone()).unwrap();
+        f.r = f.m.registry().unwrap().classes[&f.r.key()].registration.clone();
+        f
+    }
+    fn retain(f: &Fixture, origin: Option<(&str, &str)>) -> [u8; 16] {
         let _lock = f.m.lock("registry.lock").unwrap();
-        let session = hex(&session);
         let peer = peer();
-        let report = report(&f.m, &session);
-        let lease=f.m.root.join("runtime/leases").join(format!("{session}.json"));
-        let path =
-            f.r.environment
-                .root
-                .join("compatdata/pfx/drive_c/bridge/sessions")
-                .join(&session)
-                .join("owner.json");
-        private_dir(path.parent().unwrap()).unwrap();
-        private_dir(report.parent().unwrap()).unwrap();
-        let mut value = serde_json::json!({"session":session,"report":report,"lease":lease,
-            "registration":f.r,"inspect":false,"keeper":false,"vendor_access":false,
-            "graphical_session":{"schema":1,"peer_pid":peer.pid,"peer_start_ticks":peer.start_ticks,"display":":0"},
-            "native_execution":{"engine":vec![0;32],"descriptor":vec![0;32]}});
-        if let Some((instance, operation)) = origin {
-            value["restart_origin"] =
-                serde_json::json!({"instance":instance,"operation":operation});
-        }
-        atomic_json(&path, &value).unwrap();
+        let (mut job, path) = spec(&f.m, f.r.clone().into(), false, false, false).unwrap();
+        job.graphical_session = Some(transport_storage::GraphicalSession {
+            schema: 1, peer_pid: peer.pid, peer_start_ticks: peer.start_ticks,
+            display: ":0".into(), wayland_display: None, xauthority: None,
+            dbus_session_bus_address: None,
+        });
+        let hash = |s: &str| std::array::from_fn(|i| u8::from_str_radix(&s[i*2..i*2+2], 16).unwrap());
+        job.native_execution = Some(NativeExecution {
+            engine: hash(&f.r.native.sha256),
+            descriptor: hash(&f.r.descriptor.as_ref().unwrap().sha256),
+        });
+        job.restart_origin = origin.map(|(instance, operation)| NativeRestartOrigin {
+            instance: instance.into(), operation: operation.into(),
+        });
+        atomic_json(&path, &job).unwrap();
         f.m.retain_lease_owner(&path).unwrap();
-        let generation =
-            f.m.root
-                .join("runtime/lease-generations")
-                .join(format!("{session}.json"));
-        private_dir(generation.parent().unwrap()).unwrap();
-        atomic_json(
-            &generation,
-            &serde_json::json!({"schema":1,"session":session,"report":report,
-            "kernel_boot":kernel_boot().unwrap().unwrap(),"basis":"before_launch"}),
-        )
-        .unwrap();
+        record_lease_generation(&job).unwrap();
+        wire::decode_id(&job.session).unwrap()
+    }
+    #[test]
+    fn real_session_spec_recovery_joins_only_its_current_host_and_native_binding() {
+        let f = registered_fixture();
+        let session = hex(&retain(&f, None));
+        let peer = peer();
+        let owner = f.m.retained_lease_owner(&session, &report(&f.m, &session)).unwrap();
+        assert!(owner["registration"]["metadata"].get("name").is_none());
+        assert!(owner["registration"].get("native").is_none());
+        assert!(serde_json::from_value::<Registration>(owner["registration"].clone()).is_err());
+        let retained_path = f.m.root.join("runtime/lease-owners").join(format!("{session}.json"));
+        let before = fs::read(&retained_path).unwrap();
+        assert_eq!(retained(&f.m, &session, &peer).unwrap().0, f.r);
+        let registry = f.m.registry().unwrap();
+        for change in ["module", "setup", "host", "settings", "native", "descriptor", "removed", "absent"] {
+            let mut changed = registry.clone();
+            let current = changed.classes.get_mut(&f.r.key()).unwrap();
+            let expected = match change {
+                "native" => { current.registration.native.sha256 = "ee".repeat(32); "loaded_execution_binding_differs" }
+                "descriptor" => { current.registration.descriptor.as_mut().unwrap().sha256 = "ee".repeat(32); "loaded_execution_binding_differs" }
+                "absent" => { changed.classes.clear(); "proxy_registration_absent" }
+                _ => {
+                    match change {
+                        "module" => current.registration.module.sha256 = "ee".repeat(32),
+                        "setup" => current.registration.environment.revision += 1,
+                        "host" => current.registration.host.sha256 = "ee".repeat(32),
+                        "settings" => current.registration.compatibility.disable_windows_accessibility = !current.registration.compatibility.disable_windows_accessibility,
+                        "removed" => current.publication = Publication::Removed,
+                        _ => unreachable!(),
+                    }
+                    "proxy_registration_changed"
+                }
+            };
+            atomic_json(&f.m.root.join("registry.json"), &changed).unwrap();
+            assert_eq!(retained(&f.m, &session, &peer).unwrap_err().to_string(), expected, "{change}");
+            assert_eq!(fs::read(&retained_path).unwrap(), before);
+        }
+        atomic_json(&f.m.root.join("registry.json"), &registry).unwrap();
+        let foreign = transport_storage::PeerProcess { start_ticks: peer.start_ticks + 1, ..peer };
+        assert_eq!(retained(&f.m, &session, &foreign).unwrap_err().to_string(), "proxy_original_consumer");
+        assert_eq!(retained(&f.m, &session, &peer).unwrap().0, f.r);
+        assert_eq!(fs::read(retained_path).unwrap(), before);
+    }
+    #[test]
+    fn recovery_registration_retries_after_registry_custody_without_changing_identity() {
+        let f = registered_fixture();
+        let session = hex(&retain(&f, None));
+        let peer = peer();
+        let lock = f.m.lock("registry.lock").unwrap();
+        assert_eq!(retained(&f.m, &session, &peer).unwrap_err().to_string(), "proxy_registry_busy");
+        drop(lock);
+        assert_eq!(retained(&f.m, &session, &peer).unwrap().0, f.r);
     }
     #[test]
     fn replacement_connection_requires_owner_bound_origin_not_same_class_or_daw() {
-        let f = Fixture::new();
-        let original = hex(&[1; 16]);
+        let f = registered_fixture();
+        let initial = retain(&f, None);
+        let original = hex(&initial);
         let operation = hex(&[2; 16]);
         let peer = peer();
-        retain(&f, [1; 16], None);
-        retain(&f, [3; 16], None);
-        retained_current(&f.m, &original, &status(), &peer).unwrap();
+        let other = retain(&f, None);
+        retained_current(&f.m, &original, &wire::Status { session: initial, ..status() }, &peer).unwrap();
         let replacement = wire::Status {
-            session: [3; 16],
+            session: other,
             generation: 2,
             operation: [2; 16],
             phase: wire::COMPLETE,
@@ -904,9 +986,9 @@ mod tests {
             retained_current(&f.m, &original, &replacement, &peer).is_err(),
             "same binding and process do not prove replacement"
         );
-        retain(&f, [4; 16], Some((&original, &operation)));
+        let renewed = retain(&f, Some((&original, &operation)));
         let replacement = wire::Status {
-            session: [4; 16],
+            session: renewed,
             ..replacement
         };
         let path =

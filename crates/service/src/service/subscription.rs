@@ -125,10 +125,16 @@ impl Publisher {
     pub fn attach(self: &Arc<Self>, mut peer: UnixStream,
         selected: impl Fn(&UnixStream) -> crate::Result<()> + Send + 'static) -> io::Result<()> {
         peer.set_write_timeout(Some(wire::HEARTBEAT))?;
-        if self.subscribers.fetch_update(Ordering::AcqRel, Ordering::Acquire,
-            |count| (count < SUBSCRIBERS).then_some(count + 1)).is_err() {
-            wire::write(&mut peer, &wire::Event::Unavailable { reason: "Too many observation windows are open".into() })?;
-            return Ok(());
+        let mut count = self.subscribers.load(Ordering::Acquire);
+        loop {
+            if count >= SUBSCRIBERS {
+                wire::write(&mut peer, &wire::Event::Unavailable { reason: "Too many observation windows are open".into() })?;
+                return Ok(());
+            }
+            match self.subscribers.compare_exchange_weak(count, count + 1, Ordering::AcqRel, Ordering::Acquire) {
+                Ok(_) => break,
+                Err(current) => count = current,
+            }
         }
         let publisher = self.clone();
         let result = std::thread::Builder::new().name("bridge-subscriber".into()).spawn(move || {
@@ -149,7 +155,7 @@ impl Publisher {
                 }
                 let event = if held.state.cursor.revision == previous {
                     wire::Event::Heartbeat { cursor: held.state.cursor.clone() }
-                } else { wire::Event::State(held.state.clone()) };
+                } else { wire::Event::State(Box::new(held.state.clone())) };
                 previous = held.state.cursor.revision;
                 drop(held);
                 if let Err(error) = selected(&peer) {

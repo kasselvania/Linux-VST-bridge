@@ -150,7 +150,7 @@ pub fn route(action: Action, daw: Option<DawChoice>) -> Route {
 /// Removing from the DAW or deleting a setup always asks first.
 pub fn needs_confirmation(action: &Action) -> bool {
     matches!(action, Action::PresetFiles {command:crate::model::PresetCommand::Restore {..},..} | Action::PluginRemoveFromDaw { .. } | Action::SetupRemoveFromDaw { .. }
-        | Action::SetupDelete { .. } | Action::ProductUninstall { .. } | Action::EnvironmentRuntimeSelect { .. } | Action::PluginRestart { .. })
+        | Action::SetupDelete { .. } | Action::ProductUninstall { .. } | Action::EnvironmentRuntimeSelect { .. } | Action::PluginRestart { .. } | Action::CandidateSettingsTest { .. })
 }
 /// Setup-level removal offers live in their own section of the setup card.
 pub fn removal_offer(action: &Action) -> bool {
@@ -223,6 +223,24 @@ fn confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirmation {
                 "Existing files stay unchanged. Files with different bytes remain visible conflicts.".into()],
             confirm:"Restore missing files",cancel:"Not now",forget:None,
             offer:current(snapshot.products.iter().flat_map(|p|p.actions.iter()).collect()),
+        },
+        Action::CandidateSettingsTest {settings, expected_current, ..} => Confirmation {
+            title:"Use these settings and test?",
+            body:vec![format!("Display mode: {}. Windows accessibility: {}.",
+                if settings.graphics.is_some() {"Wine Direct3D 11"} else {"Runtime defaults"},
+                match settings.accessibility {
+                    crate::model::AccessibilityChoice::WindowsDefault => "Windows defaults",
+                    crate::model::AccessibilityChoice::DisabledForHost => "off for this plug-in",
+                    crate::model::AccessibilityChoice::ProfileDefault => "the resolved profile default",
+                }),
+                if expected_current.is_some() {
+                    "Your previous settings are kept so you can restore them. Other setups and Windows installations are unchanged."
+                } else {
+                    "This makes the plug-in available for a test. You can remove the test from your DAW afterward; its Windows installation stays in place."
+                }.into(),
+                "After the change, reopen this plug-in in your DAW, check its editor, and report whether it works.".into()],
+            confirm:"Use this and test", cancel:"Keep choosing",
+            offer:current(snapshot.products.iter().flat_map(|product| &product.actions).collect()), forget:None,
         },
         Action::PluginRestart { snapshot:state, .. } => Confirmation {
             title:"Restart this plug-in instance?",
@@ -478,28 +496,41 @@ pub fn expert_form() -> ExpertForm {
     }
 }
 
-/// The exact current test-result offer and its refusal, looked up again
-/// before submitting: a duplicate of the manager's admission (#489).
-pub fn compatibility_result_offer(snapshot: Option<&Snapshot>, candidate: &str,
-    expected_current: &PublicationIdentity) -> Result<Option<String>, &'static str> {
-    let snapshot = snapshot.ok_or("Current manager readback unavailable")?;
-    let offer = snapshot.products.iter().flat_map(|product| {
-        product.actions.iter().chain(product.compatibility.iter().flat_map(|workflow|
-            workflow.primary.iter().chain(workflow.alternatives.iter())))
-    }).find(|offer| matches!(&offer.action, Action::CompatibilityResult {
-        candidate: offered_candidate, expected_current: offered_current, ..
-    } if offered_candidate == candidate && offered_current == expected_current))
-        .ok_or("This exact test-result offer is no longer current. Refresh the plug-in's controls.")?;
-    Ok(offer.disabled_reason.clone())
+/// Both editable result variants retain their own current offer. Changing a
+/// form from Worked to Problem must not borrow the other variant's permission.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ResultOffers {
+    pub worked: Result<Option<String>, &'static str>,
+    pub problem: Result<Option<String>, &'static str>,
 }
 
-/// Why the result cannot be recorded now. A problem can always be reported.
-pub fn compatibility_result_refusal<'a>(offer: Option<&'a Result<Option<String>, &'static str>>,
+/// The exact candidate/publication and result-variant offers, looked up again
+/// before submitting. Checks, category and note are the form's editable fields.
+pub fn compatibility_result_offer(snapshot: Option<&Snapshot>, candidate: &str,
+    expected_current: &PublicationIdentity) -> Result<ResultOffers, &'static str> {
+    let snapshot = snapshot.ok_or("Current manager readback unavailable")?;
+    let find = |worked| snapshot.products.iter().flat_map(|product| {
+            product.actions.iter().chain(product.compatibility.iter().flat_map(|workflow|
+                workflow.primary.iter().chain(workflow.alternatives.iter())))
+        }).find(|offer| matches!(&offer.action, Action::CompatibilityResult {
+            candidate: offered_candidate, expected_current: offered_current, result, ..
+        } if offered_candidate == candidate && offered_current == expected_current
+            && matches!(result, TestResultKind::Worked) == worked))
+        .map(|offer| offer.disabled_reason.clone())
+        .ok_or("This exact test-result offer is no longer current. Refresh the plug-in's controls.");
+    Ok(ResultOffers {worked: find(true), problem: find(false)})
+}
+
+/// Why this result cannot be recorded now, including the owner's refusal for
+/// Problem. A successful-result offer never authorizes reporting a problem.
+pub fn compatibility_result_refusal<'a>(offer: Option<&'a Result<ResultOffers, &'static str>>,
     result: &TestResultKind) -> Option<&'a str> {
     match offer {
         Some(Err(reason)) => Some(*reason),
-        Some(Ok(reason)) if matches!(result, TestResultKind::Worked) => reason.as_deref(),
-        Some(Ok(_)) => None,
+        Some(Ok(offers)) => match if matches!(result, TestResultKind::Worked) { &offers.worked } else { &offers.problem } {
+            Ok(reason) => reason.as_deref(),
+            Err(reason) => Some(*reason),
+        },
         None => Some("Current test-result offer unavailable"),
     }
 }
@@ -507,6 +538,64 @@ pub fn compatibility_result_refusal<'a>(offer: Option<&'a Result<Option<String>,
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn settings_test_confirmation_rechecks_exact_choices_baseline_and_owner_refusal() {
+        let mut snapshot = crate::samples::base();
+        crate::samples::display_fixture(&mut snapshot);
+        let action = snapshot.products[0].actions.iter().find(|offer|offer.disabled_reason.is_none()
+            && matches!(offer.action,Action::CandidateSettingsTest {..})).unwrap().action.clone();
+        assert!(matches!(route(action.clone(),None),Route::Confirm(_)));
+        let confirmation = removal_confirmation(Some(&snapshot),&action);
+        assert_eq!(confirmation.confirm,"Use this and test");
+        assert_eq!(confirmation.offer.unwrap().action,action);
+        assert!(confirmation.body.iter().any(|line|line.contains("reopen this plug-in in your DAW")));
+        let offer = snapshot.products[0].actions.iter_mut().find(|offer|offer.action == action).unwrap();
+        offer.disabled_reason = Some("The affected instance is active".into());
+        assert_eq!(removal_confirmation(Some(&snapshot),&action).offer.unwrap_err(),"The affected instance is active");
+        let offer = snapshot.products[0].actions.iter_mut().find(|offer|offer.action == action).unwrap();
+        offer.disabled_reason = None;
+        let Action::CandidateSettingsTest {expected_current:Some(current),..} = &mut offer.action else {panic!()};
+        current.sha256 = "ff".repeat(32);
+        assert!(removal_confirmation(Some(&snapshot),&action).offer.is_err());
+    }
+
+    #[test]
+    fn edited_result_rejoins_its_own_variant_and_exact_publication() {
+        let mut snapshot = crate::samples::base();
+        snapshot.products.truncate(1);
+        let product = &mut snapshot.products[0];
+        product.compatibility = None;
+        let current = PublicationIdentity {id:"ab".repeat(16), sha256:"cd".repeat(32)};
+        let action = |result| Action::CompatibilityResult {candidate:"candidate".into(),
+            expected_current:current.clone(),result,passed:vec![],failed_area:None,note:String::new()};
+        let worked = TestResultKind::Worked;
+        let problem = TestResultKind::Problem {category:ProblemCategory::BlankEditor};
+        // Put Problem first: Worked must not inherit its availability.
+        product.actions = vec![
+            AvailableAction {label:"Problem".into(), action:action(TestResultKind::Problem {category:ProblemCategory::Other}), disabled_reason:None},
+            AvailableAction {label:"Worked".into(), action:action(worked), disabled_reason:Some("Wait for this instance to close".into())},
+        ];
+        let offers = compatibility_result_offer(Some(&snapshot), "candidate", &current);
+        assert_eq!(compatibility_result_refusal(Some(&offers), &worked), Some("Wait for this instance to close"));
+        assert_eq!(compatibility_result_refusal(Some(&offers), &problem), None);
+        snapshot.products[0].actions[0].disabled_reason = Some("Finish the previous problem report".into());
+        let offers = compatibility_result_offer(Some(&snapshot), "candidate", &current);
+        assert_eq!(compatibility_result_refusal(Some(&offers), &problem), Some("Finish the previous problem report"));
+        snapshot.products[0].actions.remove(0);
+        let offers = compatibility_result_offer(Some(&snapshot), "candidate", &current);
+        assert!(compatibility_result_refusal(Some(&offers), &problem).is_some(), "Worked is not a Problem offer");
+        snapshot.products[0].actions[0].disabled_reason = None;
+        let offers = compatibility_result_offer(Some(&snapshot), "candidate", &current);
+        assert_eq!(compatibility_result_refusal(Some(&offers), &worked), None);
+        let changed = PublicationIdentity {sha256:"ef".repeat(32), ..current.clone()};
+        for offers in [compatibility_result_offer(Some(&snapshot), "candidate", &changed),
+            compatibility_result_offer(Some(&snapshot), "another-candidate", &current),
+            compatibility_result_offer(None, "candidate", &current)] {
+            assert!(compatibility_result_refusal(Some(&offers), &worked).is_some());
+            assert!(compatibility_result_refusal(Some(&offers), &problem).is_some());
+        }
+    }
 
     #[test]
     fn runtime_change_requires_an_exact_current_impact_and_offer() {

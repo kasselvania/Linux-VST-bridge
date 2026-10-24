@@ -56,21 +56,25 @@ def upstream_root_licenses(package, root, cache):
 
 
 def capture(source, output, target="x86_64-unknown-linux-gnu", *,
-            frontend_source=None, frontend_build=None):
+            frontend_source=None, frontend_build=None, installer_build=None):
     if frontend_build is not None:
         with qualification.recorded_sources(source, frontend_source) as (public, private, env):
             return capture_sources(public, output, target, frontend_source=private,
-                                   frontend_build=frontend_build, cargo_env=env)
+                                   frontend_build=frontend_build, installer_build=installer_build, cargo_env=env)
     return capture_sources(source, output, target)
 
 
 def capture_sources(source, output, target="x86_64-unknown-linux-gnu", *,
-                    frontend_source=None, frontend_build=None, cargo_env=None):
+                    frontend_source=None, frontend_build=None, installer_build=None, cargo_env=None):
     source, output = Path(source).resolve(), Path(output)
     packages, locked, origins = {}, {}, {}
     manifests = [source / "manager-ui/Cargo.toml", source / "native-vst3-proxy/backend/Cargo.toml"]
     frontend_manifest = None
     if frontend_build is not None:
+        if (installer_build is None or installer_build.get("binary") != qualification.INSTALLER
+                or {k: v for k, v in frontend_build.items() if k not in ("binary", "artifact_sha256")}
+                != {k: v for k, v in installer_build.items() if k not in ("binary", "artifact_sha256")}):
+            raise ValueError("notice native manager and installer build identities differ")
         frontend_source = Path(frontend_source).resolve()
         application = frontend_build["frontend_source"]
         identity = qualification.source_identity(frontend_source)
@@ -81,6 +85,8 @@ def capture_sources(source, output, target="x86_64-unknown-linux-gnu", *,
             raise ValueError("notice sources differ from frontend build")
         frontend_manifest = source / qualification.WINDOW_MANIFEST
         tracked = qualification.tracked_files(frontend_source)
+        # Both native binaries are in this same live-feature workspace. The
+        # complete normal dependency closure covers both; no egui binary ships.
         manifests = [source / "crates/cli/Cargo.toml", manifests[1], frontend_manifest]
     for manifest in manifests:
         lock = tomllib.loads(manifest.with_name("Cargo.lock").read_text())

@@ -43,7 +43,7 @@ impl Builder<'_> {
             Ok(_) if pending => Some(offers::WAITING.to_string()),
             Ok(_) => None,
         };
-        let importance = if matches!(form, Action::EnvironmentRuntimeSelect { .. }) { Importance::Primary }
+        let importance = if matches!(form, Action::EnvironmentRuntimeSelect { .. } | Action::CandidateSettingsTest { .. }) { Importance::Primary }
             else { Importance::Destructive };
         let confirm = self.local(confirm, importance, Target::Form(FormStep::Confirm), reason);
         let cancel = self.local(cancel, Importance::Secondary, Target::Form(FormStep::CancelConfirm), None);
@@ -140,7 +140,9 @@ impl Builder<'_> {
                 if !valid {
                     out.push(words(Role::Detail, words_.incomplete));
                 }
-                if refusal.is_some() && offer.is_ok() {
+                if matches!(result, TestResultKind::Worked) && refusal.is_some()
+                    && forms::compatibility_result_refusal(Some(&offer),
+                        &TestResultKind::Problem {category:ProblemCategory::Other}).is_none() {
                     out.push(words(Role::Detail, words_.problem_only));
                 }
                 let reason = refusal.clone().or_else(|| (!valid).then(|| words_.incomplete.to_string()));

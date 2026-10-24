@@ -37,7 +37,7 @@ impl Watch {
                 }
                 let result = Subscription::installed(&home).and_then(|mut stream| {
                     while !receiver.stopped.load(Ordering::Acquire) {
-                        let event = stream.next()?;
+                        let event = stream.receive()?;
                         let ended = matches!(event, Event::FrontendSuperseded | Event::Unavailable { .. });
                         let superseded = matches!(event, Event::FrontendSuperseded);
                         publish(event);

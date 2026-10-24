@@ -196,6 +196,8 @@ impl RequestFeedback {
                 Action::PluginPrepare { .. } => "Preparing this plug-in's matching bridge.".into(),
                 Action::CandidateGraphicsAssess { .. } => "Assessing graphics in this plug-in's selected runtime.".into(),
                 Action::CandidateGraphicsPrepare { .. } => "Preparing a reversible graphics settings trial.".into(),
+                Action::CandidateSettingsTest { expected_current:Some(_), .. } => "Preparing and selecting this plug-in’s display settings. Your previous settings are kept.".into(),
+                Action::CandidateSettingsTest { expected_current:None, .. } => "Preparing and selecting display settings so you can test this plug-in.".into(),
                 Action::CandidateSettingsPrepare { .. } => "Preparing a reversible compatibility settings trial. Your current selection stays in place.".into(),
                 Action::CompatibilityPublishTest { .. } => "Selecting this plug-in's prepared bridge.".into(),
                 Action::PluginRemoveFromDaw { .. } => "Removing this plug-in from your DAW.".into(),

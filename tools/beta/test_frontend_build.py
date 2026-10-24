@@ -1,5 +1,6 @@
 """Bridge application ownership and exact private toolkit build boundaries."""
 import copy
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -53,7 +54,7 @@ class FrontendBuild(unittest.TestCase):
                      for name in sorted(frontend.TOOLKIT_CRATES)]
         packages.append({"id": "root", "name": "lvb-window", "source": None,
                          "manifest_path": str(self.manifest),
-                         "targets": [{"name": frontend.BINARY, "kind": ["bin"]}]})
+                         "targets": [{"name": name, "kind": ["bin"]} for name in frontend.BINARIES]})
         nodes = [{"id": p["id"], "features": [], "deps": []} for p in packages[:-1]]
         nodes.append({"id": "root", "features": ["live"], "deps": [
             {"pkg": p["id"], "dep_kinds": [{"kind": None}]} for p in packages[:-1]]})
@@ -144,6 +145,14 @@ class FrontendBuild(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "pin both private toolkit crates"):
             self.describe()
 
+    def test_both_native_executable_targets_are_required(self):
+        for missing in frontend.BINARIES:
+            metadata = copy.deepcopy(self.metadata)
+            metadata['packages'][-1]['targets'] = [t for t in metadata['packages'][-1]['targets']
+                                                   if t['name'] != missing]
+            with self.assertRaisesRegex(ValueError, 'both native application executables'):
+                self.describe(metadata)
+
     def test_changed_binary_or_embedded_identity_refuses(self):
         metadata = self.describe()
         binary = self.root / frontend.BINARY
@@ -158,6 +167,91 @@ class FrontendBuild(unittest.TestCase):
             binary.write_bytes(b"\x7fELFchanged")
             with self.assertRaisesRegex(ValueError, "sources or artifact changed"):
                 frontend.verify_record(record, self.bridge, self.ui, binary)
+
+    def test_native_pair_refuses_missing_changed_or_different_installer_without_executing_it(self):
+        metadata = self.describe()
+        installer_metadata = {**metadata, 'binary': frontend.INSTALLER}
+        binaries = self.root / 'binaries'
+        binaries.mkdir()
+        manager, installer = binaries / frontend.BINARY, binaries / frontend.INSTALLER
+        manager.write_bytes(b'\x7fELFmanager')
+        installer.write_bytes(b'\x7fELF' + json.dumps(installer_metadata, sort_keys=True, separators=(',', ':')).encode())
+        records = [{**info, 'artifact_sha256': frontend.sha(binary)}
+                   for info, binary in ((metadata, manager), (installer_metadata, installer))]
+        record_path = binaries / 'frontend-build.json'
+        record_path.write_text(json.dumps(records[0]))
+        installer_record = binaries / 'installer-build.json'
+        with patch.object(frontend, 'describe', side_effect=lambda *args: {**metadata, 'binary': args[-1]}), \
+                patch.object(subprocess, 'check_output', return_value=json.dumps(metadata).encode()) as executed:
+            with self.assertRaises(FileNotFoundError):
+                frontend.verify_pair(record_path, self.bridge, self.ui)
+            installer_record.write_text(json.dumps(records[1]))
+            self.assertEqual(frontend.verify_pair(record_path, self.bridge, self.ui), tuple(records))
+            self.assertTrue(all(call.args[0] == [str(manager.resolve()), '--package-info']
+                                for call in executed.call_args_list))
+            installer.write_bytes(b'\x7fELFold egui installer')
+            with self.assertRaisesRegex(ValueError, 'artifact changed'):
+                frontend.verify_pair(record_path, self.bridge, self.ui)
+            installer_record.write_text(json.dumps({**records[1], 'artifact_sha256': frontend.sha(installer)}))
+            with self.assertRaisesRegex(ValueError, 'installer embedded build identity'):
+                frontend.verify_pair(record_path, self.bridge, self.ui)
+            installer_record.write_text(json.dumps({**records[1], 'portable_public_key': 'b' * 64}))
+            with self.assertRaisesRegex(ValueError, 'sources or artifact changed'):
+                frontend.verify_pair(record_path, self.bridge, self.ui)
+        other_key = {**installer_metadata, 'portable_public_key': 'b' * 64}
+        installer.write_bytes(b'\x7fELF' + json.dumps(other_key, sort_keys=True, separators=(',', ':')).encode())
+        installer_record.write_text(json.dumps({**other_key, 'artifact_sha256': frontend.sha(installer)}))
+        with patch.object(frontend, 'describe', side_effect=lambda *args:
+                          {**metadata, 'binary': args[-1], 'portable_public_key': args[3]}), \
+                patch.object(subprocess, 'check_output', return_value=json.dumps(metadata).encode()):
+            with self.assertRaisesRegex(ValueError, 'manager and installer build identities differ'):
+                frontend.verify_pair(record_path, self.bridge, self.ui)
+
+    def test_one_build_produces_both_binaries_and_separate_exact_records(self):
+        metadata = self.describe()
+        output, target = self.root / 'output', self.root / 'target'
+        original_run, original_output = subprocess.run, subprocess.check_output
+        builds = []
+
+        @contextmanager
+        def sources(*_):
+            yield self.bridge, self.ui, {}
+
+        def run(command, **kwargs):
+            if command[0] != 'cargo':
+                return original_run(command, **kwargs)
+            builds.append(command)
+            self.assertEqual([command[i + 1] for i, part in enumerate(command) if part == '--bin'],
+                             list(frontend.BINARIES))
+            self.assertEqual(kwargs['env']['CARGO_BUILD_JOBS'], '2')
+            for name, variable in ((frontend.BINARY, 'LVB_FRONTEND_PACKAGE_INFO'),
+                                   (frontend.INSTALLER, 'LVB_INSTALLER_PACKAGE_INFO')):
+                declaration = kwargs['env'][variable]
+                self.assertEqual(json.loads(declaration), {**metadata, 'binary': name})
+                path = target / frontend.TARGET / 'release' / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b'\x7fELF' + declaration.encode())
+            return subprocess.CompletedProcess(command, 0)
+
+        def check_output(command, **kwargs):
+            if command[-1] == '--package-info':
+                self.assertEqual(Path(command[0]).name, frontend.BINARY)
+                return json.dumps(metadata).encode()
+            return original_output(command, **kwargs)
+
+        with patch.object(frontend, 'recorded_sources', sources), \
+                patch.object(frontend, 'describe_sources', return_value=metadata), \
+                patch.object(frontend, 'describe', side_effect=lambda *args: {**metadata, 'binary': args[-1]}), \
+                patch.object(subprocess, 'run', side_effect=run), \
+                patch.object(subprocess, 'check_output', side_effect=check_output):
+            record = frontend.build(self.bridge, self.ui, frontend.WINDOW_MANIFEST, output, target,
+                                    metadata['portable_public_key'], 'internal_test')
+            pair = frontend.verify_pair(output / 'frontend-build.json', self.bridge, self.ui)
+        self.assertEqual(len(builds), 1)
+        self.assertEqual(pair[0], record)
+        self.assertEqual(pair[1]['binary'], frontend.INSTALLER)
+        for name in frontend.BINARIES:
+            self.assertEqual((output / name).stat().st_mode & 0o777, 0o555)
 
     def test_ignored_application_dependency_cannot_share_recorded_identity(self):
         (self.bridge / ".gitignore").write_text("ignored/\n")

@@ -3,8 +3,8 @@
   "steps": [
     {"kind":"open_standalone","label":"Open on its own","detail":"Check the plug-in window outside your DAW. This does not test audio in your DAW."},
     {"kind":"assess_display","label":"Check the display","detail":"Check how the plug-in window works with the current display settings."},
-    {"kind":"try_display_mode","label":"Try another display mode","detail":"Prepare different display settings, then choose whether to apply them. Your previous settings are kept."},
-    {"kind":"profile_accessibility","label":"Restore accessibility defaults","detail":"Prepare this plug-in's default Windows accessibility settings for its next launch. Applying them is a separate step."},
+    {"kind":"try_display_mode","label":"Try another display mode","detail":"Choose different display settings, then use them for an explicit test. Your previous settings are kept."},
+    {"kind":"profile_accessibility","label":"Change Windows accessibility support","detail":"Change only this plug-in's Windows accessibility setting for its next launch, then check its editor. Linux input settings are unchanged."},
     {"kind":"repair_installation","label":"Continue installation repair","detail":"Continue an unfinished installation for this setup. Restoring display settings will not undo installation changes."},
     {"kind":"restore_previous","label":"Restore the previous settings","detail":"Return to the settings used before this trial. This does not undo installation changes."},
     {"kind":"report_problem","label":"Record what happened","detail":"Describe what happened with the settings you tested."}

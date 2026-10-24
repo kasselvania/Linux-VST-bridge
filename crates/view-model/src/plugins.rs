@@ -499,7 +499,11 @@ fn standalone_action(action: &Action) -> bool {
 /// Group only exact owner-issued window controls. A pair never borrows another
 /// window's focus/close target, even when their labels and product are equal.
 fn standalone_controls(product: &Product, primary: Option<&AvailableAction>, busy: Option<&str>, pending: bool) -> Vec<OfferRow> {
-    let mut groups: Vec<(Option<(&str, &str)>, Vec<AvailableAction>)> = vec![];
+    struct Group<'a> {
+        identity: Option<(&'a str, &'a str)>,
+        actions: Vec<AvailableAction>,
+    }
+    let mut groups: Vec<Group<'_>> = vec![];
     for offer in product.actions.iter().filter(|offer| standalone_action(&offer.action)
         && !primary.is_some_and(|shown| shown.action == offer.action)) {
         let identity = match &offer.action {
@@ -507,12 +511,12 @@ fn standalone_controls(product: &Product, primary: Option<&AvailableAction>, bus
                 Some((operation.as_str(), session.as_str())),
             _ => None,
         };
-        if let Some((_, actions)) = groups.iter_mut().find(|(key, _)| *key == identity) {
-            if !actions.iter().any(|old| old.action == offer.action) { actions.push(offer.clone()); }
-        } else { groups.push((identity, vec![offer.clone()])); }
+        if let Some(group) = groups.iter_mut().find(|group| group.identity == identity) {
+            if !group.actions.iter().any(|old| old.action == offer.action) { group.actions.push(offer.clone()); }
+        } else { groups.push(Group { identity, actions: vec![offer.clone()] }); }
     }
-    groups.into_iter().map(|(_, actions)| {
-        let mut row = offers::row(&actions, Importance::Secondary, busy, pending);
+    groups.into_iter().map(|group| {
+        let mut row = offers::row(&group.actions, Importance::Secondary, busy, pending);
         if primary.is_none() {
             for offer in &mut row.offers {
                 if matches!(offer.intent, Action::PluginOpen { .. } | Action::PluginFocus { .. }) {
@@ -1229,7 +1233,7 @@ mod tests {
         assert!(beam.lead.is_none(), "recording a result is optional");
         let help = beam.help.as_ref().unwrap();
         assert!(matches!(&help.content[0], Detail::Offers(row)
-            if row.offers[0].label == "Record a test result or problem"));
+            if row.offers[0].label == "Record what worked…"));
         assert!(help.content.contains(&Text::body(
             "Available in your DAW using this setup. You can record a result after trying it.").into()));
         let bismuth = card(&snapshot, 1, false, false);

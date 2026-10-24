@@ -676,14 +676,75 @@ fn display_and_repair_are_local_pages_of_the_same_exact_product() {
     assert_eq!(preview.state.plugins.focused_product(),Some(&key));
     assert!(offered(&preview,|a|matches!(a,Action::PluginOpen {..})).is_some(),
         "repair keeps its exact action, not a reference to another page");
+    let choose_mode = preview.built.targets.iter().find_map(|(id,target)| matches!(target,
+        Target::List(ListStep::ProductPage {key:shown,page:ProductPage::Display}) if shown==&key).then(||id.clone())).unwrap();
+    assert!(preview.captured.is_empty());
+    assert_eq!(preview.press(&choose_mode,InputPath::Pointer),Outcome::Navigated);
+    assert_eq!(preview.state.plugins.focused_product(),Some(&key));
+    assert!(preview.captured.is_empty(), "choosing a display mode only opens its page");
+    navigate(&mut preview,ProductPage::Overview);
+    navigate(&mut preview,ProductPage::Repair);
     let blocked = preview.built.targets.iter().find_map(|(id,target)| matches!(target,
-        Target::Offer {offer,..} if offer.availability.reason()==Some("Close this exact plug-in window before preparing its accessibility trial."))
+        Target::Offer {offer,..} if offer.availability.reason()==Some("Close this exact plug-in window before changing its accessibility settings."))
         .then(||id.clone())).unwrap();
     assert_eq!(preview.press(&blocked,InputPath::Touch),Outcome::Refused);
     assert!(preview.captured.is_empty());
+    let mut support = preview.clone();
+    let report = support.built.targets.iter().find_map(|(id,target)| matches!(target,
+        Target::Control(lvb_view_model::Control {does:Local::Go(Destination::Diagnostics),..})).then(||id.clone())).unwrap();
+    support.press(&report,InputPath::Pointer);
+    assert_eq!(support.state.page,Page::Diagnostics);
+    assert!(support.captured.is_empty(), "opening Support does not manufacture or send a report");
     navigate(&mut preview,ProductPage::Overview);
     assert_eq!(preview.state.plugins.focused_product(),Some(&key));
     assert!(preview.captured.is_empty());
+}
+
+#[test]
+fn display_hides_technical_reviews_and_result_editing_needs_the_matching_offer() {
+    let mut preview = Preview::new(Selection {state:state_index("plugin_ready"),page:Page::Plugins,..Selection::default()});
+    preview.display_fixture();
+    let product = &mut preview.sample.snapshot.products[0];
+    let lvb_view_model::model::Observation::Observed(display) = &mut product.display else {panic!()};
+    let review = Action::CandidateReview {candidate:display.selected_candidate.clone().unwrap(),accept:true,rationale:String::new()};
+    display.modes[0].trials[0].actions.push(review.clone());
+    product.actions.push(lvb_view_model::model::AvailableAction {label:"Review exact configuration candidate abc".into(),
+        action:review.clone(),disabled_reason:Some("Qualification incomplete".into())});
+    preview.state.plugins.page = lvb_view_model::state::ProductPage::Display;
+    preview.rebuild();
+    let visible: Vec<_> = outside_folds(&preview.built.page).into_iter().filter_map(|node| match node {
+        Node::Actions {actions,..} => Some(actions.iter().map(|action|action.id.0.clone()).collect::<Vec<_>>()),
+        _ => None,
+    }).flatten().collect();
+    let review_id = preview.built.targets.iter().find_map(|(id,target)| matches!(target,
+        Target::Offer {offer,..} if offer.intent==review).then(||id.clone())).unwrap();
+    assert!(!visible.contains(&review_id), "maintainer reviews belong in a disclosure");
+    let record = preview.built.targets.iter().find_map(|(id,target)| matches!(target,
+        Target::Offer {offer,..} if matches!(offer.intent,Action::CompatibilityResult {result:TestResultKind::Worked,..}))
+        .then(||id.clone())).unwrap();
+    assert!(visible.contains(&record), "the selected setting's result is a normal step");
+    preview.press(&record,InputPath::Pointer);
+    let form = preview.state.forms.record.as_mut().unwrap();
+    let Action::CompatibilityResult {result,note,..} = form else {panic!()};
+    *result = TestResultKind::Problem {category:ProblemCategory::BlankEditor};
+    *note = "The editor stayed blank.".into();
+    let submitted = form.clone();
+    preview.rebuild();
+    let submit = form_control(&preview,FormStep::SubmitRecord).unwrap();
+    assert!(submit.reason().is_some(), "the sample offers Worked only");
+    assert_eq!(preview.press(&submit.id.0,InputPath::Pointer),Outcome::Refused);
+    assert!(preview.captured.is_empty());
+    let mut offered = submitted.clone();
+    let Action::CompatibilityResult {result,note,..} = &mut offered else {panic!()};
+    *result = TestResultKind::Problem {category:ProblemCategory::Other};
+    note.clear();
+    preview.sample.snapshot.products[0].actions.push(lvb_view_model::model::AvailableAction {
+        label:"Report a problem".into(),action:offered,disabled_reason:None});
+    preview.rebuild();
+    let submit = form_control(&preview,FormStep::SubmitRecord).unwrap();
+    assert!(submit.reason().is_none());
+    preview.press(&submit.id.0,InputPath::Pointer);
+    assert_eq!(preview.captured,vec![(submitted,false)]);
 }
 
 #[test]
@@ -744,4 +805,56 @@ fn presets_is_a_product_page_without_a_fake_file_browser() {
     assert!(!preview.built.targets.values().any(|target|matches!(target,Target::Offer {offer,..}
         if matches!(offer.intent,Action::PresetFiles {..}))),"an unknown location cannot invent file actions");
     assert!(preview.captured.is_empty());
+}
+
+#[test]
+fn display_chooses_one_exact_settings_test_confirms_and_returns_to_same_plugin() {
+    use lvb_view_model::{state::ProductPage,model::{AccessibilityChoice,GraphicsBackend,LocalSettings}};
+    let mut preview = Preview::new(Selection {state:state_index("plugin_ready"),page:Page::Plugins,..Selection::default()});
+    preview.display_fixture();
+    let key = preview.state.plugins.focused_product().unwrap().clone();
+    preview.state.plugins.page = ProductPage::Display;
+    preview.rebuild();
+    assert!(format!("{:?}",preview.built.page).contains("Your previous settings are kept."));
+    let mut first = preview.clone();
+    let lvb_view_model::model::Observation::Observed(display) = &mut first.sample.snapshot.products[0].display else {panic!()};
+    display.settings.expected_current = None;
+    first.rebuild();
+    let page = format!("{:?}",first.built.page);
+    assert!(page.contains("These settings make the plug-in available to test."));
+    assert!(!page.contains("Your previous settings are kept."));
+    assert!(preview.built.targets.values().all(|target| !matches!(target,
+        Target::Offer {offer,..} if matches!(offer.intent,Action::CandidateSettingsPrepare {..}))),
+        "the ordinary Display page does not split preparation from selection");
+    let choose = preview.built.targets.iter().find_map(|(id,target)| matches!(target,
+        Target::Choose {group,key} if group.starts_with("display-mode:")
+            && key == &serde_json::to_string(&Some(GraphicsBackend::WineD3d11)).unwrap()).then(||id.clone())).unwrap();
+    preview.press(&choose,InputPath::Touch);
+    assert!(preview.captured.is_empty());
+    let intended = LocalSettings {graphics:Some(GraphicsBackend::WineD3d11),accessibility:AccessibilityChoice::DisabledForHost};
+    let use_it = preview.built.targets.iter().find_map(|(id,target)| matches!(target,
+        Target::Offer {offer,..} if matches!(&offer.intent,Action::CandidateSettingsTest {settings,..}
+            if settings == &intended)).then(||id.clone())).unwrap();
+    preview.press(&use_it,InputPath::Keyboard);
+    assert!(preview.captured.is_empty());
+    let exact = preview.state.forms.confirm.clone().unwrap();
+    assert!(format!("{:?}",preview.built.form).contains("reopen this plug-in in your DAW"));
+    let confirm = form_control(&preview,FormStep::Confirm).unwrap();
+    let mut stale = preview.clone();
+    let offer = stale.sample.snapshot.products[0].actions.iter_mut().find(|offer|offer.action == exact).unwrap();
+    let Action::CandidateSettingsTest {expected_current:Some(baseline),..} = &mut offer.action else {panic!()};
+    baseline.sha256 = "ef".repeat(32);
+    stale.rebuild();
+    let held = form_control(&stale,FormStep::Confirm).unwrap();
+    assert!(held.reason().is_some());
+    assert_eq!(stale.press(&held.id.0,InputPath::Touch),Outcome::Refused);
+    assert!(stale.captured.is_empty());
+    preview.press(&confirm.id.0,InputPath::Keyboard);
+    assert_eq!(preview.captured,vec![(exact,true)]);
+    assert_eq!(preview.state.plugins.page,ProductPage::Overview);
+    assert_eq!(preview.state.plugins.focused_product(),Some(&key));
+    assert!(outside_folds(&preview.built.page).iter().any(|node|matches!(node,Node::Readiness {..})),
+        "the test returns to real readiness records, not a fabricated completion page");
+    assert_eq!(preview.press(&confirm.id.0,InputPath::Keyboard),Outcome::Refused);
+    assert_eq!(preview.captured.len(),1);
 }
