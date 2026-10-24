@@ -1,5 +1,10 @@
 # Shared failure classes
 
+Console preset refresh (#539): external User-folder changes leave the open page
+with stale counts and restore offers, including after returning to Presets.
+Reopening Console refreshes them; Test257 then restores the missing file correctly.
+The owner-to-window observation/refresh path remains open.
+
 Deck stuck modifiers: `xdotool key ctrl+a` reproduces persistent Control on
 KWin 6.4.3 / Xwayland 24.1.10 after focus leaves and returns, despite an immediate
 zero modifier readback. It reproduces in a KDE scratch field with Wine closed;

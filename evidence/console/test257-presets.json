@@ -1,0 +1,37 @@
+{
+  "source": "0f1a2f66682ac2a1e04993fb0b6b2e355e28e453",
+  "platform": "SteamOS Deck",
+  "plugin": "Serum 2 instrument",
+  "plugin_version": "2.1.5",
+  "module_sha256": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+  "class_id": "56534558667350736572756D20320000",
+  "service_sha256": "5dd1338f5333011ef08b16a1967865104411d19956b83a7d65b9394a8af5a1a6",
+  "console_sha256": "ffff6b64e30a8a93711a4fc7b4bcde277669e1e6030f3582236f9ccc7685b882",
+  "backup": {
+    "console_operation_completed": true,
+    "files": 1,
+    "bytes": 2466
+  },
+  "restore": {
+    "console_confirmation_used": true,
+    "console_operation_completed": true,
+    "missing_files": 1,
+    "conflicts": 0,
+    "restored_files": 1,
+    "restored_bytes": 2466,
+    "matches_original_sha256": true,
+    "preexisting_files_unchanged": 1
+  },
+  "fresh_vendor_instance": {
+    "restored_preset_loaded": true,
+    "saved_name_and_settings_visible": true,
+    "normal_editor_retirement": true
+  },
+  "workaround": "Reopen Console after external preset-file removal to refresh the count and restore offer; issue #539.",
+  "regression": {
+    "focused_tests_passed": 27,
+    "unwaited_reader_counterexample_refused": true,
+    "bounded_wait_reader_case_completed": true,
+    "changed_setup_root_publication_still_refused": true
+  }
+}
