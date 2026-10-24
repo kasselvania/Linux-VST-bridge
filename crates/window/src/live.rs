@@ -1069,8 +1069,8 @@ mod tests {
     fn observe_state(live: &mut Live, s: &Snapshot, epoch: &str, records: u64) {
         use lvb_client::observation::{Cursor, Event, State};
         let revision = live.observation_cursor.as_ref().map_or(1, |cursor| cursor.revision + 1);
-        live.observe(Event::State(State { cursor:Cursor { service_epoch:epoch.into(), revision },
-            records_revision:Some(records), activity:vm::model::Observation::Observed(status(s)) }));
+        live.observe(Event::State(Box::new(State { cursor:Cursor { service_epoch:epoch.into(), revision },
+            records_revision:Some(records), activity:vm::model::Observation::Observed(status(s)) })));
     }
     fn observing(posture: String, reveal: bool) -> Live {
         let mut live = Live::new(posture, reveal);
@@ -2140,9 +2140,9 @@ mod tests {
         let mut live = ready_support();
         let offered = export(&live);
         let mut cursor = live.observation_cursor.clone().unwrap(); cursor.revision += 1;
-        live.observe(lvb_client::observation::Event::State(lvb_client::observation::State {
+        live.observe(lvb_client::observation::Event::State(Box::new(lvb_client::observation::State {
             cursor, records_revision:None, activity:vm::model::Observation::Observed(status(&snapshot())),
-        }));
+        })));
         assert!(!live.fresh && live.drawn.get(&offered).is_none_or(Option::is_some));
         assert_eq!(press(&mut live, &offered), Outcome::Refused);
         assert!(live.support.is_none(), "a retired or disabled offer cannot submit");
@@ -2190,9 +2190,9 @@ mod tests {
         let mut newer = status(&snapshot());
         newer.incidents = Observation::Unavailable("New retained incident observation".into());
         let mut cursor = live.observation_cursor.clone().unwrap(); cursor.revision += 1;
-        live.observe(lvb_client::observation::Event::State(lvb_client::observation::State {
+        live.observe(lvb_client::observation::Event::State(Box::new(lvb_client::observation::State {
             cursor, records_revision:Some(1), activity:Observation::Observed(newer),
-        }));
+        })));
         live.receive(activity(&snapshot()));
         assert!(matches!(&live.status.as_ref().unwrap().incidents,
             Observation::Unavailable(reason) if reason == "New retained incident observation"));
@@ -2233,9 +2233,9 @@ mod tests {
                 signal:SignalObservation::NotMeasured, terminal:Observation::Observed(None), cleanup:CleanupState::NotReported, recovery:None,
             }]);
             let mut cursor = live.observation_cursor.clone().unwrap(); cursor.revision += 1;
-            live.observe(lvb_client::observation::Event::State(lvb_client::observation::State {
+            live.observe(lvb_client::observation::Event::State(Box::new(lvb_client::observation::State {
                 cursor, records_revision:Some(1), activity:Observation::Observed(activity.clone()),
-            }));
+            })));
             assert!(live.fresh);
             assert_eq!(export(&live), offered);
             assert!(live.drawn[&offered].is_none());

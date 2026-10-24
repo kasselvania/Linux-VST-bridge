@@ -56,9 +56,13 @@ pub(super) fn revision(_m: &Manager) -> u64 {
 }
 fn changed() {
     if let Some(runtime) = RUNTIME.get() {
-        let _ = runtime
-            .revision
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |v| v.checked_add(1));
+        let mut revision = runtime.revision.load(Ordering::Acquire);
+        while let Some(next) = revision.checked_add(1) {
+            match runtime.revision.compare_exchange_weak(revision, next, Ordering::AcqRel, Ordering::Acquire) {
+                Ok(_) => break,
+                Err(current) => revision = current,
+            }
+        }
         (runtime.changed)();
     }
 }
