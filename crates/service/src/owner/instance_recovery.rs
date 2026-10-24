@@ -182,29 +182,11 @@ pub(super) fn attach(mut peer: UnixStream) -> Result<()> {
             entry.clone()
         } else {
             require(entries.len() < 64, "proxy_connection_capacity")?;
-            let uncertain = unresolved_journal(&runtime.manager, &original, &initial);
-            let pending = uncertain.then(|| Pending {
-                command: retained_restart(&runtime.manager, &original).ok().flatten().unwrap_or(wire::Command {
-                    operation: initial.operation,
-                    generation: initial.generation,
-                    revision: initial.revision,
-                    digest: initial.digest,
-                }),
-                sent: true,
-                launch_claimed: true,
-                uncertain: true,
-                accepted: Instant::now(),
-            });
             let entry = Arc::new(Entry {
                 original: original.clone(),
                 registration,
                 consumer,
-                state: Mutex::new(State {
-                    status: initial,
-                    seen: Instant::now(),
-                    connected: true,
-                    pending,
-                }),
+                state: Mutex::new(observation(initial)),
             });
             entries.insert(original, entry.clone());
             changed();
@@ -313,10 +295,7 @@ fn admissible(m: &Manager, entry: &Entry, state: &State, command: &wire::Command
         }),
         "This instance has an unfinished or unconfirmed restart request",
     )?;
-    require(
-        !unresolved_journal(m, &entry.original, &state.status),
-        "The previous restart outcome is unconfirmed; it will not be replayed",
-    )?;
+    require_settled_custody(m, &entry.original, &state.status)?;
     retired(m, &hex(&state.status.session))
 }
 pub(super) fn validate(m: &Manager, action: &ui::Action) -> Result<()> {
@@ -428,21 +407,6 @@ pub(super) fn authorize_launch(
     changed();
     Ok(entry.registration.clone())
 }
-fn recovery_phase(state: &State) -> ui::RecoveryPhase {
-    use ui::RecoveryPhase as P;
-    if !state.connected || state.seen.elapsed() >= Duration::from_secs(2) { return P::Unknown; }
-    match state.status.phase {
-        wire::COMPLETE if state.status.flags & wire::FAILED != 0 => P::Failed,
-        wire::COMPLETE => P::Restored,
-        wire::REFUSED => P::Refused,
-        wire::UNCERTAIN => P::Uncertain,
-        wire::ACCEPTED | wire::RESTORING | wire::CONTROLLER => P::Restarting,
-        wire::IDLE if state.pending.is_some() => P::Restarting,
-        wire::IDLE if state.status.flags & wire::FAILED != 0 => P::Failed,
-        wire::IDLE => P::Connected,
-        _ => P::Unknown,
-    }
-}
 
 fn observed(entry: &Entry, state: &State, m: &Manager) -> ui::InstanceRecovery {
     let status = state.status;
@@ -466,9 +430,10 @@ fn observed(entry: &Entry, state: &State, m: &Manager) -> ui::InstanceRecovery {
     let phase = recovery_phase(state);
     let detail = match phase {
         ui::RecoveryPhase::Restored => "The exact confirmed state and DAW controller were restored".into(),
-        ui::RecoveryPhase::Refused | ui::RecoveryPhase::Uncertain => wire::reason(status.reason).into(),
+        ui::RecoveryPhase::Refused => wire::reason(status.reason).into(),
+        ui::RecoveryPhase::Uncertain => "The restart outcome is unconfirmed; it will not be replayed. Keep the project open and choose Send a problem report in the bridge.".into(),
         ui::RecoveryPhase::Restarting => "Restarting this exact plug-in instance; its track stays silent until it is ready".into(),
-        ui::RecoveryPhase::Failed => "This plug-in instance failed. Restart restores the last confirmed state; later changes may be lost".into(),
+        ui::RecoveryPhase::Failed => refusal.clone().map(|reason| format!("This plug-in instance failed. {reason}")).unwrap_or_else(|| "This plug-in instance failed. Restart restores the last confirmed state; later changes may be lost".into()),
         ui::RecoveryPhase::Connected => "This live DAW instance is connected".into(),
         ui::RecoveryPhase::Unknown => "The current recovery state could not be confirmed".into(),
     };
@@ -640,34 +605,8 @@ mod tests {
         assert!(failed.detail.contains("instance failed"));
         assert!(!failed.detail.contains("were restored"));
         state.status.phase = wire::RESTORING;
+        state.pending.as_mut().unwrap().uncertain = false;
         assert_eq!(observed(&entry, &state, &f.m).phase, ui::RecoveryPhase::Restarting);
-    }
-
-    #[test]
-    fn recovery_phase_requires_a_current_proxy_observation() {
-        use ui::RecoveryPhase as P;
-        let mut state = State {status: status(), seen:Instant::now(), connected:true, pending:None};
-        assert_eq!(recovery_phase(&state), P::Failed);
-        for phase in [wire::ACCEPTED, wire::RESTORING, wire::CONTROLLER] {
-            state.status.phase = phase;
-            assert_eq!(recovery_phase(&state), P::Restarting);
-        }
-        state.status.phase = wire::COMPLETE;
-        assert_eq!(recovery_phase(&state), P::Failed, "a later failure supersedes a completed restart");
-        state.status.flags &= !wire::FAILED;
-        assert_eq!(recovery_phase(&state), P::Restored);
-        state.connected = false;
-        assert_eq!(recovery_phase(&state), P::Unknown);
-        state.connected = true;
-        state.seen = Instant::now() - Duration::from_secs(3);
-        assert_eq!(recovery_phase(&state), P::Unknown);
-        state.seen = Instant::now();
-        state.status.phase = wire::UNCERTAIN;
-        assert_eq!(recovery_phase(&state), P::Uncertain);
-        state.status.phase = wire::REFUSED;
-        assert_eq!(recovery_phase(&state), P::Refused);
-        state.status.phase = 999;
-        assert_eq!(recovery_phase(&state), P::Unknown);
     }
 
     fn status() -> wire::Status {
@@ -703,6 +642,16 @@ mod tests {
             }),
         }
     }
+    fn fixture_result(operation: [u8;16], instance: &str, outcome: &str) -> serde_json::Value {
+        if outcome == "unconfirmed" {
+            return serde_json::json!({"instance":instance,"operation":hex(&operation),
+                "restart":"unconfirmed","detail":"The restart outcome is unconfirmed; the bridge will not replay it"});
+        }
+        serde_json::json!({"restart":if outcome == "confirmed" {"completed"} else {outcome},
+            "instance":instance,"operation":hex(&operation),"generation":2,
+            "session":hex(&[5;16]),"snapshot_revision":3,"snapshot_sha256":hex(&[4;32]),
+            "controller_confirmed":true})
+    }
     fn receipt(f: &Fixture, operation: [u8; 16], instance: &str, outcome: &str) {
         let path =
             f.m.root
@@ -712,14 +661,14 @@ mod tests {
         private_dir(path.parent().unwrap()).unwrap();
         atomic_json(
             &path.with_file_name("request.json"),
-            &serde_json::json!({"action":{"kind":"plugin_restart","instance":instance}}),
+            &serde_json::json!({"action":{"kind":"plugin_restart","instance":instance,"generation":1,"snapshot":{"revision":3,"sha256":hex(&[4;32])}}}),
         )
         .unwrap();
         atomic_json(
             &path,
             &serde_json::json!({"schema":1,"operation":hex(&operation),"state":"completed",
             "outcome":outcome,
-            "result":{"restart":outcome}}),
+            "result":fixture_result(operation, instance, outcome)}),
         )
         .unwrap();
     }
@@ -756,18 +705,73 @@ mod tests {
             unresolved_journal(&f.m, &entry.original, &returning),
             "new service cannot promote terminal executor into successful restart"
         );
-        receipt(&f, [2; 16], "another-instance", "completed");
+        receipt(&f, [2; 16], "another-instance", "confirmed");
         assert!(
             unresolved_journal(&f.m, &entry.original, &returning),
             "another instance's receipt cannot settle this request"
         );
-        receipt(&f, [2; 16], &entry.original, "completed");
+        receipt(&f, [2; 16], &entry.original, "confirmed");
         assert!(unresolved_journal(&f.m, &entry.original, &returning),
             "a settled proxy-selected receipt cannot repair missing legacy custody");
         assert!(
             state.pending.as_ref().unwrap().uncertain,
             "a reconnect cannot erase the current owner's uncertain delivery"
         );
+    }
+    #[test]
+    fn legacy_projection_and_admission_name_missing_custody_without_progress() {
+        let f = Fixture::new();
+        let entry = entry(&f);
+        let mut state = observation(status());
+        for settled in [false, true] {
+            if settled {
+                state.status.operation = [3;16];
+                receipt(&f, [3;16], &entry.original, "confirmed");
+            }
+            state.status.flags &= !wire::FAILED;
+            let healthy = observed(&entry, &state, &f.m);
+            assert_eq!(healthy.phase, ui::RecoveryPhase::Connected);
+            assert!(healthy.restart.is_none());
+            state.status.flags |= wire::FAILED;
+            let failed = observed(&entry, &state, &f.m);
+            assert_eq!(failed.phase, ui::RecoveryPhase::Failed);
+            let reason = failed.restart.unwrap().disabled_reason.unwrap();
+            assert!(reason.contains("durable restart custody is missing or unreadable"));
+            assert!(reason.contains("Send a problem report"));
+            assert!(reason.contains("may lose later changes"));
+            assert!(failed.detail.contains(&reason));
+            assert_eq!(admissible(&f.m, &entry, &state, &pending(&state.status).command)
+                .unwrap_err().to_string(), reason);
+            assert!(state.pending.is_none());
+            assert!(!binding_path(&f.m, &entry.original).unwrap().exists());
+        }
+    }
+    #[test]
+    fn legacy_disconnects_leave_room_for_fresh_restart_admission() {
+        let f = Fixture::new();
+        let mut entries = BTreeMap::new();
+        for id in 1..=80u8 {
+            entries.retain(|_, entry: &mut Arc<Entry>| !forgettable(&f.m, entry));
+            assert!(entries.len() < 64);
+            let mut legacy = entry(&f);
+            legacy.original = hex(&[id; 16]);
+            {
+                let mut state = legacy.state.lock().unwrap();
+                *state = observation(status());
+                disconnected(&mut state);
+            }
+            entries.insert(legacy.original.clone(), Arc::new(legacy));
+        }
+        entries.retain(|_, entry| !forgettable(&f.m, entry));
+        assert!(entries.is_empty());
+        let fresh = entry(&f);
+        retain_fresh_instance(&f.m, &fresh.original).unwrap();
+        let path = report(&f.m, &fresh.original).with_extension("ownership.json");
+        private_dir(path.parent().unwrap()).unwrap();
+        atomic_json(&path, &serde_json::json!({"session":fresh.original,
+            "cleanup_confirmed":true,"transport_retired":true})).unwrap();
+        let state = fresh.state.lock().unwrap();
+        admissible(&f.m, &fresh, &state, &pending(&state.status).command).unwrap();
     }
     #[test]
     fn terminal_uncertain_history_does_not_exhaust_live_control_capacity() {
