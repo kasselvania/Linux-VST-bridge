@@ -289,6 +289,7 @@ pub(crate) fn answer(
             &json!({"schema":1,"operation":operation,"state":"running","stage":"preset_files","action":request.action}),
             true,
         )?;
+        let mut failure_step = "copying preset files";
         let result: Result<()> = (|| {
             let mut pending = None;
             let rejoin = || {
@@ -368,10 +369,14 @@ pub(crate) fn answer(
                     files::restore_missing_checked(&store(m), &bound, backup, &recovery, rejoin)?;
                 }
             }
+            failure_step = "reacquiring setup custody";
             let _registry = m.lock("registry.lock")?;
+            failure_step = "checking the setup after copying";
             scope.recheck(m)?;
+            failure_step = "checking the preset folder after copying";
             bound.revalidate()?;
             if let Some(record) = pending {
+                failure_step = "recording the completed backup";
                 save(m, &record)?;
             }
             Ok(())
@@ -393,14 +398,18 @@ pub(crate) fn answer(
             }
             Err(error) => {
                 // Never export source filenames or OS errors containing them.
-                let _ = error;
+                let reason = if linux_vst_bridge::operator_lock::is_busy(error.as_ref()) {
+                    linux_vst_bridge::operator_lock::BUSY_SENTENCE.to_owned()
+                } else {
+                    format!("Preset operation stopped while {failure_step}. Refresh Presets.")
+                };
                 write_operation(
                     m,
                     operation,
-                    &json!({"schema":1,"operation":operation,"state":"refused","stage":"preset_files","action":request.action,"reason":"Preset files changed, conflicted, or could not be copied. Refresh the Presets page; completed backups are retained."}),
+                    &json!({"schema":1,"operation":operation,"state":"refused","stage":"preset_files","action":request.action,"reason":reason}),
                     true,
                 )?;
-                Ok(ui::Receipt {schema:ui::OPERATOR_SCHEMA,accepted:false,operation:Some(operation.into()),refusal:Some("Preset files changed, conflicted, or could not be copied. Refresh Presets.".into())})
+                Ok(ui::Receipt {schema:ui::OPERATOR_SCHEMA,accepted:false,operation:Some(operation.into()),refusal:Some(reason)})
             }
         }
     })?;
