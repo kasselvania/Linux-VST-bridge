@@ -37,6 +37,8 @@ uint32_t gui_fault = 0, caps = 0, closes = 0, refused_sends = 0;
 uint64_t generation = 7, revision = 1;
 double dsp = .5;
 uint32_t save_code=0, state_calls=0, close_code=0;
+std::vector<uint8_t> failed_save_bytes;
+uint32_t failed_save_calls=0;
 bool processing_state_fixture=false;
 std::vector<uint32_t> state_operations;
 uint32_t transition_refusal=0, successful_starts=0;
@@ -61,6 +63,7 @@ if1_terminal_t terminal_record{};
 bool recovery_fixture=false,recovery_final_ack_refused=false;
 std::deque<uint32_t> recovery_stages;
 uint32_t recovery_begun=0,recovery_controller_ack=0,recovery_complete_ack=0,recovery_gui_polls=0,recovery_rejected=0;
+uint32_t recovery_timer_polls=0;
 std::thread::id owner = std::this_thread::get_id();
 struct Host final : HostApplication,
                     Linux::IRunLoop,
@@ -71,6 +74,7 @@ struct Host final : HostApplication,
   AP8::Controller *controller = nullptr;
   AP2::Processor *processor = nullptr;
   bool flush = true, reentrant = false;
+  bool expose_loop = true;
   uint32 dirty = 0, restarts = 0, reload_calls = 0, restart_calls=0, refuse_restarts=0, midi_restarts=0;
   unsigned refuse_allocations = 0;
   unsigned name_calls=0;
@@ -94,6 +98,8 @@ struct Host final : HostApplication,
     if (!out)
       return kInvalidArgument;
     *out = nullptr;
+    if (FUnknownPrivate::iidEqual(id, Linux::IRunLoop::iid) && !expose_loop)
+      return kNoInterface;
     if (FUnknownPrivate::iidEqual(id, Linux::IRunLoop::iid))
       *out = static_cast<Linux::IRunLoop *>(this);
     else if (FUnknownPrivate::iidEqual(id, IComponentHandler::iid))
@@ -335,7 +341,18 @@ uint32_t __wrap_ap4_state_owned_v1(uint64_t, const uint8_t *restore, uint32_t re
 void __wrap_ap4_state_release_v1(ap4_owned_state_v1 *state) {
   delete[] state->data;state->data=nullptr;state->length=0;
 }
+uint32_t __wrap_ap6_failed_save_owned_v1(uint64_t, ap4_owned_state_v1* state, ap6_snapshot_t* info) {
+  ++failed_save_calls;
+  if(failed_save_bytes.empty())return 1;
+  check(state->abi_version==1&&!state->data&&!state->length,"empty failed-save output");
+  auto* out=new uint8_t[failed_save_bytes.size()];
+  std::copy(failed_save_bytes.begin(),failed_save_bytes.end(),out);
+  state->data=out;state->length=uint32_t(failed_save_bytes.size());
+  *info={};info->revision=3;info->generation=generation;info->uncaptured=1;
+  return 0;
+}
 uint32_t __wrap_lvb_recovery_poll_v1(uint64_t,uint32_t timer,lvb_recovery_event_v1* event,ap4_owned_state_v1* bytes){
+  if(timer==1)++recovery_timer_polls;
   *event={};if(!recovery_fixture||recovery_stages.empty())return 0;
   check(timer==1,"restart events consumed by actual SDK owner timer");
   event->stage=recovery_stages.front();recovery_stages.pop_front();
@@ -745,13 +762,31 @@ void held_state_regression() {
     terminal_record.words[15]=90;terminal_record.words[18]=1;terminal_record.words[19]=1;
     LVBState::Stream none;
     check(processor.getState(&none)==kResultFalse && none.bytes.empty(),"an instance that had state of its own never saves the nothing-recorded marker");
+    failed_save_bytes=held_envelope(2048, 76);
+    LVBState::Stream confirmed;
+    const auto captures=state_calls;
+    check(processor.getState(&confirmed)==kResultOk && confirmed.bytes==failed_save_bytes,
+          "a failed live instance hands the DAW the exact backend-confirmed envelope");
+    check(state_calls==captures,"failure save performs no live capture or restore");
+    check(std::strstr(controller->savingLine(),"Last confirmed state") &&
+          std::strstr(controller->savingLine(),"later edits"),"failure save explains confirmed-state limits");
     const auto saved = held_envelope(4096, 77);
     LVBState::Stream in(saved);
     check(processor.setState(&in)==kResultFalse,"a restore after the Windows side ended is not applied");
     LVBState::Stream out;
     check(processor.getState(&out)==kResultOk && out.bytes==saved,"an active instance whose Windows side ended saves the project's bytes unchanged");
+    const auto retained_calls=failed_save_calls;
+    LVBState::Stream again;
+    check(processor.getState(&again)==kResultOk && again.bytes==saved && failed_save_calls==retained_calls,
+          "a newer unapplied restore takes precedence over the older confirmed snapshot");
     for (int i=0;i<3;++i) host.tick();
     check(controller->savingLine()==AP2::NOT_LOADED_HELD,"the terminal view says saving keeps the settings");
+    LVBState::Stream invalid;
+    check(processor.setState(&invalid)==kResultFalse,"malformed newer restore remains refused");
+    LVBState::Stream unsaved;
+    check(processor.getState(&unsaved)==kResultFalse && unsaved.bytes.empty() && failed_save_calls==retained_calls,
+          "unkept newer restore cannot be overwritten with an older confirmed snapshot");
+    failed_save_bytes.clear();
     terminal_record={};
     processor.setActive(false);
     controller->disconnect(&processor);processor.disconnect(controller);
@@ -1141,6 +1176,54 @@ void presentation_focus_regression() {
   check(c->panelClose(token),"presentation focus close");c->disconnect(&processor);processor.disconnect(c);
   check(c->terminate()==kResultOk&&processor.terminate()==kResultOk,"presentation focus normal retirement");c->release();
 }
+void recovery_frame_timer_regression(){
+  struct Frame final : IPlugFrame {
+    Host& host; bool supplies_loop=false;
+    explicit Frame(Host& h):host(h){}
+    tresult PLUGIN_API queryInterface(const TUID id,void** out) override {
+      if(!out)return kInvalidArgument;
+      *out=nullptr;
+      if(FUnknownPrivate::iidEqual(id,Linux::IRunLoop::iid)&&supplies_loop){
+        *out=static_cast<Linux::IRunLoop*>(&host);host.addRef();return kResultOk;
+      }
+      if(FUnknownPrivate::iidEqual(id,IPlugFrame::iid)||FUnknownPrivate::iidEqual(id,FUnknown::iid)){
+        *out=static_cast<IPlugFrame*>(this);return kResultOk;
+      }
+      return kNoInterface;
+    }
+    uint32 PLUGIN_API addRef() override{return 1;}
+    uint32 PLUGIN_API release() override{return 1;}
+    tresult PLUGIN_API resizeView(IPlugView*,ViewRect*) override{return kResultOk;}
+  };
+  events.clear();commands.clear();gui_fault=0;terminal_record={};open_refused=false;
+  recovery_fixture=false;recovery_stages.clear();
+  Host host;host.expose_loop=false;AP2::Processor processor;auto* controller=new AP8::Controller;
+  host.processor=&processor;host.controller=controller;auto* context=static_cast<IHostApplication*>(&host);
+  check(processor.initialize(context)==kResultOk&&controller->initialize(context)==kResultOk,"frame recovery initialize");
+  controller->setComponentHandler(static_cast<IComponentHandler*>(&host));
+  processor.connect(controller);controller->connect(&processor);
+  check(host.timers.empty(),"host context without IRunLoop cannot invent an owner timer");
+  terminal_record.words[0]=1;terminal_record.words[1]=123;terminal_record.words[2]=456;
+  terminal_record.words[3]=generation;terminal_record.words[4]=2;terminal_record.words[5]=104687;
+  terminal_record.words[6]=512;terminal_record.words[7]=9;terminal_record.words[14]=1;
+  terminal_record.words[15]=5;terminal_record.words[18]=3;terminal_record.words[19]=4;
+  HostMessage poll;poll.setMessageID("AP10.poll");
+  check(processor.notify(&poll)==kResultOk,"actual processor reports terminal failure to controller");
+  auto* view=controller->createView(ViewType::kEditor);
+  check(view!=nullptr,"failed instance has native recovery controls");
+  Frame frame(host);
+  check(view->setFrame(&frame)==kResultOk&&host.timers.empty(),"frame without loop keeps restart unavailable");
+  frame.supplies_loop=true;
+  check(view->setFrame(&frame)==kResultOk&&host.timers.size()==1,"recovery frame supplies exact owner loop");
+  check(view->setFrame(&frame)==kResultOk&&host.timers.size()==1,"repeated frame does not duplicate timer");
+  const auto polls=recovery_timer_polls;host.tick();
+  check(recovery_timer_polls>polls,"frame timer reaches recovery backend on owner thread");
+  view->setFrame(nullptr);view->release();
+  check(host.timers.size()==1,"closing recovery view retains controller-owned dispatch");
+  controller->disconnect(&processor);processor.disconnect(controller);
+  check(controller->terminate()==kResultOk&&host.timers.empty(),"controller retirement releases its timer");
+  controller->release();terminal_record={};processor.terminate();
+}
 void delayed_instance_restart_regression(bool stop_during_restart=false,bool final_ack_expired=false){
   events.clear();commands.clear();gui_fault=0;terminal_record={};generation=7;processing_state_fixture=false;
   save_code=close_code=transition_refusal=0;open_refused=false;readback_invalid=false;
@@ -1203,7 +1286,7 @@ int main(int argc,char** argv) {
     name.capture(nullptr);check(name.length==0,"absent host is unavailable");
   }
   if(argc>1){
-    if(!std::strcmp(argv[1],"--restart")){delayed_instance_restart_regression();delayed_instance_restart_regression(true);delayed_instance_restart_regression(false,true);}
+    if(!std::strcmp(argv[1],"--restart")){recovery_frame_timer_regression();delayed_instance_restart_regression();delayed_instance_restart_regression(true);delayed_instance_restart_regression(false,true);}
     else if(!std::strcmp(argv[1],"--state-migration")){historical_controller_regression();processing_state_restore_regression();failed_restore_retirement_regression();}
     else if(!std::strcmp(argv[1],"--curve-refusal"))curve_refusal_regression();
     else if(!std::strcmp(argv[1],"--refused-admission"))refused_admission_regression();
@@ -1443,6 +1526,7 @@ int main(int argc,char** argv) {
   processor->terminate();
   check(closes == 1, "only final teardown closes DSP");
   terminal_instance_regression();
+  recovery_frame_timer_regression();
   delayed_instance_restart_regression();
   delayed_instance_restart_regression(true);
   delayed_instance_restart_regression(false,true);

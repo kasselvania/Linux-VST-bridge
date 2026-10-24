@@ -132,7 +132,10 @@ public:
         std::strcmp(name, Steinberg::Vst::ViewType::kEditor))
       return nullptr;
     try {
-      if (terminal_failed_) return new AP2::RecoveryView(this,status_,terminal_.words[7],&saving_line_);
+      if (terminal_failed_) return new AP2::RecoveryView(this,status_,terminal_.words[7],&saving_line_,
+          [](Steinberg::Vst::IEditController *controller, Steinberg::Linux::IRunLoop *loop) {
+            static_cast<Controller *>(controller)->panelLoop(loop);
+          });
       if (session_refused_) return new AP2::RecoveryView(this,status_,AP2::RecoveryView::NotLoaded{},&saving_line_);
       auto token = editor_.allocate();
       return token ? new AP11::VendorPanel(this, *this, token) : nullptr;
@@ -221,6 +224,15 @@ public:
       // connection: keep the pair connected so the view can explain it.
       if (result == kNotInitialized) return kResultOk;
       return result == kResultOk ? request() : result;
+    }
+    if (!std::strcmp(id, "LVB.confirmed_save")) {
+      int64 revision=0, uncaptured=0;
+      if (m->getAttributes()->getInt("revision",revision)!=kResultOk || revision<1 ||
+          m->getAttributes()->getInt("uncaptured",uncaptured)!=kResultOk || (uncaptured!=0 && uncaptured!=1))
+        return kResultFalse;
+      saving_line_ = uncaptured ? "Last confirmed state supplied; later edits may be lost."
+                               : "Last confirmed state supplied for this save.";
+      return kResultOk;
     }
     if (!std::strcmp(id, "AP10.state_held")) {
       int64 bytes = 0;
@@ -406,12 +418,13 @@ public:
   void panelLoop(Steinberg::Linux::IRunLoop *loop) override {
     if (!onOwner() || timer_ || !loop)
       return;
-    loop_ = loop;
-    loop_->addRef();
-    timer_ = new AP15::UiTimer(loop_, this, [](void *p) {
+    auto *timer = new AP15::UiTimer(loop, this, [](void *p) {
       auto *owner = static_cast<Controller *>(p);
       owner->addRef(); owner->tick(); owner->release();
     });
+    loop_ = loop;
+    loop_->addRef();
+    timer_ = timer;
     if (!timer_->start()) {
       stopTimer();
       status_ = "Host UI timer unavailable";

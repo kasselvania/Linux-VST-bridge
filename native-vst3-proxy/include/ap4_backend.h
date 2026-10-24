@@ -62,6 +62,12 @@ struct ap6_snapshot_t {
   uint8_t digest[32];
 };
 uint32_t ap6_snapshot(uint64_t handle, struct ap6_snapshot_t *out);
+/* Read-only owner-thread save after established failure. Copies the latest
+   integrity-checked complete snapshot from this exact instance/generation.
+   No capture, process launch or default substitution. On failure both outputs
+   remain unchanged. Later edits are reported by info.uncaptured. */
+uint32_t ap6_failed_save_owned_v1(uint64_t handle, struct ap4_owned_state_v1 *output,
+                                struct ap6_snapshot_t *info);
 uint32_t ap6_recover(uint64_t handle, uint64_t revision, uint8_t *out,
                     uint32_t capacity, uint32_t *written);
 uint32_t ap6_recover_owned_v1(uint64_t handle, uint64_t revision,

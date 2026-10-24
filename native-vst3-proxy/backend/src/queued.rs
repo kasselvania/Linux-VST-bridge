@@ -2526,6 +2526,39 @@ pub unsafe extern "C" fn ap6_snapshot(id: u64, out: *mut RecoveryInfo) -> u32 {
         0
     }) as u32
 }
+// Saving after a host failure preserves confirmed bytes; it does not recover
+// a host or claim to capture changes made after that confirmation.
+fn failed_save_snapshot(shared: &Shared) -> io::Result<(crate::recovery::Snapshot, RecoveryInfo)> {
+    need(shared.fault.load(Ordering::Acquire) != 0, "confirmed save requires an established instance failure")?;
+    let store = shared.snapshots.try_lock().map_err(|_| invalid("confirmed snapshot unavailable"))?;
+    let latest = store.latest().ok_or_else(|| invalid("no confirmed complete snapshot"))?;
+    let snapshot = store.select(latest.revision)?;
+    need(snapshot.generation == shared.generation, "confirmed snapshot belongs to another host generation")?;
+    state::bound_payload(shared.identity, &snapshot.bytes)?;
+    let info = RecoveryInfo {
+        revision:snapshot.revision, generation:snapshot.generation, source:snapshot.source,
+        digest:snapshot.digest,
+        uncaptured:u32::from(shared.startup_edits_pending.load(Ordering::Acquire) != 0
+            || shared.last_edit.load(Ordering::Acquire) > snapshot.through),
+    };
+    Ok((snapshot, info))
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap6_failed_save_owned_v1(id: u64, out: *mut state::OwnedState,
+    info: *mut RecoveryInfo) -> u32 {
+    crate::ffi(|| {
+        if !state::owned_output_ready(out) || info.is_null() { return 1; }
+        let Some(l) = INSTANCES.lease(id) else { return 1; };
+        match failed_save_snapshot(&l.shared) {
+            Ok((snapshot, observed)) => {
+                state::give_owned(out, snapshot.bytes);
+                *info = observed;
+                0
+            },
+            Err(error) => retain(&error),
+        }
+    }) as u32
+}
 unsafe fn recover_state(id: u64, revision: u64, capacity: usize) -> Result<Vec<u8>, i32> {
     recover_state_bound(id,revision,capacity,None)
 }
@@ -7219,6 +7252,48 @@ mod tests {
             unsafe {assert_ne!(if1_terminal(id,&mut read),0);}
             std::fs::remove_file(path).unwrap();
         }
+    }
+    #[test]
+    fn failed_save_preserves_exact_confirmed_bytes_without_capture_or_generation_substitution() {
+        let mut output=state::OwnedState {data:std::ptr::null(),length:0,abi_version:1};
+        let mut untouched=RecoveryInfo {revision:91,generation:92,source:93,uncaptured:94,digest:[95;32]};
+        assert_ne!(unsafe{ap6_failed_save_owned_v1(u64::MAX,&mut output,&mut untouched)},0);
+        assert!(output.data.is_null() && output.length==0 && output.abi_version==1);
+        assert_eq!((untouched.revision,untouched.generation,untouched.source,untouched.uncaptured,untouched.digest),
+            (91,92,93,94,[95;32]),"refused C ABI call leaves both outputs untouched");
+        let mut shared = Shared::new();
+        shared.identity = Some(state::Identity {class:[31;16],module:[32;32]});
+        let mut payload = vec![0;20]; payload[0]=4; payload[16..].copy_from_slice(&[3,7,0,255]);
+        let bytes = state::bound_envelope(shared.identity, &payload).unwrap();
+        assert!(failed_save_snapshot(&shared).is_err());
+        shared.fault.store(WORKER,Ordering::Release);
+        assert!(failed_save_snapshot(&shared).is_err(),"failure alone cannot invent a snapshot");
+        shared.fault.store(0,Ordering::Release);
+        shared.snapshots.lock().unwrap().confirm(bytes.clone(), 18, shared.generation, 12).unwrap();
+        assert!(failed_save_snapshot(&shared).is_err(), "healthy/default captures are not a failure-save fallback");
+        shared.fault.store(WORKER, Ordering::Release);
+        let (retained, info) = failed_save_snapshot(&shared).unwrap();
+        assert_eq!(retained.bytes, bytes);
+        assert_eq!((info.revision, info.generation, info.uncaptured), (1, shared.generation, 0));
+        shared.last_edit.store(13, Ordering::Release);
+        let (after_edit, info) = failed_save_snapshot(&shared).unwrap();
+        assert_eq!(after_edit.bytes, bytes);
+        assert_eq!(info.uncaptured, 1, "later edits are not invented into the saved snapshot");
+        payload[16]=9;
+        let newer = state::bound_envelope(shared.identity, &payload).unwrap();
+        shared.snapshots.lock().unwrap().confirm(newer.clone(),16,shared.generation,13).unwrap();
+        let (selected,info)=failed_save_snapshot(&shared).unwrap();
+        assert_eq!(selected.bytes,newer);
+        assert_eq!((info.revision,info.uncaptured),(2,0),"latest complete capture supersedes older restore");
+        shared.generation += 1;
+        assert!(failed_save_snapshot(&shared).is_err());
+        shared.generation -= 1;
+        shared.identity.as_mut().unwrap().module[0] ^= 1;
+        assert!(failed_save_snapshot(&shared).is_err());
+        shared.identity.as_mut().unwrap().module[0] ^= 1;
+        let mut broken = bytes; broken[104] ^= 1;
+        shared.snapshots.lock().unwrap().confirm(broken, 18, shared.generation, 13).unwrap();
+        assert!(failed_save_snapshot(&shared).is_err(), "invalid envelope integrity cannot be saved");
     }
     #[test]
     fn correlated_save_refusal_keeps_worker_audio_snapshot_and_sibling() {

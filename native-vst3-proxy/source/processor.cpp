@@ -410,6 +410,26 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
                ? kResultOk : kResultFalse;
   if (stream && owner && !session_state_seen_ && (phase_ == Failed || terminal()))
     return saveNothingRecorded(stream);
+  if (stream && owner && session_state_seen_ && !state_unkept_ && (phase_ == Failed || terminal())) {
+    try {
+      OwnedState confirmed;
+      ap6_snapshot_t info{};
+      if (!ap6_failed_save_owned_v1(handle_, &confirmed.bytes, &info)) {
+        auto bytes = confirmed.copy();
+        if (!LVBState::transfer(stream, bytes.data(), bytes.size(), true)) return kResultFalse;
+        // Preserve this as a confirmed snapshot, never a fresh capture. The
+        // newer unapplied restore and unkept-state refusals above take priority.
+        if (auto *message = allocateMessage()) {
+          message->setMessageID("LVB.confirmed_save");
+          message->getAttributes()->setInt("revision", int64(info.revision));
+          message->getAttributes()->setInt("uncaptured", info.uncaptured);
+          sendMessage(message); message->release();
+        }
+        stateReport(report_path_, "confirmed_after_failure", bytes, 0.);
+        return kResultOk;
+      }
+    } catch (...) { return kResultFalse; }
+  }
   if (phase_ == Failed || terminal())
     stateFailure("get", "failed_instance");
   if (!stream || owner_ != std::this_thread::get_id() || phase_ == New ||

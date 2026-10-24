@@ -22,6 +22,7 @@ inline constexpr const char* NOT_LOADED_NONE =
 class RecoveryView final : public Steinberg::CPluginView,
                            public Steinberg::Linux::ITimerHandler {
 public:
+  using LoopReady = void (*)(Steinberg::Vst::IEditController *, Steinberg::Linux::IRunLoop *);
   explicit RecoveryView(Steinberg::Vst::IEditController *controller)
       : controller_(controller), owner_(std::this_thread::get_id()) {
     setRect({0, 0, 640, 210});
@@ -29,8 +30,9 @@ public:
   // state_line points at the controller's current sentence about saving, so
   // the view follows it when the host restores state after the window opened.
   RecoveryView(Steinberg::Vst::IEditController *controller,const char* failure,uint64_t revision,
-               const char* const* state_line=nullptr)
+               const char* const* state_line=nullptr, LoopReady loop_ready=nullptr)
       : RecoveryView(controller) {
+    loop_ready_=loop_ready;
     state_line_=state_line;
     failure_=failure;
     std::snprintf(failure_snapshot_,sizeof(failure_snapshot_),revision ?
@@ -55,6 +57,20 @@ public:
   }
   Steinberg::uint32 PLUGIN_API addRef() override { return CPluginView::addRef(); }
   Steinberg::uint32 PLUGIN_API release() override { return CPluginView::release(); }
+  Steinberg::tresult PLUGIN_API setFrame(Steinberg::IPlugFrame *frame) override {
+    if (owner_ != std::this_thread::get_id()) return Steinberg::kResultFalse;
+    const auto result = CPluginView::setFrame(frame);
+    if (result == Steinberg::kResultOk && frame && loop_ready_) {
+      // Some DAWs expose their owner loop only through the plug-in frame.
+      // A failed instance needs that same owner-thread dispatch as a live
+      // editor; the controller retains the loop independently of this view.
+      Steinberg::FUnknownPtr<Steinberg::Linux::IRunLoop> loop(frame);
+      try {
+        if (loop) loop_ready_(controller_, loop);
+      } catch (...) { return Steinberg::kResultFalse; }
+    }
+    return result;
+  }
   Steinberg::tresult PLUGIN_API isPlatformTypeSupported(Steinberg::FIDString type) override {
     return type && !std::strcmp(type, Steinberg::kPlatformTypeX11EmbedWindowID)
                ? Steinberg::kResultOk : Steinberg::kResultFalse;
@@ -123,8 +139,8 @@ private:
       XSetForeground(display_,gc_,0xeeeeee);
       text(16,28,"Bridge instance failed");text(16,60,failure_);
       text(16,92,failure_snapshot_);
-      text(16,124,"Remove/reload the device or reopen your saved project.");
-      text(16,156,"No stale plug-in state has been substituted.");
+      text(16,124,"Open Console to restart from the confirmed state.");
+      text(16,156,"Changes after that confirmation may be lost.");
       if (state_line_) text(16,188,*state_line_);
       XFlush(display_);return;
     }
@@ -155,6 +171,7 @@ private:
   GC gc_ = nullptr;
   bool registered_ = false, action_ = false, not_loaded_ = false;
   const char* failure_=nullptr;
+  LoopReady loop_ready_=nullptr;
   const char* const* state_line_=nullptr;
   char failure_snapshot_[128]{};
 };
