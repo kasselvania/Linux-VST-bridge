@@ -14,7 +14,7 @@ mod update_preview;
 pub use update_preview::*;
 /// Manager/frontend wire generation. Durable installer and operation records
 /// keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 30;
+pub const OPERATOR_SCHEMA: u32 = 31;
 /// Explicit delivery policy, independent from the remembered buffered delay.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]

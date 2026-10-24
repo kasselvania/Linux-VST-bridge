@@ -7,6 +7,10 @@ pub const LOSS_WARNING: &str = "Restore the last confirmed state; changes made a
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Recovery {
+    pub name: String,
+    pub context: String,
+    pub status: crate::Status,
+    pub processing: String,
     pub detail: Vec<Text>,
     pub actions: OfferRow,
     pub identity: Disclosure,
@@ -23,6 +27,18 @@ pub fn for_product(read: Section<'_, &model::Activity>, product: &Product,
 pub fn for_instance(instance: &model::LiveInstance, product: Option<&Product>,
     busy: Option<&str>, pending: bool) -> Option<Recovery> {
     let recovery = instance.recovery.as_ref()?;
+    use model::RecoveryPhase as P;
+    use crate::StatusClass as C;
+    let (words, class) = match recovery.phase {
+        P::Connected => return None,
+        P::Failed => ("Plug-in instance failed", C::Problem),
+        P::Restarting => ("Restarting", C::Working),
+        P::Restored => ("Restarted", C::Ready),
+        P::Refused => ("Restart could not complete", C::Problem),
+        P::Uncertain => ("Restart outcome unconfirmed", C::NeedsYou),
+        P::Unknown => ("Recovery status unavailable", C::Unknown),
+    };
+    let matched = product.filter(|product| instance.product.observed().is_some_and(|key|key.matches(product)));
     let mut detail = vec![Text::body(&recovery.detail)];
     match &recovery.snapshot {
         O::Observed(snapshot) => detail.push(Text::detail(format!("Last confirmed state: revision {}", snapshot.revision))),
@@ -40,7 +56,12 @@ pub fn for_instance(instance: &model::LiveInstance, product: Option<&Product>,
         .unwrap_or_else(|| OfferRow {notes: recovery.restart.as_ref().map(|_|vec![
             "Restart is not offered by the current plug-in controls. Refresh status before trying again.".into()]).unwrap_or_default(),
             ..OfferRow::default()});
-    Some(Recovery {detail, actions, identity:Disclosure::new("Confirmed recovery state", vec![Detail::Text(Text::detail(
+    Some(Recovery {
+        name: matched.map(|product| product.name.clone()).unwrap_or_else(|| "Plug-in instance".into()),
+        context: crate::product::host_text(instance),
+        status: crate::Status {words, class},
+        processing: crate::product::processing_text(instance),
+        detail, actions, identity:Disclosure::new("Confirmed recovery state", vec![Detail::Text(Text::detail(
         format!("Instance: {} · host generation {}", recovery.instance, recovery.generation))),
         crate::record(&serde_json::to_value(&recovery.snapshot).unwrap_or_default())])})
 }
@@ -49,6 +70,35 @@ pub fn for_instance(instance: &model::LiveInstance, product: Option<&Product>,
 mod tests {
     use super::*;
     use crate::{forms, offers::Availability, samples};
+
+    #[test]
+    fn contextual_phase_never_comes_from_prose_pending_clicks_or_processing() {
+        let mut snapshot = samples::base();
+        let activity = samples::recovery_fixture(&mut snapshot);
+        let mut instance = activity.live.instances.observed().unwrap()[0].clone();
+        for (phase, title) in [
+            (model::RecoveryPhase::Failed, "Plug-in instance failed"),
+            (model::RecoveryPhase::Restarting, "Restarting"),
+            (model::RecoveryPhase::Restored, "Restarted"),
+            (model::RecoveryPhase::Unknown, "Recovery status unavailable"),
+        ] {
+            instance.recovery.as_mut().unwrap().phase = phase;
+            instance.recovery.as_mut().unwrap().detail = "Playing again".into();
+            let view = for_instance(&instance, Some(&snapshot.products[0]), None, true).unwrap();
+            assert_eq!(view.status.words, title);
+            assert_eq!(view.name, snapshot.products[0].name);
+            assert!(!view.processing.contains("Playing again"));
+        }
+        instance.recovery.as_mut().unwrap().phase = model::RecoveryPhase::Connected;
+        assert!(for_instance(&instance, Some(&snapshot.products[0]), None, false).is_none());
+        instance.recovery.as_mut().unwrap().phase = model::RecoveryPhase::Restored;
+        instance.terminal = O::Observed(None);
+        instance.processing = model::ProcessingObservation::Advancing {epoch:1,completed_end:512,observed_age_ms:1};
+        let view = for_instance(&instance, None, None, false).unwrap();
+        assert_eq!(view.name, "Plug-in instance");
+        assert!(view.actions.offers.is_empty());
+        assert!(view.processing.contains("audible output is not measured"));
+    }
 
     #[test]
     fn observation_only_rejoins_the_exact_current_product_offer() {

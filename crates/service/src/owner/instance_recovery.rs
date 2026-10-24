@@ -551,6 +551,22 @@ pub(super) fn authorize_launch(
     changed();
     Ok(entry.registration.clone())
 }
+fn recovery_phase(state: &State) -> ui::RecoveryPhase {
+    use ui::RecoveryPhase as P;
+    if !state.connected || state.seen.elapsed() >= Duration::from_secs(2) { return P::Unknown; }
+    match state.status.phase {
+        wire::COMPLETE if state.status.flags & wire::FAILED != 0 => P::Failed,
+        wire::COMPLETE => P::Restored,
+        wire::REFUSED => P::Refused,
+        wire::UNCERTAIN => P::Uncertain,
+        wire::ACCEPTED | wire::RESTORING | wire::CONTROLLER => P::Restarting,
+        wire::IDLE if state.pending.is_some() => P::Restarting,
+        wire::IDLE if state.status.flags & wire::FAILED != 0 => P::Failed,
+        wire::IDLE => P::Connected,
+        _ => P::Unknown,
+    }
+}
+
 fn observed(entry: &Entry, state: &State, m: &Manager) -> ui::InstanceRecovery {
     let status = state.status;
     let snapshot = ui::RecoverySnapshot {
@@ -570,18 +586,17 @@ fn observed(entry: &Entry, state: &State, m: &Manager) -> ui::InstanceRecovery {
     )
     .err()
     .map(|e| e.to_string());
-    let detail = if status.phase == wire::COMPLETE {
-        "The exact confirmed state and DAW controller were restored".into()
-    } else if status.phase >= wire::REFUSED {
-        wire::reason(status.reason).into()
-    } else if state.pending.is_some() {
-        "Restarting this exact plug-in instance; its track stays silent until it is ready".into()
-    } else if status.flags & wire::FAILED != 0 {
-        "This plug-in instance failed. Restart restores the last confirmed state; later changes may be lost".into()
-    } else {
-        "This live DAW instance is connected".into()
+    let phase = recovery_phase(state);
+    let detail = match phase {
+        ui::RecoveryPhase::Restored => "The exact confirmed state and DAW controller were restored".into(),
+        ui::RecoveryPhase::Refused | ui::RecoveryPhase::Uncertain => wire::reason(status.reason).into(),
+        ui::RecoveryPhase::Restarting => "Restarting this exact plug-in instance; its track stays silent until it is ready".into(),
+        ui::RecoveryPhase::Failed => "This plug-in instance failed. Restart restores the last confirmed state; later changes may be lost".into(),
+        ui::RecoveryPhase::Connected => "This live DAW instance is connected".into(),
+        ui::RecoveryPhase::Unknown => "The current recovery state could not be confirmed".into(),
     };
     ui::InstanceRecovery {
+        phase,
         instance: entry.original.clone(),
         generation: status.generation,
         snapshot: if status.flags & wire::SNAPSHOT != 0 {
@@ -692,6 +707,53 @@ pub(super) fn augment_activity(m: &Manager, activity: &mut ui::LiveActivity) -> 
 mod tests {
     use super::*;
     use crate::test_fixture::Fixture;
+    #[test]
+    fn later_failure_supersedes_completed_restart_in_phase_and_detail() {
+        let f = Fixture::new();
+        let entry = entry(&f);
+        let mut state = entry.state.lock().unwrap();
+        state.status.phase = wire::COMPLETE;
+        state.pending = Some(pending(&state.status));
+        state.status.flags &= !wire::FAILED;
+        let completed = observed(&entry, &state, &f.m);
+        assert_eq!(completed.phase, ui::RecoveryPhase::Restored);
+        assert!(completed.detail.contains("were restored"));
+        state.status.flags |= wire::FAILED;
+        let failed = observed(&entry, &state, &f.m);
+        assert_eq!(failed.phase, ui::RecoveryPhase::Failed);
+        assert!(failed.detail.contains("instance failed"));
+        assert!(!failed.detail.contains("were restored"));
+        state.status.phase = wire::RESTORING;
+        assert_eq!(observed(&entry, &state, &f.m).phase, ui::RecoveryPhase::Restarting);
+    }
+
+    #[test]
+    fn recovery_phase_requires_a_current_proxy_observation() {
+        use ui::RecoveryPhase as P;
+        let mut state = State {status: status(), seen:Instant::now(), connected:true, pending:None};
+        assert_eq!(recovery_phase(&state), P::Failed);
+        for phase in [wire::ACCEPTED, wire::RESTORING, wire::CONTROLLER] {
+            state.status.phase = phase;
+            assert_eq!(recovery_phase(&state), P::Restarting);
+        }
+        state.status.phase = wire::COMPLETE;
+        assert_eq!(recovery_phase(&state), P::Failed, "a later failure supersedes a completed restart");
+        state.status.flags &= !wire::FAILED;
+        assert_eq!(recovery_phase(&state), P::Restored);
+        state.connected = false;
+        assert_eq!(recovery_phase(&state), P::Unknown);
+        state.connected = true;
+        state.seen = Instant::now() - Duration::from_secs(3);
+        assert_eq!(recovery_phase(&state), P::Unknown);
+        state.seen = Instant::now();
+        state.status.phase = wire::UNCERTAIN;
+        assert_eq!(recovery_phase(&state), P::Uncertain);
+        state.status.phase = wire::REFUSED;
+        assert_eq!(recovery_phase(&state), P::Refused);
+        state.status.phase = 999;
+        assert_eq!(recovery_phase(&state), P::Unknown);
+    }
+
     fn status() -> wire::Status {
         wire::Status {
             session: [1; 16],

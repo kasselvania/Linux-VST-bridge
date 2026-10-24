@@ -1265,7 +1265,7 @@ pub fn recovery_fixture(snapshot: &mut model::Snapshot) -> model::Activity {
         processing: ProcessingObservation::Unavailable {reason:"The Windows host stopped.".into()},
         signal: SignalObservation::NotMeasured, terminal: Observation::Observed(Some(InstanceFailure::WindowsHostExited)),
         cleanup: CleanupState::Confirmed,
-        recovery: Some(InstanceRecovery {instance: "cd".repeat(16), generation: 3,
+        recovery: Some(InstanceRecovery {phase: RecoveryPhase::Failed, instance: "cd".repeat(16), generation: 3,
             snapshot:Observation::Observed(confirmed), uncaptured_changes_possible:true,
             detail:"The Windows plug-in host stopped. Your DAW instance is still connected.".into(), restart:Some(offer)}),
     };
