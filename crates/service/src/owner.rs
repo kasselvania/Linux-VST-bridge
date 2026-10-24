@@ -836,6 +836,18 @@ pub(crate) fn kernel_boot() -> Result<Option<String>> {
     #[cfg(not(target_os = "linux"))]
     { Ok(None) }
 }
+/// PID/start and socket identities identify a live owner only within the
+/// exact kernel generation retained before its launch.
+pub(crate) fn require_current_lease_generation(m: &Manager, session: &str, report: &Path) -> Result<()> {
+    require(valid_hex(session,32), "lease_generation_binding")?;
+    let generation: LeaseGeneration = read_json(&m.root.join("runtime/lease-generations")
+        .join(format!("{session}.json")))?;
+    require(generation.schema == 1 && generation.session == session && generation.report == report
+        && matches!(generation.basis,LeaseGenerationBasis::BeforeLaunch)
+        && valid_kernel_boot(&generation.kernel_boot)
+        && kernel_boot()?.as_deref() == Some(generation.kernel_boot.as_str()), "lease_generation_binding")
+}
+
 /// Read only the genuine before-launch kernel record and authenticated native
 /// peer retained for this exact session. Later stopped-service observations
 /// and old PID-only owners cannot establish a consumer generation.
