@@ -2051,9 +2051,8 @@ pub fn serve(m: Manager) -> Result<()> {
                         let replied=if version3 {
                             let reason=e.downcast_ref::<capacity::Refusal>().copied()
                                 .unwrap_or(capacity::Refusal::BindingInvalid);
-                            startup_reply(&mut peer,&(if version5 {ap1_native_client::admission::refused_v5}
-                                else if version4 {ap1_native_client::admission::refused_v4}
-                                else {ap1_native_client::admission::refused})(request,reason))
+                            startup_reply(&mut peer,&ap1_native_client::admission::refused_for(
+                                &greeting[..5],request,reason)?)
                         } else {Ok(())};
                         note_refusal(&mut startup,&*e,resolved.as_ref(),|| recorded_registration(&m,&class));
                         replied?;
@@ -2064,9 +2063,7 @@ pub fn serve(m: Manager) -> Result<()> {
                 // Cold Wine startup then uses the existing bounded transport accept.
                 let reply = if version3 {
                     let session=std::array::from_fn(|i|u8::from_str_radix(&job.session[i*2..i*2+2],16).unwrap());
-                    (if version5 {ap1_native_client::admission::accepted_v5}
-                        else if version4 {ap1_native_client::admission::accepted_v4}
-                        else {ap1_native_client::admission::accepted})(request,&ap1_native_client::admission::Binding {
+                    ap1_native_client::admission::accepted_for(&greeting[..5],request,&ap1_native_client::admission::Binding {
                         session,added_frames:performance.added_frames,delivery_mode:performance.delivery_mode as u32,
                         directory:job.directory.to_str().ok_or("session directory encoding")?.into(),
                     })?
@@ -2092,12 +2089,9 @@ pub fn serve(m: Manager) -> Result<()> {
                     if version3 {
                         let _ = startup_reply(
                             &mut peer,
-                            &(if version5 {ap1_native_client::admission::refused_v5}
-                                else if version4 {ap1_native_client::admission::refused_v4}
-                                else {ap1_native_client::admission::refused})(
-                                request,
-                                capacity::Refusal::BindingInvalid,
-                            ),
+                            &ap1_native_client::admission::refused_for(
+                                &greeting[..5], request, capacity::Refusal::BindingInvalid,
+                            )?,
                         );
                     }
                     cleanup?;
