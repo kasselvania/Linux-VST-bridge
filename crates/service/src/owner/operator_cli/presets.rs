@@ -241,6 +241,14 @@ pub(crate) fn answer(
     name: Option<String>,
     input: Option<fs::File>,
 ) -> Result<ui::PresetResult> {
+    operator_wait(|| answer_waiting(m, request, name, input))
+}
+fn answer_waiting(
+    m: &Manager,
+    request: ui::Request,
+    name: Option<String>,
+    input: Option<fs::File>,
+) -> Result<ui::PresetResult> {
     let mut folder = None;
     let receipt = dispatch_recorded(m, &request, |operation| {
         let _dispatch = m.lock("operator-dispatch.lock")?;
@@ -817,7 +825,7 @@ mod tests {
     }
     #[test]
     fn gated_preset_copy_releases_registry_keeps_setup_custody_and_rechecks_owner() {
-        for change in ["none", "setup", "root", "publication"] {
+        for change in ["none", "reader_unwaited", "reader", "setup", "root", "publication"] {
             let (f, key, profile) = fixture();
             files::with_profiles(vec![profile], || {
                 let root = f.r.environment.root.join("reference-user-presets");
@@ -892,9 +900,20 @@ mod tests {
                         _ => {}
                     }
                     drop(admission);
+                    // A refresh may already own the registry when the copy
+                    // finishes. It must delay completion, not discard it.
+                    let reader = matches!(change, "reader" | "reader_unwaited")
+                        .then(|| manager.lock("registry.lock").unwrap());
                     resume.send(()).unwrap();
+                    if reader.is_some() {
+                        std::thread::sleep(Duration::from_millis(250));
+                    }
+                    drop(reader);
                 });
-                let receipt = answer(
+                // The unscoped counterexample reproduces the old transport
+                // path. The public action must wait through the same reader.
+                let dispatch = if change == "reader_unwaited" { answer_waiting } else { answer };
+                let receipt = dispatch(
                     &f.m,
                     ui::Request {
                         schema: ui::OPERATOR_SCHEMA,
@@ -906,10 +925,10 @@ mod tests {
                 )
                 .unwrap();
                 observer.join().unwrap();
-                assert_eq!(receipt.receipt.accepted, change == "none", "{change}");
+                assert_eq!(receipt.receipt.accepted, matches!(change, "none" | "reader"), "{change}");
                 assert_eq!(
                     index(&f.m, &key).exists(),
-                    change == "none",
+                    matches!(change, "none" | "reader"),
                     "stale copy cannot publish recovery ownership"
                 );
             });
