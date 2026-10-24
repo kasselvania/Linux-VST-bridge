@@ -2183,6 +2183,10 @@ mod tests {
             overview.current.actions = vec![AvailableAction {label:"Reconcile interrupted transaction".into(),
                 action:Action::TransactionReconcile {},disabled_reason:Some("Service capacity unavailable".into())}];
             supplied_setups(&mut overview.current, &[(0, crate::model::SetupDisposition::InProgress)]);
+            let crate::model::Observation::Observed(presentation) = &mut overview.current.presentation else { panic!() };
+            // Home consumes the owner's current phase, not the retained journey.
+            presentation.attention[0].title = format!("{} · {}",
+                presentation.setups[0].name, presentation.setups[0].headline);
             if case != "owned" { supplied_service_problem(&mut overview.current); }
             let ctx = result_form_context();
             let mut chosen = None;
@@ -2490,6 +2494,7 @@ mod tests {
         let mut journey=automatic_journey(InstallationPhase::Available);journey.plugins.clear();
         overview.current.installer_setups=vec![automatic_setup(journey.clone(),None)];
         overview.current.installer_setups[0].status="Application session finished. No plug-ins were added.".into();
+        supplied_setups(&mut overview.current, &[(0, crate::model::SetupDisposition::Complete)]);
         overview.current.vendor_applications=vec![VendorApplication {id:"same-hub".into(),
             name:"Existing vendor hub".into(),version:"1.0.0".into(),state:"registered".into(),
             actions:vec![],details:serde_json::json!({"journey":journey})}];
@@ -3425,6 +3430,10 @@ mod tests {
                 journey:Some(InstallationJourney {daw:DawChoice::Bitwig, phase:InstallationPhase::NeedsAttention,
                     plugins:vec![], failure:None}), history:vec![],
             }];
+            supplied_setups(&mut overview.current, &[(0, crate::model::SetupDisposition::NeedsAttention)]);
+            let crate::model::Observation::Observed(presentation) = &mut overview.current.presentation else { panic!() };
+            presentation.attention[0].title = format!("{} · {}",
+                presentation.setups[0].name, presentation.setups[0].headline);
             state.handle_reply(Reply::Overview(Box::new(overview)));
             let mut target = egui::Pos2::ZERO;
             let mut before = None;
@@ -3448,6 +3457,7 @@ mod tests {
                     Operator::fast_home(ui,state.overview.as_ref().unwrap(),None,current,state.health_refreshing(),pending,
                         (&mut state.window.page,&mut state.window.plugins,&mut state.window.focus,&mut false,&mut chosen));
                 });
+                output.textures_delta.clear();
                 let mut labels = vec![];
                 for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
                 let positions = |labels:&[(String,egui::Pos2)]| labels.iter()
@@ -3457,6 +3467,7 @@ mod tests {
                 if frame == 2 {
                     target = labels.iter().find(|(label,_)|label == "Open this setup").unwrap().1;
                     before = Some(positions(&labels));
+                    assert_eq!(before.as_ref().unwrap().len(),3,"the task and both controls must be measured");
                 }
                 if frame >= 3 {
                     assert_eq!(positions(&labels),*before.as_ref().unwrap(),"task/control reflow at width {width}");
@@ -3464,7 +3475,6 @@ mod tests {
                     assert!(!labels.iter().any(|(label,_)|label == "Refreshing plug-in status"
                         || label == "Bridge service status unavailable"));
                 }
-                output.textures_delta.clear();
             }
             assert_eq!(state.window.page,Page::Setup);
             assert_eq!(state.window.focus.setup_installer.as_deref(),Some("retained-installer"));
