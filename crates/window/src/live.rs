@@ -217,7 +217,7 @@ impl Live {
     fn offered_in(&self, original: &Action, context: &State, ui: &LocalUi) -> bool {
         let current = self.overview.as_ref().map(|o| &o.current);
         let records = Records { current, actions: current, product: self.product.as_ref(), details: self.details.as_ref(),
-            support: Some(self.support_read()), ..Records::default() };
+            activity: Some(self.support_read().status), support: Some(self.support_read()), ..Records::default() };
         let window = Window::build(&records, &Reading { fresh: true, ..Reading::default() }, context);
         let rendered = presentation::build(&window, self.product.as_ref().or(current).or(self.details.as_ref()), current,
             context, ui, Why { fresh: true, pending: false, in_flight: false, superseded: false }, None, self.reveal, self.form_generation);
@@ -2052,6 +2052,63 @@ mod tests {
         if page == Page::Plugins { live.drive(); finish_page_read(&mut live, page, &sample.snapshot); }
         live.rebuild(); live
     }
+    #[test]
+    fn failed_instance_restart_survives_exact_confirmation_and_dispatch_revalidation() {
+        use vm::model::{Observation, RecoveryPhase};
+        for change in ["none", "offer", "observation", "refusal"] {
+            let mut live = ready_case(Page::Plugins, "plugin_ready");
+            let mut failed = live.product.as_ref().unwrap().clone();
+            let activity = vm::samples::recovery_fixture(&mut failed);
+            let restart = failed.products[0].actions.iter().find(|offer|
+                matches!(offer.action, Action::PluginRestart {..})).unwrap().action.clone();
+            let mut healthy = failed.clone();
+            healthy.products[0].actions.retain(|offer| offer.action != restart);
+            let mut connected = activity.clone();
+            let Observation::Observed(instances) = &mut connected.live.instances else {panic!()};
+            instances[0].recovery.as_mut().unwrap().phase = RecoveryPhase::Connected;
+            instances[0].recovery.as_mut().unwrap().restart = None;
+            live.overview.as_mut().unwrap().current = healthy.clone();
+            live.product = Some(healthy);
+            live.status = Some(connected);
+            live.status_attempted = true;
+            live.need_status = false;
+            live.rebuild();
+            assert!(!live.built.targets.values().any(|target| matches!(target,
+                Target::Offer {offer,..} if offer.intent == restart)));
+
+            // The same live instance fails, and the owner offers its exact captured state.
+            live.overview.as_mut().unwrap().current = failed.clone();
+            live.product = Some(failed);
+            live.status = Some(activity);
+            live.rebuild();
+            let offer = target(&live, |target| matches!(target,
+                Target::Offer {offer,..} if offer.intent == restart));
+            assert_eq!(press(&mut live, &offer), Outcome::Changed);
+            assert!(live.take_query().is_none(), "restart must wait for confirmation");
+            let confirm = target(&live, |target| matches!(target, Target::Form(FormStep::Confirm)));
+            assert_eq!(press(&mut live, &confirm), Outcome::Changed);
+            // Revalidation must still reject a changed owner or observation after confirmation.
+            match change {
+                "offer" => live.product.as_mut().unwrap().products[0].actions.retain(|offer| offer.action != restart),
+                "refusal" => live.product.as_mut().unwrap().products[0].actions.iter_mut()
+                    .find(|offer|offer.action==restart).unwrap().disabled_reason = Some("Restart is already in progress".into()),
+                "observation" => {
+                    let Observation::Observed(instances) = &mut live.status.as_mut().unwrap().live.instances else {panic!()};
+                    instances[0].recovery.as_mut().unwrap().generation += 1;
+                }
+                _ => {},
+            }
+            if change == "none" {
+                let Some(Query::Action(request)) = live.take_query() else {panic!("unchanged exact restart must be dispatched")};
+                assert_eq!(request.action, restart);
+                assert!(live.take_query().is_none(), "restart is sent only once");
+            } else {
+                assert!(live.take_query().is_none(), "changed authority must refuse");
+                assert!(live.support.as_ref().unwrap().text.contains("not submitted"));
+            }
+        }
+    }
+
     #[test]
     fn confirmation_cancels_safely_and_only_the_current_form_submits_its_exact_action() {
         let mut live = ready_case(Page::Setup, "setup_removal");

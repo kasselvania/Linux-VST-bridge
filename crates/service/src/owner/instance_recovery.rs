@@ -419,6 +419,20 @@ fn command(action: &ui::Action, operation: [u8; 16]) -> Result<wire::Command> {
     value.validate()?;
     Ok(value)
 }
+fn require_restart_status(status: &wire::Status, command: &wire::Command) -> Result<()> {
+    require(status.flags & wire::FAILED != 0,
+        "This plug-in instance has not reported a failure requiring restart")?;
+    require(matches!(status.phase, wire::IDLE | wire::COMPLETE | wire::REFUSED),
+        "This instance has an unfinished or unconfirmed restart request")?;
+    require(status.flags & wire::SNAPSHOT != 0,
+        "No complete confirmed state is available to restore")?;
+    require(status.flags & wire::RETIRED != 0,
+        "The previous Windows host and transport have not confirmed retirement")?;
+    require(status.flags & wire::OWNER_TIMER != 0,
+        "The DAW is not servicing this plug-in's controls. Open its controls in your DAW, then try restarting here.")?;
+    require(command.matches(status),
+        "The confirmed snapshot or instance changed; refresh before restarting")
+}
 fn admissible(m: &Manager, entry: &Entry, state: &State, command: &wire::Command) -> Result<()> {
     require(
         state.connected
@@ -426,10 +440,7 @@ fn admissible(m: &Manager, entry: &Entry, state: &State, command: &wire::Command
             && transport_storage::consumer_current(&entry.consumer)?,
         "The original DAW instance is no longer connected",
     )?;
-    require(
-        state.status.ready() && command.matches(&state.status),
-        "The confirmed snapshot or instance changed; refresh before restarting",
-    )?;
+    require_restart_status(&state.status, command)?;
     require(
         state.pending.as_ref().is_none_or(|pending| {
             !pending.uncertain
@@ -707,6 +718,45 @@ pub(super) fn augment_activity(m: &Manager, activity: &mut ui::LiveActivity) -> 
 mod tests {
     use super::*;
     use crate::test_fixture::Fixture;
+    #[test]
+    fn restart_status_names_missing_capability_without_claiming_snapshot_changed() {
+        let ready = status();
+        let command = pending(&ready).command;
+        require_restart_status(&ready, &command).unwrap();
+        for (flag, reason) in [
+            (wire::FAILED, "has not reported a failure"),
+            (wire::SNAPSHOT, "No complete confirmed state"),
+            (wire::RETIRED, "have not confirmed retirement"),
+            (wire::OWNER_TIMER, "Open its controls in your DAW"),
+        ] {
+            let missing = wire::Status {flags: ready.flags & !flag, ..ready};
+            assert!(command.matches(&missing), "capability absence does not change the exact binding");
+            let error = require_restart_status(&missing, &command).unwrap_err().to_string();
+            assert!(error.contains(reason), "{error}");
+            assert!(!error.contains("snapshot or instance changed"));
+        }
+        for phase in [wire::ACCEPTED, wire::RESTORING, wire::CONTROLLER, wire::UNCERTAIN] {
+            let changing = wire::Status {phase, ..ready};
+            assert!(require_restart_status(&changing, &command).unwrap_err().to_string()
+                .contains("unfinished or unconfirmed restart"));
+        }
+        for changed in [
+            wire::Command {generation:command.generation + 1, ..command},
+            wire::Command {revision:command.revision + 1, ..command},
+            wire::Command {digest:[9;32], ..command},
+        ] {
+            assert!(require_restart_status(&ready, &changed).unwrap_err().to_string()
+                .contains("snapshot or instance changed"));
+        }
+        // Naming each missing capability must preserve the wire's admission set.
+        for flags in 0..32 {
+            for phase in 0..=wire::UNCERTAIN + 1 {
+                let observed = wire::Status {flags, phase, ..ready};
+                assert_eq!(require_restart_status(&observed, &command).is_ok(),
+                    observed.ready() && command.matches(&observed));
+            }
+        }
+    }
     #[test]
     fn later_failure_supersedes_completed_restart_in_phase_and_detail() {
         let f = Fixture::new();
