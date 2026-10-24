@@ -42,7 +42,7 @@ enum Flight {
     Overview,
     Import { repair: Option<(vm::plugins::repair::InstallerDraft, String)> },
     OpenCurrent,
-    Product { key: ProductKey, binding: Binding },
+    Product { key: ProductKey, binding: Binding, authority: u64 },
     Details { generation: String },
     Status,
     Pulse,
@@ -194,7 +194,7 @@ impl Live {
         } else if self.fresh && self.state.page == Page::Plugins && self.product.is_none() && !self.product_attempted {
             if let (Some(key), Some(binding)) = (self.state.plugins.focused_product().cloned(), self.binding()) {
                 self.product_attempted = true;
-                self.queue(Query::Product(key.clone()), Flight::Product { key, binding });
+                self.queue(Query::Product(key.clone()), Flight::Product { key, binding, authority:self.authority_generation });
             }
         }
     }
@@ -465,8 +465,13 @@ impl Live {
                 if self.wants_details() && self.details.is_none() && !self.details_attempted { self.need_details = true; }
                 if matches!(self.state.page, Page::Diagnostics | Page::Activity) && !self.status_attempted { self.need_status = true; }
             }
-            (Flight::Product { key, binding }, Reply::Product(detail)) => {
-                if self.binding().as_ref() == Some(&binding) && self.state.plugins.focused_product() == Some(&key)
+            (Flight::Product { key, binding, authority }, Reply::Product(detail)) => {
+                if authority != self.authority_generation {
+                    // A preset save can change the detail without changing the
+                    // setup token. A reply begun before that notification is old.
+                    self.product = None; self.product_attempted = false;
+                    self.fresh = false; self.need_current = true;
+                } else if self.binding().as_ref() == Some(&binding) && self.state.plugins.focused_product() == Some(&key)
                     && detail.state_token == binding.token && detail.current_generation == binding.generation
                     && ProductKey::from(&detail.product) == key {
                     self.product = self.project_product(*detail);
@@ -657,7 +662,7 @@ impl Live {
             || self.queued.as_ref().map(|(_, flight)| flight).into_iter().chain(self.in_flight.as_ref())
                 .any(|flight| matches!(flight, Flight::Details { .. }));
         let product_pending = self.queued.as_ref().map(|(_, flight)| flight).into_iter().chain(self.in_flight.as_ref())
-            .any(|flight| matches!(flight, Flight::Product { key, binding: requested }
+            .any(|flight| matches!(flight, Flight::Product { key, binding: requested, .. }
                 if self.state.plugins.focused_product() == Some(key) && binding.as_ref() == Some(requested)));
         let current_pending = self.queued.as_ref().map(|(_, flight)| flight).into_iter().chain(self.in_flight.as_ref())
             .any(|flight| matches!(flight, Flight::Current | Flight::Overview));
@@ -1907,6 +1912,34 @@ mod tests {
         assert!(live.product.is_none());
         current_if_queued(&mut live, None);
         assert!(matches!(live.take_query(), Some(Query::Product(key)) if key == b));
+    }
+    #[test]
+    fn product_changes_during_loading_refresh_even_when_the_setup_token_is_unchanged() {
+        let mut live = ready();
+        let s = snapshot();
+        let key = ProductKey::from(&s.products[0]);
+        live.state.go(&Destination::Product(key.clone())); live.drive(); live.rebuild();
+        assert!(matches!(live.take_query(), Some(Query::Product(requested)) if requested == key));
+        record_change(&mut live);
+        record_change(&mut live);
+        assert!(live.take_query().is_none(), "notifications coalesce behind the current read");
+        live.receive(Reply::Product(Box::new(CurrentProductDetail { schema: 1, operator_schema: vm::model::OPERATOR_SCHEMA,
+            state_token: s.state_token.clone(), current_generation: "generation-a".into(), system: s.system.clone(),
+            product: s.products[0].clone(), environments: s.environments.clone(), vendor_applications: s.vendor_applications.clone() })));
+        assert!(live.product.is_none(), "a late reply cannot bring stale preset counts back");
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        live.receive(overview(s.clone(), "generation-a"));
+        finish_page_read(&mut live, Page::Plugins, &s);
+        assert!(live.product.is_some() && live.fresh);
+        // The same notification also refreshes a page that has finished loading.
+        record_change(&mut live);
+        assert!(live.product.is_none());
+        assert!(matches!(live.take_query(), Some(Query::CurrentOverview)));
+        live.receive(overview(s.clone(), "generation-a"));
+        finish_page_read(&mut live, Page::Plugins, &s);
+        for _ in 0..3 { heartbeat(&mut live); assert!(!live.tick()); }
+        assert!(live.take_query().is_none(), "quiet subscriptions never poll the preset folder");
+        assert!(live.support.is_none(), "refresh never submits an action");
     }
     #[test]
     fn background_recovery_retires_only_the_read_error_and_keeps_the_open_page() {
