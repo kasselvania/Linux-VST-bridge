@@ -336,24 +336,26 @@ impl RealService {
     pub fn product_detail(&self) -> Value {
         self.read(contract::Read::Product(self.plugin().key()))
     }
-    /// The window's bounded Activity summary until the operation is final,
-    /// then its exact retained receipt and the service worker's retirement.
+    /// Follow the exact retained operation, as Console does after acceptance.
+    /// Activity is a sampled current observation: it may legitimately be
+    /// renewing while the worker writes. After retirement it must agree with
+    /// the operation's terminal receipt, within the ordinary read bound.
     pub fn finished_operation(&self, operation: &str) -> Value {
         let deadline = Instant::now() + OPERATION;
         let result = loop {
-            let activity = self.read(contract::Read::Activity);
-            let current = &activity["operation"];
-            if current["operation"] == operation
-                && matches!(current["state"].as_str(), Some("completed" | "refused")) {
-                let readback = self.read(contract::Read::Operation(operation.into()));
-                assert_eq!(readback["record"]["operation"], operation, "{readback:#}");
-                assert_eq!(readback["record"]["state"], current["state"], "{readback:#}");
-                break readback["record"].clone();
+            let readback = self.read(contract::Read::Operation(operation.into()));
+            let record = &readback["record"];
+            assert_eq!(record["operation"], operation, "{readback:#}");
+            if matches!(record["state"].as_str(), Some("completed" | "refused")) {
+                break record.clone();
             }
-            assert!(Instant::now() < deadline, "operation {operation} unfinished: {activity:#}");
+            assert!(Instant::now() < deadline, "operation {operation} unfinished: {readback:#}");
             std::thread::sleep(Duration::from_millis(100));
         };
         self.executor_retired(operation);
+        let activity = self.read(contract::Read::Activity);
+        assert_eq!(activity["operation"]["operation"], operation, "{activity:#}");
+        assert_eq!(activity["operation"]["state"], result["state"], "{activity:#}");
         result
     }
     fn executor_retired(&self, operation: &str) {
