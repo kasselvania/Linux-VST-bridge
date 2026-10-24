@@ -1957,11 +1957,15 @@ mod tests {
     #[test]
     fn automatic_journey_keeps_successful_siblings_and_exact_failed_phase_continuation() {
         for (width,pending) in [(560.0,false),(960.0,false),(560.0,true)] {
+          for page in [Page::Home, Page::Setup] {
             let mut overview:CurrentOverview = overview_fixture().into();
             overview.current.products.clear();
+            overview.current.environments.clear();
+            overview.current.vendor_applications.clear();
             let resume = Action::SoftwareInstallResume {onboarding:"exact-environment".into()};
             overview.current.installer_setups = vec![automatic_setup(
                 automatic_journey(InstallationPhase::NeedsAttention),Some(resume.clone()))];
+            supplied_setups(&mut overview.current, &[(0, crate::model::SetupDisposition::NeedsAttention)]);
             let ctx = result_form_context();
             let mut chosen = None;
             let mut point = egui::Pos2::ZERO;
@@ -1972,24 +1976,37 @@ mod tests {
                 let mut output = ctx.run_ui(egui::RawInput {events,screen_rect:Some(
                     egui::Rect::from_min_size(egui::Pos2::ZERO,egui::vec2(width,1000.0))),
                     ..Default::default()},|ui| {
-                    Operator::fast_home(ui,&overview,None,true,false,pending,
-                        (&mut Page::Home,&mut crate::library::PluginsView::default(),
-                            &mut PageFocus::default(),&mut false,&mut chosen));
+                    if page == Page::Home {
+                        Operator::fast_home(ui,&overview,None,true,false,pending,
+                            (&mut Page::Home,&mut crate::library::PluginsView::default(),
+                                &mut PageFocus::default(),&mut false,&mut chosen));
+                    } else {
+                        Operator::fast_setup(ui,&overview,true,pending,
+                            (&mut false,&mut chosen,&mut false,&mut Page::Setup,
+                                &mut crate::library::PluginsView::default(),
+                                &mut PageFocus::default(),&mut None));
+                    }
                 });
+                output.textures_delta.clear();
                 if frame == 2 {
                     let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
-                    assert!(labels.iter().any(|(label,_)|label=="Installed instrument"));
-                    assert!(labels.iter().any(|(label,_)|label=="Available in your DAW"));
-                    assert!(labels.iter().any(|(label,_)|label=="Installed effect"));
-                    assert!(labels.iter().any(|(label,_)|label==
-                        "Plug-in inspection: The plug-in did not load during inspection."));
+                    if page == Page::Setup {
+                        assert!(labels.iter().any(|(label,_)|label=="Installed instrument"));
+                        assert!(labels.iter().any(|(label,_)|label=="Available in your DAW"));
+                        assert!(labels.iter().any(|(label,_)|label=="Installed effect"));
+                        assert!(labels.iter().any(|(label,_)|label==
+                            "Plug-in inspection: The plug-in did not load during inspection."));
+                    } else {
+                        assert!(labels.iter().any(|(label,_)|label=="Next: continue Chosen software"));
+                        assert!(labels.iter().any(|(label,_)|label=="Open this setup"));
+                    }
                     assert!(!labels.iter().any(|(label,_)|label.contains("activation failed")
                         || label=="Prepare for your DAW" || label=="Make available in your DAW"));
                     point=labels.iter().find(|(label,_)|label=="Continue installation and DAW connection").unwrap().1;
                 }
-                output.textures_delta.clear();
             }
             assert_eq!(chosen,(!pending).then_some(resume));
+          }
         }
     }
 
@@ -2596,6 +2613,16 @@ mod tests {
                 action:Action::CompatibilityFinishResult {operation:"exact-recovery".into()},
                 disabled_reason:Some("Close this plug-in first.".into())}),alternatives:vec![]});
         let exact=ProductKey::from(&*product);
+        let recovery_title=format!("Recover {}",product.name);
+        let recovery_detail=product.compatibility.as_ref().unwrap().summary.clone();
+        supplied_setups(&mut overview.current, &[]);
+        let crate::model::Observation::Observed(presentation)=&mut overview.current.presentation else {panic!()};
+        presentation.attention.push(crate::model::Attention {
+            purpose:crate::model::AttentionPurpose::Recovery,
+            target:crate::model::AttentionTarget::Product {product:crate::model::ProductIdentity {
+                environment:exact.environment.clone(),module_sha256:exact.module_sha256.clone(),class_id:exact.class_id.clone()}},
+            title:recovery_title.clone(),detail:recovery_detail,action:None,
+        });
         let ctx=result_form_context();
         let mut library=crate::library::PluginsView::default();
         let mut page=Page::Home;
@@ -2607,14 +2634,14 @@ mod tests {
             let mut output=ctx.run_ui(egui::RawInput {events,..Default::default()},|ui|
                 Operator::fast_home(ui,&overview,None,true,false,false,
                     (&mut page,&mut library,&mut PageFocus::default(),&mut false,&mut None)));
+            output.textures_delta.clear();
             if frame==2 {
                 let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
                 assert!(labels.iter().any(|(label,_)|label=="Available in your DAW"));
-                assert!(labels.iter().any(|(label,_)|label.starts_with("Next: recover")));
+                assert!(labels.iter().any(|(label,_)|label==&recovery_title));
                 assert!(!labels.iter().any(|(label,_)|label.starts_with("Plug-ins available in ")));
                 point=labels.iter().find(|(label,_)|label=="Open plug-in recovery").unwrap().1;
             }
-            output.textures_delta.clear();
         }
         assert_eq!(page,Page::Plugins);
         assert_eq!(library.focused_product(),Some(&exact));
@@ -3941,6 +3968,7 @@ mod tests {
             overview.current.products.truncate(1);
             overview.current.products[0].class_id = "exact-class".into();
             overview.current.products[0].module_sha256 = "exact-module".into();
+            supplied_setups(&mut overview.current, &[]);
             overview.readiness.products = vec![crate::model::ReadinessProduct {
                 name:"Unfamiliar plug-in".into(),class_id:"exact-class".into(),module_sha256:"exact-module".into(),
                 profile:None,status,installation_health:InstallationHealth::Healthy,
@@ -3966,7 +3994,7 @@ mod tests {
         }
     }
     #[test]
-    fn completed_home_states_availability_and_keeps_usage_help_optional() {
+    fn completed_home_uses_owner_availability_and_keeps_usage_help_optional() {
         for (choices, expected) in [
             ([Some(DawChoice::Bitwig),Some(DawChoice::Bitwig)], "Plug-ins available in Bitwig"),
             ([Some(DawChoice::Reaper),Some(DawChoice::Reaper)], "Plug-ins available in REAPER"),
@@ -3994,6 +4022,11 @@ mod tests {
                     overview.current.installer_setups.push(setup);
                 }
             }
+            supplied_setups(&mut overview.current, &[]);
+            let crate::model::Observation::Observed(presentation) = &mut overview.current.presentation else { panic!() };
+            // The owner supplies this message. Retained DAW choices are not
+            // permission for this drawing adapter to reconstruct readiness.
+            presentation.settled_message = expected.into();
             let ctx=result_form_context();
             let mut chosen=None;let mut point=egui::Pos2::ZERO;
             for frame in 0..8 {
@@ -4007,6 +4040,7 @@ mod tests {
                         (&mut Page::Home,&mut crate::library::PluginsView::default(),
                             &mut PageFocus::default(),&mut false,&mut chosen));
                 });
+                output.textures_delta.clear();
                 let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
                 assert!(labels.iter().any(|(label,_)|label==expected));
                 assert!(!labels.iter().any(|(label,_)|label.starts_with("Next:")
@@ -4016,7 +4050,6 @@ mod tests {
                     point=labels.iter().find(|(label,_)|label=="Using your plug-ins").unwrap().1;
                 }
                 if frame==7 {assert!(labels.iter().any(|(label,_)|label.starts_with("Available plug-ins appear")));}
-                output.textures_delta.clear();
             }
             assert!(chosen.is_none(), "Reading usage help must not submit a mutation or success report");
         }

@@ -183,7 +183,23 @@ mod tests {
         let changed = composer.sample(&fixture.m, live(), None, Some(11)).unwrap();
         assert!(matches!(changed.incidents, Observation::Observed(rows) if rows.len() == 1));
         fs::write(folder.join("status.json"), b"invalid").unwrap();
-        assert!(matches!(composer.sample(&fixture.m, live(), None, None).unwrap().incidents, Observation::Unavailable(_)));
+        let covered = composer.sample(&fixture.m, live(), None, Some(11)).unwrap();
+        assert!(matches!(covered.incidents, Observation::Observed(rows) if rows.len() == 1));
+        // Losing coverage must read again. The malformed status also feeds
+        // capture_state, so the whole Activity read refuses instead of lending
+        // the previous revision's successful capture/incident observation.
+        assert!(composer.sample(&fixture.m, live(), None, None).is_err());
+        atomic_json(&folder.join("status.json"), &json!({"state":"collecting"})).unwrap();
+        let uncovered = composer.sample(&fixture.m, live(), None, None).unwrap();
+        assert!(matches!(uncovered.incidents, Observation::Observed(rows)
+            if rows.len() == 1 && rows[0].state == "collecting"));
+        assert_eq!(uncovered.capture["active_retention"], 1);
+        atomic_json(&folder.join("status.json"), &json!({"state":"claimed"})).unwrap();
+        let recovered = composer.sample(&fixture.m, live(), None, Some(11)).unwrap();
+        assert!(matches!(recovered.incidents, Observation::Observed(rows)
+            if rows.len() == 1 && rows[0].state == "claimed"));
+        assert_eq!(recovered.capture["active_retention"], 1,
+            "uncovered reads cannot retain the former revision's cache");
     }
     #[test]
     fn recent_summary_keeps_exact_uuid_setup_and_refuses_unbound_owner_data() {
