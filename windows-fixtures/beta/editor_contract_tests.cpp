@@ -4,8 +4,10 @@
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "public.sdk/source/vst/hosting/parameterchanges.h"
 #include "vst-state/stream.h"
+#include "windows-factory-probe/source/vendor_handler.h"
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <vector>
 
 static void need(bool result, const char* why) {
@@ -127,6 +129,52 @@ int main() {
         need(controller.getParamNormalized(0) == .5 && view->removed() == kResultOk
             && !IsWindow(child) && IsWindowVisible(parent), "reopened input and normal close");
     }
+    // Exercise the production detached handler with actual editor gestures.
+    // Inspection still refuses callbacks; only this separately owned handler
+    // admits controller-local editing, without delivering processor changes.
+    using linux_vst_bridge::wf0::VendorHandler;
+    VendorHandler inspection;
+    need(controller.setComponentHandler(&inspection) == kResultOk
+        && view->attached(parent, kPlatformTypeHWND) == kResultOk, "inspection handler control");
+    child = GetWindow(parent, GW_CHILD);
+    SendMessageW(child, WM_KEYDOWN, VK_RIGHT, 0);
+    need(controller.getParamNormalized(0) == .5, "inspection refuses actual edit");
+    auto* detached = new VendorHandler(controller);
+    need(controller.setComponentHandler(detached) == kResultOk, "standalone handler installed");
+    SendMessageW(child, WM_KEYDOWN, VK_RIGHT, 0);
+    need(std::abs(controller.getParamNormalized(0) - .55) < 1e-12,
+        "standalone keyboard gesture changes real controller");
+    SendMessageW(child, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(230, 70));
+    SendMessageW(child, WM_LBUTTONUP, 0, MAKELPARAM(230, 70));
+    need(controller.getParamNormalized(0) == .75, "standalone pointer gesture changes real controller");
+    need(detached->beginEdit(999) != kResultOk && detached->endEdit(999) != kResultOk
+        && detached->performEdit(999, .5) != kResultOk
+        && detached->performEdit(0, std::numeric_limits<double>::quiet_NaN()) != kResultOk
+        && detached->performEdit(0, -0.1) != kResultOk && detached->performEdit(0, 1.1) != kResultOk,
+        "standalone invalid IDs and values refused");
+    need(detached->startGroupEdit() == kResultOk && detached->finishGroupEdit() == kResultOk
+        && detached->setDirty(true) == kNotImplemented
+        && detached->requestOpenEditor(ViewType::kEditor) == kNotImplemented
+        && detached->restartComponent(kParamValuesChanged) == kNotImplemented,
+        "local grouping does not invent project, editor-open or processing capabilities");
+    std::thread wrongOwner([&] {
+        need(detached->beginEdit(0) != kResultOk && detached->performEdit(0, .9) != kResultOk
+            && detached->endEdit(0) != kResultOk && detached->startGroupEdit() != kResultOk
+            && detached->restartComponent(kParamValuesChanged) != kResultOk,
+            "standalone callbacks require actual owner thread");
+    });
+    wrongOwner.join();
+    LVBState::Stream processorAfterStandalone;
+    need(processor.getState(&processorAfterStandalone) == kResultOk
+        && processorAfterStandalone.bytes == saved.bytes,
+        "standalone handler never changes processor or persisted project state");
+    need(view->removed() == kResultOk, "standalone view retires before handler");
+    detached->retire();
+    need(detached->beginEdit(0) != kResultOk && detached->performEdit(0, .9) != kResultOk
+        && detached->endEdit(0) != kResultOk && detached->startGroupEdit() != kResultOk,
+        "retained standalone handler refuses after retirement");
+    need(controller.setComponentHandler(nullptr) == kResultOk, "standalone handler detached");
+    detached->release();
     view->release(); DestroyWindow(parent);
     processor.setActive(false); processor.terminate(); reopened.terminate(); controller.terminate();
     std::cout << "LVB_EDITOR_CONTRACT_V1 gesture=passed dsp=passed state=passed focus=passed close_reopen=passed\n";
