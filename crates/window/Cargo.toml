@@ -14,6 +14,11 @@ path = "src/main.rs"
 required-features = ["live"]
 
 [[bin]]
+name = "linux-vst-bridge-install"
+path = "src/installer_main.rs"
+required-features = ["live"]
+
+[[bin]]
 name = "bridge-window-preview"
 path = "src/preview_main.rs"
 required-features = ["samples"]
