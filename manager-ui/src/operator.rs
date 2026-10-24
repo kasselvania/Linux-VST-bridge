@@ -1467,7 +1467,7 @@ impl eframe::App for Operator {
         let mut refresh = false;
         let mut pick = false;
         let mut chosen = None;
-        let mut retry_details = false;
+        let mut retry = None;
         let selected_product_snapshot = self.selected_product_snapshot();
         let frame_view = |operator: &Self| operator.frame_view(selected_product_snapshot.as_ref(), readiness_visible,
             controls_pending);
@@ -1536,11 +1536,8 @@ impl eframe::App for Operator {
                                 action_controls_pending, &mut chosen, Self::product_details);
                         }
                     }
-                    Screen::PluginsLoading(list) => if let Some(current) = current {
-                        let attempted = self.window.plugins.focused_product().is_some_and(|key|
-                            self.product_attempted.as_ref() == Some(key));
-                        crate::library::show_current(ui, &mut self.window.plugins, current, Some(*list),
-                            actions_current, attempted && !self.pending, &mut retry_details);
+                    Screen::PluginsLoading(list) => if current.is_some() {
+                        crate::library::show_current(ui, &mut self.window.plugins, *list, &mut retry);
                     },
                     Screen::Activity(view) => Self::activity_page(ui, &view, &mut self.window, &mut chosen),
                     Screen::Diagnostics(view) => Self::diagnostics_page(ui, &view, &mut chosen),
@@ -1645,12 +1642,16 @@ impl eframe::App for Operator {
         if self.preview {
             #[cfg(test)]
             PREVIEW_INTENT.with(|intent| *intent.borrow_mut() =
-                format!("{chosen:?} refresh={refresh} pick={pick} retry={retry_details}"));
+                format!("{chosen:?} refresh={refresh} pick={pick} retry={retry:?}"));
             ui.ctx().request_repaint_after(Duration::from_millis(500));
             return;
         }
         if self.frontend_superseded { return; }
-        if retry_details { self.retry_details(); }
+        match retry {
+            Some(Local::RetryDetails) => self.retry_details(),
+            Some(Local::Refresh) => refresh = true,
+            _ => {}
+        }
         if pick { self.queued_import = true; }
         if refresh { self.explicit_refresh_queued = true; }
         if let Some(a) = chosen {
@@ -5224,7 +5225,9 @@ mod tests {
             apply_local(card.discovered.expect("discovered plug-ins").does, &mut state, &mut false, &mut false);
             assert_eq!(state.page,Page::Plugins);
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-                crate::library::show_current(ui, &mut state.plugins, &overview.current, None,true,false,&mut false);
+                let view = screen_model::plugins::LoadingList::build(&overview.current, &state.plugins.query(),
+                    screen_model::plugins::CurrentRead::Ready, false);
+                crate::library::show_current(ui, &mut state.plugins, view, &mut None);
             });
             let mut text = Vec::new();
             for clipped in &output.shapes { labels(&clipped.shape,&mut text); }
