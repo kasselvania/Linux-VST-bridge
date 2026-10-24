@@ -77,12 +77,22 @@ commercial plug-ins, recovery, touch and the remaining Console journeys still
 require their own installed checks.
 [Measurements](../evidence/console/test254-first-party.json).
 
+Test258 / SteamOS Deck / Bitwig Studio 6.1, **Reference save/reopen playback passed**
+(2026-10-24): after the operator resolved Bitwig activation, a copy of the retained
+Reference project played, saved and fully exited. A fresh Bitwig process recalled
+Level .25 and Colour .5; transport advanced and direct stereo output contained
+signal for 20 s before and after reopen. Both sessions exited normally and the
+original project remained byte-exact. The earlier Test254 transport result remains
+environment-inconclusive. This qualifies this first-party journey on Test258;
+commercial products, reboot and the immutable Beta RC matrix remain open.
+[Measurements](../evidence/console/test258-bitwig.json).
+
 Test254 / SteamOS Deck / Bitwig Studio 6.1, **qualification remains open**
 (2026-10-24): a new first-party Reference Instrument project played and saved;
 its explicit Bitwig-output capture contained signal for 20 s. A full exit and
 fresh launch recalled Level .25 and Colour .5, but transport did not start and
 the reopen capture was silent. Bitwig also reported its account activation limit
-had been reached. This is an unresolved prerequisite, not established attribution
+had been reached. At the time this was an unresolved prerequisite, not established attribution
 of the transport failure. Bitwig then exited normally. No account or activation
 changes were made. [Partial measurements](../evidence/console/test254-first-party.json).
 
