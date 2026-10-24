@@ -131,7 +131,7 @@ class ManagedVendorTests(unittest.TestCase):
         for seed,policy in (('a',None),('b',None),('c','inherited'),('d','intentionally_unavailable')):
             operation,directory=self.replacement_operation(seed)
             request=json.loads((directory/'request.json').read_bytes())
-            request['schema']=30
+            request['schema']=31
             if policy:
                 request['action'].update(kind='environment_installer_start_with_policy',powershell=policy)
             self.write(directory/'request.json',request)
@@ -146,11 +146,11 @@ class ManagedVendorTests(unittest.TestCase):
     def test_dependency_installer_continuation_accepts_retained_and_current_wire_generations(self):
         operation,directory=self.replacement_operation('a')
         request=json.loads((directory/'request.json').read_bytes())
-        for schema in (26,27,28,29,30):
+        for schema in (26,27,28,29,30,31):
             request['schema']=schema
             self.write(directory/'request.json',request)
             self.assertEqual(s.selected_installer_origin(self.managed,operation['application']),directory.name)
-        request['schema']=31
+        request['schema']=32
         self.write(directory/'request.json',request)
         with self.assertRaisesRegex(ValueError,'managed_application_installation_binding'):
             s.selected_installer_origin(self.managed,operation['application'])

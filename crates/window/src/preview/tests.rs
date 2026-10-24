@@ -907,3 +907,23 @@ fn repair_chooses_an_exact_installer_confirms_once_and_preserves_product_navigat
     assert_eq!(preview.press(&confirm.id.0,InputPath::Touch),Outcome::Refused);
     assert_eq!(preview.captured.len(),1);
 }
+
+#[test]
+fn recovery_panel_tracks_owner_phase_and_keeps_support_available() {
+    use lvb_view_model::model::{Observation, RecoveryPhase};
+    let mut preview = Preview::new(Selection {state:state_index("plugin_ready"),page:Page::Plugins,..Selection::default()});
+    preview.recovery_fixture();
+    for (phase, title) in [(RecoveryPhase::Failed,"Plug-in instance failed"),
+        (RecoveryPhase::Restarting,"Restarting"), (RecoveryPhase::Restored,"Restarted"),
+        (RecoveryPhase::Unknown,"Recovery status unavailable")] {
+        let Observation::Observed(instances) = &mut preview.activity_fixture.as_mut().unwrap().live.instances else {panic!()};
+        instances[0].recovery.as_mut().unwrap().phase = phase;
+        preview.rebuild();
+        let page = format!("{:?}",preview.built.page);
+        assert!(page.contains(title));
+        assert!(page.contains("kind: Recovery"));
+        assert!(!page.contains("Playing again"));
+        assert!(preview.built.targets.values().any(|target| matches!(target,
+            Target::Control(control) if control.does == Local::Go(Destination::Diagnostics))));
+    }
+}

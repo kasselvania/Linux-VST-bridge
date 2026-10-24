@@ -79,7 +79,7 @@ impl Builder<'_> {
         }
         for note in notes { readiness.push(text(note)); }
         let mut actions = vec![Node::Label("What you can do".into())];
-        for instance in recovery { actions.push(self.instance_recovery(instance)); }
+        for instance in recovery { children.push(self.instance_recovery(instance)); }
         if let Some(LeadOffer { preface, offer }) = lead {
             if let Some(preface) = preface {
                 actions.push(words(Role::Body, preface.clone()));

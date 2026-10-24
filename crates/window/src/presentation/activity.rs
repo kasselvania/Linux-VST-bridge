@@ -43,13 +43,20 @@ impl Builder<'_> {
     }
 
     pub(super) fn instance_recovery(&mut self, recovery: &vm::recovery::Recovery) -> Node {
-        let mut children = vec![Node::Label("Recover this instance".into())];
+        let chip = self.id("chip", &format!("recovery {}", recovery.name));
+        let mut children = vec![Node::Header(vec![
+            Node::PluginIdentity { name: recovery.name.clone(), detail: recovery.context.clone() },
+            Node::Chip { id: chip, status: status(&recovery.status) },
+        ])];
         children.extend(recovery.detail.iter().map(text));
         if recovery.actions.offers.is_empty() {
             children.extend(recovery.actions.notes.iter().map(|note| words(Role::Detail, note.clone())));
         } else { children.extend(self.row(&recovery.actions)); }
+        children.push(words(Role::Body, recovery.processing.clone()));
+        let support = self.control(&Control::go("Make a support report…", offers::Importance::Secondary, vm::Destination::Diagnostics));
+        children.push(self.one(support));
         children.push(self.fold(&recovery.identity));
-        Node::Stack(children)
+        Node::Panel { kind: PanelKind::Recovery, children }
     }
 
     pub(super) fn attentions(&mut self, attention: &Attentions) -> Node {
