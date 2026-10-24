@@ -25,12 +25,18 @@ if settings['action']=='snapshot':
         if result.returncode or not image.exists():
             raise RuntimeError('Existing Spectacle could not capture the desktop')
         sys.stdout.buffer.write(image.read_bytes())
+elif settings['action']=='reset-keyboard':
+    # Reload the existing layout: no configuration writes or compositor restart.
+    subprocess.run(['dbus-send','--session','--type=signal','/Layouts',
+                    'org.kde.keyboard.reloadConfig'],env=env,check=True,timeout=5)
 else:
     # Existing uinput ACL is required. Never modify device permissions or run as root.
     with open('/dev/uinput','wb',buffering=0) as device:
         for event in (0,1): fcntl.ioctl(device,0x40045564,event)
-        if settings['action']=='key':
-            fcntl.ioctl(device,0x40045565,settings['key'])
+        keys = (settings['keys'] if settings['action']=='chord' else
+                [settings['key']] if settings['action']=='key' else [0x110])
+        if settings['action'] in ('key','chord'):
+            for key in keys: fcntl.ioctl(device,0x40045565,key)
         else:
             fcntl.ioctl(device,0x40045565,0x110)
             fcntl.ioctl(device,0x40045564,3)
@@ -39,6 +45,7 @@ else:
                 fcntl.ioctl(device,0x401c5504,struct.pack('H2x6i',axis,0,0,maximum,0,0,0))
         fcntl.ioctl(device,0x405c5503,struct.pack('HHHH80sI',3,0x1d6b,0x0104,1,b'LPB temporary UI input',0))
         fcntl.ioctl(device,0x5501)
+        pressed = []
         try:
             time.sleep(.4)
             def event(kind,code,value):device.write(struct.pack('llHHi',0,0,kind,code,value))
@@ -46,18 +53,27 @@ else:
             if settings['action']=='click':
                 event(3,0,settings['x']);event(3,1,settings['y']);sync()
                 time.sleep(.1)
-            key=settings['key'] if settings['action']=='key' else 0x110
-            event(1,key,1);sync();time.sleep(.05);event(1,key,0);sync();time.sleep(.1)
+            for key in keys:
+                pressed.append(key)
+                event(1,key,1);sync()
+            time.sleep(.05)
         finally:
-            fcntl.ioctl(device,0x5502)
+            try:
+                for key in reversed(pressed): event(1,key,0);sync()
+                time.sleep(.1)
+            finally:
+                fcntl.ioctl(device,0x5502)
 '''
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('ssh_target')
 actions = parser.add_subparsers(dest='action', required=True)
 actions.add_parser('snapshot')
+actions.add_parser('reset-keyboard', help='Reload the existing KDE keyboard layout to clear stuck state')
 key = actions.add_parser('key')
 key.add_argument('key', type=int, help='Linux input key code, for example 28 for Enter')
+chord = actions.add_parser('chord')
+chord.add_argument('keys', type=int, nargs='+', help='Linux input key codes in press order, e.g. 29 30 for Ctrl+A')
 click = actions.add_parser('click')
 for name in ('x', 'y', 'width', 'height'):
     click.add_argument(name, type=int)
@@ -67,6 +83,9 @@ if options.ssh_target.startswith('-') or any(c.isspace() for c in options.ssh_ta
 settings = vars(options)
 if options.action == 'key' and not 1 <= options.key <= 255:
     parser.error('Use a key code from 1 through 255')
+if options.action == 'chord' and (not all(1 <= key <= 255 for key in options.keys)
+                                or len(options.keys) != len(set(options.keys))):
+    parser.error('Use distinct key codes from 1 through 255')
 if options.action == 'click' and not (0 <= options.x < options.width <= 16384 and 0 <= options.y < options.height <= 16384):
     parser.error('Click must be inside the captured desktop dimensions')
 import json

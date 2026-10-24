@@ -1,5 +1,15 @@
 # Shared failure classes
 
+Deck stuck modifiers: `xdotool key ctrl+a` reproduces persistent Control on
+KWin 6.4.3 / Xwayland 24.1.10 after focus leaves and returns, despite an immediate
+zero modifier readback. It reproduces in a KDE scratch field with Wine closed;
+the contaminated state makes Steam's on-screen keyboard trigger desktop shortcuts.
+Reloading the existing KDE keyboard layout clears it. The same shortcut through
+uinput stays clear across the focus change. Maintainer keyboard input now uses
+`tools/deck-browser/consent.py key/chord`; `reset-keyboard` recovers existing state.
+This identifies an automation trigger and recovery, not every historical incident
+or a permanent compositor repair.
+
 Deck/Test216 follow-ups under #469: an older KontaktStereo Bitwig project opens
 with a missing-device placeholder although the factory/saved class identity
 matches; fresh insertion and a newly saved mixed-project recall work. Its old

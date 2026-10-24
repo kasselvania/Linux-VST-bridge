@@ -48,3 +48,30 @@ it changes no permissions. Take a fresh screenshot before clicking and verify
 the resulting desktop. Never use it for account, activation or administrator
 prompts. Delete the temporary screenshot after inspection. The helper creates
 and destroys its input device for each click, with button release before exit.
+
+### Keyboard input on the Deck
+
+Use `consent.py key CODE` or `consent.py chord CODE CODE` for automated keys:
+
+```sh
+python3 tools/deck-browser/consent.py deck@steamdeck chord 29 30 # Ctrl+A
+```
+
+Do not use `xdotool key` or `xdotool type` on the Deck's Wayland desktop.
+On KWin 6.4.3 / Xwayland 24.1.10, `xdotool key ctrl+a` leaves the immediate
+XKB readback clear but Control becomes stuck after focus leaves and returns.
+The same shortcut through this helper's uinput device stays clear. The stuck
+desktop state also affects Steam's on-screen keyboard and survives closing Wine.
+`--clearmodifiers` does not prevent it. This restriction concerns keyboard
+injection; read-only window inspection is unaffected.
+
+To recover an already affected, idle desktop, reload its existing keyboard
+layout without changing settings or restarting applications:
+
+```sh
+python3 tools/deck-browser/consent.py deck@steamdeck reset-keyboard
+```
+
+Check typing in a disposable field, including after switching focus. An
+immediate zero modifier mask alone is insufficient. This is maintainer tooling;
+it is not a new installed-product dependency or a permanent compositor fix.
