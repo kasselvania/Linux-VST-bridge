@@ -53,5 +53,20 @@
       "silent_blocks": 0,
       "peak_s16": 295
     }
+  },
+  "bitwig_partial": {
+    "platform": "SteamOS Deck",
+    "daw": "Bitwig Studio 6.1",
+    "reference_level": 0.25,
+    "reference_colour": 0.5,
+    "initial_pcm_seconds": 20.0,
+    "initial_pcm_peak_s16": 279,
+    "initial_pcm_rms_s16": 73.269452280606,
+    "fresh_process_values_recalled": true,
+    "fresh_reopen_transport_started": false,
+    "fresh_reopen_pcm_peak_s16": 0,
+    "reported_activation_limit": true,
+    "playback_qualification": "open",
+    "normal_daw_retirement": true
   }
 }

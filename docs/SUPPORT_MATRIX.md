@@ -45,6 +45,15 @@ commercial plug-ins, recovery, touch and the remaining Console journeys still
 require their own installed checks.
 [Measurements](../evidence/console/test254-first-party.json).
 
+Test254 / SteamOS Deck / Bitwig Studio 6.1, **qualification remains open**
+(2026-10-24): a new first-party Reference Instrument project played and saved;
+its explicit Bitwig-output capture contained signal for 20 s. A full exit and
+fresh launch recalled Level .25 and Colour .5, but transport did not start and
+the reopen capture was silent. Bitwig also reported its account activation limit
+had been reached. This is an unresolved prerequisite, not established attribution
+of the transport failure. Bitwig then exited normally. No account or activation
+changes were made. [Partial measurements](../evidence/console/test254-first-party.json).
+
 Test225 / CachyOS / REAPER 7.82 / runtime r7 / host CPython 3.14.8,
 **source-generation update and exact restore passed**
 ([PR 484](https://github.com/kasselvania/Linux-VST-bridge/pull/484), 2026-10-19):
