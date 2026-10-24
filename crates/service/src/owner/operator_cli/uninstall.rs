@@ -566,9 +566,11 @@ pub(super) fn launch(m: &Manager, record: &Record) -> Result<()> {
         UninstallCommand::Msi { product_code } => ("uninstall_msi", json!(product_code), vec![]),
     };
     let spec = dir.join("uninstall-spec.json");
-    atomic_json(&spec, &json!({"schema":2,"operation":record.operation,"environment":record.environment,
+    let mut input = json!({"schema":2,"operation":record.operation,"environment":record.environment,
         "installer":record.image,"format":format,"report":report,"preserve_existing_prefix":true,
-        "uninstall":{"schema":1,"registration":record.registration,"product_code":product_code,"arguments":arguments}}))?;
+        "uninstall":{"schema":1,"registration":record.registration,"product_code":product_code,"arguments":arguments}});
+    linux_vst_bridge::library_location_plan::bind(m, &record.environment, &software(m)?, &mut input)?;
+    atomic_json(&spec, &input)?;
     onboarding::launch_spec(m, &record.operation, &spec, &report)
 }
 

@@ -135,7 +135,8 @@ fn subjects(m: &Manager, action: &ui::Action) -> Result<Option<Vec<(Fact, String
         | A::PluginRemoveFromDaw { class_id, .. } | A::PluginAddBackToDaw { class_id, .. }
         | A::OrdinaryRollback { class_id, .. } | A::OrdinaryRestoreRecommended { class_id }
         | A::CaptureArm { class_id } => plugin(class_id)?,
-        A::EnvironmentRescan { environment } | A::EnvironmentRefresh { environment, .. }
+        A::AddLibraryLocation { environment, .. } | A::RemoveLibraryLocation { environment, .. }
+        | A::EnvironmentRescan { environment } | A::EnvironmentRefresh { environment, .. }
         | A::SetupRemoveFromDaw { environment } =>
             [setup(environment), vec![(SetupPlugins, environment.clone())]].concat(),
         // The plug-ins it takes out of the DAW are the ones its scan found.

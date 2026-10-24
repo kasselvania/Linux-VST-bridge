@@ -2951,7 +2951,7 @@ pub(crate) mod tests {
         let (f, _, _, _) = test_fixture::prepared();
         let id = "ac".repeat(16);
         let root = f.m.root.join("environments").join(&id);
-        let env = Environment {
+        let env = Environment { library_locations: None,
             id: id.clone(),
             root,
             revision: 1,

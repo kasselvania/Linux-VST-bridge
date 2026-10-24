@@ -511,7 +511,9 @@ impl Live {
             (Flight::Action { .. }, Reply::Cancelled) => {
                 if let Some(support) = &mut self.support {
                     support.terminal = true; support.blocking = false;
-                    support.text = "No program selected. The request was not submitted.".into();
+                    support.text = if matches!(support.action, Action::AddLibraryLocation { .. }) {
+                        "No folder selected. The request was not submitted."
+                    } else { "No program selected. The request was not submitted." }.into();
                 }
             }
             (Flight::Save(report), Reply::ReportSaved(path)) => {
@@ -895,12 +897,22 @@ impl Live {
         }
     }
     fn form_step(&mut self, step: FormStep) {
-        let submitting = matches!(step, FormStep::StartInstall | FormStep::SaveRename | FormStep::Confirm | FormStep::SubmitRecord);
+        let submitting = matches!(step, FormStep::ChooseLibraryFolder | FormStep::StartInstall | FormStep::SaveRename | FormStep::Confirm | FormStep::SubmitRecord);
         let origin = self.form_origin.clone();
         if submitting && (self.foreground_busy() || self.support_waiting() || !self.fresh
             || origin.as_ref().is_none_or(|(binding, _)| Some(binding) != self.binding().as_ref())) { return; }
         let forms = &mut self.state.forms;
         match step {
+            FormStep::ChooseLibraryFolder => {
+                if let Some(action) = forms.library_location.clone() {
+                    let snapshot = self.product.as_ref().or_else(|| self.overview.as_ref().map(|o| &o.current));
+                    if vm::locations::folder_offer(snapshot, &action).is_ok() {
+                        if let Some((binding, offer)) = origin { self.submit(action, binding, offer); }
+                    }
+                }
+                return;
+            }
+            FormStep::CancelLibraryFolder => forms.library_location = None,
             FormStep::ChooseDaw(choice) => forms.daw = Some(choice),
             FormStep::StartInstall => {
                 if let (Some(form), Some(daw)) = (forms.install.clone(), forms.daw) {
@@ -971,7 +983,7 @@ impl Live {
             FormStep::CancelRecord => forms.record = None,
         }
         let forms = &self.state.forms;
-        if forms.install.is_none() && forms.rename.is_none() && forms.record.is_none() && forms.confirm.is_none() {
+        if forms.library_location.is_none() && forms.install.is_none() && forms.rename.is_none() && forms.record.is_none() && forms.confirm.is_none() {
             self.form_origin = None;
         }
     }
@@ -2309,6 +2321,32 @@ mod tests {
             (Page::Diagnostics | Page::Activity, None) => assert!(live.status.is_some()),
             _ => panic!("the opened page must read its own current records"),
         }
+    }
+    #[test]
+    fn native_folder_form_dispatches_exact_mode_and_cancellation_is_harmless() {
+        let mut source=snapshot(); vm::samples::library_locations_fixture(&mut source);
+        let mut live=observing("fixture".into(),false);
+        assert!(matches!(live.take_query(),Some(Query::CurrentOverview)));
+        live.receive(overview(source.clone(),"generation-a"));
+        show_page(&mut live,Page::Plugins,&source);
+        live.state.plugins.page=vm::state::ProductPage::SampleLocations;live.rebuild();
+        let add=target(&live,|t|matches!(t,Target::Offer {offer,..}
+            if matches!(offer.intent,Action::AddLibraryLocation {read_only:false,..})));
+        press(&mut live,&add);
+        assert!(live.take_query().is_none(),"mode selection sends no request");
+        let readonly=target(&live,|t|matches!(t,Target::Offer {offer,..}
+            if matches!(offer.intent,Action::AddLibraryLocation {read_only:true,..})));
+        press(&mut live,&readonly);
+        let selected=live.state.forms.library_location.clone().unwrap();
+        let choose=target(&live,|t|matches!(t,Target::Form(FormStep::ChooseLibraryFolder)));
+        press(&mut live,&choose);
+        let Some(Query::Action(request))=live.take_query() else {panic!("directory chooser action")};
+        assert_eq!(request.action,selected);
+        assert_eq!(request.state_token,source.state_token);
+        live.receive(Reply::Cancelled);
+        let feedback=live.support.as_ref().unwrap();
+        assert!(feedback.terminal && !feedback.blocking && feedback.text.contains("No folder selected"));
+        assert!(live.take_query().is_none(),"cancellation does not replay the chooser");
     }
     #[test]
     fn explicit_refresh_rereads_open_pages_even_when_binding_does_not_change() {

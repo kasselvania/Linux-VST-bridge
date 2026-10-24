@@ -80,6 +80,8 @@ pub struct WindowControlResult {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OperationResult {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub library_locations_consumed: Option<String>,
     pub schema: u32,
     #[serde(default)]
     pub operation_id: Option<String>,
@@ -217,6 +219,8 @@ pub struct ProgramSelection {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Operation {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub library_locations: Option<crate::library_location_plan::LocationPlan>,
     pub application: Application,
     pub report: PathBuf,
     pub mode: LaunchMode,
@@ -440,6 +444,13 @@ impl Application {
 /// A supervised dependency service gets a mixed kill and time to retire.
 pub fn session_command(unit: &str, supervised_service: bool, software: &crate::catalogue::Software,
     job: &Path) -> Result<std::process::Command> {
+    let input: serde_json::Value = crate::read_json(job)?;
+    let digest = &input["application"]["environment"]["library_locations"];
+    if !digest.is_null() {
+        crate::supervisor::require_library_locations(&software.supervisor)?;
+        require(input["library_locations"]["digest"] == *digest,
+            "library_locations_launch_plan_changed")?;
+    }
     let mut command = std::process::Command::new("systemd-run");
     command.args([
             "--user",

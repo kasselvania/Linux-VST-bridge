@@ -222,6 +222,7 @@ pub(super) fn launch_input(m: &Manager, r: &Binding) -> Result<Value> {
         "installer_launch":sw.installer_launch,"report":report,
         "preserve_existing_prefix":preserve_existing_prefix});
     linux_vst_bridge::installer_policy::bind_for_launch(m, &mut launch_spec, &sw, policy)?;
+    linux_vst_bridge::library_location_plan::bind(m, &r.environment, &sw, &mut launch_spec)?;
     launch_spec["managed_first_launch"] = linux_vst_bridge::vendor_profile::installer_first_launch()?;
     Ok(launch_spec)
 }

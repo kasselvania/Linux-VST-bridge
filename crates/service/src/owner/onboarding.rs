@@ -481,7 +481,7 @@ fn create_exact(
         .mode(0o600)
         .open(root.join("operation.lock"))?
         .sync_all()?;
-    let env = Environment {
+    let env = Environment { library_locations: None,
         id: id.clone(),
         root,
         runner,
@@ -686,6 +686,7 @@ fn launch_input(m: &Manager, r: &Record,
     let mut spec = json!({"schema":2,"operation":op,"environment":r.environment,"installer":installer.artifact,
         "format":installer.format,"installer_launch":sw.installer_launch,"report":dir.join(format!("{op}-result.json"))});
     linux_vst_bridge::installer_policy::bind_for_launch(m, &mut spec, &sw, policy)?;
+    linux_vst_bridge::library_location_plan::bind(m, &r.environment, &sw, &mut spec)?;
     spec["managed_first_launch"] = linux_vst_bridge::vendor_profile::installer_first_launch()?;
     Ok(spec)
 }
@@ -700,6 +701,11 @@ pub(crate) fn with_installer_unit_refusal<T>(run:impl FnOnce()->T)->T {
 }
 pub(super) fn launch_spec(m: &Manager, op: &str, path: &Path, report: &Path) -> Result<()> {
     let sw = software(m)?;
+    let input: Value = read_json(path)?;
+    if !input["environment"]["library_locations"].is_null() {
+        linux_vst_bridge::supervisor::require_library_locations(&sw.supervisor)?;
+        require(!input["library_locations"].is_null(), "library_locations_launch_plan_missing")?;
+    }
     #[cfg(test)]
     if INSTALLER_UNIT_REFUSAL.with(std::cell::Cell::get) {
         atomic_json(report,&json!({"schema":2,"operation":op,"state":"failed","raw_exit":null,

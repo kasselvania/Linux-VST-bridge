@@ -11,6 +11,9 @@ impl Builder<'_> {
         if let Some(form) = &forms.confirm {
             return Some(self.confirmation(form, forms.forget_installer, snapshot, pending));
         }
+        if let Some(form) = &forms.library_location {
+            return Some(self.library_folder_form(form, snapshot, pending));
+        }
         if let Some(form) = &forms.install {
             return Some(self.install_form(form, forms.daw, actions, pending));
         }
@@ -21,6 +24,28 @@ impl Builder<'_> {
             return Some(self.record_form(form, snapshot, pending));
         }
         None
+    }
+
+    fn library_folder_form(&mut self, form: &Action, snapshot: &Snapshot, pending: bool) -> (Vec<Node>, Option<String>) {
+        let mut out = vec![Node::Title("Add a library folder".into()),
+            words(Role::Body, "Choose how this setup may use the folder, then choose the folder on your Linux drive."),
+            words(Role::Detail, "Read and write lets vendor apps download or change files there. Read-only lets them read existing samples."),
+            words(Role::Body, "If this folder is disconnected or replaced, this setup cannot open new plug-in or vendor-app sessions."),
+            words(Role::Detail, vm::locations::UNAVAILABLE_GUIDANCE)];
+        let mut modes = vm::locations::folder_modes(Some(snapshot), form);
+        for mode in &mut modes {
+            let read_only = matches!(mode.action, Action::AddLibraryLocation {read_only:true, ..});
+            mode.label = format!("{}{}", if read_only { "Read-only" } else { "Read and write" },
+                if mode.action == *form { " (chosen)" } else { "" });
+        }
+        out.extend(self.row(&offers::row(&modes, offers::Importance::Secondary, None, pending)));
+        let refusal = vm::locations::folder_offer(Some(snapshot), form).err()
+            .or_else(|| pending.then(|| offers::WAITING.into()));
+        let choose = self.local("Choose folder…", Importance::Primary, Target::Form(FormStep::ChooseLibraryFolder), refusal);
+        let cancel = self.local("Cancel", Importance::Secondary, Target::Form(FormStep::CancelLibraryFolder), None);
+        let focus = choose.id.0.clone();
+        out.push(self.actions("library-folder", vec![choose, cancel]));
+        (out, Some(focus))
     }
 
     pub(super) fn confirmation(&mut self, form: &Action, forget: bool, snapshot: &Snapshot, pending: bool)

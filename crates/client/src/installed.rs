@@ -181,7 +181,17 @@ impl Client {
                 }
             }
         }
-        let (request, input) = if matches!(query, Query::PickInstaller) {
+        let (request, input) = if matches!(&query, Query::Action(request)
+            if matches!(request.action, lvb_model::operator_model::Action::AddLibraryLocation { .. })) {
+            let Some(path) = selection.pick_library_folder() else { return Ok(Reply::Cancelled); };
+            // The dialog can outlive selection of another installed frontend.
+            // The exact offered request remains unchanged while it is open.
+            if let Some(frontend) = identity {
+                if !frontend_selected(home, frontend)? { return Ok(Reply::FrontendSuperseded); }
+            }
+            let source = open_selected_directory(&path)?;
+            (request(query), Some(source))
+        } else if matches!(query, Query::PickInstaller) {
             let selected = selection.pick_installer();
             let Some(path) = selected else {
                 return Ok(Reply::Cancelled);
@@ -211,6 +221,15 @@ impl Client {
         exchange(transport, &request, input)
     }
 }
+/// Open the chosen directory once. The owner resolves and verifies its identity
+/// from this descriptor, never by reopening a client-supplied path.
+fn open_selected_directory(path: &Path) -> Result<std::fs::File, String> {
+    use std::os::unix::fs::OpenOptionsExt;
+    std::fs::OpenOptions::new().read(true)
+        .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(path).map_err(|_| "Selected library folder is unavailable or changed".into())
+}
+
 /// Open only the owner-selected, verified frontend through its installed route.
 pub fn launch_selected_with(home: &Path, executable: &Path,
     launch: impl FnOnce(&Path) -> Result<(), String>) -> Result<(), String> {
@@ -327,6 +346,7 @@ mod tests {
         fn pick_program(&self) -> Option<PathBuf> {
             self.0()
         }
+        fn pick_library_folder(&self) -> Option<PathBuf> { self.0() }
         fn save_report(&self, _: &SupportReport) -> Option<PathBuf> {
             self.0()
         }
@@ -344,6 +364,55 @@ mod tests {
                 },
             },
         })
+    }
+
+    fn library_query() -> Query {
+        Query::Action(lvb_model::operator_model::Request {
+            schema: lvb_model::operator_model::OPERATOR_SCHEMA,
+            state_token: "exact-state".into(),
+            action: lvb_model::operator_model::Action::AddLibraryLocation {
+                environment: "selected-setup".into(), expected_environment: "selected-revision".into(),
+                read_only: false,
+            },
+        })
+    }
+
+    #[test]
+    fn folder_choice_cancellation_and_wrong_file_send_nothing() {
+        use std::os::unix::fs::symlink;
+        let root = std::env::temp_dir().join(format!("lvb-client-folder-{}", linux_vst_bridge::random_id().unwrap()));
+        std::fs::create_dir(&root).unwrap();
+        let client = Client::new(root.clone(), root.join("development-frontend")).unwrap();
+        assert!(matches!(client.call_with(library_query(), &Choose(&|| None), NeverTransport), Ok(Reply::Cancelled)));
+        let regular = root.join("regular"); std::fs::write(&regular, b"fixture").unwrap();
+        assert!(client.call_with(library_query(), &Choose(&|| Some(regular.clone())), NeverTransport).is_err());
+        let link = root.join("link"); symlink(&root, &link).unwrap();
+        assert!(client.call_with(library_query(), &Choose(&|| Some(link.clone())), NeverTransport).is_err());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn folder_choice_keeps_offer_and_sends_one_open_directory() {
+        use std::os::unix::fs::MetadataExt;
+        struct DirectoryTransport { dev:u64, ino:u64 }
+        impl contract::Transport for DirectoryTransport {
+            fn exchange(&self, request:&contract::Request, input:Option<std::fs::File>) -> Result<Vec<u8>,contract::Failure> {
+                let Query::Action(expected) = library_query() else {unreachable!()};
+                assert_eq!(request, &contract::Request::Action(expected));
+                let metadata = input.expect("exact chosen descriptor").metadata().unwrap();
+                assert!(metadata.is_dir());
+                assert_eq!((metadata.dev(),metadata.ino()),(self.dev,self.ino));
+                Ok(serde_json::to_vec(&serde_json::json!({"schema":lvb_model::operator_model::OPERATOR_SCHEMA,
+                    "accepted":true,"operation":"exact-operation","refusal":null})).unwrap())
+            }
+        }
+        let root = std::env::temp_dir().join(format!("lvb-client-directory-{}", linux_vst_bridge::random_id().unwrap()));
+        std::fs::create_dir(&root).unwrap();
+        let client = Client::new(root.clone(), root.join("development-frontend")).unwrap();
+        let metadata = root.metadata().unwrap();
+        let reply = client.call_with(library_query(), &Choose(&|| Some(root.clone())),
+            DirectoryTransport {dev:metadata.dev(),ino:metadata.ino()}).unwrap();
+        assert!(matches!(reply,Reply::Receipt(receipt) if receipt.accepted));
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -457,7 +526,7 @@ mod tests {
         ));
         // Exercise the real dispatch boundary for both native pickers. A package
         // restore while the picker is open must prevent the subsequent request.
-        for query in [Query::PickInstaller, program_query()] {
+        for query in [Query::PickInstaller, program_query(), library_query()] {
             linux_vst_bridge::atomic_json(&selection, &current).unwrap();
             let picker = || {
                 linux_vst_bridge::atomic_json(&selection, &selected).unwrap();

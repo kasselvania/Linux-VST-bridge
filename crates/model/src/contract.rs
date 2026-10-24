@@ -334,7 +334,7 @@ impl<T: Transport> Client<T> {
     pub fn new(transport: T) -> Self {
         Self { transport }
     }
-    /// `input` is the installer an import copies; other requests take none.
+    /// `input` is one installer file or one AddLibraryLocation directory; other requests take none.
     pub fn call(&self, request: &Request, input: Option<File>) -> Result<Reply, Failure> {
         let data = self.transport.exchange(request, input)?;
         decode(request, &data).map_err(Failure::Error)
@@ -349,6 +349,8 @@ pub const COMMAND_GREETING: &[u8; 5] = b"LVA1\n";
 #[serde(tag = "kind", deny_unknown_fields)]
 enum CommandRequest {
     Action { request: ui::Request },
+    /// Exactly one directory descriptor accompanies this typed action.
+    DirectoryAction { request: ui::Request },
     ImportInstaller { name: String },
     BrowserReturn { uri: String },
 }
@@ -370,7 +372,18 @@ pub fn read_command_request(peer: &mut UnixStream) -> crate::Result<(Request, Op
     let envelope: CommandEnvelope = serde_json::from_slice(&bytes)?;
     crate::require(envelope.operator_schema == ui::OPERATOR_SCHEMA, &paired_model_required())?;
     Ok(match envelope.command {
-        CommandRequest::Action { request } => (Request::Action(request), None),
+        CommandRequest::Action { request } => {
+            crate::require(!matches!(request.action, ui::Action::AddLibraryLocation { .. }),
+                "library_directory_descriptor_missing")?;
+            (Request::Action(request), None)
+        },
+        CommandRequest::DirectoryAction { request } => {
+            crate::require(matches!(request.action, ui::Action::AddLibraryLocation { .. }),
+                "library_directory_action_mismatch")?;
+            let directory = receive_file(peer)?;
+            crate::require(directory.metadata()?.is_dir(), "library_directory_descriptor_required")?;
+            (Request::Action(request), Some(directory))
+        },
         CommandRequest::ImportInstaller { name } =>
             (Request::ImportInstaller { name }, Some(receive_file(peer)?)),
         CommandRequest::BrowserReturn { uri } => (Request::BrowserReturn(uri), None),
@@ -546,6 +559,12 @@ impl Service {
     fn command(&self, request: &Request, input: Option<File>) -> Result<Vec<u8>, Failure> {
         let error = |text: &str| Failure::Error(text.into());
         let command = match request {
+            Request::Action(request) if matches!(request.action, ui::Action::AddLibraryLocation { .. }) => {
+                if !input.as_ref().is_some_and(|directory| directory.metadata().is_ok_and(|m| m.is_dir())) {
+                    return Err(error("Choose a library folder before continuing"));
+                }
+                CommandRequest::DirectoryAction { request: request.clone() }
+            },
             Request::Action(request) if input.is_none() => CommandRequest::Action { request: request.clone() },
             Request::ImportInstaller { name } if input.is_some() => CommandRequest::ImportInstaller { name: name.clone() },
             Request::BrowserReturn(uri) if input.is_none() => CommandRequest::BrowserReturn { uri: uri.clone() },
@@ -679,6 +698,9 @@ impl Subprocess {
 impl Transport for Subprocess {
     fn exchange(&self, request: &Request, input: Option<File>) -> Result<Vec<u8>, Failure> {
         let error = |text: &str| Failure::Error(text.into());
+        if matches!(request, Request::Action(ui::Request { action: ui::Action::AddLibraryLocation { .. }, .. })) {
+            return Err(error("Library folder choices require the running service descriptor transport"));
+        }
         let body = request.body().map_err(|_| error("Request encoding failed"))?;
         let mut command = Command::new(&self.program);
         command.args(request.command());
@@ -1114,6 +1136,62 @@ mod tests {
         assert_eq!(Service::new(&socket).exchange(&Request::ImportInstaller { name: "chosen.exe".into() }, Some(selected)).unwrap(), b"imported");
         server.join().unwrap();
         std::fs::remove_dir_all(root).unwrap();
+    }
+    fn library_action() -> ui::Request {
+        ui::Request { schema: ui::OPERATOR_SCHEMA, state_token: "exact-offer-token".into(),
+            action: ui::Action::AddLibraryLocation { environment: "chosen-setup".into(),
+                expected_environment: "before-revision".into(), read_only: true } }
+    }
+    #[test]
+    fn directory_action_transfers_exact_open_directory_and_unchanged_offer() {
+        use std::os::unix::{fs::MetadataExt, net::UnixListener};
+        let root = PathBuf::from("/tmp").join(format!("lvb-folder-{}", crate::random_id().unwrap()));
+        let chosen = root.join("chosen");
+        std::fs::create_dir_all(&chosen).unwrap();
+        let directory = File::open(&chosen).unwrap();
+        let original = directory.metadata().unwrap();
+        // Replacing the spelling cannot replace the descriptor the user chose.
+        std::fs::rename(&chosen, root.join("original")).unwrap();
+        std::fs::create_dir(&chosen).unwrap();
+        let socket = root.join("owner.sock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut peer, _) = listener.accept().unwrap();
+            let mut greeting = [0; 5]; peer.read_exact(&mut greeting).unwrap();
+            assert_eq!(&greeting, COMMAND_GREETING);
+            let (request, input) = read_command_request(&mut peer).unwrap();
+            assert_eq!(request, Request::Action(library_action()));
+            let received = input.unwrap().metadata().unwrap();
+            assert!(received.is_dir());
+            assert_eq!((received.dev(), received.ino()), (original.dev(), original.ino()));
+            write_view_reply(&mut peer, Ok(b"accepted")).unwrap();
+        });
+        assert_eq!(Service::new(&socket).exchange(&Request::Action(library_action()), Some(directory)).unwrap(), b"accepted");
+        server.join().unwrap();
+        assert!(Service::new(&socket).exchange(&Request::Action(library_action()), None).is_err());
+        let regular = root.join("regular"); std::fs::write(&regular, b"not a directory").unwrap();
+        assert!(Service::new(&socket).exchange(&Request::Action(library_action()), Some(File::open(&regular).unwrap())).is_err());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn directory_action_cannot_borrow_file_or_ordinary_action_authority() {
+        let ordinary = match action() { Request::Action(request) => request, _ => unreachable!() };
+        for command in [CommandRequest::Action {request:library_action()},
+            CommandRequest::DirectoryAction {request:ordinary},
+            CommandRequest::DirectoryAction {request:library_action()}] {
+            let body = serde_json::to_vec(&CommandEnvelope {operator_schema:ui::OPERATOR_SCHEMA, command}).unwrap();
+            let (mut client, mut server) = UnixStream::pair().unwrap();
+            client.write_all(&(body.len() as u32).to_le_bytes()).unwrap(); client.write_all(&body).unwrap();
+            client.shutdown(std::net::Shutdown::Write).unwrap();
+            assert!(read_command_request(&mut server).is_err());
+        }
+        let body = serde_json::to_vec(&CommandEnvelope {operator_schema:ui::OPERATOR_SCHEMA,
+            command:CommandRequest::DirectoryAction {request:library_action()}}).unwrap();
+        let (mut client, mut server) = UnixStream::pair().unwrap();
+        client.write_all(&(body.len() as u32).to_le_bytes()).unwrap(); client.write_all(&body).unwrap();
+        send_file(&client, &File::open("/dev/null").unwrap()).unwrap();
+        assert!(read_command_request(&mut server).is_err(), "a regular/device file is not a folder grant");
+        assert!(Subprocess::new("/unexecuted").exchange(&Request::Action(library_action()), None).is_err());
     }
     #[test]
     fn command_envelope_refuses_wrong_schema_and_oversized_body_before_dispatch() {

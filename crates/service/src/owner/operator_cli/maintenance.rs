@@ -67,6 +67,7 @@ pub(super) fn environment(m: &Manager, action: &ui::Action) -> Result<Option<Env
         | A::PluginFinishSetup { environment, .. } | A::QuarantinedModuleRetry { environment, .. }
         | A::ProductUninstall { environment, .. } | A::SetupRemoveFromDaw { environment }
         | A::SetupDelete { environment, .. }
+        | A::AddLibraryLocation { environment, .. } | A::RemoveLibraryLocation { environment, .. }
         | A::ProgramChoose { environment, .. } => Some(environment_install::target_record(m, environment)?),
         A::VendorSoftwareInstall { application, .. } | A::VendorApplicationOpen { application }
         | A::ProgramAdopt { application, .. } => Some(vendor_cli::application(m, application)?.environment),
@@ -164,6 +165,7 @@ pub(super) fn acquire(m: &Manager, operation: &str, vendor_operation: Option<Str
 pub(super) fn release(m: &Manager, operation: &str) -> Result<bool> {
     let Some(mut record) = read(m, operation)? else { return Ok(false) };
     if !record.held { return Ok(true); }
+    library_location::recover(m,operation)?;
     let retired = vendor_maintenance::observe_retired(m, &record.environment)?;
     let _registry = m.lock("registry.lock")?;
     retired.verify(m)?;

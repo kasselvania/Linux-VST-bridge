@@ -23,7 +23,7 @@ use crate::{forms, AttemptKey, Destination, Local, ProductKey};
 
 /// Local views of the same exact plug-in; never a service action or new identity.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum ProductPage { #[default] Overview, Display, Repair }
+pub enum ProductPage { #[default] Overview, Display, Repair, SampleLocations }
 
 /// The Plug-ins page: the search, the filters and the plug-ins opened from
 /// elsewhere.
@@ -98,6 +98,8 @@ impl PageFocus {
 /// manager's exact action with the musician's entries so far.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Forms {
+    /// Exact folder access offer selected before the native directory chooser.
+    pub library_location: Option<Action>,
     /// An installation waiting for its DAW.
     pub install: Option<Action>,
     /// The DAW chosen for installations, kept for the next one.
@@ -251,6 +253,7 @@ impl State {
     pub fn press(&mut self, action: Action) -> Option<Action> {
         match forms::route(action, self.forms.daw) {
             forms::Route::Send(action) => return Some(action),
+            forms::Route::ChooseLibraryFolder(action) => self.forms.library_location = Some(action),
             forms::Route::ChooseDaw(action) => self.forms.install = Some(action),
             forms::Route::Record(action) => self.forms.record = Some(action),
             forms::Route::Rename(action) => self.forms.rename = Some(action),
@@ -267,7 +270,7 @@ impl State {
     /// including the confirmation it answers.
     pub fn sent(&mut self, action: &Action) {
         let forms = &mut self.forms;
-        for form in [&mut forms.record, &mut forms.rename, &mut forms.install] {
+        for form in [&mut forms.record, &mut forms.rename, &mut forms.install, &mut forms.library_location] {
             if form.as_ref() == Some(action) { *form = None; }
         }
         // The confirmed request differs from its offer only by the musician's answers.

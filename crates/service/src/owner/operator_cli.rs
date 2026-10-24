@@ -18,6 +18,7 @@ pub(super) mod vendor_maintenance;
 pub(super) mod environment_install;
 pub(super) mod environment_runtime;
 mod environment_refresh;
+mod library_location;
 mod renderer_continuation;
 mod setup_removal;
 #[cfg(test)]
@@ -854,14 +855,6 @@ fn managed_environment_bindings(
     let replacements:std::collections::BTreeSet<_>=environment_install::records(m)?.into_iter()
         .map(|record|record.environment.id).collect();
     for retained in onboarding::history_records(m)? {
-        if !registry
-            .classes
-            .values()
-            .any(|entry| entry.registration.environment.id == retained.environment.id)
-            && !replacements.contains(&retained.environment.id)
-        {
-            continue;
-        }
         let binding = linux_vst_bridge::catalogue::EnvironmentBinding {
             family: linux_vst_bridge::profiles::Family::ManagedInstallerV1,
             environment: retained.environment,
@@ -894,7 +887,8 @@ fn managed_environment_bindings(
     }
     for binding in &mut bindings {
         // Catalogue runner templates are not installed environment ownership.
-        if registry.classes.values().any(|entry|entry.registration.environment.id == binding.environment.id)
+        if onboarding::retained_environment_record(m,&binding.environment.id)?.is_some()
+            || registry.classes.values().any(|entry|entry.registration.environment.id == binding.environment.id)
             || replacements.contains(&binding.environment.id)
             || linux_vst_bridge::frg1::adopted_environment_record(m)?.as_ref()
                 .is_some_and(|adopted|adopted.environment.id == binding.environment.id) {
@@ -1074,7 +1068,7 @@ fn environment_projection_from(
                     .join("inventory")
                     .join(format!("{}.json", entry.environment.id)),
             )?;
-            let actions = if let Some(environment) = managed_rescan_binding_from(
+            let mut actions = if let Some(environment) = managed_rescan_binding_from(
                 m,
                 bindings,
                 registry,
@@ -1091,7 +1085,10 @@ fn environment_projection_from(
             } else {
                 vec![]
             };
-            Ok(ui::Environment {
+            let (library_locations, location_actions)=library_location::project(m,&entry.environment)
+                .unwrap_or_else(|error|(ui::Observation::Unavailable(format!("Library folder ownership could not be read: {error}")),vec![]));
+            actions.extend(location_actions);
+            Ok(ui::Environment { library_locations,
                 id: entry.environment.id.clone(),
                 family: format!("{:?}", entry.family),
                 runner: entry.environment.runner.id.clone(),
@@ -1681,7 +1678,9 @@ fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Resu
                         &entry.registration.environment.id, &entry.registration.module.sha256,
                         class_id))?];
             }
-            ui::Action::EnvironmentRescan { environment } => {
+            ui::Action::EnvironmentRescan { environment }
+            | ui::Action::AddLibraryLocation { environment, .. }
+            | ui::Action::RemoveLibraryLocation { environment, .. } => {
                 require(valid_product_environment(environment), "operator_product_identity")?;
                 offered.environments = scoped_product_context_from(m, sw, db,
                     &captured.bindings, environment, captured.busy)?.0;
@@ -1709,7 +1708,8 @@ fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Resu
     validate(request, &snapshot(m)?)
 }
 fn scoped_product_action(action: &ui::Action) -> bool {
-    matches!(action, ui::Action::OrdinaryRollback { .. }
+    matches!(action, ui::Action::AddLibraryLocation { .. } | ui::Action::RemoveLibraryLocation { .. }
+        | ui::Action::OrdinaryRollback { .. }
         | ui::Action::PluginRemoveFromDaw { .. }
         | ui::Action::PluginAddBackToDaw { .. }
         | ui::Action::OrdinaryRestoreRecommended { .. }
@@ -2518,6 +2518,9 @@ fn execute_with_receipt_policy_progress(
     waits: &mut Vec<ui::LockFacts>,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Value> {
+    if matches!(a,ui::Action::AddLibraryLocation{..}|ui::Action::RemoveLibraryLocation{..}) {
+        return library_location::execute(m,a,operation.ok_or("operator_operation_identity")?,timeout,waits);
+    }
     if matches!(a, ui::Action::PluginRestart { .. }) {
         return instance_recovery::execute(m, a, operation.ok_or("operator_operation_identity")?);
     }
@@ -2661,6 +2664,7 @@ fn execute_with_receipt_policy_progress(
         });
     }
     match a {
+        ui::Action::AddLibraryLocation { .. } | ui::Action::RemoveLibraryLocation { .. } => unreachable!(),
         ui::Action::EnvironmentRefresh { .. } | ui::Action::EnvironmentRefreshResume { .. } => unreachable!(),
         ui::Action::RendererSoftwareInstall { .. } => unreachable!(),
         ui::Action::SoftwareInstall { .. } | ui::Action::SoftwareInstallWithPolicy {..} | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. } => unreachable!(),
@@ -4436,6 +4440,18 @@ pub(super) fn answer_read(m: &Manager, read: &contract::Read) -> Result<contract
         Read::Operation(id) => Reply::Operation(operation_readback(m, id)?),
     })
 }
+pub(super) fn answer_library_location(m:&Manager,request:ui::Request,input:fs::File)->contract::Reply {
+    contract::Reply::Receipt(match operator_wait(|| dispatch_recorded(m,&request,|id| {
+        let _lock=m.lock("operator-dispatch.lock")?;
+        require(matches!(request.action,ui::Action::AddLibraryLocation{..}),"library_directory_action_required")?;
+        admit(m,&request,id)?;
+        linux_vst_bridge::library_locations::selected_directory(m,&input)?;
+        launch_reserved(m,&request,id,|id|executor::launch_with_directory(m,id,Some(input)))
+    })) {
+        Ok(receipt)=>receipt,
+        Err(error)=>ui::Receipt{schema:ui::OPERATOR_SCHEMA,accepted:false,operation:None,refusal:Some(error.to_string())},
+    })
+}
 /// Answer a window action request with its receipt.
 pub(super) fn answer_action(m: &Manager, request: ui::Request) -> contract::Reply {
     contract::Reply::Receipt(match operator_wait(|| dispatch(m, request)) {
@@ -5397,7 +5413,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 30);
+        assert_eq!(ui::OPERATOR_SCHEMA, 31);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();
@@ -6609,7 +6625,7 @@ pub(crate) mod tests {
             atomic_json(&app_directory(&f.m).join("operation.json"),
                 &vendor_application::Operation {application,report:app_directory(&f.m).join("operation-result.json"),
                     mode:vendor_application::LaunchMode::Normal,
-                    operation_id:if mismatch=="wrong_launch"{"ee".repeat(16)}else{vendor.clone()},launcher:None, managed:None,capability_notice:None}).unwrap();
+                    operation_id:if mismatch=="wrong_launch"{"ee".repeat(16)}else{vendor.clone()},launcher:None, managed:None,library_locations: None, capability_notice:None}).unwrap();
             atomic_json(&app_directory(&f.m).join("operation-result.json"),
                 &json!({"schema":3,"operation_id":if mismatch=="changed_vendor_result"{"ef".repeat(16)}else{vendor.clone()},
                 "state":"running","launcher_exit":null,"discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();

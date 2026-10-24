@@ -121,6 +121,8 @@ pub fn installation_form_offer(snapshot: Option<&Snapshot>, action: &Action)
 /// routes through this, so no confirmation or DAW choice can be skipped.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Route {
+    /// Choose access mode and then open the native folder chooser.
+    ChooseLibraryFolder(Action),
     Send(Action),
     /// Choose the DAW, then send the installation with it.
     ChooseDaw(Action),
@@ -139,6 +141,7 @@ pub fn route(action: Action, daw: Option<DawChoice>) -> Route {
         return if daw.is_some() { Route::Send(installation) } else { Route::ChooseDaw(installation) };
     }
     match action {
+        Action::AddLibraryLocation { .. } => Route::ChooseLibraryFolder(action),
         Action::CandidateObserve { .. } | Action::CandidateReview { .. } | Action::CompatibilityResult { .. } =>
             Route::Record(action),
         Action::InstallerRename { .. } => Route::Rename(action),
@@ -149,7 +152,7 @@ pub fn route(action: Action, daw: Option<DawChoice>) -> Route {
 
 /// Removing from the DAW or deleting a setup always asks first.
 pub fn needs_confirmation(action: &Action) -> bool {
-    matches!(action, Action::PluginRemoveFromDaw { .. } | Action::SetupRemoveFromDaw { .. }
+    matches!(action, Action::RemoveLibraryLocation { .. } | Action::PluginRemoveFromDaw { .. } | Action::SetupRemoveFromDaw { .. }
         | Action::SetupDelete { .. } | Action::ProductUninstall { .. } | Action::EnvironmentRuntimeSelect { .. } | Action::PluginRestart { .. })
 }
 /// Setup-level removal offers live in their own section of the setup card.
@@ -213,6 +216,16 @@ fn confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirmation {
             forget: None };
     };
     match action {
+        Action::RemoveLibraryLocation { environment, location, .. } => {
+            let setup = snapshot.environments.iter().find(|setup| &setup.id == environment);
+            let retained = setup.and_then(|setup| setup.library_locations.observed())
+                .and_then(|locations| locations.iter().find(|entry| &entry.id == location));
+            let mut body = vec!["This setup will lose access through this folder's drive letter. Projects using samples there may need the folder added again.".into(),
+                "The folder and all of its files stay on your disk. Other setups keep their own access.".into()];
+            if let Some(entry) = retained { body.insert(0, format!("{} · {} · {}", entry.name, entry.drive, entry.path.display())); }
+            Confirmation { title: "Remove this library folder?", body, confirm: "Remove folder access", cancel: "Keep access",
+                offer: current(setup.into_iter().flat_map(|setup| &setup.actions).collect()), forget: None }
+        },
         Action::PluginRestart { snapshot:state, .. } => Confirmation {
             title:"Restart this plug-in instance?",
             body:vec![crate::recovery::LOSS_WARNING.into(),

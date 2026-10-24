@@ -729,3 +729,56 @@ fn exact_instance_restart_confirms_loss_and_never_replays_a_cancelled_or_stale_c
         assert_eq!(preview.captured.len(),1);
     }
 }
+
+#[test]
+fn sample_locations_use_exact_offers_and_separate_folder_choice_from_submission() {
+    use lvb_view_model::state::ProductPage;
+    let mut preview=Preview::new(Selection {state:state_index("plugin_ready"),page:Page::Plugins,..Selection::default()});
+    preview.library_locations_fixture();
+    let key=preview.state.plugins.focused_product().unwrap().clone();
+    assert_eq!(preview.state.plugins.page,ProductPage::SampleLocations);
+    let page=format!("{:?}",preview.built.page);
+    for text in ["Folders this setup can use","C:","The setup’s own drive","L:","M:","Read and write","Read-only","Reconnect this drive"] {
+        assert!(page.contains(text),"missing {text}");
+    }
+    assert!(!page.contains("Libraries found") && !page.contains("GB"));
+    assert!(page.contains(lvb_view_model::locations::UNAVAILABLE_GUIDANCE));
+    fn offer(preview:&Preview,read_only:bool)->String {
+        preview.built.targets.iter().find_map(|(id,target)|matches!(target,Target::Offer {offer,..}
+            if matches!(offer.intent,Action::AddLibraryLocation {read_only:mode,..} if mode==read_only))
+            .then(||id.clone())).unwrap()
+    }
+    let add=offer(&preview,false);
+    preview.press(&add,InputPath::Touch);
+    assert!(matches!(preview.state.forms.library_location,Some(Action::AddLibraryLocation {read_only:false,..})));
+    assert!(preview.captured.is_empty());
+    let form=format!("{:?}",preview.built.form);
+    assert!(form.contains("cannot open new plug-in or vendor-app sessions"));
+    assert!(form.contains(lvb_view_model::locations::UNAVAILABLE_GUIDANCE));
+    let readonly=offer(&preview,true);
+    preview.press(&readonly,InputPath::Keyboard);
+    assert!(matches!(preview.state.forms.library_location,Some(Action::AddLibraryLocation {read_only:true,..})));
+    let choose=form_control(&preview,FormStep::ChooseLibraryFolder).unwrap();
+    let cancel=form_control(&preview,FormStep::CancelLibraryFolder).unwrap();
+    let mut cancelled=preview.clone();
+    cancelled.press(&cancel.id.0,InputPath::Touch);
+    assert!(cancelled.state.forms.library_location.is_none() && cancelled.captured.is_empty());
+    assert_eq!(cancelled.press(&choose.id.0,InputPath::Keyboard),Outcome::Refused);
+    let mut stale=preview.clone();
+    for setup in &mut stale.sample.snapshot.environments {
+        setup.actions.retain(|offer|!matches!(offer.action,Action::AddLibraryLocation {read_only:true,..}));
+    }
+    stale.rebuild();
+    stale.press(&choose.id.0,InputPath::Pointer);
+    assert!(stale.captured.is_empty(),"retired exact access mode cannot be submitted");
+    preview.press(&choose.id.0,InputPath::Keyboard);
+    assert!(matches!(&preview.captured.last().unwrap().0,Action::AddLibraryLocation {environment,read_only:true,..}
+        if environment==&key.environment));
+    assert_eq!(preview.state.plugins.focused_product(),Some(&key));
+    let mut removal=cancelled;
+    let id=removal.built.targets.iter().find_map(|(id,target)|matches!(target,Target::Offer {offer,..}
+        if matches!(offer.intent,Action::RemoveLibraryLocation {..})).then(||id.clone())).unwrap();
+    removal.press(&id,InputPath::Touch);
+    assert!(removal.captured.is_empty() && removal.state.forms.confirm.is_some());
+    assert!(format!("{:?}",removal.built.form).contains("all of its files stay"));
+}

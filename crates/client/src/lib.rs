@@ -96,6 +96,7 @@ fn exchange(
 pub trait FileSelection {
     fn pick_installer(&self) -> Option<PathBuf>;
     fn pick_program(&self) -> Option<PathBuf>;
+    fn pick_library_folder(&self) -> Option<PathBuf>;
     fn save_report(&self, report: &SupportReport) -> Option<PathBuf>;
 }
 

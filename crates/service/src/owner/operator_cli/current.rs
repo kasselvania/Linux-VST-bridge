@@ -411,7 +411,8 @@ impl CurrentOverviewContext {
     pub(super) fn reuse(&self) -> Reuse {
         let operation_live = self.snapshot.operation.as_ref().and_then(|operation| operation["state"].as_str())
             .is_some_and(|state| WORKER_OWNED_STATES.contains(&state));
-        let quiescent = self.all_vendor_retired && self.vendor_progress.is_none()
+        let quiescent = !self.bindings.iter().any(|b| b.environment.library_locations.is_some())
+            && self.all_vendor_retired && self.vendor_progress.is_none()
             && !self.installer_live.values().any(|live| *live) && !operation_live
             && !self.renderer_live.values().any(|live| *live)
             && self.snapshot.system.capacity_available() && !self.snapshot.system.cleanup_unconfirmed;
@@ -1298,7 +1299,7 @@ pub(super) mod tests {
         let report=directory.join("operation-result.json");
         atomic_json(&directory.join("operation.json"),&vendor_application::Operation {
             application:app.clone(),report:report.clone(),mode:vendor_application::LaunchMode::Normal,
-            operation_id:operation.clone(),launcher:None,managed:None,capability_notice:None}).unwrap();
+            operation_id:operation.clone(),launcher:None,managed:None,library_locations: None, capability_notice:None}).unwrap();
         atomic_json(&report,&json!({"schema":3,"operation_id":operation,"state":"unknown",
             "launcher_exit":null,"owned_live":null,"cleanup_confirmed":false,
             "discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
@@ -2104,7 +2105,7 @@ pub(super) mod tests {
         private_dir(&directory).unwrap();atomic_json(&directory.join("application.json"),&app).unwrap();
         let operation=random_id().unwrap();let report_path=directory.join("operation-result.json");
         let job=vendor_application::Operation {application:app.clone(),report:report_path.clone(),
-            mode:vendor_application::LaunchMode::Normal,operation_id:operation.clone(),launcher:Some(f.r.host.clone()), managed:None,capability_notice:None};
+            mode:vendor_application::LaunchMode::Normal,operation_id:operation.clone(),launcher:Some(f.r.host.clone()), managed:None,library_locations: None, capability_notice:None};
         atomic_json(&directory.join("operation.json"),&job).unwrap();
         let mut report=json!({"schema":3,"operation_id":operation,"state":"running",
             "launcher_exit":null,"owned_live":2,"cleanup_confirmed":false,

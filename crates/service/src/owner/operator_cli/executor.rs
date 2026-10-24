@@ -51,6 +51,9 @@ type Executions = BTreeSet<(PathBuf, String)>;
 static EXECUTIONS: std::sync::LazyLock<Mutex<Executions>> = std::sync::LazyLock::new(Default::default);
 
 pub(super) fn launch(m: &Manager, operation: &str) -> Result<bool> {
+    launch_with_directory(m,operation,None)
+}
+pub(super) fn launch_with_directory(m:&Manager,operation:&str,input:Option<fs::File>)->Result<bool> {
     let key = (m.root.clone(), operation.to_owned());
     {
         let mut executions = EXECUTIONS.lock().map_err(|_| "operation_executor_lock")?;
@@ -76,7 +79,7 @@ pub(super) fn launch(m: &Manager, operation: &str) -> Result<bool> {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| operator_wait(|| {
             #[cfg(feature = "service-executor-fixture")]
             fixture_barrier(&manager, &id)?;
-            worker(&manager, &id)
+            library_location::with_input(input,||worker(&manager, &id))
         })));
         if !matches!(result, Ok(Ok(()))) {
             // Only a named operation failure is logged; selected file contents

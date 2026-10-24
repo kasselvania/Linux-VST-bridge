@@ -29,6 +29,7 @@ pub mod forms;
 pub mod home;
 pub mod installer;
 pub mod journey;
+pub mod locations;
 pub mod offers;
 pub mod plugins;
 pub mod product;

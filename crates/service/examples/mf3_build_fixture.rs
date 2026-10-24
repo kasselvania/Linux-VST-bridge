@@ -43,13 +43,13 @@ fn main() -> Result<()> {
     )?);
     atomic_json(&m.root.join("software.json"), &sw)?;
     let runtime = prep::build::stage_runtime(&m)?;
-    let environment = Environment {
+    let environment = Environment { library_locations: None,
         id: random_id()?,
         root: PathBuf::new(),
         runner,
         revision: 1,
     };
-    let environment = Environment {
+    let environment = Environment { library_locations: None,
         root: m.root.join("environments").join(&environment.id),
         ..environment
     };

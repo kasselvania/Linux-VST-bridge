@@ -3,6 +3,8 @@ extern crate self as linux_vst_bridge;
 pub mod owner;
 pub mod preparation;
 pub mod environment_revision;
+pub mod library_locations;
+pub mod library_location_plan;
 pub mod runtime_delivery;
 pub mod acceptance;
 pub mod capacity;
@@ -553,6 +555,8 @@ impl Runner {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Environment {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub library_locations: Option<String>,
     pub id: String,
     pub root: PathBuf,
     pub runner: Runner,

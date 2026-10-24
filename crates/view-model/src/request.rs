@@ -145,6 +145,7 @@ impl RequestFeedback {
                     } else { "The report's file identity is unavailable. Create a new problem report.".into() }
                 } else if let Some(message) = op["result"]["message"].as_str().filter(|_| matches!(self.action,
                     Action::PluginRemoveFromDaw { .. } | Action::PluginAddBackToDaw { .. }
+                    | Action::AddLibraryLocation { .. } | Action::RemoveLibraryLocation { .. }
                     | Action::SetupRemoveFromDaw { .. } | Action::ProductUninstall { .. }
                     | Action::InstallerCloseCheck { .. })) {
                     message.into()
@@ -187,6 +188,8 @@ impl RequestFeedback {
                         .unwrap_or("Installing and connecting your plug-ins").into(),
                 Action::RuntimeInstall {} =>
                     "Downloading and preparing the compatibility runtime. This may take several minutes.".into(),
+                Action::AddLibraryLocation { .. } => "Adding this folder to the selected setup.".into(),
+                Action::RemoveLibraryLocation { .. } => "Removing this setup's folder access. Its files stay on your disk.".into(),
                 Action::EnvironmentRescan { .. } =>
                     "Checking this setup's installed plug-ins.".into(),
                 Action::EnvironmentRuntimeSelect { .. } =>

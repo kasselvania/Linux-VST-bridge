@@ -3,6 +3,17 @@ use crate::{require, Artifact, Result};
 use std::{ffi::OsString, io::Read, process::{Command, Stdio}, time::{Duration, Instant}};
 
 pub const BOOTSTRAP: &str = include_str!("../../../bridge-manager/runtime/bootstrap.py");
+/// Compile-time binding prevents an old helper from silently ignoring a new
+/// plan. The package manifest separately advertises this exact helper digest.
+pub fn require_library_locations(session: &Artifact) -> Result<()> {
+    use sha2::Digest;
+    session.verify()?;
+    let expected = crate::hex(&sha2::Sha256::digest(include_bytes!(
+        "../../../bridge-manager/runtime/session.py")));
+    require(session.path.extension().is_some_and(|x| x == "py")
+        && session.sha256 == expected, "library_locations_supervisor_capability_unavailable")
+}
+
 pub const SOURCE_PYTHON_RANGE: &str = "CPython >=3.13,<3.16";
 
 /// These arguments follow the interpreter, including behind systemd-run.
@@ -38,4 +49,20 @@ pub fn verify_host_python() -> Result<()> {
     child.stdout.take().ok_or("supervisor_python_probe")?.take(64).read_to_string(&mut output)?;
     if status.success() && output.trim() == "cpython-source-v1" { return Ok(()); }
     Err(format!("This build requires host {SOURCE_PYTHON_RANGE}. Your selected application was retained").into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn location_plan_never_executes_an_older_or_merely_declaring_helper() {
+        let fixture = crate::test_fixture::Fixture::new();
+        let path = fixture.outer.join("session.py");
+        for source in [b"LIBRARY_LOCATIONS_PLAN_SCHEMA = 1\n".as_slice(),
+            include_bytes!("../../../bridge-manager/runtime/session.py").as_slice()] {
+            std::fs::write(&path, source).unwrap();
+            let artifact = Artifact {path:path.clone(),sha256:crate::digest(&path).unwrap()};
+            assert_eq!(require_library_locations(&artifact).is_ok(), source.len() > 100);
+        }
+    }
 }

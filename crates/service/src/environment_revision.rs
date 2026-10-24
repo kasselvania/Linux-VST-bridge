@@ -89,12 +89,14 @@ fn revision_edges(m: &Manager) -> Result<std::sync::Arc<Vec<(Environment, Enviro
         let vendor=vendor_records(m)?;
         let renderer=renderer_records(m)?;
         let uninstall=uninstall_records(m)?;
+        let locations=crate::library_locations::revisions(m)?;
         Ok(std::sync::Arc::new(history.into_iter().map(|r|(r.before,r.environment))
             .chain(runtime.into_iter().filter(|r|r.state != RuntimeState::Cancelled)
                 .map(|r|(r.before,r.environment)))
             .chain(vendor.into_iter().map(|r|(r.before,r.environment)))
             .chain(renderer.into_iter().map(|r|(r.before,r.environment)))
-            .chain(uninstall.into_iter().map(|r|(r.before,r.environment))).collect()))
+            .chain(uninstall.into_iter().map(|r|(r.before,r.environment)))
+            .chain(locations.into_iter().filter(|r|!r.cancelled).map(|r|(r.before,r.environment))).collect()))
     })
 }
 

@@ -82,6 +82,13 @@ pub(super) fn result(m: &Manager, selector: &str, operation: &str) -> Result<Ope
         result.operation_id.as_deref() == Some(operation),
         "vendor_application_operation_changed",
     )?;
+    if let Some(plan) = &job.library_locations {
+        if matches!(result.state, vendor_application::OperationState::Running
+            | vendor_application::OperationState::Completed) {
+            require(result.library_locations_consumed.as_ref() == Some(&plan.digest),
+                "library_locations_consumption_unconfirmed")?;
+        }
+    }
     if job.managed.is_some() && !result.dependency.as_ref().is_some_and(vendor_application::dependency_retired) && result.cleanup_confirmed {
         result.cleanup_confirmed = false;
         result.state = vendor_application::OperationState::CleanupUnconfirmed;
@@ -487,7 +494,7 @@ pub(super) mod interruption_tests {
         let directory=directory(&f.m,&selector).unwrap();
         let job=vendor_application::Operation{application:app,report:directory.join("operation-result.json"),
             mode:LaunchMode::Normal,operation_id:random_id().unwrap(),launcher:software.installer_launch.clone(),
-            managed:Some(linux_vst_bridge::vendor_profile::ManagedLaunch::new(capabilities,software).unwrap()),capability_notice:None};
+            managed:Some(linux_vst_bridge::vendor_profile::ManagedLaunch::new(capabilities,software).unwrap()),library_locations: None, capability_notice:None};
         atomic_json(&directory.join("operation.json"),&job).unwrap();
         atomic_json(&job.report,&json!({"schema":3,"operation_id":job.operation_id,"state":"running",
             "launcher_exit":null,"owned_live":4,"cleanup_confirmed":false,"error":null,
@@ -620,7 +627,7 @@ mod tests {
         let directory=directory(&f.m,&app.selector().unwrap()).unwrap();
         let job=vendor_application::Operation{application:app,report:directory.join("operation-result.json"),
             mode:LaunchMode::Normal,operation_id:random_id().unwrap(),launcher:software.installer_launch.clone(),
-            managed:Some(linux_vst_bridge::vendor_profile::ManagedLaunch::new(capabilities,software).unwrap()),capability_notice:None};
+            managed:Some(linux_vst_bridge::vendor_profile::ManagedLaunch::new(capabilities,software).unwrap()),library_locations: None, capability_notice:None};
         atomic_json(&directory.join("operation.json"),&job).unwrap();
         (f,job)
     }
@@ -1036,7 +1043,7 @@ print(json.dumps(session.vendor_recover_census(json.loads(sys.argv[2]),proc=path
         let directory=directory(&f.m,&selector).unwrap();private_dir(&directory).unwrap();
         atomic_json(&directory.join("application.json"),&app).unwrap();
         atomic_json(&directory.join("operation.json"),&vendor_application::Operation{application:app.clone(),
-            report:directory.join("operation-result.json"),mode:LaunchMode::Normal,operation_id:operation.clone(),launcher:None, managed:None,capability_notice:None}).unwrap();
+            report:directory.join("operation-result.json"),mode:LaunchMode::Normal,operation_id:operation.clone(),launcher:None, managed:None,library_locations: None, capability_notice:None}).unwrap();
         (f,selector,operation,app)
     }
     #[test]

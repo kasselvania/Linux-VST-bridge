@@ -5,6 +5,7 @@ pub mod configuration;
 mod accessibility;
 mod history;
 mod model;
+pub mod library_locations;
 use crate::{
     catalogue::NativeArtifact,
     observation::{Census, ModuleStamp},
@@ -245,10 +246,15 @@ fn read_selections(m: &Manager, host: &Artifact, source: &str) -> Result<Vec<Sel
             .join("environment.json");
         if !environment_location(m, &scan.environment)
             || scan.environment.root != envpath.parent().unwrap()
-            || bounded::<Environment>(&envpath)? != scan.environment
         {
             continue;
         }
+        let environment: Environment = bounded(&envpath)?;
+        if !crate::library_locations::only_location_revisions(m, &scan.environment, &environment)? {
+            continue;
+        }
+        // Keep the original report. Only a journal-owned folder edit can carry
+        // its unchanged module inventory into the current setup revision.
         for module in scan.modules {
             if module.quarantine_reason.is_some() {
                 continue;
@@ -261,7 +267,7 @@ fn read_selections(m: &Manager, host: &Artifact, source: &str) -> Result<Vec<Sel
                 }
                 out.push(Selection {
                     schema: 1,
-                    environment: scan.environment.clone(),
+                    environment: environment.clone(),
                     module: module.artifact.clone(),
                     class,
                     scanner: scan.host.clone(),
@@ -554,7 +560,7 @@ fn adopt_sv1(m: &Manager, s: &Selection) -> Result<Option<Candidate>> {
         c.host.clone(),
         c.source_manifest.clone(),
     )?;
-    let candidate = Candidate {
+    let candidate = Candidate { location_revision: None,
         local_settings: None,
         settings_trial: None,
         schema: 1,
@@ -631,7 +637,9 @@ pub fn candidate_record(m: &Manager, id: &str) -> Result<Candidate> {
     Ok(c)
 }
 pub fn verify_candidate(m: &Manager, c: &Candidate, host: &Artifact, source: &str) -> Result<()> {
-    if matches!(c.origin, Origin::X11TouchReleaseV1 | Origin::X11TouchRoutingV2) {
+    if c.origin == Origin::LibraryLocationRevision {
+        library_locations::validate_binding(m,c)?;
+    } else if matches!(c.origin, Origin::X11TouchReleaseV1 | Origin::X11TouchRoutingV2) {
         require(
             (c.selection.scanner.sha256 == host.sha256 && c.selection.scanner_source == source)
                 || (c.host.sha256 == host.sha256 && c.source_manifest.sha256 == source),
@@ -649,7 +657,9 @@ pub fn verify_candidate(m: &Manager, c: &Candidate, host: &Artifact, source: &st
 pub fn validate_current_candidate_record(m: &Manager, c: &Candidate,
     host: &Artifact, source: &str) -> Result<()> {
     validate_selection_data(m,&c.selection,&c.selection.scanner,&c.selection.scanner_source)?;
-    if matches!(c.origin, Origin::X11TouchReleaseV1 | Origin::X11TouchRoutingV2) {
+    if c.origin == Origin::LibraryLocationRevision {
+        library_locations::validate_binding(m,c)?;
+    } else if matches!(c.origin, Origin::X11TouchReleaseV1 | Origin::X11TouchRoutingV2) {
         require((c.selection.scanner.sha256 == host.sha256 && c.selection.scanner_source == source)
             || (c.host.sha256 == host.sha256 && c.source_manifest.sha256 == source),
             "touch_current_runtime")?;
@@ -798,7 +808,7 @@ fn validate_touch_record(m: &Manager, c: &Candidate) -> Result<()> {
 }
 pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
     validate_candidate_record(m, c)?;
-    configuration::verify_trial(m, c)?;
+    configuration::verify_trial_baseline(m, c)?;
     let host = &c.selection.scanner;
     let source = c.selection.scanner_source.as_str();
     // Registration::verify below performs the full runner verification for
@@ -815,9 +825,30 @@ pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
     c.native.artifact.verify()?;
     configuration::registration(c)?.verify_with_runner(&m.root, |runner| m.verify_runner(runner))
 }
+const CANDIDATE_ANCESTRY_BOUND: usize = 4096;
 /// Candidate consistency and retained control evidence only. A readable
 /// candidate never replaces verify_candidate/verify_retained_candidate.
 pub fn validate_candidate_record(m: &Manager, c: &Candidate) -> Result<()> {
+    let mut current = c.clone();
+    let mut visited = std::collections::BTreeSet::new();
+    loop {
+        require(visited.len() < CANDIDATE_ANCESTRY_BOUND && visited.insert(current.id()?),
+            "candidate_ancestry_cycle_or_bound")?;
+        let predecessor = if current.origin == Origin::LibraryLocationRevision {
+            Some(library_locations::validate_binding(m, &current)?)
+        } else {
+            require(current.location_revision.is_none(), "library_candidate_origin")?;
+            configuration::validate_trial_binding(m, &current)?
+        };
+        validate_candidate_record_fields(m, &current)?;
+        let Some(predecessor) = predecessor else { return Ok(()) };
+        current = predecessor;
+    }
+}
+
+fn validate_candidate_record_fields(m: &Manager, c: &Candidate) -> Result<()> {
+    #[cfg(test)]
+    tests::CANDIDATE_RECORD_VALIDATIONS.with(|count| count.set(count.get() + 1));
     let host = &c.selection.scanner;
     let source = c.selection.scanner_source.as_str();
     // Historical configuration is readable after a supervised dependency mutation.
@@ -837,20 +868,27 @@ pub fn validate_candidate_record(m: &Manager, c: &Candidate) -> Result<()> {
     if c.local_settings.is_none() && c.profile.capabilities.accessibility != Accessibility::WindowsDefault {
         // The exact retained profile owns its resolved advice. Loading,
         // publication and rollback must not consult a newer recommendation.
-        require(c.origin == Origin::ManagedPreparation
+        require(matches!(c.origin, Origin::ManagedPreparation | Origin::LibraryLocationRevision)
             && c.profile.evidence.iter().any(|reference| reference.starts_with("evidence/")),
             "candidate_policy_requires_explicit_support")?;
     }
     configuration::verify_settings(c)?;
-    let launch_configuration = c.launch_configuration_intent.as_ref()
-        .map(|reference| launch_configuration_source(m, c, reference)).transpose()?;
+    let inherits_configuration = c.origin == Origin::LibraryLocationRevision || c.settings_trial.is_some();
+    let launch_configuration = if inherits_configuration {None} else {
+        c.launch_configuration_intent.as_ref()
+            .map(|reference| launch_configuration_source(m, c, reference)).transpose()?
+    };
     let expected_compatibility = Compatibility {
         graphics: c.profile.capabilities.graphics,
         disable_windows_accessibility: c.profile.capabilities.accessibility == Accessibility::DisabledForVendorProcess,
         audio_layout: c.inspection.audio_layout.clone(),
         ..Compatibility::default()
     };
-    let expected_compatibility = if let Some(revision) = launch_configuration {
+    let expected_compatibility = if inherits_configuration {
+        // The shallow binding proved exact policy inheritance (apart from
+        // explicit local choices). The outer walk validates its source once.
+        c.profile.capabilities.compatibility()
+    } else if let Some(revision) = launch_configuration {
         Compatibility {
             vendor_retirement: revision.registration.compatibility.vendor_retirement,
             editor_lifetime: revision.registration.compatibility.editor_lifetime,
@@ -860,9 +898,16 @@ pub fn validate_candidate_record(m: &Manager, c: &Candidate) -> Result<()> {
     } else if c.profile.capabilities.compatibility()
         != expected_compatibility
     {
-        retained_revision_configuration(m, c)?
-            .map(|revision| revision.registration.compatibility)
-            .unwrap_or(expected_compatibility)
+        if let Some(revision) = retained_revision_configuration(m, c)? {
+            Compatibility {
+                vendor_retirement: revision.registration.compatibility.vendor_retirement,
+                editor_lifetime: revision.registration.compatibility.editor_lifetime,
+                event_output: revision.registration.compatibility.event_output,
+                ..expected_compatibility
+            }
+        } else {
+            expected_compatibility
+        }
     } else {
         expected_compatibility
     };
@@ -870,7 +915,6 @@ pub fn validate_candidate_record(m: &Manager, c: &Candidate) -> Result<()> {
         c.profile.capabilities.compatibility() == expected_compatibility,
         "candidate_policy_requires_explicit_support",
     )?;
-    configuration::validate_trial_record(m, c)?;
     require(
         c.host == c.inspection.host && c.source_manifest == c.inspection.source_manifest,
         "candidate_host_changed",
@@ -1008,7 +1052,7 @@ fn prepared_with_advice(
         evidence,
     };
     profile.validate()?;
-    Ok(Candidate {
+    Ok(Candidate { location_revision: None,
         local_settings: None,
         settings_trial: None,
         schema: 1,
@@ -1740,11 +1784,29 @@ fn retained_revision_configuration(m: &Manager, candidate: &Candidate) -> Result
     let Some(basis) = candidate.preparation_basis.as_deref() else {
         return Ok(None);
     };
-    let path = object(m, "lineage", &candidate.id()?)?.join("record.json");
+    // Folder edits and settings trials retain the original inspection and
+    // configuration authority. Their own lineage identities describe the edit,
+    // so follow only their exact typed predecessors to the retained source.
+    let mut authority = candidate.clone();
+    let mut visited = std::collections::BTreeSet::new();
+    loop {
+        require(visited.len() < CANDIDATE_ANCESTRY_BOUND && visited.insert(authority.id()?),
+            "candidate_configuration_cycle_or_bound")?;
+        let predecessor = if authority.origin == Origin::LibraryLocationRevision {
+            Some(library_locations::validate_binding(m, &authority)?)
+        } else {
+            configuration::validate_trial_binding(m, &authority)?
+        };
+        let Some(predecessor) = predecessor else { break };
+        authority = predecessor;
+    }
+    require(authority.preparation_basis == candidate.preparation_basis,
+        "bridge_refresh_predecessor_binding")?;
+    let path = object(m, "lineage", &authority.id()?)?.join("record.json");
     if !path.try_exists()? {
         return Ok(None);
     }
-    let lineage = history::lineage_record(m, candidate)?;
+    let lineage = history::lineage_record(m, &authority)?;
     let Some(binding) = lineage
         .preparation_identity
         .strip_prefix("retained-revision-v1:")
@@ -1778,7 +1840,8 @@ fn retained_revision_configuration(m: &Manager, candidate: &Candidate) -> Result
                 == 1
             && revision.profile.capabilities.compatibility()
                 == revision.registration.compatibility
-            && revision.census.environment.environment == candidate.selection.environment
+            && crate::library_locations::only_location_revisions(m,
+                &revision.census.environment.environment, &candidate.selection.environment)?
             && revision.census.module == candidate.selection.module
             && revision.census.host == candidate.selection.scanner
             && revision.census.host_source_sha256 == candidate.selection.scanner_source
@@ -1791,8 +1854,12 @@ fn retained_revision_configuration(m: &Manager, candidate: &Candidate) -> Result
                 == candidate.selection.class.subcategories
             && revision.registration.compatibility.audio_layout
                 == candidate.inspection.audio_layout
-            && revision.registration.compatibility
-                == candidate.profile.capabilities.compatibility()
+            && revision.registration.compatibility.vendor_retirement
+                == candidate.profile.capabilities.vendor_retirement
+            && revision.registration.compatibility.editor_lifetime
+                == candidate.profile.capabilities.editor_lifetime
+            && revision.registration.compatibility.event_output
+                == candidate.profile.capabilities.event_output
             && candidate.local_settings.is_some(),
         "bridge_refresh_predecessor_binding",
     )?;
@@ -1818,7 +1885,7 @@ fn launch_configuration_source(m: &Manager, candidate: &Candidate,
         && revision.profile.capabilities.vendor_retirement == candidate.profile.capabilities.vendor_retirement
         && revision.profile.capabilities.editor_lifetime == candidate.profile.capabilities.editor_lifetime
         && revision.profile.capabilities.event_output == candidate.profile.capabilities.event_output
-        && candidate.origin == Origin::ManagedPreparation
+        && matches!(candidate.origin, Origin::ManagedPreparation | Origin::LibraryLocationRevision)
         && candidate.local_settings.is_some(), "candidate_launch_configuration_intent")?;
     crate::environment_revision::require_owned_revision(m,
         &revision.registration.environment, &candidate.selection.environment)?;

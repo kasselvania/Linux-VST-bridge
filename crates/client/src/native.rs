@@ -16,6 +16,11 @@ impl FileSelection for RfdSelection {
             .add_filter("Windows programs", &["exe"])
             .pick_file()
     }
+    fn pick_library_folder(&self) -> Option<PathBuf> {
+        rfd::FileDialog::new()
+            .set_title("Choose a sample or library folder")
+            .pick_folder()
+    }
     fn save_report(&self, report: &SupportReport) -> Option<PathBuf> {
         rfd::FileDialog::new()
             .set_title("Save problem report to send")

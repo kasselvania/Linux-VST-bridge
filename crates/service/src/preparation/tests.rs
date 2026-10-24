@@ -1,6 +1,9 @@
 use super::*;
 use crate::test_fixture::{prepared_accessibility, snapshot, Fixture};
 use serde_json::json;
+thread_local! {
+    pub(super) static CANDIDATE_RECORD_VALIDATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
 pub(crate) fn fixture() -> (Fixture, Candidate) {
     fixture_with_environment(&"13".repeat(16))
 }
@@ -429,6 +432,79 @@ fn retained_static_profile_without_candidate_authorizes_only_its_exact_refresh()
         assert!(validate_candidate_record(&f.m, &fresh).is_err());
         fs::write(&request, bytes).unwrap();
         validate_candidate_record(&f.m, &fresh).unwrap();
+
+        // A folder-only edit carries this exact private configuration through
+        // later local choices and another bridge refresh. No new discovery is
+        // invented for the location edit or its settings trial.
+        atomic_json(&next.selection.environment.root.join("environment.json"),
+            &next.selection.environment).unwrap();
+        let located = configuration::library_location_fixture(&f, &second_predecessor,
+            &"ab".repeat(16));
+        atomic_json(&located.selection.environment.root.join("environment.json"),
+            &located.selection.environment).unwrap();
+        assert_eq!(retained_revision_configuration(&f.m, &located).unwrap().unwrap().id,
+            predecessor.id);
+        let requested = crate::operator_model::LocalSettings {
+            graphics: Some(crate::operator_model::GraphicsBackend::WineD3d11),
+            accessibility: crate::operator_model::AccessibilityChoice::WindowsDefault,
+        };
+        let trial = configuration::settings_successor_fixture(&located, &requested);
+        record_candidate_with_predecessor(&f.m, &trial, Some(&located.id().unwrap())).unwrap();
+        validate_candidate_record(&f.m, &trial).unwrap();
+        assert_eq!(trial.inspection, located.inspection);
+        assert_eq!(trial.selection.factory_report, next.selection.factory_report);
+        let mut deep = trial.clone();
+        for index in 0..8 {
+            let requested = crate::operator_model::LocalSettings {
+                graphics: if index % 2 == 0 { None } else { Some(crate::operator_model::GraphicsBackend::WineD3d11) },
+                accessibility: crate::operator_model::AccessibilityChoice::WindowsDefault,
+            };
+            let successor = configuration::settings_successor_fixture(&deep, &requested);
+            record_candidate_with_predecessor(&f.m, &successor, Some(&deep.id().unwrap())).unwrap();
+            deep = successor;
+        }
+        let before_validation = CANDIDATE_RECORD_VALIDATIONS.with(|count| count.get());
+        validate_candidate_record(&f.m, &deep).unwrap();
+        let validated = CANDIDATE_RECORD_VALIDATIONS.with(|count| count.get()) - before_validation;
+        assert_eq!(validated, 11, "eight later trials, original trial, location edit and retained source are each validated once");
+        let mut changed_ancestor = deep.clone();
+        changed_ancestor.settings_trial.as_mut().unwrap().predecessor = located.id().unwrap();
+        assert!(validate_candidate_record(&f.m, &changed_ancestor).is_err());
+        assert_eq!(retained_event_output(&f.m, Some(&trial)).unwrap(),
+            Some(EventOutputPolicy::ReportedZeroEventChannelsUnspecified));
+        let retained = retained_revision_configuration(&f.m, &trial).unwrap().unwrap();
+        assert_eq!(retained.id, predecessor.id);
+        let mut trial_revision = second_predecessor.clone();
+        trial_revision.profile = trial.profile.clone();
+        trial_revision.profile_sha256 = trial.profile.fingerprint().unwrap();
+        trial_revision.census = trial.census().unwrap();
+        trial_revision.registration = configuration::registration(&trial).unwrap();
+        let inspection = inspect_record_with_layout(trial.selection.clone(),
+            refreshed.inspection.report.clone(), Origin::ManagedPreparation,
+            refreshed.host.clone(), refreshed.source_manifest.clone(),
+            trial.inspection.audio_layout.clone()).unwrap();
+        let later = prepared(trial.selection.clone(), inspection, refreshed.native.clone(),
+            refreshed.host.clone(), refreshed.source_manifest.clone(),
+            refreshed.recipe_sha256.clone()).unwrap();
+        let later = bind_preparation_basis(configuration::carry_settings(later, Some(&trial)).unwrap(),
+            trial.preparation_basis.clone()).unwrap();
+        let later = carry_retained_revision_configuration(later, &trial_revision).unwrap();
+        retain_refresh_lineage(&f.m, &later, &retained, Some(&trial.id().unwrap())).unwrap();
+        verify_refresh_candidate(&f.m, &later, &trial_revision).unwrap();
+        validate_candidate_record(&f.m, &later).unwrap();
+        assert_eq!(later.profile.capabilities.compatibility(), trial_revision.registration.compatibility);
+        assert_eq!(later.selection.environment, located.selection.environment);
+        assert_eq!(later.profile.capabilities.vendor_retirement, predecessor.profile.capabilities.vendor_retirement);
+        let mut changed_policy = trial.clone();
+        changed_policy.profile.capabilities.event_output = None;
+        assert!(validate_candidate_record(&f.m, &changed_policy).is_err());
+        let operation = &located.location_revision.as_ref().unwrap().operation;
+        let mut edge = crate::library_locations::revision(&f.m, operation).unwrap();
+        edge.cancelled = true;
+        atomic_json(&f.m.root.join("operator").join(operation)
+            .join(crate::library_locations::REVISION_FILE), &edge).unwrap();
+        assert!(validate_candidate_record(&f.m, &deep).is_err(),
+            "a cancelled folder edit cannot authorize a descendant settings candidate");
     });
 }
 

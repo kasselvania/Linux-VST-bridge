@@ -58,7 +58,7 @@ impl Builder<'_> {
     }
 
     pub(super) fn card(&mut self, card: &PluginCard, snapshot: &Snapshot) -> Node {
-        let PluginCard { key, record, name, status: owner, facts, readiness: stages, notes, lead, offers, standalone, recovery, display: _, uninstallers, settings,
+        let PluginCard { key, record, name, status: owner, facts, readiness: stages, notes, lead, offers, standalone, recovery, display: _, locations: _, uninstallers, settings,
             help, availability, other_setups, previous_setups, shared_setup, technical } = card;
         let chip = self.id("chip", &format!("card {name}"));
         let mut children = vec![Node::Header(vec![
@@ -91,6 +91,9 @@ impl Builder<'_> {
         let modes = self.local("Display mode", Importance::Secondary,
             Target::List(ListStep::ProductPage {key:key.clone(), page:vm::state::ProductPage::Display}), None);
         actions.push(self.actions("product-pages", vec![repair, modes]));
+        let locations = self.local("Sample locations", Importance::Secondary,
+            Target::List(ListStep::ProductPage {key:key.clone(), page:vm::state::ProductPage::SampleLocations}), None);
+        actions.push(self.one(locations));
         if !standalone.is_empty() {
             actions.push(Node::Label("Outside your DAW".into()));
             actions.push(words(Role::Detail, "These plug-in windows do not open an audio device."));
@@ -122,10 +125,16 @@ impl Builder<'_> {
 
     fn product_page(&mut self, card: &PluginCard, page: vm::state::ProductPage) -> Node {
         use vm::state::ProductPage;
-        let title = match page { ProductPage::Display => "Display mode", ProductPage::Repair => "Fix it step by step", ProductPage::Overview => unreachable!() };
+        let title = match page { ProductPage::Display => "Display mode", ProductPage::Repair => "Fix it step by step", ProductPage::SampleLocations => "Sample locations", ProductPage::Overview => unreachable!() };
         let back = self.local("Back to plug-in", Importance::Quiet,
             Target::List(ListStep::ProductPage {key:card.key.clone(), page:ProductPage::Overview}), None);
-        let mut out = vec![Node::Header(vec![Node::PluginIdentity {name:card.name.clone(), detail:title.into()}, self.one(back)])];
+        let name = if page == ProductPage::SampleLocations { &card.locations.setup } else { &card.name };
+        let mut out = vec![Node::Header(vec![Node::PluginIdentity {name:name.clone(), detail:title.into()}, self.one(back)])];
+        if page == ProductPage::SampleLocations {
+            if !card.locations.members.is_empty() { out.push(words(Role::Detail, card.locations.members.join(", "))); }
+            out.extend(self.library_locations(&card.locations));
+            return Node::Stack(out);
+        }
         if let Some(notice) = &card.display.notice { out.push(text(notice)); }
         if page == ProductPage::Display {
             out.push(words(Role::Body, "Prepare a setting, then choose whether to use it. Your current setup stays selected until you change it."));
@@ -161,6 +170,27 @@ impl Builder<'_> {
         if let Some(provenance) = &card.display.provenance { out.push(self.fold(provenance)); }
         Node::Stack(out)
     }
+    pub(super) fn library_locations(&mut self, view: &vm::locations::LocationsView) -> Vec<Node> {
+        let mut folders = vec![Node::Label("Folders this setup can use".into()),
+            Node::Panel {kind:PanelKind::Card, children:vec![
+                Node::Header(vec![Node::Label("C:".into()), Node::Label("The setup’s own drive".into())]),
+                words(Role::Detail, "Programs and settings. Managed for you."),
+            ]}];
+        if let Some(notice) = &view.notice { folders.push(text(notice)); }
+        for folder in &view.folders {
+            // A stacked path can wrap on Deck without compressing the controls.
+            let mut row = vec![Node::Header(vec![Node::Label(folder.drive.clone()), Node::Label(folder.name.clone())]),
+                words(Role::Code, folder.path.clone()), words(Role::Detail, folder.mode), text(&folder.availability)];
+            row.extend(self.row(&folder.remove));
+            folders.push(Node::Panel {kind:PanelKind::Card, children:row});
+        }
+        folders.extend(self.row(&view.add));
+        vec![Node::Panel {kind:PanelKind::Card, children:folders},
+            words(Role::Body, "Choose the assigned drive letter in your plug-in or vendor app to locate existing samples. The vendor still manages library registration and authorization."),
+            words(Role::Detail, "Removing access keeps the folder and its files."),
+            words(Role::Detail, vm::locations::UNAVAILABLE_GUIDANCE)]
+    }
+
     fn display_actions(&mut self, row: &OfferRow) -> Vec<Node> {
         if row.offers.is_empty() { row.notes.iter().map(|note| words(Role::Detail, note.clone())).collect() }
         else { self.row(row) }

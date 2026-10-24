@@ -79,6 +79,7 @@ pub fn installer(application: &app::Application) -> Result<app::Image> {
     Ok(value)
 }
 pub fn bind(
+    m: &Manager,
     application: &app::Application,
     software: &Software,
     op: &str,
@@ -95,6 +96,7 @@ pub fn bind(
         verify_recovery(application, dependency)?;
     }
     let mut v = app::bind(
+        m,
         application,
         software,
         op,
@@ -347,7 +349,7 @@ pub fn bind_session(
     report:&Path,
 ) -> Result<Value> {
     let admission=session_admission(m,application,software)?;
-    let mut spec=app::bind(application,software,op,policy,report)?;
+    let mut spec=app::bind(m,application,software,op,policy,report)?;
     spec["dependency_session"]=admission;
     Ok(spec)
 }

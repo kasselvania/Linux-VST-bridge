@@ -104,6 +104,14 @@ impl Preview {
         self.state.go(&Destination::Product(ProductKey::from(&self.sample.snapshot.products[0])));
         self.rebuild();
     }
+    /// Same native page and forms as the installed window, with synthetic folders.
+    pub fn library_locations_fixture(&mut self) {
+        samples::library_locations_fixture(&mut self.sample.snapshot);
+        self.state.plugins.show_page(ProductKey::from(&self.sample.snapshot.products[0]),
+            lvb_view_model::state::ProductPage::SampleLocations);
+        self.state.page = Page::Plugins;
+        self.rebuild();
+    }
     /// Sample-only report data for rendered interaction checks; never writes a file.
     pub fn report_fixture(&mut self) {
         self.state.page = Page::Diagnostics;
@@ -380,6 +388,7 @@ impl Preview {
     fn open_form_name(&self) -> &'static str {
         let forms = &self.state.forms;
         if forms.confirm.is_some() { "the confirmation" }
+        else if forms.library_location.is_some() { "the library folder choice" }
         else if forms.install.is_some() { "the DAW choice" }
         else if forms.rename.is_some() { "the rename form" }
         else if forms.record.is_some() { "the result form" }
@@ -418,6 +427,15 @@ impl Preview {
     fn form_step(&mut self, step: FormStep, via: InputPath) {
         let forms = &mut self.state.forms;
         match step {
+            FormStep::ChooseLibraryFolder => {
+                if let Some(action) = forms.library_location.clone() {
+                    if lvb_view_model::locations::folder_offer(Some(&self.sample.snapshot), &action).is_ok() {
+                        self.capture(action, via, false);
+                    }
+                }
+                return;
+            }
+            FormStep::CancelLibraryFolder => forms.library_location = None,
             FormStep::ChooseDaw(choice) => forms.daw = Some(choice),
             FormStep::StartInstall => {
                 if let (Some(form), Some(daw)) = (forms.install.clone(), forms.daw) {
@@ -494,6 +512,7 @@ impl Preview {
     pub fn dismiss_form(&mut self, how: &str) {
         let forms = &mut self.state.forms;
         if forms.confirm.is_some() { forms.cancel_confirm(); }
+        else if forms.library_location.is_some() { forms.library_location = None; }
         else if forms.install.is_some() { forms.install = None; }
         else if forms.rename.is_some() { forms.rename = None; }
         else if forms.record.is_some() { forms.record = None; }
