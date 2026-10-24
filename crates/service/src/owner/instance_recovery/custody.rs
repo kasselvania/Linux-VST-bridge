@@ -1,6 +1,8 @@
 //! Durable restart identity and one-shot command custody.
 use super::*;
+use std::sync::{Mutex, MutexGuard};
 
+#[derive(Clone)]
 pub(super) struct State {
     pub(super) status: wire::Status,
     pub(super) seen: Instant,
@@ -8,6 +10,7 @@ pub(super) struct State {
     // Delivery owned by this service executor, never reconstructed from disk.
     pub(super) pending: Option<Pending>,
 }
+#[derive(Clone)]
 pub(super) struct Pending {
     pub(super) command: wire::Command,
     pub(super) sent: bool,
@@ -179,36 +182,48 @@ pub(super) fn require_settled_custody(
     instance: &str,
     status: &wire::Status,
 ) -> Result<()> {
-    require_settled_custody_for(m, instance, status, None)
+    require_settled_custody_for(m, instance, status, None).map(|_| ())
+}
+#[derive(PartialEq, Eq)]
+enum RestartCustody {
+    Legacy,
+    Indexed(Option<wire::Command>),
+}
+fn restart_custody(m: &Manager, instance: &str) -> Result<RestartCustody> {
+    match retained_restart(m, instance) {
+        Ok(retained) => Ok(RestartCustody::Indexed(retained)),
+        Err(_) => {
+            // Only absence is legacy input, never malformed or dangling custody.
+            require(matches!(fs::symlink_metadata(binding_path(m, instance)?),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound),
+                "Restart is unavailable because this instance's durable restart custody is missing or unreadable. Keep the project open and choose Send a problem report in the bridge.")?;
+            Ok(RestartCustody::Legacy)
+        }
+    }
 }
 fn require_settled_custody_for(
     m: &Manager,
     instance: &str,
     status: &wire::Status,
     executing: Option<&wire::Command>,
-) -> Result<()> {
-    let retained = match retained_restart(m, instance) {
-        Ok(retained) => retained,
-        Err(_) => {
-            // Only an absent index is a legacy input. Never erase or replace a
-            // malformed record, including a dangling symlink, through migration.
-            require(matches!(fs::symlink_metadata(binding_path(m, instance)?),
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound),
-                "Restart is unavailable because this instance's durable restart custody is missing or unreadable. Keep the project open and choose Send a problem report in the bridge.")?;
-            return require_legacy_history(m, instance, status, executing);
-        }
-    };
-    require(
-        !retained.is_some_and(|command| unresolved_operation(m, instance, command.operation, Some(&command)))
-            && !unresolved_operation(m, instance, status.operation, None),
-        "The previous restart outcome is unconfirmed; it will not be replayed. Keep the project open and choose Send a problem report in the bridge to report this problem.",
-    )
+) -> Result<RestartCustody> {
+    let custody = restart_custody(m, instance)?;
+    match &custody {
+        RestartCustody::Legacy => require_legacy_history(m, instance, status, executing)?,
+        RestartCustody::Indexed(retained) => require(
+            !retained.is_some_and(|command| unresolved_operation(m, instance, command.operation, Some(&command)))
+                && !unresolved_operation(m, instance, status.operation, None),
+            "The previous restart outcome is unconfirmed; it will not be replayed. Keep the project open and choose Send a problem report in the bridge to report this problem.",
+        )?,
+    }
+    Ok(custody)
 }
-/// Caller holds the authenticated original instance's state mutex. Journals
-/// predate the direct index and are retained, not pruned. Read the entire bounded
-/// inventory, never just the proxy's last reported operation. New requests can
-/// be recorded concurrently, but cannot deliver until they take this same mutex
-/// and retain their nonempty binding. No migration/empty sentinel is written.
+/// Runs outside the control mutex on the existing observer/admission/executor
+/// worker. Stream to exhaustion with bounded reads and constant inventory
+/// memory: history has no lifetime operation limit. New requests can be recorded while
+/// reading, but cannot deliver without retaining their nonempty instance binding
+/// under the control mutex. checked_restart rechecks that binding before admitting
+/// a mutation. Observation never writes migration/empty custody.
 fn require_legacy_history(
     m: &Manager,
     instance: &str,
@@ -225,8 +240,7 @@ fn require_legacy_history(
     let directory = m.root.join("operator");
     require(fs::symlink_metadata(&directory).is_ok_and(|meta| meta.is_dir()),
         "The retained restart journal is unavailable. Keep the project open so its latest live snapshot is preserved, and choose Send a problem report in the bridge.")?;
-    for (index, entry) in fs::read_dir(directory)?.enumerate() {
-        require(index < 2048, "The retained restart journal exceeds the readable inventory limit")?;
+    for entry in fs::read_dir(directory)? {
         let entry = entry?;
         let name = entry.file_name();
         let Some(id) = name.to_str().filter(|id| valid_hex(id, 32)) else { continue };
@@ -265,20 +279,55 @@ pub(super) fn require_restart(
     m: &Manager, instance: &str, state: &State, command: &wire::Command,
     executing: Option<&wire::Command>,
 ) -> Result<()> {
+    inspect_restart(m, instance, state, command, executing).map(|_| ())
+}
+fn require_restart_state(state: &State, command: &wire::Command) -> Result<()> {
     require_restart_status(&state.status, command)?;
     require(state.pending.as_ref().is_none_or(|pending| {
         !pending.uncertain && state.status.operation == pending.command.operation
             && matches!(state.status.phase, wire::COMPLETE | wire::REFUSED)
-    }), "This instance has an unfinished or unconfirmed restart request")?;
-    require_settled_custody_for(m, instance, &state.status, executing)?;
-    retired(m, &hex(&state.status.session))
+    }), "This instance has an unfinished or unconfirmed restart request")
 }
-/// The owner has checked the live consumer and holds its state mutex. Retain
-/// the new request before exposing delivery; a crash keeps this exact fence.
+fn inspect_restart(
+    m: &Manager, instance: &str, state: &State, command: &wire::Command,
+    executing: Option<&wire::Command>,
+) -> Result<RestartCustody> {
+    require_restart_state(state, command)?;
+    let custody = require_settled_custody_for(m, instance, &state.status, executing)?;
+    retired(m, &hex(&state.status.session))?;
+    Ok(custody)
+}
+pub(super) fn snapshot_state(state: &Mutex<State>) -> Result<State> {
+    Ok(state.lock().map_err(|_| "proxy_state_poisoned")?.clone())
+}
+/// Full inspection never holds the heartbeat's mutex. Afterward, recheck the
+/// live consumer/state and direct custody under that mutex. Any competing
+/// executor must change that custody before delivery, so an inspected legacy
+/// history cannot overwrite a newly retained (possibly uncertain) intent.
+/// This locked section has only fixed direct reads, independent of history size.
+pub(super) fn checked_restart<'a>(
+    m: &Manager, instance: &str, state: &'a Mutex<State>, command: &wire::Command,
+    executing: Option<&wire::Command>, connected: impl Fn(&State) -> Result<()>,
+) -> Result<MutexGuard<'a, State>> {
+    let before = snapshot_state(state)?;
+    connected(&before)?;
+    let custody = inspect_restart(m, instance, &before, command, executing)?;
+    let current = state.lock().map_err(|_| "proxy_state_poisoned")?;
+    connected(&current)?;
+    require(current.status == before.status,
+        "The live instance changed while checking restart history; refresh before restarting")?;
+    require_restart_state(&current, command)?;
+    require(restart_custody(m, instance)? == custody,
+        "Restart custody changed while checking history; refresh before restarting")?;
+    retired(m, &hex(&current.status.session))?;
+    Ok(current)
+}
+/// Retain the new request before exposing delivery; a crash keeps this fence.
 pub(super) fn begin_restart(
-    m: &Manager, instance: &str, state: &mut State, command: wire::Command,
+    m: &Manager, instance: &str, state: &Mutex<State>, command: wire::Command,
+    connected: impl Fn(&State) -> Result<()>,
 ) -> Result<()> {
-    require_restart(m, instance, state, &command, Some(&command))?;
+    let mut state = checked_restart(m, instance, state, &command, Some(&command), connected)?;
     retain_restart(m, instance, &command)?;
     state.pending = Some(Pending {
         command, sent: false, launch_claimed: false, uncertain: false,
@@ -477,6 +526,27 @@ pub(super) fn can_forget(m: &Manager, state: &State) -> bool {
 }
 
 #[cfg(test)]
+pub(super) fn retain_unrelated_test_history(m: &Manager, count: u32) {
+    let operator = m.root.join("operator");
+    private_dir(&operator).unwrap();
+    let request = serde_json::to_vec(&serde_json::json!({"schema":ui::OPERATOR_SCHEMA,
+        "state_token":"retained", "action":{"kind":"plugin_focus",
+            "operation":hex(&[3;16]),"session":hex(&[4;16])}})).unwrap();
+    for n in 1..=count {
+        let id = format!("{n:032x}");
+        let directory = operator.join(&id);
+        private_dir(&directory).unwrap();
+        // Fixture history is immutable before inspection; only the new request
+        // exercises the production atomic writer in the transition regression.
+        fs::write(directory.join("request.json"), &request).unwrap();
+        let result = serde_json::to_vec(&serde_json::json!({"schema":1,"operation":id,
+            "state":"refused","reason":"The previous instance has closed"})).unwrap();
+        fs::write(directory.join("result.json"), &result).unwrap();
+        if n == count { fs::write(operator.join("latest.json"), &result).unwrap(); }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::test_fixture::Fixture;
@@ -523,6 +593,16 @@ mod tests {
         atomic_json(&lease, &serde_json::json!({})).unwrap();
         assert!(retired(&f.m, &session).is_err());
     }
+    fn begin_test_restart(
+        m: &Manager, instance: &str, state: &mut State, command: wire::Command,
+    ) -> Result<()> {
+        let control = Mutex::new(state.clone());
+        let result = begin_restart(m, instance, &control, command, |s| {
+            require(s.connected, "proxy_disconnected")
+        });
+        *state = control.into_inner().unwrap();
+        result
+    }
     fn portable_state() -> State {
         State {
             status: status(),
@@ -538,6 +618,96 @@ mod tests {
         private_dir(&f.m.root.join("operator")).unwrap();
         atomic_json(&path, &serde_json::json!({"session":session,
             "cleanup_confirmed":true,"transport_retired":true})).unwrap();
+    }
+    #[test]
+    fn large_legacy_history_preserves_every_unreported_uncertain_intent() {
+        let f = Fixture::new();
+        retain_unrelated_test_history(&f.m, 4096);
+        let instance = hex(&status().session);
+        let mut state = observation(wire::Status { revision: 9, digest: [8; 32], ..status() });
+        legacy_retirement(&f, &state.status);
+        let prior = pending(&status()).command;
+        let next = wire::Command { operation: [7;16], generation: 1, revision: 9, digest: [8;32] };
+        let older = wire::Command { operation: [3;16], ..prior };
+        running(&f, &instance, &older);
+        finish(&f, &older, "refused");
+        for outcome in ["running", "unconfirmed"] {
+            running(&f, &instance, &prior);
+            if outcome == "unconfirmed" { finish(&f, &prior, outcome); }
+            let path = f.m.root.join("operator").join(hex(&prior.operation));
+            let request = fs::read(path.join("request.json")).unwrap();
+            let result = fs::read(path.join("result.json")).unwrap();
+            running(&f, &instance, &next);
+            let next_path = f.m.root.join("operator").join(hex(&next.operation)).join("result.json");
+            let next_record: serde_json::Value = read_json(&next_path).unwrap();
+            for (phase, stage) in [("unconfirmed", "operator_request_admission"),
+                ("queued", ""), ("waiting", "operator_validation_readback"), ("running", "")] {
+                let mut record = next_record.clone();
+                record["state"] = phase.into();
+                record["stage"] = stage.into();
+                record["worker_started"] = false.into();
+                atomic_json(&next_path, &record).unwrap();
+                for reported in [[0;16], older.operation] {
+                    state.status.operation = reported;
+                    assert!(begin_test_restart(&f.m, &instance, &mut state, next).is_err(),
+                        "{outcome}, {phase}");
+                    assert!(state.pending.is_none());
+                    assert_eq!(state.status.revision, 9);
+                    assert_eq!(state.status.digest, [8;32]);
+                    assert!(!binding_path(&f.m, &instance).unwrap().exists());
+                }
+            }
+            assert_eq!(fs::read(path.join("request.json")).unwrap(), request);
+            assert_eq!(fs::read(path.join("result.json")).unwrap(), result);
+        }
+        assert_eq!(fs::read_dir(f.m.root.join("operator")).unwrap().count(), 4100);
+    }
+    #[test]
+    fn restart_inspection_releases_control_and_rechecks_live_state_and_custody() {
+        for change in ["heartbeat", "snapshot", "disconnect", "pending", "custody"] {
+            let f = Fixture::new();
+            let instance = hex(&status().session);
+            let state = Mutex::new(observation(status()));
+            legacy_retirement(&f, &status());
+            let next = pending(&status()).command;
+            running(&f, &instance, &next);
+            let calls = std::cell::Cell::new(0);
+            let admitted = begin_restart(&f.m, &instance, &state, next, |observed| {
+                let call = calls.get();
+                calls.set(call + 1);
+                if call == 0 {
+                    // The inspection uses a copy; native control can update the
+                    // real observation before it finishes, without waiting.
+                    let mut current = state.try_lock().expect("history inspection must release control");
+                    current.seen = Instant::now();
+                    match change {
+                        "snapshot" => current.status.revision += 1,
+                        "disconnect" => disconnected(&mut current),
+                        "pending" => current.pending = Some(pending(&status())),
+                        _ => (),
+                    }
+                } else if change == "custody" {
+                    // A competing executor retained an intent after inspection.
+                    let prior = wire::Command { operation: [9;16], ..next };
+                    running(&f, &instance, &prior);
+                    retain_restart(&f.m, &instance, &prior).unwrap();
+                    finish(&f, &prior, "unconfirmed");
+                }
+                require(observed.connected, "proxy_disconnected")
+            });
+            assert_eq!(calls.get(), 2);
+            assert_eq!(admitted.is_ok(), change == "heartbeat", "{change}");
+            let state = state.lock().unwrap();
+            if change == "heartbeat" {
+                assert_eq!(state.pending.as_ref().unwrap().command, next);
+                assert_eq!(retained_restart(&f.m, &instance).unwrap(), Some(next));
+            } else if change == "custody" {
+                assert_eq!(retained_restart(&f.m, &instance).unwrap().unwrap().operation, [9;16]);
+                assert!(state.pending.is_none());
+            } else {
+                assert!(!binding_path(&f.m, &instance).unwrap().exists());
+            }
+        }
     }
     #[test]
     fn legacy_retired_snapshot_with_settled_history_can_restart_without_empty_custody() {
@@ -565,8 +735,10 @@ mod tests {
     }
     #[test]
     fn legacy_ordinary_restart_preserves_latest_snapshot_and_original_identity() {
-        for history in ["never", "refused", "confirmed"] {
+        for (history, count) in [("never", 0), ("refused", 0), ("confirmed", 0),
+            ("never", 2047), ("refused", 4096), ("confirmed", 4096)] {
             let f = Fixture::new();
+            if count != 0 { retain_unrelated_test_history(&f.m, count); }
             let instance = hex(&status().session);
             let prior = pending(&status()).command;
             let mut live = status();
@@ -618,7 +790,7 @@ mod tests {
             // A merely observed running request is still unconfirmed. Only
             // its own new execute call can retain it and expose delivery.
             assert!(require_restart(&f.m, &instance, &state, &next, None).is_err());
-            begin_restart(&f.m, &instance, &mut state, next).unwrap();
+            begin_test_restart(&f.m, &instance, &mut state, next).unwrap();
             assert_eq!(state.status, retained_status);
             assert_eq!(retained_restart(&f.m, &instance).unwrap(), Some(next));
             assert_eq!(outgoing(&f.m, &mut state), next);
@@ -671,7 +843,7 @@ mod tests {
                     running(&f, &instance, &older);
                     finish(&f, &older, "refused");
                 }
-                assert!(begin_restart(&f.m, &instance, &mut state, next).is_err(), "{outcome}");
+                assert!(begin_test_restart(&f.m, &instance, &mut state, next).is_err(), "{outcome}");
                 assert_eq!(outgoing(&f.m, &mut state), wire::Command::default());
                 assert!(state.pending.is_none());
                 assert!(!binding_path(&f.m, &instance).unwrap().exists());
@@ -693,7 +865,7 @@ mod tests {
                 "index" => { private_dir(index.parent().unwrap()).unwrap(); fs::write(&index, b"{}").unwrap(); }
                 _ => fs::rename(f.m.root.join("operator"), f.m.root.join("saved-operator")).unwrap(),
             }
-            assert!(begin_restart(&f.m, &instance, &mut state, next).is_err(), "{missing}");
+            assert!(begin_test_restart(&f.m, &instance, &mut state, next).is_err(), "{missing}");
             assert!(state.pending.is_none());
             if missing == "inventory" {
                 fs::rename(f.m.root.join("saved-operator"), f.m.root.join("operator")).unwrap();
@@ -705,7 +877,7 @@ mod tests {
             fs::write(request, &request_bytes).unwrap();
             fs::write(result, &result_bytes).unwrap();
         }
-        begin_restart(&f.m, &instance, &mut state, next).unwrap();
+        begin_test_restart(&f.m, &instance, &mut state, next).unwrap();
         // Delivery lost after this transition keeps the a6c27/fe83de fence.
         disconnected(&mut state);
         finish(&f, &next, "unconfirmed");

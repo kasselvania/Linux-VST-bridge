@@ -2313,6 +2313,10 @@ fn begin_request(m: &Manager, request: &ui::Request) -> Result<String> {
     Ok(id)
 }
 #[cfg(test)]
+pub(super) fn test_begin_request(m: &Manager, request: &ui::Request) -> Result<String> {
+    begin_request(m, request)
+}
+#[cfg(test)]
 fn launch_queued(
     m: &Manager,
     request: &ui::Request,
