@@ -2621,7 +2621,7 @@ mod tests {
             let directory=vendor_cli::directory(&f.m,&vendor.application).unwrap();
             let app=vendor_cli::application(&f.m,&vendor.application).unwrap();
             atomic_json(&directory.join("operation.json"),&vendor_application::Operation{
-                application:app,report:directory.join("operation-result.json"),mode:vendor_application::LaunchMode::Normal,operation_id:vendor.operation.clone(),launcher:None, managed:None,capability_notice:None}).unwrap();
+                application:app,report:directory.join("operation-result.json"),mode:vendor_application::LaunchMode::Normal,operation_id:vendor.operation.clone(),launcher:None, managed:None,library_locations: None, capability_notice:None}).unwrap();
             atomic_json(&directory.join("operation-result.json"),&json!({"schema":3,"operation_id":vendor.operation,
                 "state":state,"launcher_exit":1,"owned_live":0,"cleanup_confirmed":true,
                 "error":"stopped vendor task","discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
@@ -2659,7 +2659,7 @@ mod tests {
         let vendor=intent.vendor.as_ref().unwrap().clone();
         atomic_json(&directory.join("operation.json"),&vendor_application::Operation {
             application:vendor_cli::application(&f.m,&selector).unwrap(),report:directory.join("operation-result.json"),
-            mode:vendor_application::LaunchMode::Normal,operation_id:vendor.operation.clone(),launcher:None, managed:None,capability_notice:None}).unwrap();
+            mode:vendor_application::LaunchMode::Normal,operation_id:vendor.operation.clone(),launcher:None, managed:None,library_locations: None, capability_notice:None}).unwrap();
         atomic_json(&directory.join("operation-result.json"),&json!({"schema":3,
             "operation_id":vendor.operation,"state":"completed","launcher_exit":0,
             "owned_live":0,"cleanup_confirmed":true,"discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
@@ -2793,7 +2793,7 @@ mod tests {
         let directory=vendor_cli::directory(&f.m,&vendor.application).unwrap();
         atomic_json(&directory.join("operation.json"),&vendor_application::Operation {
             application:vendor_cli::application(&f.m,&vendor.application).unwrap(),report:directory.join("operation-result.json"),
-            mode:vendor_application::LaunchMode::Normal,operation_id:vendor.operation.clone(),launcher:None,managed:None,capability_notice:None}).unwrap();
+            mode:vendor_application::LaunchMode::Normal,operation_id:vendor.operation.clone(),launcher:None,managed:None,library_locations: None, capability_notice:None}).unwrap();
         stop_vendor_with(&f.m,&vendor.application,|operation| {
             assert_eq!(operation,vendor.operation);Ok(())
         },|_|panic!("Scoped stop must not restore shared service")).unwrap();

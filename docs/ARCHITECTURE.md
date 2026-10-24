@@ -108,6 +108,29 @@ activation, accounts or external data. Capacity is generic finite reservation of
 instance, transport and memory resources; campaign- or product-specific class
 limits are historical constraints to remove.
 
+User-selected library folders belong to one setup. The service accepts an opened
+directory from the native chooser, retains an immutable exact location set in the
+setup revision, and changes it under the existing maintenance reservation and
+operation journal. A location binds the filesystem UUID and persistent directory
+handle, access mode and fixed unused Wine drive letter. Unsupported persistent
+identity is a missing capability. Removal deletes only the owner's mapping;
+external contents and vendor library registration remain the vendor's and user's.
+
+Every launch route receives the same closed location plan. Read-only grants cover
+the original Linux path as well as its Wine drive mapping. If a configured folder
+is absent or substituted, new launches in that setup refuse with reconnect or
+remove guidance; existing instances continue and the letter remains reserved.
+This describes setup access, not knowledge of a plug-in's content dependencies.
+
+A location-only revision preserves the exact previously published native ELF
+inode through an owned hard link when descriptor, module, runtime, compatibility
+and saved performance are unchanged. It stages new provenance without weakening
+DAW mapped-file admission. Package update and Restore admit the exact signed
+target's location capability before stopping the service. Restore preserves
+current folder choices; when historical publication receipts no longer match, a
+fresh current-setup transition may target only the independently verified package
+predecessor. Its recovery reverses only that fresh transition.
+
 ## 4. Profiles are scoped data
 
 Profiles select implemented mechanisms. They contain no shell commands, arbitrary

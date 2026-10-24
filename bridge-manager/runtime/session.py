@@ -276,7 +276,95 @@ def direct_audio_environment(reg,env):
     result['WINEDLLPATH']=str(root)
     return result
 
-def environment(reg,graphical=None,plugin_session=False):
+LIBRARY_LOCATIONS_PLAN_SCHEMA = 1
+
+def library_location_identity(fd, grant):
+    """Verify the owner's Linux filesystem handle; never choose a replacement."""
+    metadata=os.fstat(fd)
+    if not stat.S_ISDIR(metadata.st_mode) or (metadata.st_dev,metadata.st_ino)!=(grant['device'],grant['inode']):
+        raise RuntimeError('library_location_directory_changed')
+    class Handle(ctypes.Structure):
+        _fields_=[('size',ctypes.c_uint),('kind',ctypes.c_int),('bytes',ctypes.c_ubyte*128)]
+    libc=ctypes.CDLL(None,use_errno=True)
+    def identity():
+        handle=Handle();handle.size=128;mount=ctypes.c_int()
+        if libc.name_to_handle_at(fd,b'',ctypes.byref(handle),ctypes.byref(mount),0x1000)!=0:
+            raise RuntimeError('library_location_handle_unavailable')
+        if not 1<=handle.size<=128 or handle.kind!=grant['handle_type'] or list(handle.bytes[:handle.size])!=grant['handle']:
+            raise RuntimeError('library_location_handle_changed')
+        return mount.value
+    mount_id=identity()
+    volume=pathlib.Path('/dev/disk/by-uuid')/grant['volume'];device=volume.stat()
+    if not stat.S_ISBLK(device.st_mode):raise RuntimeError('library_location_volume_changed')
+    # Btrfs exposes a virtual st_dev. The handle's exact current mount ID binds
+    # that filesystem to its block source; neither number is persistent identity.
+    mounted=[]
+    def unescape(value):
+        return re.sub(r'\\([0-7]{3})',lambda match:chr(int(match[1],8)),value)
+    for line in pathlib.Path('/proc/self/mountinfo').read_text().splitlines():
+        before,separator,after=line.partition(' - ')
+        fields=before.split();tail=after.split()
+        if not separator or len(fields)<6 or len(tail)<2:raise RuntimeError('library_location_mount_unavailable')
+        if fields[0]!=str(mount_id):continue
+        source=pathlib.Path(unescape(tail[1]))
+        if not source.is_absolute():raise RuntimeError('library_location_mount_unavailable')
+        mounted.append(source)
+    if len(mounted)!=1:raise RuntimeError('library_location_mount_unavailable')
+    source=mounted[0].stat()
+    if not stat.S_ISBLK(source.st_mode) or source.st_rdev!=device.st_rdev:
+        raise RuntimeError('library_location_volume_changed')
+    if identity()!=mount_id:raise RuntimeError('library_location_mount_changed')
+
+def library_location_environment(reg, plan, inherited):
+    """Apply one closed Rust plan. No discovery, letter allocation or revision writes."""
+    digest=reg['environment'].get('library_locations')
+    if plan is None:
+        if digest is not None:raise RuntimeError('library_locations_launch_plan_missing')
+        return inherited
+    if (not isinstance(plan,dict) or set(plan)!={'schema','digest','locations'}
+        or type(plan['schema']) is not int or plan['schema']!=1 or not isinstance(digest,str) or not re.fullmatch('[0-9a-f]{64}',digest)
+        or plan['digest']!=digest or not isinstance(plan['locations'],list) or len(plan['locations'])>13):
+        raise RuntimeError('library_locations_launch_plan_changed')
+    env=dict(inherited);grants={'RO':[],'RW':[]};letters=set();paths=set()
+    for grant in plan['locations']:
+        if (not isinstance(grant,dict) or set(grant)!={'path','drive','read_only','available','device','inode','volume','handle_type','handle'}
+            or type(grant['read_only']) is not bool or type(grant['available']) is not bool
+            or not isinstance(grant['drive'],str) or not re.fullmatch('[L-RT-Y]:',grant['drive'])
+            or grant['drive'] in letters or not isinstance(grant['path'],str)
+            or not grant['path'].startswith('/') or any(c in grant['path'] for c in ':\n\r\0')
+            or grant['path'] in paths or not isinstance(grant['volume'],str)
+            or not re.fullmatch('[A-Za-z0-9-]{1,128}',grant['volume'])
+            or type(grant['device']) is not int or type(grant['inode']) is not int
+            or type(grant['handle_type']) is not int or not isinstance(grant['handle'],list)
+            or not 1<=len(grant['handle'])<=128 or any(type(b) is not int or not 0<=b<=255 for b in grant['handle'])):
+            raise RuntimeError('library_locations_grant_invalid')
+        letters.add(grant['drive']);paths.add(grant['path']);path=pathlib.Path(grant['path'])
+        if path.resolve()!=path:raise RuntimeError('library_location_path_changed')
+        mapping=pathlib.Path(reg['environment']['root'])/'compatdata/pfx/dosdevices'/grant['drive'].lower()
+        if not grant['available']:
+            # Rust refuses before launching a helper. Preserve the same closed
+            # contract here: this plan cannot replace the selected content.
+            raise RuntimeError('library_location_unavailable')
+        if not mapping.is_symlink() or os.readlink(mapping)!=str(path):raise RuntimeError('library_location_mapping_changed')
+        descriptor=os.open(path,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
+        try:
+            library_location_identity(descriptor,grant)
+            after=path.stat(follow_symlinks=False)
+            if (after.st_dev,after.st_ino)!=(grant['device'],grant['inode']):raise RuntimeError('library_location_path_changed')
+        finally:os.close(descriptor)
+        # Grant the original canonical Linux path, which also covers Wine Z:.
+        # A read-only Wine letter alone would leave the original path writable.
+        grants['RO' if grant['read_only'] else 'RW'].append(str(path))
+    for mode,paths in grants.items():
+        if paths:env['PRESSURE_VESSEL_FILESYSTEMS_'+mode]=':'.join(paths)
+    env['LVB_LIBRARY_LOCATIONS_CONSUMED']=plan['digest']
+    return env
+
+def library_location_acknowledgment(environment):
+    digest=environment.get('LVB_LIBRARY_LOCATIONS_CONSUMED')
+    return {} if digest is None else {'library_locations_consumed':digest}
+
+def environment(reg,graphical=None,plugin_session=False,library_locations=None):
     root=pathlib.Path(reg['environment']['root']);user=pwd.getpwuid(os.getuid())
     env={'HOME':user.pw_dir,'USER':user.pw_name,'LOGNAME':user.pw_name,'PATH':'/usr/bin:/bin','LANG':'C.UTF-8',
          'XDG_RUNTIME_DIR':f'/run/user/{os.getuid()}','STEAM_COMPAT_DATA_PATH':str(root/'compatdata'),
@@ -335,7 +423,7 @@ def environment(reg,graphical=None,plugin_session=False):
         prior=env.get('WINEDLLOVERRIDES')
         env['WINEDLLOVERRIDES']=(prior+';' if prior else '')+'winebus.sys=d'
         env['PROTON_USE_XALIA']='0'
-    return direct_audio_environment(reg,env)
+    return library_location_environment(reg,library_locations,direct_audio_environment(reg,env))
 
 def managed_home(spec,env):
     # The Rust owner verifies the exact onboarding/environment record before
@@ -441,7 +529,8 @@ def transport_environment(spec,env):
     if spec.get('shared_runtime'):
         # The keeper and every audio child see only our same private root.
         # This is not a prefix, home or arbitrary caller-selected mount grant.
-        env['PRESSURE_VESSEL_FILESYSTEMS_RW']=str(validate_runtime())
+        prior=env.get('PRESSURE_VESSEL_FILESYSTEMS_RW')
+        env['PRESSURE_VESSEL_FILESYSTEMS_RW']=(prior+':' if prior else '')+str(validate_runtime())
 
 def windows_transport_views(spec):
     """Keep the pinned host's closed C: handshake contract. Only these session-owner
@@ -1115,7 +1204,7 @@ def session_preflight(spec):
     """
     os.umask(0o077);reg=spec['registration'];session_directories(spec)
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
-    command(spec);env=environment(reg,spec.get('graphical_session'),plugin_session=True)
+    command(spec);env=environment(reg,spec.get('graphical_session'),plugin_session=True,library_locations=spec.get('library_locations'))
     managed_home(spec,env);transport_environment(spec,env);delivery_trace(spec,env)
 
 def native_generation_ended(spec,proc_root=pathlib.Path('/proc')):
@@ -1470,7 +1559,8 @@ def run(spec,peer=None):
     signal.signal(signal.SIGTERM,before_owner_stop);signal.signal(signal.SIGINT,before_owner_stop)
     try:
         graphics=spec['registration'].get('compatibility',{}).get('graphics')
-        print('LVO0 '+spec['session']+' ready'+(' graphics-v1' if graphics is not None else ''),flush=True)
+        print('LVO0 '+spec['session']+' ready'+(' graphics-v1' if graphics is not None else '')
+            +(' locations-v1:'+spec['library_locations']['digest'] if spec.get('library_locations') is not None else ''),flush=True)
         if stop_requested[0]:raise InterruptedError('supervisor interrupted after readiness')
         # Lock refusal is still a prelaunch owner failure. No Windows child
         # exists yet, so the same finalizer must retain the refusal and retire
@@ -1756,7 +1846,7 @@ def finish_setup_focus(report,owned,focus=None):
 def run_owned(spec,peer,stop_requested):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
-    cmd,binding=command(spec);env=environment(reg,spec.get('graphical_session'),plugin_session=True)
+    cmd,binding=command(spec);env=environment(reg,spec.get('graphical_session'),plugin_session=True,library_locations=spec.get('library_locations'))
     services=spec.get('required_services',[])
     if (not isinstance(services,list) or len(services)>16 or
         any(not isinstance(name,str) or not re.fullmatch('[A-Za-z0-9_-]{1,64}',name) for name in services)):
@@ -2038,7 +2128,7 @@ def run_owned(spec,peer,stop_requested):
         if command_session is not None:command_session.close()
         sel.close()
         for stream in (root.stdout,root.stderr):stream.close()
-        outcome={'graphics_configuration':graphics_configuration,'vendor_retirement':retirement_ready,'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
+        outcome={**library_location_acknowledgment(env),'graphics_configuration':graphics_configuration,'vendor_retirement':retirement_ready,'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
         if plugin_window is not None:outcome['plugin_window']=plugin_window
         if finish_setup:outcome['finish_setup']={'ended':setup_end or next((r.get('reason') for r in reversed(records) if r.get('state')=='finish_setup_ended'),'host_ended'),'seconds_bound':FINISH_SETUP_SECONDS}
         if detached:outcome['detached_instance']={'ended':next((r.get('reason') for r in reversed(records) if r.get('state')=='detached_instance_closed'),'host_ended')}
@@ -2094,7 +2184,7 @@ def keep(spec):
     directory=pathlib.Path(spec['directory']);root=None;tracker=None;sel=selectors.DefaultSelector()
     owned=set();diagnostic_hash={name:hashlib.sha256() for name in ('stdout','stderr')}
     diagnostic_tail={name:bytearray() for name in ('stdout','stderr')}
-    diagnostic_bytes={'stdout':0,'stderr':0};ready=False;started=time.monotonic();error=None;clean=False
+    diagnostic_bytes={'stdout':0,'stderr':0};ready=False;started=time.monotonic();error=None;clean=False;env={}
     command_session=None
     def drain(timeout):
         for key,_ in sel.select(timeout):
@@ -2111,7 +2201,7 @@ def keep(spec):
         if type(startup_seconds) is not int or startup_seconds!=60:
             raise RuntimeError('keeper startup deadline binding')
         graphical=spec.get('graphical_session')
-        env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}},graphical,plugin_session=True);managed_home(spec,env);transport_environment(spec,env)
+        env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}},graphical,plugin_session=True,library_locations=spec.get('library_locations'));managed_home(spec,env);transport_environment(spec,env)
         if command_session is not None:cmd,env=command_session.keeper_launch(cmd,env)
         root=subprocess.Popen(cmd,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
         for pipe,label in ((root.stdout,'stdout'),(root.stderr,'stderr')):
@@ -2124,7 +2214,7 @@ def keep(spec):
             if not ready and (directory/'environment.ready').exists() and (command_session is None or command_session.service_ready()):
                 if (directory/'environment.ready').read_bytes()!=(spec['session']+'\n').encode():raise RuntimeError('environment readiness binding differs')
                 if command_session is not None:command_session.publish()
-                atomic(report,{'ready':True,'environment':reg['environment']['id']});ready=True
+                atomic(report,{'ready':True,'environment':reg['environment']['id'],**library_location_acknowledgment(env)});ready=True
             if root.poll() is not None:raise RuntimeError('shared environment owner exited')
             if not ready and time.monotonic()-started>startup_seconds:raise TimeoutError('environment startup deadline')
     except Exception as e:error=str(e)
@@ -2166,7 +2256,7 @@ def keep(spec):
                 private_diagnostics[name]={'path':str(path),'retained_bytes':len(data)}
             except OSError as exc:
                 private_diagnostic_error=type(exc).__name__+': '+str(exc)[:256]
-        atomic(report,{'ready':False,'cleanup_confirmed':clean,'error':error,
+        atomic(report,{'ready':False,'cleanup_confirmed':clean,'error':error,**library_location_acknowledgment(env),
           'raw_exit':None if root is None else root.returncode,
           'diagnostic_bytes':diagnostic_bytes,
           'diagnostic_sha256':{name:(digest.hexdigest() if diagnostic_bytes[name] else None)
@@ -2181,7 +2271,7 @@ def install(spec):
     env=spec['environment'];rootdir=pathlib.Path(env['root']);lock=(rootdir/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     for a in [spec['installer'],*env['runner']['files']]:verify(a)
     reg={'environment':env,'compatibility':{'disable_windows_accessibility':False}};runner=env['runner'];command=[runner['entry_point'],'--verb=run','--',runner['proton'],'run',spec['installer']['path']]
-    child=subprocess.Popen(command,env=environment(reg),stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+    child=subprocess.Popen(command,env=environment(reg,library_locations=spec.get('library_locations')),stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
     owned=set();sel=selectors.DefaultSelector();log=bytearray();discarded=0;started=time.monotonic();failure=None;clean=False;code=None
     for pipe in (child.stdout,child.stderr):os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ)
     try:
@@ -3242,7 +3332,7 @@ def managed_install(spec, *, source_owned_is3=None):
     scope=None;child=None;stop=False;clean=False;error=None;focus_result=None;diagnostics=RecentCapture(131072,64);private_report_written=False
     sel=selectors.DefaultSelector();start=time.monotonic();startup=InstallerStartup(op,spec['installer'],root)
     transaction=InstallerTransaction(op,root,report,spec['installer']);ledger=None;msi_fd=None;msi_fifo=None;launch_request=None
-    policy=None;policy_receipt=None;first_launch=[];started_application=None
+    policy=None;policy_receipt=None;first_launch=[];started_application=None;launch_env={}
     is3_capture=IS3FixtureCapture() if source_owned_is3 is not None else None
     def stopping(*_):
         nonlocal stop
@@ -3267,7 +3357,7 @@ def managed_install(spec, *, source_owned_is3=None):
     def outer_exit():
         return child.returncode if child and getattr(child,"installer_phase",None)=="target_runner" else None
     def value(state,live):
-        result={'schema':2,'operation':op,'state':state,'raw_exit':outer_exit(),
+        result={'schema':2,'operation':op,'state':state,'raw_exit':outer_exit(),**library_location_acknowledgment(launch_env),
                 'owned_live':live,'cleanup_confirmed':clean,'error':error,'discarded_diagnostic_bytes':diagnostics.dropped_bytes,'retained_diagnostic_bytes':diagnostics.bytes,'private_diagnostics_written':private_report_written,
                 'startup':startup.value(),'transaction':transaction.summary(outer_exit(),clean,stop,state in ('starting','running','unknown'),error),'focus_result':focus_result,'human_action':'installer_ui' if state in ('running','unknown') else None,
                 'started_application':started_application}
@@ -3313,7 +3403,7 @@ def managed_install(spec, *, source_owned_is3=None):
             argv+=['msiexec','/x',code,'/L*v',windows(msi_fifo,root/'compatdata/pfx')]
         else:raise RuntimeError('installer format unsupported')
         reg={'environment':env,'compatibility':{'disable_windows_accessibility':False}}
-        launch_env=environment(reg);launch_env['HOME']=str(root/'home')
+        launch_env=environment(reg,library_locations=spec.get('library_locations'));launch_env['HOME']=str(root/'home')
         launch_env['PROTON_LOG']='0'
         launch_env['WINEDEBUG']='-all,+timestamp,+pid,+tid,err+steamclient,err+module,trace+process,trace+service,trace+msi'
         startup.bind_images(runner)
@@ -3859,6 +3949,7 @@ def renderer_launch_software(managed):
 def renderer_validate(spec, *, dependency=False):
     # Installed entry: no caller-selected home, environment, manifest or fixture.
     fields={'schema','kind','application','application_identity','operation','renderer_policy','report','software','software_sha256','installer_launch'}
+    if 'library_locations' in spec:fields.add('library_locations')
     if dependency:fields.add('dependency_mode')
     else:fields.add('dependency_session')
     if set(spec)!=fields or type(spec['schema']) is not int or spec['schema']!=(2 if dependency else 1) or spec['kind']!=('native_access_dependency' if dependency else 'renderer_application') or spec['renderer_policy'] not in ('inherited','software_rendering'):raise ValueError('renderer_production_schema')
@@ -3909,6 +4000,7 @@ def renderer_validate(spec, *, dependency=False):
 
 def renderer_bound_inputs(spec):
     base={'schema','kind','application','application_identity','operation','renderer_policy','report','software','software_sha256','installer_launch'}
+    if 'library_locations' in spec:base.add('library_locations')
     if set(spec) not in (base,base|{'dependency_session'}) or spec['schema']!=1 or spec['kind']!='renderer_application':raise ValueError('renderer_spec_schema')
     if not re.fullmatch('[0-9a-f]{32}',spec['operation']) or spec['renderer_policy'] not in ('inherited','software_rendering'):raise ValueError('renderer_policy')
     app=spec['application'];sw=spec['software']
@@ -4101,7 +4193,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
     executable=managed_contract['profile']['executable'] if managed_contract is not None else 'Native Access.exe'
     image=RendererImage(app['files'][executable]);evidence=RendererEvidence(app['files'][executable]['artifact'],root,image)
     scope=None;ledger=None;child=None;clean=False;stop=False;error=None;effective=None;focus=None;dependency_owner=None;resources=[]
-    callback=None;auth_private=False;auth_discarded=0
+    callback=None;auth_private=False;auth_discarded=0;launch_env={}
     callback_enabled=managed_contract['profile']['browser_scheme']=='native-access' if managed_contract is not None else dependency is not None and (app['id']=='native-access' or callback_fixture)
     if callback_enabled:
         import resource
@@ -4142,7 +4234,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
             effective={'policy':spec['renderer_policy'],'operation':op,'application_identity':spec['application_identity'],
                 'software_sha256':spec['software_sha256'],'root_ordinal':binding['root_ordinal'],'monotonic_ns':time.monotonic_ns()}
     def result(state,live):
-        return {'schema':1,'operation':op,'application_identity':spec['application_identity'],'state':state,
+        return {'schema':1,'operation':op,'application_identity':spec['application_identity'],'state':state,**library_location_acknowledgment(launch_env),
             'requested':spec['renderer_policy'],'effective':effective,'renderer':evidence.value(),
             'dependency':dependency_owner.value() if dependency_owner else ({'dependency_cleanup_disposition':'not_started','service_actions_started':False,'process_cleanup_confirmed':clean} if managed_contract is not None else None),
             'outer_exit':child.returncode if child else None,'cleanup_confirmed':clean,'owned_live':live,
@@ -4186,7 +4278,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
         content='\n'.join(['NAUI2_AUTH_LAUNCH_V1' if callback_enabled else 'NAUI2_LAUNCH_V1',op,token,'2',image.sha,str(image.size),windows(image.path,root/'compatdata/pfx'),spec['renderer_policy'],''])
         with os.fdopen(os.open(request_path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'wb') as f:f.write(content.encode('utf-16le'));f.flush();os.fsync(f.fileno())
         runner=env['runner'];argv=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',spec['installer_launch']['path'],windows(request_path,root/'compatdata/pfx')]
-        launch_env=environment({'environment':env,'compatibility':{'disable_windows_accessibility':False}});launch_env['HOME']=str(root/'home')
+        launch_env=environment({'environment':env,'compatibility':{'disable_windows_accessibility':False}},library_locations=spec.get('library_locations'));launch_env['HOME']=str(root/'home')
         launch_env.update(PROTON_LOG='0',WINEDEBUG='-all,+timestamp,+pid,+tid,trace+process,err+gdi,err+module',DXVK_LOG_LEVEL='none',VKD3D_DEBUG='none')
         if dependency_owner is not None:
             argv=dependency_owner.runtime.argv(request_path,image.path.parent,launch_env)
@@ -4971,7 +5063,7 @@ class Nad1Owner:
         content='\n'.join([*fields,''])
         with request.open('xb') as f:f.write(content.encode('utf-16le'));f.flush();os.fsync(f.fileno())
         env=self.spec['application']['environment'];runner=env['runner']
-        launch_env=environment({'environment':env,'compatibility':{'disable_windows_accessibility':False}})
+        launch_env=environment({'environment':env,'compatibility':{'disable_windows_accessibility':False}},library_locations=self.spec.get('library_locations'))
         launch_env['HOME']=str(self.root/'home');launch_env.update(WINEDEBUG='-all',PROTON_LOG='0')
         if self.runtime is None:self.runtime=Nad1Runtime(self)
         argv=self.runtime.argv(request,self.root/'home',launch_env)
@@ -5123,7 +5215,7 @@ class Nad1Owner:
         try:
             deadline=time.monotonic()+REGISTRY_DEFAULT_SECONDS
             try:
-                env=environment({'environment':self.spec['application']['environment'],'compatibility':{'disable_windows_accessibility':False}})
+                env=environment({'environment':self.spec['application']['environment'],'compatibility':{'disable_windows_accessibility':False}},library_locations=self.spec.get('library_locations'))
                 env['HOME']=str(self.root/'home');env.update(WINEDEBUG='-all',PROTON_LOG='0',LANG='C.UTF-8',LC_ALL='C.UTF-8')
             except Exception:
                 results=[{'known_folder':entry['value']['known_folder'],'result':'failed','reason':'runner_unavailable'} for entry in defaults]
@@ -5801,7 +5893,8 @@ def managed_vendor_result(value):
         'cleanup_confirmed':retired,'error':managed_application_problem(code) if code else None,'error_code':code,
         'discarded_diagnostic_bytes':0,'diagnostic_enabled':False,'windows_accessibility_disabled':False,
         'account_posture':'unknown','focus_result':focus,'dependency':dependency,
-        'browser_return':value.get('browser_return')}
+        'browser_return':value.get('browser_return'),
+        **({'library_locations_consumed':value['library_locations_consumed']} if 'library_locations_consumed' in value else {})}
 
 def managed_application_problem(code):
     if code.startswith(('dependency_runtime_','managed_application_runtime_')):
@@ -5962,6 +6055,7 @@ def managed_vendor_application(operation):
             'software':software,'software_sha256':hashlib.sha256(json.dumps(software,sort_keys=True,separators=(',',':')).encode()).hexdigest(),
             'installer_launch':software['installer_launch'],'report':str(report.parent/'managed-session.json'),
             'managed_operation':operation}
+        if 'library_locations' in operation:spec['library_locations']=operation['library_locations']
         try:return renderer_run(spec,managed_contract=capability)
         except Exception:
             atomic(report,{'schema':3,'operation_id':op,'state':'cleanup_unconfirmed','launcher_exit':None,
@@ -5987,7 +6081,7 @@ def vendor_application(spec):
         if app.get('id')!='selected':raise RuntimeError('vendor application schema')
         binding={'environment':env['id'],'executable':app['executable'],'user_selection':app['user_selection']} if app['schema']==3 else {'environment':env['id'],'executable':app['executable'],'helpers':app['helpers'],'installer':app['installer_sha256'],'installation':app['installer_result']}
         selector=hashlib.sha256(json.dumps(binding,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
-    report=pathlib.Path(spec['report']);stop=False;child=None;scope=None;clean=False;error=None;selected_image=None;launch_request=None
+    report=pathlib.Path(spec['report']);stop=False;child=None;scope=None;clean=False;error=None;selected_image=None;launch_request=None;launch_env={}
     mode=spec.get('mode','normal');diagnostic=mode!='normal';focus_result=None;close_result=None
     writer=(report.parent/'writer.lock').open('a+b');fcntl.flock(writer,fcntl.LOCK_EX)
     if report.exists():
@@ -6022,7 +6116,7 @@ def vendor_application(spec):
             if data:captures[key.data].write(data)
             else:sel.unregister(key.fileobj)
     def result(state,live):
-        return {'schema':3,'state':state,'operation_id':spec.get('operation_id'),'focus_result':focus_result,'launcher_exit':child.returncode if child else None,
+        return {'schema':3,'state':state,'operation_id':spec.get('operation_id'),'focus_result':focus_result,'launcher_exit':child.returncode if child else None,**library_location_acknowledgment(launch_env),
                 'owned_live':live,'cleanup_confirmed':clean,'error':error,
                 'discarded_diagnostic_bytes':sum(c.discarded for c in captures.values()),
                 'retained_diagnostic_bytes':sum(c.retained for c in captures.values()),
@@ -6046,7 +6140,7 @@ def vendor_application(spec):
         if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('companion subreaper unavailable')
         reg={'environment':env,'compatibility':vendor_compatibility(mode,app)}
         argv,cwd=vendor_launch(spec,launch_request) if launch_request is not None else vendor_launch(spec)
-        launch_env=vendor_diagnostic_environment(environment(reg),logs,diagnostic)
+        launch_env=vendor_diagnostic_environment(environment(reg,library_locations=spec.get('library_locations')),logs,diagnostic)
         if selected_image is not None:selected_image.check()
         child=subprocess.Popen(argv,cwd=cwd,env=launch_env,
                 stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)

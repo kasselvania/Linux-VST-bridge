@@ -12,7 +12,7 @@ mod update_preview;
 pub use update_preview::*;
 /// Manager/frontend wire generation. Durable installer and operation records
 /// keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 30;
+pub const OPERATOR_SCHEMA: u32 = 31;
 /// Explicit delivery policy, independent from the remembered buffered delay.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -88,6 +88,10 @@ pub struct ProgramExecutable {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    /// The user chooses one open directory; no caller path grants access.
+    AddLibraryLocation { environment: String, expected_environment: String, read_only: bool },
+    /// Removes only this setup's retained, owner-created directory mapping.
+    RemoveLibraryLocation { environment: String, expected_environment: String, location: String },
     /// Complete the exact retained legacy history, without replacing publication.
     CandidateHistoryComplete { candidate: String, expected_history: String },
     CandidateGraphicsAssess { candidate: String },
@@ -438,7 +442,24 @@ pub struct Environment {
     pub revision: u64,
     pub authorization: String,
     pub last_scan: serde_json::Value,
+    #[serde(default = "library_locations_unobserved")]
+    pub library_locations: Observation<Vec<LibraryLocation>>,
     pub actions: Vec<AvailableAction>,
+}
+/// Current owner verification of a retained user-selected folder. This is not
+/// vendor library registration, content inventory or authorization evidence.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct LibraryLocation {
+    pub id: String,
+    pub name: String,
+    pub path: std::path::PathBuf,
+    pub drive: String,
+    pub read_only: bool,
+    pub availability: Observation<()>,
+}
+pub fn library_locations_unobserved() -> Observation<Vec<LibraryLocation>> {
+    Observation::Unavailable("Library locations have not been observed".into())
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -952,7 +973,9 @@ impl Action {
     pub fn requires_inactive(&self) -> bool {
         matches!(
             self,
-            Self::SoftwareInstall { .. }
+            Self::AddLibraryLocation { .. }
+                | Self::RemoveLibraryLocation { .. }
+                | Self::SoftwareInstall { .. }
                 | Self::SoftwareInstallWithPolicy { .. }
                 | Self::VendorSoftwareInstall { .. }
                 | Self::SoftwareInstallResume { .. }

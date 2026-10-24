@@ -49,6 +49,56 @@ fn code_lines(source: &str) -> String {
     source.lines().filter(|line| !line.trim_start().starts_with("//")).collect::<Vec<_>>().join("\n")
 }
 
+/// Ignore display strings when looking for fixture code. Keep source-bearing
+/// include/path literals visible so an include cannot bypass the same boundary.
+fn without_display_strings(source: &str) -> String {
+    let bytes = source.as_bytes();
+    let mut out = String::new();
+    let mut start = 0;
+    let mut cursor = 0;
+    while cursor < bytes.len() {
+        // A quote character literal is code, not the start of a display string.
+        if bytes[cursor] == b'\'' {
+            let rest = &source[cursor + 1..];
+            let width = if rest.starts_with('\\') { 2 }
+                else { rest.chars().next().map_or(0, char::len_utf8) };
+            if bytes.get(cursor + 1 + width) == Some(&b'\'') {
+                cursor += width + 2;
+                continue;
+            }
+        }
+        let mut quote = cursor;
+        let raw = bytes[cursor] == b'r';
+        if raw {
+            quote += 1;
+            while quote < bytes.len() && bytes[quote] == b'#' { quote += 1; }
+        }
+        if quote >= bytes.len() || bytes[quote] != b'"' { cursor += 1; continue; }
+        let hashes = if raw { quote - cursor - 1 } else { 0 };
+        let mut end = quote + 1;
+        while end < bytes.len() {
+            if !raw && bytes[end] == b'\\' { end += 2; continue; }
+            if bytes[end] == b'"' && (!raw || bytes.get(end + 1..end + 1 + hashes)
+                .is_some_and(|tail| tail.iter().all(|b| *b == b'#'))) {
+                end += 1 + hashes;
+                break;
+            }
+            end += 1;
+        }
+        end = end.min(bytes.len());
+        out.push_str(&source[start..cursor]);
+        let prefix = source[..cursor].chars().filter(|c| !c.is_whitespace()).collect::<String>();
+        if ["include!(", "include_str!(", "include_bytes!(", "path="]
+            .iter().any(|marker| prefix.ends_with(marker)) {
+            out.push_str(&source[cursor..end]);
+        } else { out.push(' '); }
+        start = end;
+        cursor = end;
+    }
+    out.push_str(&source[start..]);
+    out
+}
+
 /// What is wrong with one view-model source file.
 fn problems(file: &str, source: &str) -> Vec<String> {
     let mut out = Vec::new();
@@ -72,7 +122,7 @@ fn problems(file: &str, source: &str) -> Vec<String> {
     if file != "samples.rs" {
         let code = code_lines(&model);
         let code = if file == "lib.rs" { code.replacen(SAMPLES_DECLARATION, "", 1) } else { code };
-        if code.contains("samples") {
+        if without_display_strings(&code).contains("samples") {
             out.push(format!("{file} refers to the sample states outside its tests"));
         }
     }
@@ -155,6 +205,11 @@ fn the_guard_refuses_aliases_and_gated_samples() {
         ("home.rs", "#[cfg(any(test, feature = \"samples\"))]\nfn f() { super::samples::base(); }\n"),
         ("lib.rs", "#[cfg(any(test, feature = \"samples\"))]\npub mod samples;\npub use samples::base;\n"),
         ("home.rs", "fn f() { egui::Ui::new(); }\n"),
+        ("home.rs", "let quote = '\"'; crate::samples::base();"),
+        ("home.rs", "include!(\"samples.rs\");"),
+        ("home.rs", "include_str!(r#\"samples.rs\"#);"),
+        ("home.rs", "#[path = \"samples.rs\"] mod hidden;"),
+        ("home.rs", "let label = \"samples\"; crate::samples::base();"),
         ("home.rs", "#[cfg(test)]\nmod tests {\n use linux_vst_bridge::digest;\n}\n"),
     ];
     for (file, source) in refused {
@@ -166,6 +221,8 @@ fn the_guard_refuses_aliases_and_gated_samples() {
         ("lib.rs", "//! `samples` adds states.\n#[cfg(any(test, feature = \"samples\"))]\npub mod samples;\n\
             pub use lvb_model::operator_model as model;\n"),
         ("samples.rs", "pub fn base() {}\n"),
+        ("home.rs", "let label = \"Projects using samples there may need the folder added again.\";"),
+        ("home.rs", "let label = r###\"Samples and \\\"samples\\\"\"###;"),
     ];
     for (file, source) in allowed {
         assert_eq!(problems(file, source), Vec::<String>::new(), "{file}");

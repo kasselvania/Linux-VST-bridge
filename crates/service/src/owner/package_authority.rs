@@ -84,8 +84,54 @@ struct PackageManifest {
     source_head: String,
     source_tree: String,
     operator_schema: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    library_locations: Option<LibraryLocationsCapability>,
     files: Vec<PackageFile>,
     external_runtime: ExternalRuntime,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct LibraryLocationsCapability {
+    schema: u32,
+    supervisor_sha256: String,
+}
+fn require_location_capability(manifest: &PackageManifest, needed: bool) -> Result<()> {
+    if !needed { return Ok(()); }
+    let capability = manifest.library_locations.as_ref()
+        .ok_or("package_library_locations_capability_unavailable")?;
+    require(capability.schema == 1 && manifest.schema == 3
+        && manifest.files.iter().any(|file| file.name == "session.py"
+            && file.sha256 == capability.supervisor_sha256),
+        "package_library_locations_capability_unavailable")
+}
+pub(super) fn require_location_supervisor(m: &Manager, target: &Software) -> Result<()> {
+    // Current compiled source works for development installations. A different
+    // package helper must carry exact generation-bound capability metadata;
+    // this permits compatible signed upgrades and retained package inspections.
+    if linux_vst_bridge::supervisor::require_library_locations(&target.supervisor).is_ok() {
+        return Ok(());
+    }
+    let directory = target.supervisor.path.parent().ok_or("package_generation_path")?;
+    let generation = generation_identity(m, directory)?;
+    require_location_capability(&generation.manifest, true)?;
+    // Runtime host pairing may legitimately replace host/source fields in
+    // Software. Capability belongs to this exact immutable supervisor pair.
+    for (artifact, index) in [(&target.supervisor, 2), (&target.ownership, 3)] {
+        let file = &generation.manifest.files[index];
+        require(artifact.path == directory.join(&file.name) && artifact.sha256 == file.sha256,
+            "package_supervisor_capability_binding")?;
+        artifact.verify()?;
+        require(fs::metadata(&artifact.path)?.permissions().mode() & 0o222 == 0,
+            "package_supervisor_capability_writable")?;
+    }
+    Ok(())
+}
+fn require_location_target(m: &Manager, target: &Software) -> Result<()> {
+    if linux_vst_bridge::library_locations::requires_capability(m)? {
+        let generation = verify_generation(m, target)?;
+        require_location_capability(&generation.manifest, true)?;
+    }
+    Ok(())
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -103,7 +149,7 @@ struct Generation {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-enum TransitionKind { Update, Restore }
+enum TransitionKind { Update, Restore, RestoreCurrent }
 
 const CONTROL_RECORD_MAX: usize = 8 * 1024 * 1024;
 
@@ -200,7 +246,7 @@ fn validate_coordinated(m: &Manager, home: &Path,
     let (before, after) = setup_install::plan_software(&transition.setup)?;
     let before = before.ok_or("package_transition_software")?;
     match transition.kind {
-        TransitionKind::Update => require(before == transition.recovery_before
+        TransitionKind::Update | TransitionKind::RestoreCurrent => require(before == transition.recovery_before
             && after == transition.receipt.successor,
             "package_transition_software"),
         TransitionKind::Restore => require(before == transition.receipt.successor
@@ -208,6 +254,18 @@ fn validate_coordinated(m: &Manager, home: &Path,
             && transition.recovery_before == transition.receipt.successor,
             "package_transition_software"),
     }?;
+    if transition.kind == TransitionKind::RestoreCurrent {
+        require(transition.receipt.predecessor == transition.recovery_before
+            && verify_generation(m, &transition.recovery_before)?.predecessor.as_ref()
+                == Some(&transition.receipt.successor), "package_restore_target_changed")?;
+        require_location_target(m, &transition.receipt.successor)?;
+        // Every fresh publication carries this current setup unchanged. No
+        // historical environment or folder set is restored by this direction.
+        require(transition.receipt.transitions.iter().all(|publication|
+            publication.before.entry.registration.environment
+                == publication.after.entry.registration.environment),
+            "package_restore_current_environment_changed")?;
+    }
     if let Some(handoff) = &transition.resume_handoff {
         handoff.captured.validate_source(&transition.recovery_before)?;
     }
@@ -414,6 +472,7 @@ fn read_manifest_record(inputs: &Inputs, owner: u32) -> Result<(PackageManifest,
 }
 fn validate_manifest_identity(manifest: &PackageManifest) -> Result<()> {
     let expected = names(manifest.schema)?;
+    if manifest.library_locations.is_some() { require_location_capability(manifest, true)?; }
     require(manifest.operator_schema == operator_model::OPERATOR_SCHEMA
         && manifest.package == "linux-vst-bridge-beta"
         && valid_package_version(&manifest.version) && manifest.pkgrel == 1
@@ -1429,6 +1488,15 @@ pub(super) fn add_back_publication_with(m: &Manager, key: &str, removed: &Revisi
 fn prepare_refresh_receipt(m: &Manager, target: &Software,
     predecessor: Software,
     acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<RefreshReceipt> {
+    prepare_refresh_receipt_with(m, target, predecessor, acquire_registry,
+        |m, target, runtime, registration, registry|
+            inspect_for_package_refresh_with_registry(m, target, runtime, registration, registry))
+}
+fn prepare_refresh_receipt_with(m: &Manager, target: &Software,
+    predecessor: Software,
+    acquire_registry: &mut impl FnMut() -> Result<Lock>,
+    mut inspect: impl FnMut(&Manager, &Software, &preparation::build::Runtime,
+        &Registration, &mut dyn FnMut() -> Result<Lock>) -> Result<Artifact>) -> Result<RefreshReceipt> {
     let before = m.package_publication_snapshot_locked(&acquire_registry()?)?;
     // The fixed population bound is 256. Each class gets the supervisor's
     // 190-second outer inspection bound plus the existing 1,250-second build
@@ -1466,7 +1534,7 @@ fn prepare_refresh_receipt(m: &Manager, target: &Software,
         if !preparation::publication_requires_refresh(m, &revision, &runtime.kit.sha256)? {
             continue;
         }
-        let report = inspect_for_package_refresh_with_registry(m, target, &runtime,
+        let report = inspect(m, target, &runtime,
             &revision.registration, &mut *acquire_registry)?;
         let operation = random_id()?;
         let prepared = preparation::refresh_candidate(m, &revision,
@@ -1572,7 +1640,7 @@ fn apply_coordinated(m: &Manager, transition: &CoordinatedTransition) -> Result<
 fn apply_coordinated_with_registry(m: &Manager, transition: &CoordinatedTransition,
     acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<()> {
     match transition.kind {
-        TransitionKind::Update => {
+        TransitionKind::Update | TransitionKind::RestoreCurrent => {
             setup_install::apply_plan(&transition.setup)?;
             for publication in &transition.receipt.transitions {
                 m.commit_package_publication_with_registry(publication, &mut *acquire_registry)?;
@@ -1600,7 +1668,7 @@ fn restore_coordinated_origin_with_registry(m: &Manager,
     transition: &CoordinatedTransition,
     acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<()> {
     match transition.kind {
-        TransitionKind::Update => {
+        TransitionKind::Update | TransitionKind::RestoreCurrent => {
             for publication in transition.receipt.transitions.iter().rev() {
                 m.restore_package_publication_with_registry(publication, &mut *acquire_registry)?;
             }
@@ -1623,7 +1691,7 @@ fn restore_coordinated_origin_with_registry(m: &Manager,
 
 fn coordinated_final_software(transition: &CoordinatedTransition) -> &Software {
     match transition.kind {
-        TransitionKind::Update => &transition.receipt.successor,
+        TransitionKind::Update | TransitionKind::RestoreCurrent => &transition.receipt.successor,
         TransitionKind::Restore => &transition.receipt.predecessor,
     }
 }
@@ -1631,7 +1699,7 @@ fn coordinated_final_software(transition: &CoordinatedTransition) -> &Software {
 fn coordinated_origin_publications(transition: &CoordinatedTransition)
     -> &[publication::PublicationState] {
     match transition.kind {
-        TransitionKind::Update => &transition.receipt.before_publications,
+        TransitionKind::Update | TransitionKind::RestoreCurrent => &transition.receipt.before_publications,
         TransitionKind::Restore => &transition.receipt.after_publications,
     }
 }
@@ -1653,7 +1721,7 @@ fn require_service_transition_coherent_with_registry(m: &Manager, selected: &Sof
     validate_coordinated(m, home, &transition)?;
     let publications = m.package_publication_snapshot_locked(&acquire_registry()?)?;
     let coherent = match transition.kind {
-        TransitionKind::Update => (transition.setup.is_before()?
+        TransitionKind::Update | TransitionKind::RestoreCurrent => (transition.setup.is_before()?
             && *selected == transition.recovery_before
             && publications == transition.receipt.before_publications)
             || (transition.setup.is_after()?
@@ -1689,7 +1757,7 @@ fn complete_coordinated(m: &Manager, home: &Path, service: &impl ServiceControl,
     let selected = coordinated_final_software(transition);
     start_and_health(service, m, home, selected)?;
     settle_resume_handoff_with_registry(m,service,transition,acquire_registry)?;
-    if transition.kind == TransitionKind::Update {
+    if matches!(transition.kind, TransitionKind::Update | TransitionKind::RestoreCurrent) {
         retain_transition_receipt(m,transition)?;
     }
     fs::remove_file(&journal)?;
@@ -1735,7 +1803,7 @@ fn settle_resume_handoff_with_registry(m: &Manager, service: &impl ServiceContro
             && old_software(m)?.as_ref() == Some(coordinated_final_software(transition)),
             "package_resume_target_changed")?;
         m.verify_package_publication_snapshot_locked(match transition.kind {
-            TransitionKind::Update => &transition.receipt.after_publications,
+            TransitionKind::Update | TransitionKind::RestoreCurrent => &transition.receipt.after_publications,
             TransitionKind::Restore => &transition.receipt.before_publications,
         }, &registry)?;
         require(operator_cli::pending_transactions(m)? == 0,"package_transaction_pending")?;
@@ -1826,7 +1894,7 @@ fn run_coordinated_with_registry(m: &Manager, home: &Path, service: &impl Servic
     let journal = m.root.join("package-transition.json");
     let prepared = (|| -> Result<()> {
         if transition.resume_handoff.is_none() {
-            if transition.kind == TransitionKind::Restore {
+            if matches!(transition.kind, TransitionKind::Restore | TransitionKind::RestoreCurrent) {
                 operator_cli::require_no_package_resume(m)?;
             }
             if let Some(captured) = operator_cli::capture_package_resume_with(m,
@@ -1921,7 +1989,9 @@ fn adopt_settled(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
                 entry.publication == Publication::Published),
                 "package_update_required: use Update Bridge")?;
         }
+        require_location_capability(&manifest, linux_vst_bridge::library_locations::requires_capability(m)?)?;
         let installed = stage(m, inputs, manifest, sha, predecessor.clone())?;
+        require_location_target(m, &installed)?;
         setup_install::commit_journaled(m, home, &installed, predecessor.as_ref(),
             |selected| reload_and_verify(service, home, selected))
     })
@@ -1945,6 +2015,7 @@ fn rollback_settled(m: &Manager, home: &Path, service: &impl ServiceControl) -> 
         let record = verify_generation(m, &current)?;
         let old = record.predecessor.ok_or("package_no_predecessor")?;
         verify_software_identity(m, &old)?;
+        require_location_target(m, &old)?;
         setup_install::commit_journaled(m, home, &old, Some(&current),
             |selected| reload_and_verify(service, home, selected))
     })
@@ -1990,15 +2061,36 @@ fn update_settled(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     mut acquire_recovery_registry: impl FnMut() -> Result<Lock>) -> Result<()> {
     let _resume = operator_cli::resume_lock(m)?;
     let current = old_software(m)?.ok_or("package_not_installed")?;
+    let location_target = if linux_vst_bridge::library_locations::requires_capability(m)? {
+        let target = read_manifest(inputs, owner)?;
+        require_location_capability(&target.0, true)?;
+        Some(target)
+    } else { None };
     let captured = operator_cli::capture_package_resume_with(m,&current,|op|service.worker_live(m, op))?;
-    let restart_prior = stop_for_coordinated_with_registry(m, home, inputs, owner, service,
-        &current, &mut acquire_registry)?;
+    let restart_prior = {
+        let mut checked_registry = || {
+            let registry = acquire_registry()?;
+            if linux_vst_bridge::library_locations::requires_capability(m)? {
+                let (manifest, sha) = location_target.as_ref()
+                    .ok_or("package_library_locations_changed_before_stop")?;
+                require_location_capability(manifest, true)?;
+                require(digest(&inputs.manifest())? == *sha, "package_input_changed_before_stop")?;
+            }
+            Ok(registry)
+        };
+        stop_for_coordinated_with_registry(m, home, inputs, owner, service,
+            &current, &mut checked_registry)?
+    };
     let prepared = (|| -> Result<CoordinatedTransition> {
         require_service_stopped(service)?;
         require(!m.root.join("package-transition.json").try_exists()?,
             "package_transition_needs_recovery")?;
         preflight(m,service)?;
         let (manifest, sha) = read_manifest(inputs, owner)?;
+        if let Some((before, before_sha)) = &location_target {
+            require(*before == manifest && *before_sha == sha, "package_input_changed_after_stop")?;
+        }
+        require_location_capability(&manifest, linux_vst_bridge::library_locations::requires_capability(m)?)?;
         require_retained_host_pair(m, &current, &manifest)?;
         let target = if current.manager.path.parent()
             .is_some_and(|dir| dir.join("package-generation.json").exists()) {
@@ -2067,54 +2159,89 @@ fn restore_from_with_registry(m: &Manager, home: &Path, inputs: &Inputs, owner: 
             acquire_registry, acquire_recovery_registry))
     })
 }
+enum RestoreSelection {
+    Historical(RefreshReceipt),
+    Current { target: Software },
+}
+impl RestoreSelection {
+    fn target(&self) -> &Software {
+        match self { Self::Historical(receipt) => &receipt.predecessor,
+            Self::Current { target } => target }
+    }
+}
+fn select_restore(m: &Manager, current: &Software,
+    snapshot: &[publication::PublicationState]) -> Result<RestoreSelection> {
+    let matching = matching_refresh_receipts(m, current, snapshot)?;
+    require(matching.len() <= 1, "package_restore_receipt_ambiguous")?;
+    let selection = if let Some(receipt) = matching.into_iter().next() {
+        RestoreSelection::Historical(receipt)
+    } else {
+        let predecessor = verify_generation(m, current)?.predecessor
+            .ok_or("package_no_predecessor")?;
+        if snapshot.iter().any(|state| state.entry.publication == Publication::Published) {
+            // This capability-bearing journey preserves the current setup.
+            // Other historical restoration still needs its exact receipt.
+            require(linux_vst_bridge::library_locations::requires_capability(m)?,
+                "package_restore_receipt_unavailable")?;
+            require_location_target(m, &predecessor)?;
+            RestoreSelection::Current { target: predecessor }
+        } else {
+            RestoreSelection::Historical(RefreshReceipt {schema:1,predecessor,
+                successor:current.clone(),before_publications:snapshot.to_vec(),
+                after_publications:snapshot.to_vec(),transitions:Vec::new(),resume_history:None})
+        }
+    };
+    require_location_target(m, selection.target())?;
+    Ok(selection)
+}
 fn restore_settled(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl,
     mut acquire_registry: impl FnMut() -> Result<Lock>,
     mut acquire_recovery_registry: impl FnMut() -> Result<Lock>) -> Result<()> {
     let _resume = operator_cli::resume_lock(m)?;
-    // Restore carries no service reservation; the interrupted owner's own
-    // restoration is completed first, as its worker would have.
     operator_cli::restore_terminated_owner_locked(m, |operation| service.worker_live(m, operation))?;
     operator_cli::require_no_package_resume(m)?;
     let current = old_software(m)?.ok_or("package_not_installed")?;
-    let restart_prior = stop_for_coordinated_with_registry(m, home, inputs, owner, service,
-        &current, &mut acquire_registry)?;
+    // Select the exact target and current setup before disturbing the service.
+    // A changed folder/publication offer must be retried, never reinterpreted.
+    let snapshot = m.package_publication_snapshot_locked(&acquire_registry()?)?;
+    let selection = select_restore(m, &current, &snapshot)?;
+    let target = selection.target().clone();
+    let restart_prior = {
+        let mut checked_registry = || {
+            let registry = acquire_registry()?;
+            m.verify_package_publication_snapshot_locked(&snapshot, &registry)?;
+            require_location_target(m, &target)?;
+            Ok(registry)
+        };
+        stop_for_coordinated_with_registry(m, home, inputs, owner, service,
+            &current, &mut checked_registry)?
+    };
     let prepared = (|| -> Result<CoordinatedTransition> {
         require_service_stopped(service)?;
         require(!m.root.join("package-transition.json").try_exists()?,
             "package_transition_needs_recovery")?;
         preflight(m,service)?;
-        let snapshot = m.package_publication_snapshot_locked(&acquire_registry()?)?;
-        let matching = matching_refresh_receipts(m, &current, &snapshot)?;
-        require(matching.len() <= 1, "package_restore_receipt_ambiguous")?;
-        let mut receipt = if let Some(receipt) = matching.into_iter().next() {
-            receipt
-        } else {
-            require(!snapshot.iter().any(|state|
-                state.entry.publication == Publication::Published),
-                "package_restore_receipt_unavailable")?;
-            let predecessor = verify_generation(m, &current)?.predecessor
-                .ok_or("package_no_predecessor")?;
-            RefreshReceipt { schema:1, predecessor, successor:current.clone(),
-                before_publications:snapshot.clone(), after_publications:snapshot,
-                transitions:Vec::new(), resume_history:None }
+        require(old_software(m)?.as_ref() == Some(&current), "package_restore_source_changed")?;
+        m.verify_package_publication_snapshot_locked(&snapshot, &acquire_registry()?)?;
+        require_location_target(m, &target)?;
+        verify_software_identity(m, &target)?;
+        let (kind, mut receipt) = match selection {
+            RestoreSelection::Historical(receipt) => (TransitionKind::Restore, receipt),
+            RestoreSelection::Current { .. } => (TransitionKind::RestoreCurrent,
+                prepare_refresh_receipt(m, &target, current.clone(), &mut acquire_registry)?),
         };
-        // Completed handoff history is provenance, never a new obligation.
-        // A retained predecessor must see its original nested receipt schema.
+        // Provenance of an old completed handoff is never a new obligation.
         receipt.schema = 1;
         receipt.resume_history = None;
-        verify_software_identity(m, &receipt.predecessor)?;
-        let setup = setup_install::plan(m, home, &receipt.predecessor, Some(&current))?;
-        Ok(CoordinatedTransition { schema:2, id:random_id()?,
-            kind:TransitionKind::Restore, recovery_before:current.clone(),
-            setup, receipt, resume_handoff:None })
+        let setup = setup_install::plan(m, home, &target, Some(&current))?;
+        Ok(CoordinatedTransition {schema:2,id:random_id()?,kind,
+            recovery_before:current.clone(),setup,receipt,resume_handoff:None})
     })();
     let transition = match prepared {
         Ok(transition) => transition,
-        Err(original) => {
-            return restart_prior_after_error(m, home, service, &current,
-                original, restart_prior);
-        }
+        Err(original) => return restart_prior_after_error(m, home, service, &current,
+            original, restart_prior),
     };
     run_coordinated_with_registry(m, home, service, transition, restart_prior,
         &mut acquire_registry, &mut acquire_recovery_registry)
@@ -2154,7 +2281,7 @@ fn recover_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Resu
     require(operator_cli::pending_transactions(m)? == 0,
         "package_transaction_pending")?;
     let final_publications = match transition.kind {
-        TransitionKind::Update => &transition.receipt.after_publications,
+        TransitionKind::Update | TransitionKind::RestoreCurrent => &transition.receipt.after_publications,
         TransitionKind::Restore => &transition.receipt.before_publications,
     };
     let final_state = transition.setup.is_after()?
@@ -2162,7 +2289,7 @@ fn recover_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Resu
     if final_state {
         start_and_health(service, m, home, coordinated_final_software(&transition))?;
         settle_resume_handoff(m,service,&transition)?;
-        if transition.kind == TransitionKind::Update {
+        if matches!(transition.kind, TransitionKind::Update | TransitionKind::RestoreCurrent) {
             retain_transition_receipt(m,&transition)?;
         }
     } else {
@@ -2452,8 +2579,15 @@ fn bootstrap_status_with_registry(m: &Manager, home: &Path, inputs: &Inputs, own
         require(receipts.len() <= 1, "package_restore_receipt_ambiguous")?;
         let has_published = current_publications.iter().any(|state|
             state.entry.publication == Publication::Published);
-        let rollback_available = receipts.len() == 1
-            || (!has_published && generation.predecessor.is_some());
+        let needs_locations = linux_vst_bridge::library_locations::requires_capability(m)?;
+        let target = receipts.first().map(|receipt| &receipt.predecessor)
+            .or(generation.predecessor.as_ref());
+        let target_supports_locations = !needs_locations || target.is_some_and(|target|
+            validate_generation_record(m, target).and_then(|generation|
+                require_location_capability(&generation.manifest, true)).is_ok());
+        let rollback_available = target_supports_locations && (receipts.len() == 1
+            || (!has_published && generation.predecessor.is_some())
+            || (needs_locations && has_published && generation.predecessor.is_some()));
         // Status binds the owned fixed roster to this bounded manifest and
         // leaves payload certification to the selected mutation.
         if sha == generation.manifest_sha256 {
@@ -2949,6 +3083,7 @@ mod tests {
                 pkgrel: 1,
                 source_head: "ab".repeat(20), source_tree: "cd".repeat(20),
                 operator_schema: operator_model::OPERATOR_SCHEMA,
+                library_locations: None,
                 files: names(schema).unwrap().iter().map(|name| {
                     let path = self.inputs.path(name).unwrap();
                     PackageFile { name: (*name).into(), sha256: digest(&path).unwrap(),
@@ -4101,6 +4236,100 @@ assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
     }
 
     #[test]
+    fn location_capability_requires_exact_signed_source_roster() {
+        let f = Fixture::new();
+        let mut manifest = f.manifest();
+        assert!(require_location_capability(&manifest, false).is_ok());
+        assert!(require_location_capability(&manifest, true).is_err());
+        manifest.library_locations = Some(LibraryLocationsCapability {
+            schema: 1, supervisor_sha256: "aa".repeat(32),
+        });
+        assert!(require_location_capability(&manifest, true).is_err());
+        manifest.schema = 3;
+        manifest.files.push(PackageFile {name:"session.py".into(),
+            sha256:"aa".repeat(32),size:1});
+        assert!(require_location_capability(&manifest, true).is_ok());
+        manifest.files.last_mut().unwrap().sha256 = "bb".repeat(32);
+        assert!(require_location_capability(&manifest, true).is_err());
+    }
+
+    #[test]
+    fn compatible_package_helper_is_bound_to_its_generation_not_old_owner_source() {
+        let f = Fixture::new();
+        f.add_kit(b"location capability source fixture");
+        f.adopt().unwrap();
+        let old = f.current();
+        let mut source = include_bytes!("../../../../bridge-manager/runtime/session.py").to_vec();
+        source.extend_from_slice(b"\n# compatible signed generation\n");
+        for (name, bytes) in [("session.py", source.as_slice()),
+            ("ownership.py", include_bytes!("../../../../bridge-manager/runtime/ownership.py").as_slice())] {
+            let path = f.inputs.path(name).unwrap();
+            fs::write(&path, bytes).unwrap();
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o444)).unwrap();
+        }
+        let mut manifest = f.manifest();
+        manifest.library_locations = Some(LibraryLocationsCapability {schema:1,
+            supervisor_sha256:digest(&f.inputs.path("session.py").unwrap()).unwrap()});
+        atomic_json(&f.inputs.manifest(), &manifest).unwrap();
+        fs::set_permissions(f.inputs.manifest(), fs::Permissions::from_mode(0o444)).unwrap();
+        let sha = digest(&f.inputs.manifest()).unwrap();
+        let target = stage(&f.base.m, &f.inputs, manifest, sha, Some(old)).unwrap();
+        assert!(linux_vst_bridge::supervisor::require_library_locations(&target.supervisor).is_err());
+        require_location_supervisor(&f.base.m, &target).unwrap();
+        let mut paired = target.clone();
+        paired.host = f.base.r.host.clone();
+        paired.source_manifest = f.base.r.module.clone();
+        paired.source_sha256 = paired.source_manifest.sha256.clone();
+        require_location_supervisor(&f.base.m, &paired).unwrap();
+        let record_path = target.manager.path.parent().unwrap().join("package-generation.json");
+        let mut changed: Generation = read_json(&record_path).unwrap();
+        changed.manifest.library_locations.as_mut().unwrap().supervisor_sha256 = "00".repeat(32);
+        atomic_json(&record_path, &changed).unwrap();
+        assert!(require_location_supervisor(&f.base.m, &target).is_err());
+    }
+
+    #[test]
+    fn location_bearing_update_refuses_unsupported_package_before_service_stop() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        let mut environment = f.base.r.environment.clone();
+        // An explicit empty set still records use of the location capability.
+        environment.library_locations = Some(linux_vst_bridge::library_locations::retain(
+            &f.base.m, &linux_vst_bridge::library_locations::LocationSet::default()).unwrap());
+        atomic_json(&environment.root.join("environment.json"), &environment).unwrap();
+        let before = fs::read(f.base.m.root.join("software.json")).unwrap();
+        f.service.loaded.borrow_mut().active = "active".into();
+        let stops = f.service.stops.get();
+        let error = update_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service)
+            .unwrap_err().to_string();
+        assert_eq!(error, "package_library_locations_capability_unavailable");
+        assert_eq!(f.service.stops.get(), stops);
+        assert_eq!(f.service.loaded.borrow().active, "active");
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), before);
+    }
+
+    #[test]
+    fn location_bearing_restore_refuses_unsupported_predecessor_before_service_stop() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        f.replace("linux-vst-bridge", b"successor manager", true);
+        f.adopt().unwrap();
+        let mut environment = f.base.r.environment.clone();
+        environment.library_locations = Some(linux_vst_bridge::library_locations::retain(
+            &f.base.m, &linux_vst_bridge::library_locations::LocationSet::default()).unwrap());
+        atomic_json(&environment.root.join("environment.json"), &environment).unwrap();
+        let before = fs::read(f.base.m.root.join("software.json")).unwrap();
+        f.service.loaded.borrow_mut().active = "active".into();
+        let stops = f.service.stops.get();
+        let error = restore_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service)
+            .unwrap_err().to_string();
+        assert_eq!(error, "package_library_locations_capability_unavailable");
+        assert_eq!(f.service.stops.get(), stops);
+        assert_eq!(f.service.loaded.borrow().active, "active");
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), before);
+    }
+
+    #[test]
     fn source_generation_preserves_bytecode_predecessor_and_exact_restore() {
         let f = Fixture::new();
         f.add_kit(b"same reusable host across source migration");
@@ -4868,6 +5097,149 @@ report.write_text(json.dumps(dict(identity,cleanup_confirmed=True,owned_live=0,s
         assert_eq!(fs::read(&checkpoint).unwrap(),baseline);
     }
 
+    fn stage_location_package(f: &Fixture, predecessor: Option<Software>, label: &[u8]) -> Software {
+        f.replace("linux-vst-bridge", label, false);
+        for (name, bytes) in [("session.py", include_bytes!("../../../../bridge-manager/runtime/session.py").as_slice()),
+            ("ownership.py", include_bytes!("../../../../bridge-manager/runtime/ownership.py").as_slice())] {
+            let path = f.inputs.path(name).unwrap();
+            if path.exists() { fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap(); }
+            fs::write(&path, bytes).unwrap();
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o444)).unwrap();
+        }
+        let mut manifest = f.manifest();
+        manifest.library_locations = Some(LibraryLocationsCapability {schema:1,
+            supervisor_sha256:digest(&f.inputs.path("session.py").unwrap()).unwrap()});
+        atomic_json(&f.inputs.manifest(), &manifest).unwrap();
+        fs::set_permissions(f.inputs.manifest(), fs::Permissions::from_mode(0o444)).unwrap();
+        stage(&f.base.m, &f.inputs, manifest, digest(&f.inputs.manifest()).unwrap(), predecessor).unwrap()
+    }
+
+    fn current_location_restore_fixture() -> (Fixture, CoordinatedTransition, Environment, PathBuf) {
+        use linux_vst_bridge::library_locations as locations;
+        let (base, candidate) = test_fixture::projection_candidate_in(test_fixture::Fixture::new(), false);
+        let current_software: Software = read_json(&base.m.root.join("software.json")).unwrap();
+        let current_kit = fs::read(&current_software.preparation_kit.unwrap().path).unwrap();
+        // Fixture software is replaced by real package generation authority.
+        fs::remove_file(base.m.root.join("software.json")).unwrap();
+        let f = Fixture::with_base(base);
+        f.add_kit(b"retained library restore engine");
+        let target = stage_location_package(&f, None, b"retained location-aware manager");
+        setup_install::commit_journaled(&f.base.m, &f.home, &target, None,
+            |selected| reload_and_verify(&f.service, &f.home, selected)).unwrap();
+        f.add_kit_archive(&current_kit);
+        let current = stage_location_package(&f, Some(target.clone()), b"current location-aware manager");
+        setup_install::commit_journaled(&f.base.m, &f.home, &current, Some(&target),
+            |selected| reload_and_verify(&f.service, &f.home, selected)).unwrap();
+        preparation::record_candidate(&f.base.m, &candidate).unwrap();
+        let mut reference = preparation::enable(&f.base.m, &candidate, false).unwrap();
+        let original = f.base.m.package_publication_snapshot().unwrap();
+        retain_refresh_receipt(&f.base.m, &RefreshReceipt {schema:1,
+            predecessor:target.clone(),successor:current.clone(),before_publications:original.clone(),
+            after_publications:original,transitions:vec![],resume_history:None}).unwrap();
+        let contents = f.base.outer.join("chosen-library");private_dir(&contents).unwrap();
+        fs::write(contents.join("first-party-sample"), b"external contents stay").unwrap();
+        let mut environment = candidate.selection.environment.clone();
+        let mut chosen = None;
+        for adding in [true, false] {
+            let operation = random_id().unwrap();
+            let directory = f.base.m.root.join("operator").join(&operation);private_dir(&directory).unwrap();
+            let mut after = environment.clone();after.revision += 1;
+            let set = if adding {
+                let anchor=directory.join("library-directory-link");
+                std::os::unix::fs::symlink(&contents,&anchor).unwrap();
+                let identity=locations::DirectoryIdentity {volume:"fixture-volume".into(),handle_type:1,handle:vec![1,2]};
+                let id=preparation::key(&(&operation,&contents,&identity,"L:",false)).unwrap();
+                chosen=Some(id.clone());
+                locations::LocationSet {schema:1,locations:vec![locations::Location {id,path:contents.clone(),
+                    identity,drive:"L:".into(),read_only:false,link_inode:fs::symlink_metadata(anchor).unwrap().ino()}]}
+            } else {locations::LocationSet::default()};
+            after.library_locations=Some(locations::retain(&f.base.m,&set).unwrap());
+            let action=if adding {operator_model::Action::AddLibraryLocation {
+                environment:environment.id.clone(),expected_environment:locations::environment_digest(&environment).unwrap(),read_only:false}}
+            else {operator_model::Action::RemoveLibraryLocation {environment:environment.id.clone(),
+                expected_environment:locations::environment_digest(&environment).unwrap(),location:chosen.clone().unwrap()}};
+            atomic_json(&directory.join("request.json"),&operator_model::Request {
+                schema:operator_model::OPERATOR_SCHEMA,state_token:"fixture".into(),action}).unwrap();
+            atomic_json(&directory.join(locations::REVISION_FILE),&locations::RevisionBinding {
+                schema:1,operation:operation.clone(),before:environment.clone(),environment:after.clone(),cancelled:false}).unwrap();
+            atomic_json(&directory.join("result.json"),&serde_json::json!({"schema":1,
+                "operation":operation,"state":"completed","result":{}})).unwrap();
+            let prior=f.base.m.load_revision(&candidate.selection.class.id,&reference).unwrap();
+            let next=preparation::library_locations::prepare(&f.base.m,&prior,&after,&operation).unwrap();
+            let prepared=f.base.m.prepare_library_location_revision(&next,&reference,&operation).unwrap();
+            atomic_json(&after.root.join("environment.json"),&after).unwrap();
+            f.base.m.commit_package_publication(&prepared).unwrap();
+            reference=prepared.after.entry.managed_revision.unwrap();environment=after;
+        }
+        let before=f.base.m.package_publication_snapshot().unwrap();
+        assert!(matching_refresh_receipts(&f.base.m,&current,&before).unwrap().is_empty());
+        match select_restore(&f.base.m,&current,&before).unwrap() {
+            RestoreSelection::Current {target: selected} => assert!(selected==target),
+            _=>panic!("a stale historical receipt was reused"),
+        }
+        // First-party inspector fixture; exercise the real preparation and
+        // publication owners without launching a runtime or vendor binary.
+        let report=candidate.inspection.report.clone();
+        let receipt=prepare_refresh_receipt_with(&f.base.m,&target,current.clone(),
+            &mut ||f.base.m.lock("registry.lock"),|_,_,_,registration,_| {
+                assert_eq!(registration.environment,environment);Ok(report.clone())
+            }).unwrap();
+        assert_eq!(receipt.transitions.len(),1);
+        assert_eq!(receipt.before_publications,before);
+        assert!(receipt.after_publications.iter().all(|state|
+            state.entry.registration.environment==environment));
+        let setup=setup_install::plan(&f.base.m,&f.home,&target,Some(&current)).unwrap();
+        let transition=CoordinatedTransition {schema:2,id:random_id().unwrap(),
+            kind:TransitionKind::RestoreCurrent,recovery_before:current,setup,receipt,resume_handoff:None};
+        validate_coordinated(&f.base.m,&f.home,&transition).unwrap();
+        (f,transition,environment,contents)
+    }
+
+    #[test]
+    fn restore_current_setup_prepares_forward_and_preserves_current_empty_location_set() {
+        let (f,transition,environment,contents)=current_location_restore_fixture();
+        let original=fs::read(environment.root.join("environment.json")).unwrap();
+        run_coordinated(&f.base.m,&f.home,&f.service,transition.clone(),false).unwrap();
+        assert!(f.current()==transition.receipt.successor);
+        assert_eq!(f.base.m.package_publication_snapshot().unwrap(),transition.receipt.after_publications);
+        assert_eq!(fs::read(environment.root.join("environment.json")).unwrap(),original);
+        assert!(environment.library_locations.is_some());
+        assert_eq!(fs::read(contents.join("first-party-sample")).unwrap(),b"external contents stay");
+    }
+
+    #[test]
+    fn restore_current_setup_interruption_reverses_only_its_fresh_transition() {
+        let (f,transition,environment,contents)=current_location_restore_fixture();
+        let original=fs::read(environment.root.join("environment.json")).unwrap();
+        atomic_json(&f.base.m.root.join("package-transition.json"),&transition).unwrap();
+        setup_install::apply_plan(&transition.setup).unwrap();
+        // Software switched, publication not committed: recover exact origin.
+        assert!(recover_from(&f.base.m,&f.home,&f.service).unwrap());
+        assert!(f.current()==transition.recovery_before);
+        assert_eq!(f.base.m.package_publication_snapshot().unwrap(),transition.receipt.before_publications);
+        assert_eq!(fs::read(environment.root.join("environment.json")).unwrap(),original);
+        assert_eq!(fs::read(contents.join("first-party-sample")).unwrap(),b"external contents stay");
+        // A fully applied interruption keeps the exact new state.
+        atomic_json(&f.base.m.root.join("package-transition.json"),&transition).unwrap();
+        apply_coordinated(&f.base.m,&transition).unwrap();
+        assert!(recover_from(&f.base.m,&f.home,&f.service).unwrap());
+        assert!(f.current()==transition.receipt.successor);
+        assert_eq!(f.base.m.package_publication_snapshot().unwrap(),transition.receipt.after_publications);
+        assert_eq!(fs::read(environment.root.join("environment.json")).unwrap(),original);
+    }
+
+    #[test]
+    fn restore_current_setup_rejects_wrong_target_and_stale_snapshot() {
+        let (f,transition,_,_)=current_location_restore_fixture();
+        let mut changed=transition.clone();changed.receipt.successor=changed.recovery_before.clone();
+        assert!(validate_coordinated(&f.base.m,&f.home,&changed).is_err());
+        f.base.m.commit_package_publication(&transition.receipt.transitions[0]).unwrap();
+        assert!(f.base.m.verify_package_publication_snapshot_locked(
+            &transition.receipt.before_publications,&f.base.m.lock("registry.lock").unwrap()).is_err());
+        assert!(matching_refresh_receipts(&f.base.m,&transition.recovery_before,
+            &f.base.m.package_publication_snapshot().unwrap()).unwrap().is_empty());
+    }
+
     fn refreshing_update_fixture() -> Fixture {
         let (base, candidate) = test_fixture::prepared_candidate(&"13".repeat(16));
         let f = Fixture::with_base(base);
@@ -5497,7 +5869,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
         atomic_json(&vendor_dir.join("application.json"),&application).unwrap();
         atomic_json(&vendor_dir.join("operation.json"),&vendor_application::Operation {
             application,report:vendor_dir.join("operation-result.json"),
-            mode:vendor_application::LaunchMode::Normal,operation_id:vendor.clone(),launcher:None, managed:None,capability_notice:None}).unwrap();
+            mode:vendor_application::LaunchMode::Normal,operation_id:vendor.clone(),launcher:None, managed:None,library_locations: None, capability_notice:None}).unwrap();
         atomic_json(&vendor_dir.join("operation-result.json"),&serde_json::json!({
             "schema":3,"operation_id":vendor,"state":"completed","launcher_exit":0,
             "owned_live":0,"cleanup_confirmed":true,"close_result":null,

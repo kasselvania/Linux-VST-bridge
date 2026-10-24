@@ -60,8 +60,18 @@ def verify_adoption(adopted, manifest, expected, source_root=None):
     source = source_supervisor(expected)
     names = SOURCE_ADOPTED if source else (ADOPTED_WITH_KIT if KIT_DESTINATION in expected else ADOPTED)
     external = adopted.get("external_runtime")
-    if (set(adopted) != {"schema", "package", "version", "pkgrel", "source_head",
-                        "source_tree", "operator_schema", "files", "external_runtime"}
+    fields = {"schema", "package", "version", "pkgrel", "source_head",
+              "source_tree", "operator_schema", "files", "external_runtime"}
+    if "library_locations" in adopted:
+        fields.add("library_locations")
+        capability = adopted["library_locations"]
+        helper = expected.get("usr/lib/linux-vst-bridge/supervisor/session.py", {})
+        if (not source or not isinstance(capability, dict)
+                or set(capability) != {"schema", "supervisor_sha256"}
+                or type(capability["schema"]) is not int or capability["schema"] != 1
+                or capability["supervisor_sha256"] != helper.get("sha256")):
+            raise ValueError("package library location capability differs")
+    if (set(adopted) != fields
             or adopted["schema"] != (3 if source else 2 if KIT_DESTINATION in expected else 1)
             or adopted["package"] != manifest["package"]
             or adopted["version"] != manifest["version"]

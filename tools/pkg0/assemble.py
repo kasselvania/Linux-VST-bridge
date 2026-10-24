@@ -159,6 +159,21 @@ LAUNCH_MEMBERS = {"runtime/installer-launch.exe", "runtime/installer-launch-sour
                   "licenses/installer-launch.txt"}
 
 
+def library_locations_capability(source):
+    """The signed adoption record binds the declared plan to exact helper bytes."""
+    import ast
+    module = ast.parse(source)
+    values = [node.value.value for node in module.body
+              if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant)
+              and any(isinstance(target, ast.Name) and target.id == "LIBRARY_LOCATIONS_PLAN_SCHEMA"
+                      for target in node.targets)]
+    if not values:
+        return None
+    if values != [1] or type(values[0]) is not int:
+        raise ValueError("library location supervisor capability")
+    return {"schema": 1, "supervisor_sha256": sha(source)}
+
+
 def parse_operator_schema(source):
     matches = re.findall(r"^pub const OPERATOR_SCHEMA: u32 = ([0-9]+);$",
                          source, re.MULTILINE)
@@ -857,12 +872,18 @@ def _build(spec, output, epoch, source_root=None):
         adopted_names = SOURCE_ADOPTED if spec["schema"] == 3 else (ADOPTED_WITH_KIT if spec["schema"] == 2 else ADOPTED)
         adopted = [{"name": adopted_names[name], "sha256": files[name]["sha256"],
                     "size": len(file_bytes(files[name]))} for name in adopted_names]
-        adoption = canonical({"schema": spec["schema"], "package": PACKAGE, "version": spec["version"],
+        adoption_record = {"schema": spec["schema"], "package": PACKAGE, "version": spec["version"],
                               "pkgrel": PKGREL,
                               "source_head": spec["source_head"],
                               "source_tree": spec["source_tree"],
                               "operator_schema": spec["operator_schema"],
-                              "files": adopted, "external_runtime": spec["external_runtime"]})
+                              "files": adopted, "external_runtime": spec["external_runtime"]}
+        if spec["schema"] == 3:
+            helper_name = "usr/lib/linux-vst-bridge/supervisor/session.py"
+            capability = library_locations_capability(file_bytes(files[helper_name]))
+            if capability is not None:
+                adoption_record["library_locations"] = capability
+        adoption = canonical(adoption_record)
         add_bytes(archive, ADOPTION_MANIFEST, adoption, 0o444, epoch)
         roster.append({"destination": ADOPTION_MANIFEST, "sha256": sha(adoption),
                        "size": len(adoption), "mode": "0444",

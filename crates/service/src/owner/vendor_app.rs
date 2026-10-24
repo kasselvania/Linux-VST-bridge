@@ -125,6 +125,7 @@ impl LaunchPlan {
             supervised_service: managed.is_some(),
         };
         let job = Operation {
+            library_locations: linux_vst_bridge::library_location_plan::for_launch(m, &application.environment, &software)?,
             application: application.clone(),
             report: directory.join("operation-result.json"),
             mode: LaunchMode::Normal,
@@ -181,7 +182,7 @@ impl LaunchPlan {
                 &report,
             )?,
             RecordFormat::Dependency => {
-                native_access_dependency::bind(&application, &software, operation, &report)?
+                native_access_dependency::bind(m, &application, &software, operation, &report)?
             }
         };
         // The codec must represent the admitted choice exactly. It cannot

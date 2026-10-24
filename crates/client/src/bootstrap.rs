@@ -310,7 +310,7 @@ impl State {
                 else if self.stop_offered || (self.package_adopt_offered && !self.legacy_update) { "Repair Linux VST Bridge" }
                 else { "Set up Linux VST Bridge" },
             introduction: if updating { "The manager updates compatible bridge components, then applies the update. Your plug-ins, licenses, projects and settings are retained. Plug-ins needing a fresh compatibility check remain unchanged." }
-                else if self.rollback_available { "Restore the retained application and its matching plug-in bridges together. Your vendor installations, projects and settings are retained." }
+                else if self.rollback_available { "Restore the retained application and its matching plug-in bridges together. Your vendor installations, projects, settings and current library folder choices are retained." }
                 else if self.stop_offered || self.package_adopt_offered { "An existing managed installation is selected. The manager will keep its plug-ins and rollback history while checking application routes." }
                 else { "The application package is installed. Set up your private, managed copy before opening your Library." },
             advice: if self.recovery_offered { "An earlier setup stopped before it finished. Finish that saved change before opening your Library." }

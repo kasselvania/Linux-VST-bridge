@@ -299,6 +299,7 @@ pub fn listed<'a>(snapshot: &'a Snapshot, installer: Option<&str>) -> Vec<&'a In
 /// One installer's setup: its journey, next step, other choices and records.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SetupCard {
+    pub locations: Option<crate::locations::LocationsView>,
     pub installer: String,
     pub name: String,
     pub title: String,
@@ -482,6 +483,8 @@ impl SetupCard {
             Disclosure::new("Uninstall, remove or delete", content)
         });
         Self {
+            locations: setup.environment.as_deref().map(|environment|
+                crate::locations::LocationsView::build(snapshot, environment, busy, pending).held(!fresh)),
             installer: setup.installer.clone(),
             name: display_name(setup, snapshot),
             title,

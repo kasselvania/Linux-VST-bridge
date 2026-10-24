@@ -62,7 +62,7 @@ impl Builder<'_> {
     }
 
     pub(super) fn setup_card(&mut self, card: &SetupCard, focused: bool) -> Node {
-        let SetupCard { installer: _, name, title, status: said, journey, primary, discovered, secondary, latest,
+        let SetupCard { locations, installer: _, name, title, status: said, journey, primary, discovered, secondary, latest,
             replace, draft, details, removal, actionable: _ } = card;
         let mut children = if focused { vec![text(said)] }
             else { vec![Node::Heading(name.clone()), words(Role::Strong, title.clone()), text(said)] };
@@ -117,6 +117,11 @@ impl Builder<'_> {
             }
             let keep = self.control(keep);
             children.push(self.one(keep));
+        }
+        if let Some(locations) = locations {
+            let id = self.id("fold", "Sample locations");
+            let content = self.library_locations(locations);
+            children.push(Node::Fold {id, title:"Sample locations".into(), start_open:false, children:content});
         }
         children.push(self.fold(details));
         if let Some(removal) = removal {

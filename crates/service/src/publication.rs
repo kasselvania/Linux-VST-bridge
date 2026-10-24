@@ -52,6 +52,8 @@ struct Prior {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 struct Intent {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    retain_removed: bool,
     schema: u32,
     id: String,
     class_id: String,
@@ -279,7 +281,8 @@ impl Manager {
                 && intent.id == r.transaction
                 && intent.class_id == r.class_id
                 && intent.candidate.as_ref() == Some(reference)
-                && intent.candidate_target.as_ref() == Some(&r.target)
+                && (intent.candidate_target.as_ref() == Some(&r.target)
+                    || (intent.retain_removed && intent.candidate_target.is_none()))
                 && intent.prior.as_ref().map(|p| &p.revision) == r.parent.as_ref()
                 && result.schema == 1
                 && result.transaction == r.transaction
@@ -671,6 +674,10 @@ impl Manager {
         source: &Artifact,
         fail: Option<Boundary>,
     ) -> Result<()> {
+        self.stage_candidate(r, source, fail, false)
+    }
+    fn stage_candidate(&self, r:&Revision, source:&Artifact, fail:Option<Boundary>,
+        retain_inode:bool)->Result<()> {
         let mutation = timing::span(Stage::PublicationStageMutation);
         self.durable_dir(&self.revisions(&r.class_id))?;
         let stage = self.revisions(&r.class_id).join(format!(".stage-{}", r.id));
@@ -681,9 +688,26 @@ impl Manager {
         let binaries = bundle.join("Contents/x86_64-linux");
         private_dir(&binaries)?;
         let copy = binaries.join(format!("LVB_{}.so", r.class_id));
-        fs::copy(&source.path, &copy)?;
-        require(digest(&copy)? == source.sha256, "candidate_copy_changed")?;
-        fs::set_permissions(&copy, fs::Permissions::from_mode(0o500))?;
+        if retain_inode {
+            source.verify()?;
+            let before=fs::symlink_metadata(&source.path)?;
+            require(before.is_file() && before.uid()==unsafe{libc::getuid()}
+                && before.mode() & 0o222 == 0, "library_native_source_not_immutable")?;
+            // EXDEV is a refusal: copying equal bytes would invalidate a DAW's
+            // already mapped native file identity.
+            fs::hard_link(&source.path,&copy)?;
+            let after=fs::symlink_metadata(&copy)?;
+            let current=fs::symlink_metadata(&source.path)?;
+            require(after.is_file() && after.uid()==before.uid()
+                && after.mode() & 0o222 == 0 && current.mode() & 0o222 == 0
+                && (before.dev(),before.ino())==(after.dev(),after.ino())
+                && (before.dev(),before.ino())==(current.dev(),current.ino())
+                && digest(&copy)?==source.sha256,"library_native_inode_changed")?;
+        } else {
+            fs::copy(&source.path, &copy)?;
+            require(digest(&copy)? == source.sha256, "candidate_copy_changed")?;
+            fs::set_permissions(&copy, fs::Permissions::from_mode(0o500))?;
+        }
         sync(&copy)?;
         copy_native_descriptor(&source.path, &copy, &r.registration.descriptor)?;
         sync(&binaries)?;
@@ -706,6 +730,13 @@ impl Manager {
         result
     }
     fn activate(&self, intent: &Intent, fail: Option<Boundary>) -> Result<()> {
+        if intent.retain_removed {
+            require(intent.candidate.is_some() && intent.candidate_target.is_none()
+                && intent.prior.as_ref().is_some_and(|prior|prior.entry.publication==Publication::Removed
+                    && prior.target.is_none()) && physical(&self.link(&intent.class_id))?.is_none(),
+                "library_removed_publication_changed")?;
+            return boundary(fail,Boundary::PointerSynced);
+        }
         fs::create_dir_all(&self.publications)?;
         let meta = fs::symlink_metadata(&self.publications)?;
         require(
@@ -766,7 +797,7 @@ impl Manager {
                     intent.class_id.clone(),
                     Entry {
                         registration: r.registration,
-                        publication: Publication::Published,
+                        publication: if intent.retain_removed {Publication::Removed}else{Publication::Published},
                         managed_revision: Some(reference.clone()),
                     },
                 );
@@ -825,6 +856,19 @@ impl Manager {
         mutation.end(result.is_ok());
         result
     }
+    fn removed_revision_outcome(&self,db:&Registry,intent:&Intent)->Result<Outcome> {
+        require(intent.retain_removed && intent.candidate_target.is_none()
+            && physical(&self.link(&intent.class_id))?.is_none(),"library_removed_publication_changed")?;
+        let prior=intent.prior.as_ref().ok_or("library_removed_prior_missing")?;
+        require(prior.entry.publication==Publication::Removed && prior.target.is_none(),"library_removed_prior_changed")?;
+        let current=db.classes.get(&intent.class_id).ok_or("library_removed_registration_missing")?;
+        if current==&prior.entry {return Ok(Outcome::Aborted)}
+        let reference=intent.candidate.as_ref().ok_or("library_removed_candidate_missing")?;
+        let candidate=self.load_revision(&intent.class_id,reference)?;
+        require(current.publication==Publication::Removed && current.managed_revision.as_ref()==Some(reference)
+            && current.registration==candidate.registration,"library_removed_registration_changed")?;
+        Ok(Outcome::Committed)
+    }
     fn read_intent(&self, path: &Path) -> Result<Intent> {
         let i: Intent = read_json(path)?;
         require(
@@ -881,7 +925,10 @@ impl Manager {
             let i = self.read_intent(&path)?;
             let actual = physical(&self.link(&i.class_id))?;
             let prior = i.prior.as_ref().and_then(|p| p.target.clone());
-            if actual == prior {
+            if i.retain_removed {
+                let outcome=self.removed_revision_outcome(db,&i)?;
+                self.finish(db,&i,outcome,None)?;
+            } else if actual == prior {
                 self.finish(db, &i, Outcome::Aborted, None)?;
             } else {
                 require(actual == i.candidate_target, "foreign_publication")?;
@@ -1019,7 +1066,7 @@ impl Manager {
             adopted_legacy:false, qualification:Some(Qualification::ManagedExperimental),
         };
         let reference = Self::revision_ref(&revision)?;
-        let intent = Intent { schema:1, id:transaction, class_id:key.clone(),
+        let intent = Intent { retain_removed: false, schema:1, id:transaction, class_id:key.clone(),
             prior:Some(prior), candidate:Some(reference.clone()),
             candidate_target:Some(target.clone()) };
         self.make_candidate(&revision, &source, None)?;
@@ -1027,7 +1074,7 @@ impl Manager {
             entry:Entry { registration:installed, publication:Publication::Published,
                 managed_revision:Some(reference) },
             target:Some(target), performance:before.performance.clone() };
-        let reverse_intent = Intent { schema:1, id:random_id()?,
+        let reverse_intent = Intent { retain_removed: false, schema:1, id:random_id()?,
             class_id:after.class_id.clone(),
             prior:Some(Prior {
                 entry:after.entry.clone(),
@@ -1040,6 +1087,63 @@ impl Manager {
         };
         Ok(PreparedTransition { schema:2, before, after, intent, reverse_intent })
     }
+    /// Stage a location-only successor before the setup selects its revision.
+    /// The existing publication transaction still owns pointer/registry recovery.
+    pub fn prepare_library_location_revision(&self, candidate:&crate::preparation::Candidate,
+        expected:&RevisionRef, operation:&str)->Result<PreparedTransition> {
+        let key=candidate.selection.class.id.clone();
+        let prior_revision=self.load_revision(&key,expected)?;
+        crate::preparation::validate_candidate_record(self,candidate)?;
+        require(candidate.origin==crate::preparation::Origin::LibraryLocationRevision
+            && candidate.location_revision.as_ref().is_some_and(|r|r.operation==operation),
+            "library_publication_origin")?;
+        let binding=crate::library_locations::revision(self,operation)?;
+        require(prior_revision.registration.environment==binding.before
+            && candidate.selection.environment==binding.environment,"library_publication_environment")?;
+        let census=candidate.census_record()?;
+        let registration=crate::preparation::configuration::registration_record_for(candidate,
+            &candidate.profile,&census,SelectionPurpose::Qualification)?;
+        let mut unchanged=registration.clone();unchanged.environment=binding.before;
+        unchanged.relocate_native(prior_revision.registration.native.path.clone());
+        require(unchanged==prior_revision.registration
+            && registration.descriptor.as_ref().map(|a|&a.sha256)==prior_revision.registration.descriptor.as_ref().map(|a|&a.sha256),
+            "library_publication_configuration_changed")?;
+        registration.verify_descriptor()?;prior_revision.registration.verify_descriptor()?;
+        if let (Some(a),Some(b))=(&registration.descriptor,&prior_revision.registration.descriptor) {
+            require(fs::read(&a.path)?==fs::read(&b.path)?,"library_native_descriptor_changed")?;
+        }
+        let _lock=self.lock("registry.lock")?;
+        let db=self.registry()?;let entry=db.classes.get(&key).ok_or("registration_absent")?;
+        require(matches!(entry.publication,Publication::Published|Publication::Removed) && entry.managed_revision.as_ref()==Some(expected)
+            && !self.publication_pending(&key)?,"library_publication_predecessor_changed")?;
+        let before=self.package_publication_state(&key,entry)?;
+        let retain_removed=entry.publication==Publication::Removed;
+        self.retain_profile(&candidate.profile)?;
+        let transaction=random_id()?;
+        let prior=self.adopt_prior(entry,&candidate.profile,&census,&transaction)?;
+        let id=random_id()?;let target=self.revision_dir(&key,&id)?.join(format!("LVB_{key}.vst3"));
+        let source=prior_revision.registration.native.clone();
+        let mut installed=registration;
+        installed.relocate_native(target.join("Contents/x86_64-linux").join(format!("LVB_{key}.so")));
+        let revision=Revision{schema:1,id,class_id:key.clone(),external_ids:prior_revision.external_ids,
+            profile:candidate.profile.clone(),profile_sha256:candidate.profile.fingerprint()?,census,
+            registration:installed.clone(),performance:before.performance.clone(),target:target.clone(),
+            parent:Some(expected.clone()),transaction:transaction.clone(),adopted_legacy:false,
+            qualification:Some(Qualification::ManagedExperimental)};
+        let reference=Self::revision_ref(&revision)?;
+        let intent=Intent { retain_removed,schema:1,id:transaction,class_id:key.clone(),prior:Some(prior),
+            candidate:Some(reference.clone()),candidate_target:if retain_removed{None}else{Some(target.clone())}};
+        self.stage_candidate(&revision,&source,None,true)?;
+        let after=PublicationState{class_id:key,entry:Entry{registration:installed,
+            publication:before.entry.publication.clone(),managed_revision:Some(reference)},
+            target:if retain_removed{None}else{Some(target)},
+            performance:before.performance.clone()};
+        let reverse_intent=Intent { retain_removed,schema:1,id:random_id()?,class_id:after.class_id.clone(),
+            prior:Some(Prior{entry:after.entry.clone(),revision:after.entry.managed_revision.clone()
+                .ok_or("library_publication_revision_missing")?,target:after.target.clone()}),
+            candidate:before.entry.managed_revision.clone(),candidate_target:before.target.clone()};
+        Ok(PreparedTransition{schema:2,before,after,intent,reverse_intent})
+    }
     #[doc(hidden)]
     pub fn package_transition_states(t: &PreparedTransition)
         -> (&PublicationState, &PublicationState) {
@@ -1047,7 +1151,11 @@ impl Manager {
     }
     fn verify_prepared_transition(&self, transition: &PreparedTransition) -> Result<()> {
         let t = transition;
-        require(t.schema == 2 && t.before.class_id == t.after.class_id
+        require(t.schema == 2 && t.intent.retain_removed == t.reverse_intent.retain_removed
+            && (!t.intent.retain_removed || (t.before.entry.publication == Publication::Removed
+                && t.after.entry.publication == Publication::Removed
+                && t.before.target.is_none() && t.after.target.is_none()))
+            && t.before.class_id == t.after.class_id
             && t.intent.class_id == t.before.class_id
             && t.intent.prior.as_ref().map(|prior| &prior.entry) == Some(&t.before.entry)
             && t.intent.prior.as_ref().and_then(|prior| prior.target.as_ref()) == t.before.target.as_ref()
@@ -1072,7 +1180,8 @@ impl Manager {
             .ok_or("package_publication_transition_changed")?;
         let revision = self.load_revision(&t.after.class_id, reference)?;
         require(revision.registration == t.after.entry.registration
-            && Some(&revision.target) == t.after.target.as_ref()
+            && (if t.intent.retain_removed {t.after.target.is_none()}
+                else {Some(&revision.target) == t.after.target.as_ref()})
             && revision.performance == t.after.performance
             && revision.transaction == t.intent.id,
             "package_publication_transition_changed")
@@ -1122,7 +1231,10 @@ impl Manager {
         let mut db = self.registry()?;
         let actual = physical(&self.link(key))?;
         let prior = intent.prior.as_ref().and_then(|value| value.target.clone());
-        if actual == prior {
+        if intent.retain_removed {
+            let outcome=self.removed_revision_outcome(&db,&intent)?;
+            self.finish(&mut db,&intent,outcome,None)
+        } else if actual == prior {
             self.finish(&mut db, &intent, Outcome::Aborted, None)
         } else {
             require(actual == intent.candidate_target,
@@ -1396,7 +1508,7 @@ impl Manager {
             qualification,
         };
         let reference = Self::revision_ref(&r)?;
-        let intent = Intent {
+        let intent = Intent { retain_removed: false,
             schema: 1,
             id: transaction,
             class_id: key,
@@ -1529,7 +1641,7 @@ impl Manager {
         }
         let transaction = random_id()?;
         let prior = self.adopt_prior(&e, &r.profile, &r.census, &transaction)?;
-        let intent = Intent {
+        let intent = Intent { retain_removed: false,
             schema: 1,
             id: transaction,
             class_id: key.into(),
@@ -1566,7 +1678,7 @@ impl Manager {
         )?;
         let transaction = random_id()?;
         let prior = self.adopt_prior(&e, &r.profile, &r.census, &transaction)?;
-        let intent = Intent {
+        let intent = Intent { retain_removed: false,
             schema: 1,
             id: transaction,
             class_id: key.into(),
@@ -1625,7 +1737,7 @@ pub(crate) fn retained_candidate_fixture(
         qualification: None,
     };
     let reference = Manager::revision_ref(&r).unwrap();
-    let intent = Intent {
+    let intent = Intent { retain_removed: false,
         schema: 1,
         id: transaction,
         class_id: key,

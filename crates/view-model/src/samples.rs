@@ -1231,3 +1231,29 @@ pub fn recovery_fixture(snapshot: &mut model::Snapshot) -> model::Activity {
         recent:Observation::Observed(vec![]), incidents:Observation::Observed(vec![]),
         system:snapshot.system.clone(), capture:serde_json::Value::Null, operation:None}
 }
+
+/// Synthetic external folders for the actual Console sample-location controls.
+/// No vendor content, disk census, registration or licence facts are supplied.
+pub fn library_locations_fixture(snapshot: &mut model::Snapshot) {
+    use model::{Action, AvailableAction, LibraryLocation, Observation};
+    let environment = snapshot.products[0].environment.clone();
+    let expected_environment = "ac".repeat(32);
+    let locations = vec![
+        LibraryLocation { id:"ad".repeat(32),name:"Example sample folder".into(),
+            path:"/mnt/Example Library/Acoustic instruments and performance samples".into(),drive:"L:".into(),
+            read_only:false,availability:Observation::Observed(()) },
+        LibraryLocation { id:"ae".repeat(32),name:"Removable sample folder".into(),
+            path:"/run/media/example/Sample drive/Orchestral samples".into(),drive:"M:".into(),
+            read_only:true,availability:Observation::Unavailable("Reconnect this drive to use its samples".into()) },
+    ];
+    let mut actions:Vec<_> = [false,true].into_iter().map(|read_only| AvailableAction {
+        label:"Add a library folder…".into(),disabled_reason:None,
+        action:Action::AddLibraryLocation {environment:environment.clone(),expected_environment:expected_environment.clone(),read_only},
+    }).collect();
+    actions.extend(locations.iter().map(|location| AvailableAction {label:"Remove folder access".into(),disabled_reason:None,
+        action:Action::RemoveLibraryLocation {environment:environment.clone(),expected_environment:expected_environment.clone(),location:location.id.clone()}}));
+    snapshot.environments.retain(|setup|setup.id!=environment);
+    snapshot.environments.push(model::Environment {id:environment,family:"Fixture".into(),runner:"fixture-runner".into(),
+        revision:1,authorization:"Not observed".into(),last_scan:serde_json::Value::Null,
+        library_locations:Observation::Observed(locations),actions});
+}

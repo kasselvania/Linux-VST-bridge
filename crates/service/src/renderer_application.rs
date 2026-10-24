@@ -156,15 +156,17 @@ pub fn discover(root: &Path) -> Result<Application> {
 }
 /// Closed production binding, also consumed by the source-owned qualification owner.
 /// Input Application has already passed discovery/verification under the manager.
-pub fn bind(app: &Application, sw: &Software, operation: &str, policy: RendererPolicy, report: &Path) -> Result<Value> {
+pub fn bind(m: &crate::Manager, app: &Application, sw: &Software, operation: &str, policy: RendererPolicy, report: &Path) -> Result<Value> {
     require(valid_hex(operation,32),"renderer_operation")?;
     let adapter=sw.installer_launch.as_ref().ok_or("renderer_adapter_missing")?;
     for a in [&sw.manager,&sw.supervisor,&sw.ownership,adapter] {a.verify()?;}
     let software=serde_json::to_value(sw)?;
     let software_sha256=hex(&Sha256::digest(serde_json::to_vec(&software)?));
-    Ok(json!({"schema":1,"kind":"renderer_application","application":app,"application_identity":app.identity()?,
+    let mut spec = json!({"schema":1,"kind":"renderer_application","application":app,"application_identity":app.identity()?,
         "operation":operation,"renderer_policy":policy,"report":report,
-        "software":software,"software_sha256":software_sha256,"installer_launch":adapter}))
+        "software":software,"software_sha256":software_sha256,"installer_launch":adapter});
+    crate::library_location_plan::bind(m, &app.environment, sw, &mut spec)?;
+    Ok(spec)
 }
 
 #[cfg(test)] mod tests {

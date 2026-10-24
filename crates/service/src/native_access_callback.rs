@@ -242,7 +242,7 @@ mod tests {
         atomic_json(&directory.join("application.json"), &app).unwrap();
         let job = vendor_application::Operation { application: app, mode: vendor_application::LaunchMode::Normal,
             operation_id: random_id().unwrap(), report: directory.join("operation-result.json"), launcher: software.installer_launch.clone(),
-            managed: Some(vendor_profile::ManagedLaunch::new(capability, software).unwrap()), capability_notice: None };
+            managed: Some(vendor_profile::ManagedLaunch::new(capability, software).unwrap()), library_locations: None, capability_notice: None };
         atomic_json(&directory.join("operation.json"), &job).unwrap();
         atomic_json(&job.report,&serde_json::json!({"schema":3,"operation_id":job.operation_id,"state":"running",
             "launcher_exit":null,"owned_live":1,"cleanup_confirmed":false,"error":null,"discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();

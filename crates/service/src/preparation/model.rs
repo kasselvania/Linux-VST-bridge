@@ -14,6 +14,7 @@ pub struct Selection {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Origin {
+    LibraryLocationRevision,
     ManagedPreparation,
     RetainedSv1,
     X11TouchReleaseV1,
@@ -49,6 +50,8 @@ pub enum ControllerAssociation {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Candidate {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub location_revision: Option<super::library_locations::LocationRevision>,
     /// Explicit launch choices, independent of support qualification. Absent in
     /// historical records so their serialized bytes and candidate IDs stay exact.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -191,7 +194,7 @@ impl Candidate {
     pub fn census(&self) -> Result<Census> {
         self.census_with_stamp(Some(crate::observation::ModuleStamp::read(&self.selection.module.path)?))
     }
-    pub(super) fn census_record(&self) -> Result<Census> {
+    pub(crate) fn census_record(&self) -> Result<Census> {
         self.census_with_stamp(None)
     }
     fn census_with_stamp(&self, stamp: Option<crate::observation::ModuleStamp>) -> Result<Census> {

@@ -981,7 +981,7 @@ fn uninstall_in_idle_setup_preserves_another_setups_live_application() {
     let operation = random_id().unwrap();
     let job = vendor_application::Operation {application:app,report:directory.join("operation-result.json"),
         mode:vendor_application::LaunchMode::Normal,operation_id:operation.clone(),
-        launcher:None,managed:None,capability_notice:None};
+        launcher:None,managed:None,library_locations: None, capability_notice:None};
     atomic_json(&directory.join("operation.json"), &job).unwrap();
     atomic_json(&job.report, &json!({"schema":3,"operation_id":operation,"state":"running",
         "launcher_exit":null,"owned_live":1,"cleanup_confirmed":false,

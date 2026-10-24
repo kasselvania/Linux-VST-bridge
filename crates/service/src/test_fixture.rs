@@ -71,7 +71,7 @@ impl Fixture {
                 subcategories: "Instrument|Sampler".into(),
                 metadata_tier: "factory_2".into(),
             },
-            environment: Environment {
+            environment: Environment { library_locations: None,
                 id: "11111111-1111-4111-8111-111111111111".into(),
                 root: env.clone(),
                 revision: 1,
@@ -560,7 +560,7 @@ pub(crate) fn retained_history(f: &Fixture, changes: Changes, setups: usize, edg
         let id = format!("{:032x}", 0xa11_0000 + setup);
         let root = m.root.join("environments").join(&id);
         private_dir(&root.join("compatdata/pfx/drive_c")).unwrap();
-        let at = |revision: u64| Environment { id: id.clone(), root: root.clone(), revision,
+        let at = |revision: u64| Environment { library_locations: None, id: id.clone(), root: root.clone(), revision,
             runner: runners[if changes == Changes::Runtimes { (revision as usize + 1) % 2 } else { 0 }].clone() };
         let onboarding = m.root.join("onboarding").join(&id);
         private_dir(&onboarding).unwrap();

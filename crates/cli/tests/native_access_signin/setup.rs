@@ -213,7 +213,7 @@ fn environment(m: &Manager, runner: Runner) -> Environment {
         "host-tmp", "client"] {
         private_dir(&root.join(directory)).unwrap();
     }
-    let environment = Environment { id, root, runner, revision: 1 };
+    let environment = Environment { library_locations: None, id, root, runner, revision: 1 };
     atomic_json(&environment.root.join("environment.json"), &environment).unwrap();
     environment
 }

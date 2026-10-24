@@ -343,6 +343,8 @@ fn refuse_unclassified_worker(manager: &Manager, peer: Option<&mut UnixStream>, 
 
 #[derive(Serialize, Deserialize)]
 struct SessionSpec {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    library_locations: Option<linux_vst_bridge::library_location_plan::LocationPlan>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     onboarding_home: bool,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -676,7 +678,9 @@ fn spec_with_package_refresh(
     }
     let required_services = plugin_services::selected(&r.environment)?;
     let runner_key = catalogue::runner_key(&r.environment.runner)?;
+    let library_locations = linux_vst_bridge::library_locations::launch_plan(m, &r.environment)?;
     let s = SessionSpec {
+        library_locations,
         onboarding_home,
         graphics_assessment: false,
         crash_capture: None,
@@ -781,6 +785,12 @@ fn spawn(m: &Manager, s: &Software, path: &Path, peer: Option<UnixStream>) -> Re
         Stdio::null()
     };
     let job: SessionSpec = read_json(path)?;
+    require(job.library_locations.as_ref().map(|plan| &plan.digest)
+        == job.registration.environment.library_locations.as_ref(),
+        "library_locations_launch_plan_changed")?;
+    if job.registration.environment.library_locations.is_some() {
+        package_authority::require_location_supervisor(m, s)?;
+    }
     record_lease_generation(&job).map_err(|e|format!("session generation record: {e}"))?;
     m.retain_lease_owner(path).map_err(|e|format!("session owner record: {e}"))?;
     atomic_json(&job.lease, &job.report).map_err(|e|format!("session lease record: {e}"))?;
@@ -1248,10 +1258,14 @@ fn with_loaded_native_caller<T>(
     Ok(admitted())
 }
 fn supervisor_ready(child: &mut Child, job: &SessionSpec, timeout: Duration) -> Result<()> {
-    supervisor_ready_for_configuration(child, &job.session, job.registration.compatibility.graphics, timeout)
+    supervisor_ready_for_plan(child, &job.session, job.registration.compatibility.graphics, job.library_locations.as_ref().map(|plan| plan.digest.as_str()), timeout)
 }
 fn supervisor_ready_for_configuration(child: &mut Child, session: &str,
     graphics: Option<operator_model::GraphicsBackend>, timeout: Duration) -> Result<()> {
+    supervisor_ready_for_plan(child, session, graphics, None, timeout)
+}
+fn supervisor_ready_for_plan(child: &mut Child, session: &str,
+    graphics: Option<operator_model::GraphicsBackend>, locations: Option<&str>, timeout: Duration) -> Result<()> {
     let fd = child
         .stdout
         .as_ref()
@@ -1267,7 +1281,8 @@ fn supervisor_ready_for_configuration(child: &mut Child, session: &str,
     // capability acknowledgment before exposing the native instance. Existing
     // capable generations remain usable across manager/package updates.
     let capability = if graphics.is_some() { " graphics-v1" } else { "" };
-    let expected = format!("LVO0 {session} ready{capability}\n").into_bytes();
+    let locations = locations.map(|digest| format!(" locations-v1:{digest}")).unwrap_or_default();
+    let expected = format!("LVO0 {session} ready{capability}{locations}\n").into_bytes();
     let mismatch = if graphics.is_some() {
         "Graphics-aware supervisor readiness was not confirmed; check compatibility to prepare a current configuration"
     } else { "supervisor readiness receipt differs" };
@@ -1485,6 +1500,9 @@ fn answer_command(m: &Manager, peer: &mut UnixStream) -> Result<()> {
         let reply = match request {
             Request::Action(request) if matches!(request.action, operator_model::Action::PluginOpen { .. }) =>
                 detached_instance::with_frontend(m, peer, || Ok(operator_cli::answer_action(m, request)))?,
+            Request::Action(request) if matches!(request.action, operator_model::Action::AddLibraryLocation { .. }) =>
+                operator_cli::answer_library_location(m, request,
+                    input.ok_or("library_directory_descriptor_missing")?),
             Request::Action(request) => operator_cli::answer_action(m, request),
             Request::ImportInstaller { name } => Reply::Imported(installer_import::import_named(
                 m, input.ok_or("installer_descriptor_missing")?, &name)?),
@@ -2282,6 +2300,19 @@ mod tests {
         let mut stale_descriptor = loaded;
         stale_descriptor.descriptor[0] ^= 1;
         refuse(&selected, &stale_descriptor, &process);
+
+        // A location-only publication retains the DAW-mapped engine inode.
+        // Its setup revision changes while the cached descriptor does not.
+        let retained = executable.with_file_name(format!(".location-admission-{}",random_id().unwrap()));
+        fs::hard_link(&executable,&retained).unwrap();
+        let mut location_selection=selected.clone();
+        location_selection.native.path=retained.clone();
+        location_selection.environment.revision+=1;
+        location_selection.environment.library_locations=Some("ab".repeat(32));
+        assert_eq!(with_loaded_native_caller(&peer,&process,&location_selection,&loaded,||23).unwrap(),23);
+        let mut changed_location_descriptor=loaded;changed_location_descriptor.descriptor[0]^=1;
+        refuse(&location_selection,&changed_location_descriptor,&process);
+        fs::remove_file(retained).unwrap();
 
         let unmapped = f.outer.join("same-bytes-unmapped-native");
         fs::copy(&executable, &unmapped).unwrap();
@@ -3159,6 +3190,21 @@ mod tests {
         let blocked=Arc::new(AdmissionCleanup::default());
         drop(PendingAdmission::new(lease.clone(),blocked.clone()));
         assert!(!lease.exists()&&!blocked.blocked());
+    }
+    #[test]
+    fn location_plan_requires_exact_consumption_before_native_exposure() {
+        let session = "ac".repeat(16);
+        let digest = "bd".repeat(32);
+        for acknowledgment in [String::new(), format!(" locations-v1:{}", "ef".repeat(32)),
+            format!(" locations-v1:{digest}")] {
+            let command = format!("printf 'LVO0 {session} ready{acknowledgment}\\n'");
+            let mut child = Command::new("/bin/sh").args(["-c", &command])
+                .stdout(Stdio::piped()).spawn().unwrap();
+            let result = supervisor_ready_for_plan(&mut child, &session, None,
+                Some(&digest), Duration::from_secs(1));
+            child.wait().unwrap();
+            assert_eq!(result.is_ok(), acknowledgment == format!(" locations-v1:{digest}"));
+        }
     }
     #[test]
     fn graphics_settings_require_capability_acknowledgment_from_any_retained_generation() {

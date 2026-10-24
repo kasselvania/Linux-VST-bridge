@@ -174,6 +174,8 @@ impl Tab {
 /// A step inside an open form.
 #[derive(Clone, Debug, PartialEq)]
 pub enum FormStep {
+    ChooseLibraryFolder,
+    CancelLibraryFolder,
     ChooseDaw(DawChoice),
     StartInstall,
     CancelInstall,

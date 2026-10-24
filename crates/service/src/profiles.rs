@@ -404,7 +404,7 @@ mod frg1_tests {
                 sha256: sha256.clone(),
             });
         }
-        Environment {
+        Environment { library_locations: None,
             id: "frg1-test".into(),
             root: PathBuf::from("/environment"),
             runner: Runner {

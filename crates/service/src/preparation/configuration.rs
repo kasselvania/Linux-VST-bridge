@@ -9,9 +9,12 @@ pub fn registration(c: &Candidate) -> Result<Registration> {
 }
 
 fn legacy_successor(base: &Candidate, backend: Option<GraphicsBackend>, baseline: Option<&RevisionRef>) -> Result<Candidate> {
-    require(base.origin == Origin::ManagedPreparation, "settings_require_managed_preparation")?;
+    require(matches!(base.origin, Origin::ManagedPreparation | Origin::LibraryLocationRevision),
+        "settings_require_managed_preparation")?;
     require(base.profile.capabilities.graphics != backend, "settings_trial_unchanged")?;
     let mut next = base.clone();
+    next.origin = Origin::ManagedPreparation;
+    next.location_revision = None;
     next.settings_trial = Some(SettingsTrial { predecessor: base.id()?, baseline: baseline.cloned() });
     next.profile.capabilities.graphics = backend;
     next.profile.id = format!("managed.{}", key(&(&next.settings_trial, backend))?);
@@ -30,7 +33,7 @@ pub(super) fn registration_for(c: &Candidate, profile: &Profile, census: &crate:
     c.native.artifact.verify()?;
     Ok(registration)
 }
-pub(super) fn registration_record_for(c: &Candidate, profile: &Profile, census: &crate::observation::Census,
+pub(crate) fn registration_record_for(c: &Candidate, profile: &Profile, census: &crate::observation::Census,
     purpose: SelectionPurpose) -> Result<Registration> {
     verify_settings(c)?;
     require(profile.capabilities.compatibility() == c.profile.capabilities.compatibility(),
@@ -65,7 +68,7 @@ fn accessibility_matches_choice(settings: &LocalSettings, resolved: &Accessibili
 
 pub(super) fn verify_settings(c: &Candidate) -> Result<()> {
     if let Some(settings) = &c.local_settings {
-        require(c.origin == Origin::ManagedPreparation,
+        require(matches!(c.origin, Origin::ManagedPreparation | Origin::LibraryLocationRevision),
             "local_settings_require_managed_preparation")?;
         require(c.profile.capabilities.graphics == settings.graphics
             && accessibility_matches_choice(settings, &c.profile.capabilities.accessibility),
@@ -99,9 +102,12 @@ fn successor(base: &Candidate, requested: &LocalSettings, baseline: Option<&Revi
 
 fn successor_with_resolved(base: &Candidate, requested: &LocalSettings,
     baseline: Option<&RevisionRef>, resolved: Accessibility) -> Result<Candidate> {
-    require(base.origin == Origin::ManagedPreparation, "settings_require_managed_preparation")?;
+    require(matches!(base.origin, Origin::ManagedPreparation | Origin::LibraryLocationRevision),
+        "settings_require_managed_preparation")?;
     require(settings(base) != *requested, "settings_trial_unchanged")?;
     let mut next = base.clone();
+    next.origin = Origin::ManagedPreparation;
+    next.location_revision = None;
     next.settings_trial = Some(SettingsTrial { predecessor: base.id()?, baseline: baseline.cloned() });
     apply_resolved_settings(&mut next, requested.clone(), resolved)?;
     next.profile.id = format!("managed.{}", key(&(&next.settings_trial, requested, &next.profile.capabilities.accessibility))?);
@@ -149,14 +155,31 @@ pub fn prepare_settings(m: &Manager, base: &Candidate, requested: &LocalSettings
 
 pub(super) fn verify_trial(m: &Manager, c: &Candidate) -> Result<()> {
     validate_trial_record(m, c)?;
+    verify_trial_baseline(m, c)
+}
+/// Full record ancestry was already checked by retained candidate verification.
+pub(super) fn verify_trial_baseline(m: &Manager, c: &Candidate) -> Result<()> {
     if let Some(baseline) = c.settings_trial.as_ref().and_then(|trial| trial.baseline.as_ref()) {
         m.load_revision(&c.selection.class.id, baseline)?;
     }
     Ok(())
 }
 pub(super) fn validate_trial_record(m: &Manager, c: &Candidate) -> Result<()> {
+    if let Some(base) = validate_trial_binding(m, c)? {
+        if base.origin == Origin::LibraryLocationRevision
+            || base.inspection.origin == Origin::LibraryLocationRevision
+        {
+            validate_candidate_record(m, &base)?;
+        }
+    }
+    Ok(())
+}
+
+/// Reconstruct this exact settings edit without recursively validating its
+/// predecessor. The candidate owner walks that ancestry once.
+pub(super) fn validate_trial_binding(m: &Manager, c: &Candidate) -> Result<Option<Candidate>> {
     let Some(trial) = &c.settings_trial else {
-        return Ok(());
+        return Ok(None);
     };
     let base = candidate_record(m, &trial.predecessor)?;
     let expected = if let Some(settings) = &c.local_settings {
@@ -166,13 +189,15 @@ pub(super) fn validate_trial_record(m: &Manager, c: &Candidate) -> Result<()> {
         legacy_successor(&base, c.profile.capabilities.graphics, trial.baseline.as_ref())?
     };
     require(expected == *c, "settings_trial_configuration_changed")?;
-    let Some(baseline) = &trial.baseline else { return Ok(()) };
-    let prior = m.load_revision_record(&c.selection.class.id, baseline)?;
-    require((prior.profile == base.profile || accepted_profile(m, &base, &prior.profile)?)
-        && prior.registration.environment == c.selection.environment
-        && prior.registration.module == c.selection.module
-        && prior.registration.host == c.host,
-        "settings_trial_baseline_binding")
+    if let Some(baseline) = &trial.baseline {
+        let prior = m.load_revision_record(&c.selection.class.id, baseline)?;
+        require((prior.profile == base.profile || accepted_profile(m, &base, &prior.profile)?)
+            && prior.registration.environment == c.selection.environment
+            && prior.registration.module == c.selection.module
+            && prior.registration.host == c.host,
+            "settings_trial_baseline_binding")?;
+    }
+    Ok(Some(base))
 }
 
 /// Refreshing discovery/native data keeps explicit local launch settings. It
@@ -295,9 +320,96 @@ pub fn view(m: &Manager, c: &Candidate) -> Result<Value> {
 }
 
 #[cfg(test)]
+pub(super) fn library_location_fixture(f: &crate::test_fixture::Fixture,
+    prior: &Revision, operation: &str) -> Candidate {
+    use crate::library_locations as locations;
+    let before = &prior.registration.environment;
+    let target = f.outer.join(format!("external-{operation}"));
+    fs::create_dir(&target).unwrap();
+    let directory = f.m.root.join("operator").join(operation);
+    private_dir(&directory).unwrap();
+    let anchor = directory.join("library-directory-link");
+    symlink(&target, &anchor).unwrap();
+    let identity = locations::DirectoryIdentity {
+        volume: "fixture-volume".into(), handle_type: 1, handle: vec![1, 2],
+    };
+    let id = key(&(operation, &target, &identity, "L:", false)).unwrap();
+    let set = locations::LocationSet { schema: 1, locations: vec![locations::Location {
+        id, path: target, identity, drive: "L:".into(), read_only: false,
+        link_inode: fs::symlink_metadata(anchor).unwrap().ino(),
+    }] };
+    let mut after = before.clone();
+    after.revision += 1;
+    after.library_locations = Some(locations::retain(&f.m, &set).unwrap());
+    atomic_json(&directory.join("request.json"), &crate::operator_model::Request {
+        schema: crate::operator_model::OPERATOR_SCHEMA, state_token: "fixture".into(),
+        action: crate::operator_model::Action::AddLibraryLocation {
+            environment: before.id.clone(),
+            expected_environment: locations::environment_digest(before).unwrap(), read_only: false,
+        },
+    }).unwrap();
+    atomic_json(&directory.join(locations::REVISION_FILE), &locations::RevisionBinding {
+        schema: 1, operation: operation.into(), before: before.clone(),
+        environment: after.clone(), cancelled: false,
+    }).unwrap();
+    library_locations::prepare(&f.m, prior, &after, operation).unwrap()
+}
+
+#[cfg(test)]
+pub(super) fn settings_successor_fixture(base: &Candidate, requested: &LocalSettings) -> Candidate {
+    successor_with_resolved(base, requested, None, Accessibility::WindowsDefault).unwrap()
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::preparation::tests::fixture;
+
+    #[test]
+    fn settings_after_library_edit_keep_inventory_and_exact_location_ancestry() {
+        let (f, base) = test_fixture::projection_candidate_in(test_fixture::Fixture::new(), false);
+        record_candidate(&f.m, &base).unwrap();
+        let original = enable(&f.m, &base, false).unwrap();
+        let prior = f.m.load_revision(&base.selection.class.id, &original).unwrap();
+        let operation = "ab".repeat(16);
+        let located = library_location_fixture(&f, &prior, &operation);
+        let transition = f.m.prepare_library_location_revision(&located, &original, &operation).unwrap();
+        atomic_json(&located.selection.environment.root.join("environment.json"),
+            &located.selection.environment).unwrap();
+        f.m.commit_package_publication(&transition).unwrap();
+        let selected = f.m.registry().unwrap().classes[&base.selection.class.id]
+            .managed_revision.clone().unwrap();
+        let scan_path = f.m.root.join("inventory").join(format!("{}.json", base.selection.environment.id));
+        let scan_before = fs::read(&scan_path).unwrap();
+        let requested = LocalSettings { graphics: Some(GraphicsBackend::WineD3d11),
+            accessibility: AccessibilityChoice::WindowsDefault };
+        let trial = prepare_settings(&f.m, &located, &requested, Some(&selected)).unwrap();
+        assert_eq!(trial.origin, Origin::ManagedPreparation);
+        assert!(trial.location_revision.is_none());
+        assert_eq!(trial.inspection, located.inspection);
+        assert_eq!(trial.settings_trial.as_ref().unwrap().predecessor, located.id().unwrap());
+        assert_eq!(trial.selection.factory_report, base.selection.factory_report);
+        assert_eq!(fs::read(&scan_path).unwrap(), scan_before);
+        verify_candidate(&f.m, &trial, &base.selection.scanner, &base.selection.scanner_source).unwrap();
+        let chosen = replace(&f.m, &trial, &selected).unwrap();
+        let registration = &f.m.registry().unwrap().classes[&base.selection.class.id].registration;
+        assert_eq!(registration.environment, located.selection.environment);
+        assert_eq!(registration.compatibility.graphics, requested.graphics);
+        disable_exact(&f.m, &trial, &chosen).unwrap();
+        assert_eq!(f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision,
+            Some(selected));
+
+        let mut substituted = trial.clone();
+        substituted.settings_trial.as_mut().unwrap().predecessor = base.id().unwrap();
+        assert!(validate_candidate_record(&f.m, &substituted).is_err());
+        // An unjournaled revision cannot borrow the unchanged factory report.
+        let mut unowned = located.selection.environment.clone();
+        unowned.revision += 1;
+        atomic_json(&unowned.root.join("environment.json"), &unowned).unwrap();
+        assert!(read_selections(&f.m, &base.selection.scanner, &base.selection.scanner_source)
+            .unwrap().is_empty());
+        assert_eq!(fs::read(scan_path).unwrap(), scan_before);
+    }
 
     #[test]
     fn changed_profile_advice_does_not_reinterpret_ordinary_default_candidate() {
