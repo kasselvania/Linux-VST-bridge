@@ -2173,7 +2173,7 @@ pub(crate) mod tests {
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         prep::record_candidate(&f.m, &base).unwrap();
         let baseline = prep::enable(&f.m, &base, false).unwrap();
-        let before = fs::read(&base.selection.environment.root.join("environment.json")).unwrap();
+        let before = fs::read(base.selection.environment.root.join("environment.json")).unwrap();
         let settings = ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
             accessibility:ui::AccessibilityChoice::DisabledForHost};
         let mut products = vec![projection_product(&base)];
@@ -2197,7 +2197,7 @@ pub(crate) mod tests {
         let selected = f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision.clone().unwrap();
         prep::disable_exact(&f.m, &next, &selected).unwrap();
         assert_eq!(f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision, Some(baseline));
-        assert_eq!(fs::read(&base.selection.environment.root.join("environment.json")).unwrap(), before);
+        assert_eq!(fs::read(base.selection.environment.root.join("environment.json")).unwrap(), before);
     }
 
     #[test]
