@@ -2947,7 +2947,7 @@ mod tests {
     #[test]
     fn retained_activity_adapter_passes_typed_success_loading_and_failure() {
         use screen_model::diagnostics::Section;
-        let sample = screen_model::samples::Sample::new(screen_model::samples::Case::new(Page::Activity, "ready"));
+        let sample = screen_model::samples::Sample::new(screen_model::samples::Case::new(Page::Activity, "available"));
         let mut operator = Operator::preview_sample(&sample);
         operator.preview = false;
         operator.window.page = Page::Activity;
