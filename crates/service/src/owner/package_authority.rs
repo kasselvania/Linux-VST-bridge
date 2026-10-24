@@ -3372,11 +3372,14 @@ assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
     #[cfg(target_os="linux")]
     #[test]
     fn setup_stop_observes_exact_ended_consumers_without_retiring_them() {
-        for changed in ["none", "live", "wrong_binding", "no_cleanup", "transport", "session", "keeper"] {
-            let f = Fixture::new();
-            f.adopt().unwrap();
-            activate_from(&f.base.m,&f.home,&f.service).unwrap();
-            f.replace("linux-vst-bridge",b"next manager",true);
+        for changed in ["none", "live", "wrong_binding", "no_cleanup", "transport", "session", "keeper", "update"] {
+            let f = if changed == "update" { refreshing_update_fixture() } else {
+                let f = Fixture::new();
+                f.adopt().unwrap();
+                activate_from(&f.base.m,&f.home,&f.service).unwrap();
+                f.replace("linux-vst-bridge",b"next manager",true);
+                f
+            };
             let (mut job, owner_path) = spec(&f.base.m, f.base.r.clone().into(), true, false, false).unwrap();
             let proc_root = f.base.outer.join("ended-proc"); private_dir(&proc_root).unwrap();
             let memory = f.base.outer.join("ended-memory"); private_dir(&memory).unwrap();
@@ -3417,12 +3420,12 @@ assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
             if changed == "wrong_binding" {observed[0].session = "ff".repeat(16);}
             let before = test_fixture::snapshot(&f.base.m.root);
             let proof = stop_owner_proofs(&f.base.m,&observed,&f.service);
-            assert_eq!(proof.is_ok(),matches!(changed,"none"|"keeper"),"{changed}");
+            assert_eq!(proof.is_ok(),matches!(changed,"none"|"keeper"|"update"),"{changed}");
             if let Ok(proofs) = proof {assert_eq!(proofs.len(),1);assert_eq!(proofs[0]["session"],job.session);}
             assert_eq!(test_fixture::snapshot(&f.base.m.root),before,"status must not reconcile");
             assert!(job.lease.exists());
             drop(registry);
-            if matches!(changed,"none"|"keeper") {
+            if matches!(changed,"none"|"keeper"|"update") {
                 let original_report = fs::read(&job.report).unwrap();
                 let original_receipt = fs::read(job.report.with_extension("ownership.json")).unwrap();
                 let before_status = test_fixture::snapshot(&f.base.m.root);
@@ -3430,7 +3433,14 @@ assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
                     &f.service,&mut || f.base.m.lock("registry.lock")).unwrap().state,"update_active");
                 assert_eq!(test_fixture::snapshot(&f.base.m.root),before_status);
                 assert_eq!(f.service.stops.get(),0);
-                stop_for_repair_from(&f.base.m,&f.home,&f.inputs,f.owner,&f.service).unwrap();
+                let prior = f.current();
+                if changed == "update" {
+                    update_from(&f.base.m,&f.home,&f.inputs,f.owner,&f.service).unwrap();
+                    assert_ne!(f.current().manager,prior.manager);
+                    assert_eq!(f.service.show().unwrap().active,"active");
+                } else {
+                    stop_for_repair_from(&f.base.m,&f.home,&f.inputs,f.owner,&f.service).unwrap();
+                }
                 assert_eq!(f.service.stops.get(),1);
                 assert!(!job.lease.exists());
                 assert!(capacity::owners(&f.base.m).unwrap().is_empty());
@@ -3438,8 +3448,10 @@ assert env['WINEDLLOVERRIDES']=='winebus.sys=d;lvb-direct-wait=b'
                 assert_eq!(fs::read(job.report.with_extension("ownership.json")).unwrap(),original_receipt);
                 let retired: serde_json::Value = read_json(&job.report.with_extension("reconciled.json")).unwrap();
                 assert_eq!(retired["successful_session"],false);
-                assert_eq!(bootstrap_status_from(&f.base.m,&f.home,&f.inputs,f.owner,&f.service)
-                    .unwrap().state,"update_adoptable");
+                if changed != "update" {
+                    assert_eq!(bootstrap_status_from(&f.base.m,&f.home,&f.inputs,f.owner,&f.service)
+                        .unwrap().state,"update_adoptable");
+                }
             }
         }
     }
