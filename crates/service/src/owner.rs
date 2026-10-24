@@ -3,6 +3,7 @@ pub(crate) mod managed_cli;
 #[cfg(test)]
 use crate::test_fixture;
 pub(crate) mod vendor_cli;
+pub(crate) mod vendor_app;
 pub(crate) mod renderer_cli;
 pub(crate) mod experimental_runner;
 pub(crate) mod plugin_services;
