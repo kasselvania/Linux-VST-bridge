@@ -4476,29 +4476,32 @@ pub(super) fn answer_action(m: &Manager, request: ui::Request) -> contract::Repl
 pub(super) fn view(m: &Manager, read: &contract::Read) -> Result<linux_vst_bridge::service::view::Composed> {
     use contract::{Read, Reply};
     use linux_vst_bridge::service::view::{Composed, Hold};
-    let held = |reply: Reply, reuse: current::Reuse, opened: Option<std::collections::BTreeSet<PathBuf>>|
+    let held = |reply: Reply, reuse: current::Reuse, read_directories: Option<std::collections::BTreeSet<PathBuf>>|
         -> Result<Composed> {
-        let Some(opened) = opened else {
+        let Some(read_directories) = read_directories else {
             return Ok(Composed { reply: reply.written()?, hold: Hold::Never, directories: vec![] });
         };
         let mut directories: std::collections::BTreeSet<_> = reuse.directories.into_iter().collect();
-        directories.extend(opened.iter().filter_map(|file| file.parent().map(Path::to_path_buf)));
+        directories.extend(read_directories);
         Ok(Composed { reply: reply.written()?, hold: if reuse.quiescent { Hold::Quiet } else { Hold::Live },
             directories: directories.into_iter().collect() })
     };
     match read {
         Read::CurrentOverview => {
-            let (composed, opened) = linux_vst_bridge::with_opened_files(|| current_overview_with_reuse(m));
+            let (composed, directories) = linux_vst_bridge::with_read_directories(|| current_overview_with_reuse(m));
             let (overview, reuse) = composed?;
-            held(Reply::CurrentOverview(Box::new(overview)), reuse, opened)
+            held(Reply::CurrentOverview(Box::new(overview)), reuse, directories)
         }
         Read::Product(key) => {
-            let (composed, opened) = linux_vst_bridge::with_opened_files(||
+            let (composed, directories) = linux_vst_bridge::with_read_directories(||
                 product_detail_with_reuse(m, &key.environment, &key.module_sha256, &key.class_id));
             let (detail, reuse) = composed?;
-            if detail.product.details["preset_files"]["location"] != "unknown" {
-                Ok(Composed {reply:Reply::Product(Box::new(detail)).written()?,hold:Hold::Never,directories:vec![]})
-            } else {held(Reply::Product(Box::new(detail)),reuse,opened)}
+            let presets = detail.product.details["preset_files"]["location"] != "unknown";
+            let mut composed = held(Reply::Product(Box::new(detail)), reuse, directories)?;
+            // Presets are still inspected afresh on every request. Their read
+            // directories must also notify an open Console to make that request.
+            if presets { composed.hold = Hold::Never; }
+            Ok(composed)
         }
         read => Ok(Composed { reply: answer_read(m, read)?.written()?, hold: Hold::Never, directories: vec![] }),
     }

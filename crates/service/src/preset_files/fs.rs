@@ -47,6 +47,7 @@ pub(super) fn at(dir: &File, name: &str, flags: i32, mode: u32) -> Result<File> 
 }
 pub(super) fn directory(path: &Path) -> Result<File> {
     require(path.is_absolute(), "preset_root_absolute")?;
+    crate::record_directory(path);
     let mut dir = File::open("/")?;
     for part in path.components() {
         match part {

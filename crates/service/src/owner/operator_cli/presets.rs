@@ -823,6 +823,82 @@ mod tests {
         private_dir(&selected.environment.root.join("reference-user-presets")).unwrap();
         (f, product, profile)
     }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn preset_folder_changes_notify_an_open_product_and_refresh_restore_offers() {
+        use linux_vst_bridge::service::{changes::Changes, view::Views};
+        let (f, key, profile) = fixture();
+        files::with_profiles(vec![profile], || {
+            let views = Views::new();
+            // No prefix tree watch: coverage must come from the actual product
+            // read, including an empty preset folder and newly added subfolders.
+            views.cover(Changes::new(vec![]));
+            let request = contract::Read::Product(contract::ProductKey {
+                environment: key.environment.clone(), module_sha256: key.module_sha256.clone(),
+                class_id: key.class_id.clone(),
+            });
+            let read = || {
+                let reply = views.answer(&request, 0, || super::super::view(&f.m, &request)).unwrap();
+                serde_json::from_slice::<ui::CurrentProductDetail>(&reply).unwrap()
+            };
+            let presets = |detail: &ui::CurrentProductDetail| -> View {
+                serde_json::from_value(detail.product.details["preset_files"].clone()).unwrap()
+            };
+            let root = f.r.environment.root.join("reference-user-presets");
+            assert_eq!(presets(&read()).files, Some(0));
+            let revision = views.records_revision().unwrap();
+            read();
+            assert_eq!(views.records_revision(), Some(revision), "quiet reads do not notify again");
+
+            fs::write(root.join("fixture.lvbpreset"), b"first party fixture").unwrap();
+            assert!(views.records_revision().unwrap() > revision, "external save must notify Console");
+            assert_eq!(presets(&read()).files, Some(1));
+            let bound = binding(&f.m, &key).unwrap().unwrap();
+            retain_backup(&f.m, &bound, &"71".repeat(16)).unwrap();
+            read();
+            let revision = views.records_revision().unwrap();
+            fs::remove_file(root.join("fixture.lvbpreset")).unwrap();
+            assert!(views.records_revision().unwrap() > revision, "external removal must notify Console");
+            let detail = read();
+            let missing = presets(&detail);
+            assert_eq!((missing.files, missing.missing), (Some(0), 1));
+            let mut restore = missing.actions.iter().find(|offer| matches!(offer.action,
+                ui::Action::PresetFiles {command: Command::Restore {..}, ..})).unwrap().action.clone();
+            let ui::Action::PresetFiles {command: Command::Restore {confirmed, ..}, ..} = &mut restore else { unreachable!() };
+            *confirmed = true;
+            assert!(answer(&f.m, ui::Request {schema:ui::OPERATOR_SCHEMA,
+                state_token:detail.state_token, action:restore}, None, None).unwrap().receipt.accepted);
+            assert_eq!(fs::read(root.join("fixture.lvbpreset")).unwrap(), b"first party fixture");
+            let restored = presets(&read());
+            assert_eq!((restored.files, restored.missing), (Some(1), 0));
+
+            let revision = views.records_revision().unwrap();
+            fs::create_dir(root.join("Bass")).unwrap();
+            assert!(views.records_revision().unwrap() > revision);
+            read();
+            let revision = views.records_revision().unwrap();
+            fs::write(root.join("Bass/second.lvbpreset"), b"nested").unwrap();
+            assert!(views.records_revision().unwrap() > revision, "empty nested folders need coverage too");
+            assert_eq!(presets(&read()).files, Some(2));
+            let revision = views.records_revision().unwrap();
+            fs::write(root.join("Bass/second.lvbpreset"), b"changed").unwrap();
+            assert!(views.records_revision().unwrap() > revision, "an in-place edit must notify");
+            assert_eq!(presets(&read()).bytes, Some(26));
+
+            let revision = views.records_revision().unwrap();
+            fs::rename(&root, root.with_extension("retained")).unwrap();
+            assert!(views.records_revision().unwrap() > revision);
+            assert_eq!(presets(&read()).location, Location::Unavailable);
+            let revision = views.records_revision().unwrap();
+            private_dir(&root).unwrap();
+            assert!(views.records_revision().unwrap() > revision, "a missing root returning must notify");
+            let replaced = presets(&read());
+            assert_eq!((replaced.location, replaced.files), (Location::Known, Some(0)));
+            assert!(!replaced.actions.iter().any(|offer| matches!(offer.action,
+                ui::Action::PresetFiles {command: Command::Restore {..}, ..})),
+                "notification must not authorize restoring into a substituted root");
+        });
+    }
     #[test]
     fn gated_preset_copy_releases_registry_keeps_setup_custody_and_rechecks_owner() {
         for change in ["none", "reader_unwaited", "reader", "setup", "root", "publication"] {

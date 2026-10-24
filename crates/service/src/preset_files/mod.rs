@@ -272,12 +272,14 @@ impl Backup {
 }
 fn walk(
     dir: &File,
+    root: &Path,
     prefix: &str,
     profile: &Profile,
     entries: &mut usize,
     total: &mut u64,
     files: &mut Vec<Entry>,
 ) -> Result<()> {
+    crate::record_directory(&root.join(prefix));
     for name in fs::names(dir)? {
         *entries += 1;
         require(*entries <= MAX_ENTRIES, "preset_traversal_bound")?;
@@ -291,7 +293,7 @@ fn walk(
         let meta = file.metadata()?;
         if meta.is_dir() {
             fs::identity(&file)?;
-            walk(&file, &relative, profile, entries, total, files)?;
+            walk(&file, root, &relative, profile, entries, total, files)?;
         } else if profile.accepts(&name) {
             let (bytes, source_identity) = fs::read_observed(dir, &name)?;
             *total += bytes.len() as u64;
@@ -314,7 +316,7 @@ fn walk(
 pub fn inspect(binding: &Binding) -> Result<Vec<Entry>> {
     let dir = binding.open()?;
     let mut files = vec![];
-    walk(&dir, "", &binding.profile, &mut 0, &mut 0, &mut files)?;
+    walk(&dir, &binding.root, "", &binding.profile, &mut 0, &mut 0, &mut files)?;
     binding.open()?;
     files.sort_by(|a, b| a.relative.cmp(&b.relative));
     Ok(files)

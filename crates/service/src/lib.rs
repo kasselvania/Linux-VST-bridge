@@ -83,7 +83,12 @@ pub fn private_dir(p: &Path) -> Result<()> {
 const OPENED_LIMIT: usize = 65536;
 /// Each file opened: how many times, and how many bytes were read from it.
 pub type OpenedReads = BTreeMap<PathBuf, (u32, u64)>;
-type OpenedSet = std::sync::Arc<std::sync::Mutex<OpenedReads>>;
+#[derive(Default)]
+struct ReadSet {
+    files: OpenedReads,
+    directories: std::collections::BTreeSet<PathBuf>,
+}
+type OpenedSet = std::sync::Arc<std::sync::Mutex<ReadSet>>;
 thread_local! {
     static OPENED: RefCell<Option<OpenedSet>> = const { RefCell::new(None) };
 }
@@ -128,10 +133,33 @@ pub fn with_opened_counts<T>(read: impl FnOnce() -> T) -> (T, Option<BTreeMap<Pa
 /// As [`with_opened_counts`], with the bytes read from each file as a
 /// record ([`read_json`]) or to hash it ([`digest`]).
 pub fn with_opened_reads<T>(read: impl FnOnce() -> T) -> (T, Option<OpenedReads>) {
+    let (value, opened) = record_reads(read);
+    (value, (opened.files.len() <= OPENED_LIMIT).then_some(opened.files))
+}
+/// Directories a composition depends on, including parents of opened files
+/// and explicitly read directories (even empty or currently missing ones).
+/// The service watches these to notify clients when a fresh read is needed.
+pub fn with_read_directories<T>(read: impl FnOnce() -> T)
+    -> (T, Option<std::collections::BTreeSet<PathBuf>>) {
+    let (value, opened) = record_reads(read);
+    if opened.files.len() + opened.directories.len() > OPENED_LIMIT { return (value, None); }
+    let mut directories = opened.directories;
+    directories.extend(opened.files.keys().filter_map(|file| file.parent().map(Path::to_path_buf)));
+    (value, Some(directories))
+}
+fn record_reads<T>(read: impl FnOnce() -> T) -> (T, ReadSet) {
     let set = OpenedSet::default();
     let value = OpenedFiles(Some(set.clone())).record(read);
     let opened = std::mem::take(&mut *set.lock().unwrap_or_else(|poisoned| poisoned.into_inner()));
-    (value, (opened.len() <= OPENED_LIMIT).then_some(opened))
+    (value, opened)
+}
+/// Record a directory read through descriptor-relative I/O without reopening
+/// it by path. This supplies change notification only, never file custody.
+pub fn record_directory(path: &Path) {
+    OPENED.with(|opened| if let Some(set) = opened.borrow().as_ref() {
+        let mut set = set.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        if set.directories.len() <= OPENED_LIMIT { set.directories.insert(path.to_path_buf()); }
+    });
 }
 /// Count `bytes` read from `p` (and `opens` openings) for the composition
 /// running on this thread ([`with_opened_reads`]); a reader that does not
@@ -139,11 +167,11 @@ pub fn with_opened_reads<T>(read: impl FnOnce() -> T) -> (T, Option<OpenedReads>
 pub fn record_opened(p: &Path, opens: u32, bytes: u64) {
     OPENED.with(|opened| if let Some(set) = opened.borrow().as_ref() {
         let mut set = set.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some((count, read)) = set.get_mut(p) {
+        if let Some((count, read)) = set.files.get_mut(p) {
             *count = count.saturating_add(opens);
             *read = read.saturating_add(bytes);
-        } else if set.len() <= OPENED_LIMIT {
-            set.insert(p.to_path_buf(), (opens, bytes));
+        } else if set.files.len() <= OPENED_LIMIT {
+            set.files.insert(p.to_path_buf(), (opens, bytes));
         }
     });
 }
