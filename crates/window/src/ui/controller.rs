@@ -539,7 +539,9 @@ mod tests {
         let mut updates = {
             use lvb_view_model::{samples::UpdateSample, updates::Phase};
             let mut updates = lvb_client::updates::Updates::sample(&UpdateSample {
-                linked: false, editing: false, draft: String::new(), link_message: None, notice: None,
+                // A staged download already has a beta link; without one the
+                // panel intentionally hides all update status and notices.
+                linked: true, editing: false, draft: String::new(), link_message: None, notice: None,
                 phase: Phase::Waiting { version: "test".into(), observed: false, long: true },
             });
             let panel = updates.panel();
