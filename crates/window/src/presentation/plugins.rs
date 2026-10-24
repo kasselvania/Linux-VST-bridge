@@ -128,17 +128,22 @@ impl Builder<'_> {
         let mut out = vec![Node::Header(vec![Node::PluginIdentity {name:card.name.clone(), detail:title.into()}, self.one(back)])];
         if let Some(notice) = &card.display.notice { out.push(text(notice)); }
         if page == ProductPage::Display {
-            out.push(words(Role::Body, "Prepare a setting, then choose whether to use it. Your current setup stays selected until you change it."));
+            out.push(words(Role::Body, "Choose a mode. Preparing it keeps your current setting until you select the prepared one."));
             let mut modes = vec![];
             for mode in &card.display.modes {
                 let mut children = vec![Node::Label(mode.label.clone()), words(Role::Detail, mode.posture.clone()), text(&mode.result)];
                 children.extend(self.display_actions(&mode.prepare));
+                let mut prepared = vec![];
                 let mut history = vec![];
                 for trial in &mode.trials {
-                    let mut trial_nodes = vec![Node::Label(trial.posture.clone()), text(&trial.evidence)];
-                    trial_nodes.extend(self.display_actions(&trial.actions));
-                    trial_nodes.push(self.fold(&trial.identity));
-                    if trial.current { children.extend(trial_nodes); } else { history.extend(trial_nodes); }
+                    let trial_nodes = self.display_trial(trial);
+                    if trial.current { children.extend(trial_nodes); }
+                    else if trial.prepared { prepared.extend(trial_nodes); }
+                    else { history.extend(trial_nodes); }
+                }
+                if !prepared.is_empty() {
+                    let id = self.id("fold", &format!("{} prepared settings", mode.label));
+                    children.push(Node::Fold {id, title:"Choose a prepared setting…".into(), start_open:false, children:prepared});
                 }
                 if let Some(record) = &mode.result_record { history.push(self.fold(record)); }
                 if !history.is_empty() {
@@ -152,14 +157,37 @@ impl Builder<'_> {
             out.push(words(Role::Body, "Try one change at a time. Review what each step changes before continuing."));
             let mut rows = vec![];
             for (index, step) in card.display.repairs.iter().enumerate() {
-                let title = Node::Stack(vec![Node::Label(format!("{:02}  {}", index + 1, step.label)), words(Role::Detail, step.detail.clone())]);
-                let actions = self.display_actions(&step.actions);
+                let (label, detail, actions) = match step.kind {
+                    vm::model::RepairStepKind::TryDisplayMode => {
+                        let choose = self.local("Choose…", Importance::Secondary,
+                            Target::List(ListStep::ProductPage {key:card.key.clone(), page:ProductPage::Display}), None);
+                        ("Choose another display mode", "Compare the available modes and their last editor checks.", vec![self.one(choose)])
+                    }
+                    _ => (step.label.as_str(), step.detail.as_str(), self.display_actions(&step.actions)),
+                };
+                let title = Node::Stack(vec![Node::Label(format!("{:02}  {}", index + 1, label)), words(Role::Detail, detail)]);
                 rows.push(Node::Columns(vec![title, Node::Stack(actions)]));
             }
             out.push(Node::Panel {kind:PanelKind::Card, children:rows});
+            // A diagnostic report is separate from recording or finishing the
+            // exact test result above. Opening Support sends neither operation.
+            let support = self.control(&Control::go("Make a support report…", offers::Importance::Secondary, vm::Destination::Diagnostics));
+            out.push(self.one(support));
         }
         if let Some(provenance) = &card.display.provenance { out.push(self.fold(provenance)); }
         Node::Stack(out)
+    }
+    fn display_trial(&mut self, trial: &plugins::display::DisplayTrial) -> Vec<Node> {
+        let mut out = vec![];
+        if !trial.current {
+            out.push(Node::Label(trial.posture.clone()));
+            out.push(text(&trial.result));
+        }
+        if let Some(evidence) = &trial.evidence { out.push(text(evidence)); }
+        out.extend(self.display_actions(&trial.actions));
+        let technical = self.display_actions(&trial.technical);
+        out.push(self.fold_with(&trial.identity, technical));
+        out
     }
     fn display_actions(&mut self, row: &OfferRow) -> Vec<Node> {
         if row.offers.is_empty() { row.notes.iter().map(|note| words(Role::Detail, note.clone())).collect() }

@@ -1230,7 +1230,7 @@ mod tests {
         assert!(beam.lead.is_none(), "recording a result is optional");
         let help = beam.help.as_ref().unwrap();
         assert!(matches!(&help.content[0], Detail::Offers(row)
-            if row.offers[0].label == "Record a test result or problem"));
+            if row.offers[0].label == "Record what worked…"));
         assert!(help.content.contains(&Text::body(
             "Available in your DAW using this setup. You can record a result after trying it.").into()));
         let bismuth = card(&snapshot, 1, false, false);

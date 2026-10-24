@@ -54,8 +54,11 @@ pub(super) fn project(m: &Manager, product: &mut ui::Product,
                 ui::Action::ExperimentalDisable { candidate } if candidate == &prepared_id =>
                     offer.label = if trial.baseline.is_some() { "Restore the settings from before this trial" }
                         else { "Remove this trial from the DAW" }.into(),
-                ui::Action::CompatibilityResult { candidate, .. } if candidate == &prepared_id =>
-                    offer.label = "Keep these settings and record the result".into(),
+                ui::Action::CompatibilityResult { candidate, result, .. } if candidate == &prepared_id =>
+                    offer.label = match result {
+                        ui::TestResultKind::Worked => "Record what worked with these settings",
+                        ui::TestResultKind::Problem {..} => "Report a problem with these settings",
+                    }.into(),
                 ui::Action::ExperimentalReplace { candidate, .. }
                 | ui::Action::ExperimentalEnable { candidate }
                 | ui::Action::CompatibilityPublishTest { candidate, .. } if candidate == &prepared_id => {

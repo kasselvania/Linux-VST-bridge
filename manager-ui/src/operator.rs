@@ -1768,7 +1768,7 @@ fn show_software_install_form(ctx: &egui::Context, daw: &mut Option<DawChoice>,
 }
 
 fn show_product_form(ctx: &egui::Context, form: &mut Action,
-    result_offer: Option<&Result<Option<String>, &'static str>>,
+    result_offer: Option<&Result<forms::ResultOffers, &'static str>>,
     action_controls_pending: bool) -> Option<(egui::Response, egui::Response)> {
     let words = forms::result_form();
     let expert = forms::expert_form();
@@ -1778,8 +1778,8 @@ fn show_product_form(ctx: &egui::Context, form: &mut Action,
         .max_width((ctx.content_rect().width() - 40.0).max(300.0))
         .show(ctx, |ui| {
             // Keep both actions visible; only the fields and their explanations scroll.
-            let refusal_height = if matches!(form, Action::CompatibilityResult { .. }) {
-                forms::compatibility_result_refusal(result_offer, &TestResultKind::Worked).map(|reason| {
+            let refusal_height = if let Action::CompatibilityResult {result, ..} = form {
+                forms::compatibility_result_refusal(result_offer, result).map(|reason| {
                     ui.painter().layout(reason.to_owned(), egui::TextStyle::Small.resolve(ui.style()),
                         ui.visuals().text_color(), ui.available_width()).size().y
                         + ui.spacing().item_spacing.y
@@ -1832,7 +1832,9 @@ fn show_product_form(ctx: &egui::Context, form: &mut Action,
                             let valid = forms::result_complete(result, passed, *failed_area, note);
                             let refusal = forms::compatibility_result_refusal(result_offer, result);
                             if !valid { ui.small(words.incomplete); }
-                            if refusal.is_some() && matches!(result_offer, Some(Ok(_))) {
+                            if matches!(result, TestResultKind::Worked) && refusal.is_some()
+                                && forms::compatibility_result_refusal(result_offer,
+                                    &TestResultKind::Problem {category:ProblemCategory::Other}).is_none() {
                                 ui.small(words.problem_only);
                             }
                             (valid && refusal.is_none(), words.submit, refusal)
@@ -3850,7 +3852,7 @@ mod tests {
                             modifiers: egui::Modifiers::NONE }] } else { vec![] };
                     let mut output = ctx.run_ui(egui::RawInput { screen_rect: Some(screen), events,
                         ..Default::default() }, |_ui| {
-                        let (submit, cancel) = show_product_form(&ctx, &mut form, Some(&Ok(None)), false).unwrap();
+                        let (submit, cancel) = show_product_form(&ctx, &mut form, Some(&Ok(forms::ResultOffers {worked:Ok(None),problem:Ok(None)})), false).unwrap();
                         if frame >= 3 {
                             for response in [&submit, &cancel] {
                                 assert!(screen.contains_rect(response.rect), "{size:?}: {:?}", response.rect);
@@ -3891,6 +3893,7 @@ mod tests {
             (Ok(Some("This plug-in has not retired".into())), false, false, false),
             (Ok(Some("This plug-in has not retired".into())), false, true, true),
         ] {
+            let offer = offer.map(|worked| forms::ResultOffers {worked:Ok(worked),problem:Ok(None)});
             let ctx = result_form_context();
             let mut form = result_form_fixture();
             if problem {
@@ -3931,7 +3934,7 @@ mod tests {
                 if problem { *result = TestResultKind::Problem { category: ProblemCategory::Other }; }
             }
             let mut output = ctx.run_ui(egui::RawInput::default(), |_ui| {
-                let (submit, _) = show_product_form(&ctx, &mut form, Some(&Ok(None)), false).unwrap();
+                let (submit, _) = show_product_form(&ctx, &mut form, Some(&Ok(forms::ResultOffers {worked:Ok(None),problem:Ok(None)})), false).unwrap();
                 assert!(!submit.enabled(), "an incomplete result cannot be submitted");
             });
             output.textures_delta.clear();
@@ -3950,6 +3953,12 @@ mod tests {
         assert!(snapshot.system.inactive_reason().is_some());
         let worked = TestResultKind::Worked;
         let problem = TestResultKind::Problem {category:ProblemCategory::NoAudio};
+        let missing_problem = compatibility_result_offer(Some(&snapshot),&candidate,&current);
+        assert!(compatibility_result_refusal(Some(&missing_problem),&problem).is_some());
+        snapshot.products[0].actions.push(AvailableAction {label:"Report problem".into(),
+            action:Action::CompatibilityResult {candidate:candidate.clone(),expected_current:current.clone(),
+                result:TestResultKind::Problem {category:ProblemCategory::Other},passed:vec![],failed_area:None,note:String::new()},
+            disabled_reason:None});
         let offer = compatibility_result_offer(Some(&snapshot),&candidate,&current);
         assert_eq!(compatibility_result_refusal(Some(&offer),&worked),None);
         snapshot.products[0].actions[0].disabled_reason = Some("This plug-in has not retired".into());

@@ -676,14 +676,75 @@ fn display_and_repair_are_local_pages_of_the_same_exact_product() {
     assert_eq!(preview.state.plugins.focused_product(),Some(&key));
     assert!(offered(&preview,|a|matches!(a,Action::PluginOpen {..})).is_some(),
         "repair keeps its exact action, not a reference to another page");
+    let choose_mode = preview.built.targets.iter().find_map(|(id,target)| matches!(target,
+        Target::List(ListStep::ProductPage {key:shown,page:ProductPage::Display}) if shown==&key).then(||id.clone())).unwrap();
+    assert!(preview.captured.is_empty());
+    assert_eq!(preview.press(&choose_mode,InputPath::Pointer),Outcome::Navigated);
+    assert_eq!(preview.state.plugins.focused_product(),Some(&key));
+    assert!(preview.captured.is_empty(), "choosing a display mode only opens its page");
+    navigate(&mut preview,ProductPage::Overview);
+    navigate(&mut preview,ProductPage::Repair);
     let blocked = preview.built.targets.iter().find_map(|(id,target)| matches!(target,
         Target::Offer {offer,..} if offer.availability.reason()==Some("Close this exact plug-in window before preparing its accessibility trial."))
         .then(||id.clone())).unwrap();
     assert_eq!(preview.press(&blocked,InputPath::Touch),Outcome::Refused);
     assert!(preview.captured.is_empty());
+    let mut support = preview.clone();
+    let report = support.built.targets.iter().find_map(|(id,target)| matches!(target,
+        Target::Control(lvb_view_model::Control {does:Local::Go(Destination::Diagnostics),..})).then(||id.clone())).unwrap();
+    support.press(&report,InputPath::Pointer);
+    assert_eq!(support.state.page,Page::Diagnostics);
+    assert!(support.captured.is_empty(), "opening Support does not manufacture or send a report");
     navigate(&mut preview,ProductPage::Overview);
     assert_eq!(preview.state.plugins.focused_product(),Some(&key));
     assert!(preview.captured.is_empty());
+}
+
+#[test]
+fn display_hides_technical_reviews_and_result_editing_needs_the_matching_offer() {
+    let mut preview = Preview::new(Selection {state:state_index("plugin_ready"),page:Page::Plugins,..Selection::default()});
+    preview.display_fixture();
+    let product = &mut preview.sample.snapshot.products[0];
+    let lvb_view_model::model::Observation::Observed(display) = &mut product.display else {panic!()};
+    let review = Action::CandidateReview {candidate:display.selected_candidate.clone().unwrap(),accept:true,rationale:String::new()};
+    display.modes[0].trials[0].actions.push(review.clone());
+    product.actions.push(lvb_view_model::model::AvailableAction {label:"Review exact configuration candidate abc".into(),
+        action:review.clone(),disabled_reason:Some("Qualification incomplete".into())});
+    preview.state.plugins.page = lvb_view_model::state::ProductPage::Display;
+    preview.rebuild();
+    let visible: Vec<_> = outside_folds(&preview.built.page).into_iter().filter_map(|node| match node {
+        Node::Actions {actions,..} => Some(actions.iter().map(|action|action.id.0.clone()).collect::<Vec<_>>()),
+        _ => None,
+    }).flatten().collect();
+    let review_id = preview.built.targets.iter().find_map(|(id,target)| matches!(target,
+        Target::Offer {offer,..} if offer.intent==review).then(||id.clone())).unwrap();
+    assert!(!visible.contains(&review_id), "maintainer reviews belong in a disclosure");
+    let record = preview.built.targets.iter().find_map(|(id,target)| matches!(target,
+        Target::Offer {offer,..} if matches!(offer.intent,Action::CompatibilityResult {result:TestResultKind::Worked,..}))
+        .then(||id.clone())).unwrap();
+    assert!(visible.contains(&record), "the selected setting's result is a normal step");
+    preview.press(&record,InputPath::Pointer);
+    let form = preview.state.forms.record.as_mut().unwrap();
+    let Action::CompatibilityResult {result,note,..} = form else {panic!()};
+    *result = TestResultKind::Problem {category:ProblemCategory::BlankEditor};
+    *note = "The editor stayed blank.".into();
+    let submitted = form.clone();
+    preview.rebuild();
+    let submit = form_control(&preview,FormStep::SubmitRecord).unwrap();
+    assert!(submit.reason().is_some(), "the sample offers Worked only");
+    assert_eq!(preview.press(&submit.id.0,InputPath::Pointer),Outcome::Refused);
+    assert!(preview.captured.is_empty());
+    let mut offered = submitted.clone();
+    let Action::CompatibilityResult {result,note,..} = &mut offered else {panic!()};
+    *result = TestResultKind::Problem {category:ProblemCategory::Other};
+    note.clear();
+    preview.sample.snapshot.products[0].actions.push(lvb_view_model::model::AvailableAction {
+        label:"Report a problem".into(),action:offered,disabled_reason:None});
+    preview.rebuild();
+    let submit = form_control(&preview,FormStep::SubmitRecord).unwrap();
+    assert!(submit.reason().is_none());
+    preview.press(&submit.id.0,InputPath::Pointer);
+    assert_eq!(preview.captured,vec![(submitted,false)]);
 }
 
 #[test]

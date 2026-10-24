@@ -221,9 +221,11 @@ pub fn action_label(offer: &AvailableAction) -> String {
             | Action::ExperimentalEnable { .. } => "Make available in your DAW".into(),
         Action::CompatibilityPublishTest { expected_current: Some(_), .. }
             | Action::ExperimentalReplace { .. } => "Use this prepared setup".into(),
-        Action::ExperimentalDisable { .. } => "Stop using this test setup".into(),
+        // Only the owner knows whether this trial has a publication to restore.
+        Action::ExperimentalDisable { .. } => offer.label.clone(),
         Action::CandidateWithdraw { .. } => "Remove from your DAW".into(),
-        Action::CompatibilityResult { .. } => "Record a test result or problem".into(),
+        Action::CompatibilityResult { result: crate::model::TestResultKind::Worked, .. } => "Record what worked…".into(),
+        Action::CompatibilityResult { result: crate::model::TestResultKind::Problem {..}, .. } => "Report a problem…".into(),
         Action::CompatibilityFinishResult { .. } => offer.label.clone(),
         Action::CandidateGraphicsAssess { .. } => "Check the editor with these settings".into(),
         Action::CandidateSettingsPrepare { settings, .. } => {
@@ -368,5 +370,24 @@ mod tests {
             Availability::Refused("Successful result needs clean retirement".into()));
         let row = row(&[report], Importance::Quiet, Some("Busy"), false);
         assert_eq!(row.notes, ["Successful result needs clean retirement"]);
+    }
+
+    #[test]
+    fn restore_remove_and_result_choices_keep_distinct_meanings() {
+        for label in ["Restore the settings from before this trial", "Remove this trial from the DAW"] {
+            let available = AvailableAction {label:label.into(), action:Action::ExperimentalDisable {candidate:"exact".into()},
+                disabled_reason:Some("Wait for this instance to close".into())};
+            let shown = offer(&available,Importance::Secondary,None,false);
+            assert_eq!(shown.label,label);
+            assert_eq!(shown.intent,available.action);
+            assert_eq!(shown.availability,Availability::Refused("Wait for this instance to close".into()));
+        }
+        let mut result = AvailableAction {label:"Old combined label".into(), action:Action::CompatibilityResult {
+            candidate:"exact".into(),expected_current:crate::model::PublicationIdentity {id:"id".into(),sha256:"digest".into()},
+            result:crate::model::TestResultKind::Worked,passed:vec![],failed_area:None,note:String::new()},disabled_reason:None};
+        assert_eq!(action_label(&result),"Record what worked…");
+        let Action::CompatibilityResult {result:kind,..} = &mut result.action else {panic!()};
+        *kind = crate::model::TestResultKind::Problem {category:crate::model::ProblemCategory::BlankEditor};
+        assert_eq!(action_label(&result),"Report a problem…");
     }
 }
