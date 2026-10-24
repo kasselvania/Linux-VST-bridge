@@ -2736,7 +2736,7 @@ fn stop_for_repair_locked_with_registry(m: &Manager, home: &Path, inputs: &Input
     require(read_manifest(inputs, owner)?.1 == package_sha
         && before.state == status.state && before.package_version == status.package_version,
         "package_stop_state_changed")?;
-    let observed_owners = stop_gate(m, service, acquire_registry)?;
+    let observed_owners = service.stop_owners(m)?;
     let selected = old_software(m)?.ok_or("package_not_installed")?;
     stop_selected_service_with_registry(m, home, &selected, service, &observed_owners, acquire_registry)?;
     let after = bootstrap_status_with_registry(m, home, inputs, owner, service, acquire_registry)?;
