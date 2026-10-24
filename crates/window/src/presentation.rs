@@ -397,11 +397,12 @@ impl<'a> Builder<'a> {
         id
     }
 
-    /// One manager offer as a control. A removal or deletion is drawn as
-    /// destructive: those are exactly the offers `forms::route` confirms.
+    /// One manager offer as a control. Setup and display choices ask first
+    /// without borrowing the destructive appearance of removal and deletion.
     pub fn offer(&mut self, offer: &Offer, after: After) -> ActionView {
         let id = self.target("offer", &offer.label, Target::Offer { offer: offer.clone(), after });
-        let weight = if matches!(offer.intent, Action::CandidateSettingsTest { .. }) {
+        let weight = if offer.intent.environment_installer_start().is_some()
+            || matches!(offer.intent, Action::CandidateSettingsTest { .. }) {
             Importance::Primary
         } else if forms::needs_confirmation(&offer.intent) {
             Importance::Destructive

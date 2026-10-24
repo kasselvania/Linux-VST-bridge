@@ -150,7 +150,8 @@ pub fn route(action: Action, daw: Option<DawChoice>) -> Route {
 /// Removing from the DAW or deleting a setup always asks first.
 pub fn needs_confirmation(action: &Action) -> bool {
     matches!(action, Action::PresetFiles {command:crate::model::PresetCommand::Restore {..},..} | Action::PluginRemoveFromDaw { .. } | Action::SetupRemoveFromDaw { .. }
-        | Action::SetupDelete { .. } | Action::ProductUninstall { .. } | Action::EnvironmentRuntimeSelect { .. } | Action::PluginRestart { .. } | Action::CandidateSettingsTest { .. })
+        | Action::SetupDelete { .. } | Action::ProductUninstall { .. } | Action::EnvironmentRuntimeSelect { .. } | Action::PluginRestart { .. } | Action::CandidateSettingsTest { .. }
+        | Action::EnvironmentInstallerStart { .. } | Action::EnvironmentInstallerStartWithPolicy { .. })
 }
 /// Setup-level removal offers live in their own section of the setup card.
 pub fn removal_offer(action: &Action) -> bool {
@@ -203,6 +204,25 @@ pub fn removal_confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Con
         ..confirmation(snapshot, action)
     }
 }
+/// A repair file chooser retains the setup revision it was opened for. The
+/// ordinary confirmation still uses owner offers; this also rejects a stale
+/// local choice instead of applying it to a later revision of that setup.
+pub fn confirmation_with_repair(snapshot: Option<&Snapshot>, action: &Action,
+    repair: Option<&crate::plugins::repair::InstallerDraft>) -> Confirmation {
+    let mut confirmation = removal_confirmation(snapshot,action);
+    if let (Some((environment,_,_)),Some(draft)) = (action.environment_installer_start(),repair) {
+        if environment == draft.product.environment {
+            let offered = snapshot.ok_or("Current setup controls are unavailable.")
+                .and_then(|snapshot|crate::plugins::repair::offered(snapshot,draft))
+                .and_then(|offer| if &offer.action == action {Ok(offer)} else {Err("The selected installer changed. Choose it again.")});
+            confirmation.offer = match offered {
+                Ok(offer) => match &offer.disabled_reason {Some(reason)=>Err(reason.clone()),None=>Ok(offer)},
+                Err(reason) => Err(reason.into()),
+            };
+        }
+    }
+    confirmation
+}
 fn confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirmation {
     const CHANGED: &str = "This choice is no longer offered. Close this and check the current status.";
     // The musician's own answers are not part of the offer.
@@ -223,6 +243,22 @@ fn confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirmation {
                 "Existing files stay unchanged. Files with different bytes remain visible conflicts.".into()],
             confirm:"Restore missing files",cancel:"Not now",forget:None,
             offer:current(snapshot.products.iter().flat_map(|p|p.actions.iter()).collect()),
+        },
+        action if action.environment_installer_start().is_some() => {
+            let (environment, installer, _) = action.environment_installer_start().unwrap();
+            let target = snapshot.environment_installers.iter().find(|row|row.environment == environment);
+            let name = snapshot.installer_setups.iter().find(|row|row.installer == installer)
+                .map(|row|row.name.as_str()).unwrap_or("the selected Windows installer");
+            let mut body = vec![format!("Run {name} in {}?", target.map(|row|row.name.as_str()).unwrap_or("this setup")),
+                "Finish the maker's installer in its own window. Choose Repair there if it offers that option.".into(),
+                "The installer can change plug-ins, presets, authorisation and shared components in this setup. Stopping it cannot undo those changes.".into()];
+            if let Some(target) = target {
+                if !target.affected.is_empty() { body.push(format!("Affected plug-ins: {}.",target.affected.join(", "))); }
+            }
+            body.push("Close plug-ins using this setup before continuing. Other setups can keep running.".into());
+            Confirmation {title:"Run installer in this setup?",body,confirm:"Run installer",cancel:"Keep choosing",
+                offer:current(snapshot.environment_installers.iter().filter(|row|row.environment == environment)
+                    .flat_map(|row|row.choices.iter().chain(&row.actions)).collect()),forget:None}
         },
         Action::CandidateSettingsTest {settings, expected_current, ..} => Confirmation {
             title:"Use these settings and test?",

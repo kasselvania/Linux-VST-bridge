@@ -1224,6 +1224,29 @@ pub fn display_fixture(snapshot: &mut model::Snapshot) {
             evidence:vec!["Synthetic profile recipe for the native layout check.".into()], steps} });
 }
 
+/// Sample-only repair choices: two explicit retained files, never an inferred
+/// original installer.
+pub fn repair_fixture(snapshot: &mut model::Snapshot) {
+    use model::*;
+    display_fixture(snapshot);
+    let mut template = self::snapshot(Page::Setup, Some("existing_setup")).installer_setups.remove(0);
+    snapshot.installer_setups.clear();
+    let environment = snapshot.products[0].environment.clone();
+    let mut choices = vec![];
+    for (id,name) in [("11".repeat(32),"First-party repair installer"),("22".repeat(32),"Other retained installer")] {
+        template.installer = id.clone(); template.name = name.into(); template.environment = None;
+        template.history.clear(); template.primary = None; template.secondary.clear(); template.journey = None;
+        template.rename.action = Action::InstallerRename {installer:id.clone(),label:String::new()};
+        snapshot.installer_setups.push(template.clone());
+        choices.push(AvailableAction {label:format!("Run {name} in this setup"),
+            action:Action::EnvironmentInstallerStart {environment:environment.clone(),installer:id},disabled_reason:None});
+    }
+    snapshot.environment_installers.push(EnvironmentInstaller {environment:environment.clone(),name:"First-party shared setup".into(),
+        affected:vec![snapshot.products[0].name.clone(),"Sibling plug-in".into()],consequence:"Maker-controlled changes in this setup".into(),
+        dependency_help:vec![],choices,operation:None,installer:None,result:serde_json::Value::Null,actions:vec![],
+        runtime:Some(EnvironmentRuntime {runner:"fixture-runtime".into(),revision:3,affected:vec![],consequence:String::new(),choices:vec![]})});
+}
+
 /// A failed Windows host with a still-current native proxy, confirmed state,
 /// and the owner's exact Restart offer. Synthetic; never included in production.
 pub fn recovery_fixture(snapshot: &mut model::Snapshot) -> model::Activity {

@@ -9,7 +9,7 @@ impl Builder<'_> {
         -> Option<(Vec<Node>, Option<String>)> {
         let forms = &state.forms;
         if let Some(form) = &forms.confirm {
-            return Some(self.confirmation(form, forms.forget_installer, snapshot, pending));
+            return Some(self.confirmation(form, forms.forget_installer, snapshot, pending, state.focus.repair.as_ref()));
         }
         if let Some(form) = &forms.install {
             return Some(self.install_form(form, forms.daw, actions, pending));
@@ -23,10 +23,11 @@ impl Builder<'_> {
         None
     }
 
-    pub(super) fn confirmation(&mut self, form: &Action, forget: bool, snapshot: &Snapshot, pending: bool)
+    pub(super) fn confirmation(&mut self, form: &Action, forget: bool, snapshot: &Snapshot, pending: bool,
+        repair: Option<&vm::plugins::repair::InstallerDraft>)
         -> (Vec<Node>, Option<String>) {
         let forms::Confirmation { title, body, confirm, cancel, offer, forget: choice } =
-            forms::removal_confirmation(Some(snapshot), form);
+            forms::confirmation_with_repair(Some(snapshot), form, repair);
         let mut out = vec![Node::Title(title.into())];
         for line in body {
             out.push(words(Role::Body, line));
@@ -43,7 +44,8 @@ impl Builder<'_> {
             Ok(_) if pending => Some(offers::WAITING.to_string()),
             Ok(_) => None,
         };
-        let importance = if matches!(form, Action::EnvironmentRuntimeSelect { .. } | Action::CandidateSettingsTest { .. }) { Importance::Primary }
+        let importance = if form.environment_installer_start().is_some()
+            || matches!(form, Action::EnvironmentRuntimeSelect { .. } | Action::CandidateSettingsTest { .. }) { Importance::Primary }
             else { Importance::Destructive };
         let confirm = self.local(confirm, importance, Target::Form(FormStep::Confirm), reason);
         let cancel = self.local(cancel, Importance::Secondary, Target::Form(FormStep::CancelConfirm), None);
