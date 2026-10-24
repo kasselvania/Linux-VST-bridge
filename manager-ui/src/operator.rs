@@ -3162,6 +3162,7 @@ mod tests {
         Operator {
             snapshot: None,
             overview: None,
+            activity: None, activity_loading: false, activity_error: None,
             readiness: None,
             product_detail: None,
             product_attempted: None,
